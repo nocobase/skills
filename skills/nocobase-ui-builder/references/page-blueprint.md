@@ -803,4 +803,4 @@ Use this file as the **shape reference**, not as a second full contract document
 }
 ```
 
-The public response carries the resolved page `target` and may also include `surface`. Treat the successful response as the default stop point for whole-page `applyBlueprint`; run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+The public response carries the resolved page `target` and may also include `surface`. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.

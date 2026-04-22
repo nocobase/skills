@@ -207,7 +207,7 @@ For `replace` runs:
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
 - same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
 
-Use the resolved page `target` from the public response as the carry-forward locator. A successful response is the default whole-page stop point; run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+Use the resolved page `target` from the public response as the carry-forward locator. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 
 ### Scope boundary
 

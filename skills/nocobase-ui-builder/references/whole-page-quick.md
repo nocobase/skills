@@ -41,7 +41,7 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-11. After a successful whole-page `applyBlueprint`, the successful response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
+11. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nocobase-ctl flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`

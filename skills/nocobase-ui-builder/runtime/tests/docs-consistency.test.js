@@ -920,10 +920,12 @@ test('quick route docs stay discoverable and point to the deeper references', ()
 });
 
 test('whole-page applyBlueprint docs default to success-only completion while localized and chart readback stays explicit', () => {
+  const canonicalStopPoint = /A successful `?apply(?:-)?blueprint`? response is the default stop point\.[\s\S]{0,140}Run follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure\./i;
+
   const skill = read('SKILL.md');
   assert.match(
     skill,
-    /successful response ends the default flow[\s\S]{0,120}Do not auto-`?get`?|Do not auto-`?get`?[\s\S]{0,120}successful response ends the default flow/i,
+    canonicalStopPoint,
     'SKILL.md should make successful whole-page applyBlueprint responses the default stop point',
   );
   assert.match(
@@ -935,7 +937,7 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
   const executionChecklist = read('references/execution-checklist.md');
   assert.match(
     executionChecklist,
-    /successful `?apply-blueprint`? response is the default stop point[\s\S]{0,120}follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
+    canonicalStopPoint,
     'execution-checklist should stop whole-page apply-blueprint by default after a successful response',
   );
   assert.doesNotMatch(
@@ -984,33 +986,28 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
   );
   assert.match(
     pageBlueprint,
-    /successful response as the default stop point[\s\S]{0,120}follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
+    canonicalStopPoint,
     'page-blueprint should align its response semantics with the success-only whole-page contract',
   );
 
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(
     wholePageQuick,
-    /successful whole-page `?applyBlueprint`?[\s\S]{0,120}default stop point[\s\S]{0,120}follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
+    canonicalStopPoint,
     'whole-page-quick should stop after successful applyBlueprint unless follow-up work needs live reads',
   );
 
   const runtime = read('references/runtime-playbook.md');
   assert.match(
     runtime,
-    /successful `?apply-blueprint`? response is the default stop point/i,
+    canonicalStopPoint,
     'runtime-playbook should make successful apply-blueprint responses the default stop point',
-  );
-  assert.match(
-    runtime,
-    /localized downstream work or explicit inspection|follow-up localized work or explicit inspection/i,
-    'runtime-playbook should keep follow-up get tied to later localized work or explicit inspection',
   );
 
   const popup = read('references/popup.md');
   assert.match(
     popup,
-    /successful whole-page `?applyBlueprint`?[\s\S]{0,120}Do not auto-`?get`?/i,
+    canonicalStopPoint,
     'popup.md should split whole-page popup success from localized popup readback',
   );
   assert.match(
@@ -1048,7 +1045,7 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
   const normative = read('references/normative-contract.md');
   assert.match(
     normative,
-    /Whole-page create[\s\S]{0,160}successful response; follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
+    canonicalStopPoint,
     'normative-contract should make follow-up get conditional for whole-page create',
   );
 });

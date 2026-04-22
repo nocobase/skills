@@ -65,7 +65,7 @@ Use this path when the user is describing one entire page.
 8. In CLI-first execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nocobase-ctl flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
 9. If you persist the prepared payload to a file for the final CLI write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
 10. Only in MCP fallback should that same prepared business object be wrapped under `requestBody`.
-11. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure, using the returned `target` / `pageSchemaUid` for `nocobase-ctl flow-surfaces get` and targeted readback from [verification.md](./verification.md).
+11. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, use the returned `target` / `pageSchemaUid` for `nocobase-ctl flow-surfaces get` and targeted readback from [verification.md](./verification.md).
 
 ## 4. Localized Existing-surface Edit
 
