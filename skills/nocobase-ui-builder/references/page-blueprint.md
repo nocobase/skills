@@ -471,6 +471,10 @@ Right:
       "key": "employeesTable",
       "type": "table",
       "collection": "employees",
+      "defaultFilter": {
+        "logic": "$and",
+        "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+      },
       "actions": [
         {
           "type": "filter",
@@ -749,11 +753,20 @@ For collection-action hosts (`table`, `list`, `gridCard`):
 - do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
+- every public `table` / `list` / `gridCard` block must include block-level `defaultFilter`
 
-Optional explicit filter settings shape:
+Required block-level `defaultFilter` plus optional filter action settings shape:
 
 ```json
 {
+  "defaultFilter": {
+    "logic": "$and",
+    "items": [
+      { "path": "username", "operator": "$includes", "value": "" },
+      { "path": "email", "operator": "$includes", "value": "" },
+      { "path": "status", "operator": "$eq", "value": "" }
+    ]
+  },
   "type": "filter",
   "settings": {
     "filterableFieldNames": ["username", "email", "status"],
@@ -771,8 +784,9 @@ Optional explicit filter settings shape:
 
 Planning rules:
 
-- a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit settings are not required for first-write `prepare-write`
-- if explicit settings are provided, pick 3 to 4 common fields when available, and ensure `defaultFilter.items` covers every `filterableFieldNames` path
+- block-level `defaultFilter` is required for every public `table` / `list` / `gridCard` block
+- a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for first-write `prepare-write`
+- if explicit action settings are provided, pick 3 to 4 common fields when available, ensure `defaultFilter.items` covers every `filterableFieldNames` path, and treat action-level `settings.defaultFilter` as higher priority than the block-level one
 - if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action
 
 ### Popup

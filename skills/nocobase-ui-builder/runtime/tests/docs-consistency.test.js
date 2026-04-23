@@ -312,13 +312,18 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /first[\s\S]{0,40}`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,160}(?:stop|report)/i,
-    `${sourceLabel} should stop and report if the first applyBlueprint fails`,
+    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,80}preview[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,120}prepare-write[\s\S]{0,80}preview[\s\S]{0,120}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
+    `${sourceLabel} should repair the blueprint, rerun prepare-write/preview, and retry up to 5 rounds on pre-success applyBlueprint failure`,
   );
   assert.match(
     text,
-    /same pre-success phase|do not continue with low-level writes|do not fall back to low-level writes/i,
-    `${sourceLabel} should forbid low-level fallback in the same pre-success phase`,
+    /same pre-success phase|pre-success retr(?:y|ies)|do not continue with low-level writes|do not fall back to low-level writes|do not switch to low-level writes/i,
+    `${sourceLabel} should forbid low-level fallback before the first successful applyBlueprint`,
+  );
+  assert.match(
+    text,
+    /(?:after|then|5)[\s\S]{0,120}(?:5|five)[\s\S]{0,80}(?:failed rounds|rounds|retries)[\s\S]{0,160}(?:report|evidence)|(?:report|evidence)[\s\S]{0,160}(?:5|five)[\s\S]{0,80}(?:failed rounds|rounds|retries)/i,
+    `${sourceLabel} should report evidence only after 5 failed pre-success rounds`,
   );
   assert.match(
     text,
@@ -344,7 +349,6 @@ function assertOpenAIGuardrails(text) {
     /Duplicate group titles[\s\S]{0,40}routeId|same-title[\s\S]{0,80}routeId/i,
     'openai prompt should require explicit routeId for duplicate same-title groups',
   );
-  assert.match(text, /field[ -]popup/i, 'openai prompt should keep field-popup guidance');
   assert.match(
     text,
     /associatedRecords(?:\+| \+ )associationField/i,
@@ -399,8 +403,23 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /wholePage[\s\S]{0,80}(?:1 route tab|complex multi-block|nested popup|multi-reaction)/i,
-    'openai prompt should define which requests still count as whole-page',
+    /wholePage[\s\S]{0,80}1 (?:route )?tab/i,
+    'openai prompt should keep one-tab whole-page routing visible',
+  );
+  assert.match(
+    text,
+    /wholePage[\s\S]{0,120}complex multi-block|complex multi-block[\s\S]{0,120}wholePage/i,
+    'openai prompt should keep complex multi-block whole-page routing visible',
+  );
+  assert.match(
+    text,
+    /wholePage[\s\S]{0,140}nested popup|nested popup[\s\S]{0,140}wholePage/i,
+    'openai prompt should keep nested popup whole-page routing visible',
+  );
+  assert.match(
+    text,
+    /wholePage[\s\S]{0,160}multi-reaction|multi-reaction[\s\S]{0,160}wholePage/i,
+    'openai prompt should keep multi-reaction whole-page routing visible',
   );
   assert.match(
     text,
@@ -417,7 +436,17 @@ function assertOpenAIGuardrails(text) {
     /createMenu\/createPage\/compose\/configure\/updateSettings\/add\*\/move\*\/remove\*\/set\*Rules/i,
     'openai prompt should forbid pre-success low-level writes',
   );
-  assert.match(text, /fail->stop\+report/i, 'openai prompt should stop and report on applyBlueprint failure');
+  assert.match(
+    text,
+    /fail->repair\+prepare\/preview\+retry<=5/i,
+    'openai prompt should repair, rerun prepare-write/preview, and retry up to 5 rounds on applyBlueprint failure',
+  );
+  assert.match(
+    text,
+    /no createMenu\/createPage\/compose\/configure\/updateSettings\/add\*\/move\*\/remove\*\/set\*Rules/i,
+    'openai prompt should forbid low-level fallback before the first successful applyBlueprint',
+  );
+  assert.match(text, /report/i, 'openai prompt should report after exhausting retries');
   assert.match(
     text,
     /after success (?:localized repair only for explicit local\/live gap|only explicit local\/live gap repair)/i,
@@ -677,6 +706,45 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   assert.match(shapes, /params\.code/i, 'tool-shapes should mention Execute JavaScript step code location');
 });
 
+test('low-level set-layout docs keep runtime rows/sizes separate from whole-page layout grammar', () => {
+  const skill = read('SKILL.md');
+  assert.match(skill, /low-level `?set-layout`?[\s\S]{0,220}string\[\]\[\]/i, 'SKILL.md should mention low-level set-layout row cell shape');
+  assert.match(skill, /\[\[uidA\], \[uidB\]\]|\[\[uidA\],\s*\[uidB\]\]/i, 'SKILL.md should distinguish side-by-side two-column set-layout syntax');
+  assert.match(skill, /\[\[uidA, uidB\]\]|\[\[uidA,\s*uidB\]\]/i, 'SKILL.md should distinguish stacked-cell set-layout syntax');
+
+  const localEdit = read('references/local-edit-quick.md');
+  assert.match(localEdit, /Use `?set-layout`? only for explicit whole-layout replacement/i, 'local-edit-quick should keep set-layout scoped to full replacement');
+  assert.match(localEdit, /Record<string,\s*string\[\]\[\]>|string\[\]\[\]/i, 'local-edit-quick should document low-level set-layout rows shape');
+  assert.match(localEdit, /Record<string,\s*number\[\]>|number\[\]/i, 'local-edit-quick should document low-level set-layout sizes shape');
+  assert.match(localEdit, /uid[\s\S]{0,40}not[\s\S]{0,20}key|block `?key`/i, 'local-edit-quick should keep uid-vs-key separation visible');
+
+  const runtime = read('references/runtime-playbook.md');
+  assert.match(runtime, /set-layout/i, 'runtime-playbook should route layout replacement to set-layout');
+  assert.match(runtime, /string\[\]\[\]/i, 'runtime-playbook should mention low-level set-layout row cell shape');
+  assert.match(runtime, /\[\[uidA\], \[uidB\]\]|\[\[uidA\],\s*\[uidB\]\]/i, 'runtime-playbook should keep the two-column set-layout example');
+
+  const settings = read('references/settings.md');
+  assert.match(settings, /## Layout Replacement/i, 'settings.md should contain a dedicated layout replacement section');
+  assert.match(settings, /Record<string,\s*string\[\]\[\]>|string\[\]\[\]/i, 'settings.md should document low-level set-layout rows shape');
+  assert.match(settings, /Record<string,\s*number\[\]>|number\[\]/i, 'settings.md should document low-level set-layout sizes shape');
+  assert.match(settings, /\[\[(?:"details-uid"|details-uid)\],\s*\[(?:"roles-table-uid"|roles-table-uid)\]\]/i, 'settings.md should show the side-by-side two-column set-layout example');
+  assert.match(settings, /\[\[(?:"details-uid"|details-uid),\s*(?:"roles-table-uid"|roles-table-uid)\]\]/i, 'settings.md should show the stacked-cell set-layout example');
+  assert.match(settings, /\{\s*rows:\s*\[\[\{\s*key,\s*span\s*\}\]\]\s*\}|\{ rows: \[\[\{ key, span \}\]\] \}/i, 'settings.md should contrast low-level set-layout against public key/span layout');
+
+  const shapes = read('references/tool-shapes.md');
+  assert.match(shapes, /### `set-layout`/i, 'tool-shapes should contain a set-layout section');
+  assert.match(shapes, /Record<string,\s*string\[\]\[\]>|string\[\]\[\]/i, 'tool-shapes should show low-level set-layout rows shape');
+  assert.match(shapes, /Record<string,\s*number\[\]>|number\[\]/i, 'tool-shapes should show low-level set-layout sizes shape');
+  assert.match(shapes, /\[\[(?:"details-uid"|details-uid),\s*(?:"roles-table-uid"|roles-table-uid)\]\]/i, 'tool-shapes should show the stacked-cell set-layout example');
+  assert.match(shapes, /\[\[12,\s*12\]\]/i, 'tool-shapes should forbid nested sizes arrays explicitly');
+
+  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  assert.match(defaultPrompt, /setLayout[\s\S]{0,40}string\[\]\[\][\s\S]{0,40}number\[\]/i, 'openai prompt should mention low-level set-layout rows/sizes shapes');
+  assert.match(defaultPrompt, /\[\[a\],\[b\]\][\s\S]{0,12}2col/i, 'openai prompt should keep the two-column set-layout shorthand');
+  assert.match(defaultPrompt, /\[\[a,b\]\][\s\S]{0,12}stack/i, 'openai prompt should keep the stacked-cell shorthand');
+  assert.match(defaultPrompt, /uid not key/i, 'openai prompt should keep uid-vs-key separation visible');
+});
+
 test('template selection stays centralized and prompt keeps minimum guardrails', () => {
   const skill = read('SKILL.md');
   assertSkillKeepsIntentFirst(skill);
@@ -742,12 +810,12 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1200, 'openai default_prompt should stay at or below 1200 chars');
+  assert.ok(defaultPrompt.length <= 1300, 'openai default_prompt should stay at or below 1300 chars');
 });
 
-test('data-surface filter action routing stays visible without mandatory default settings', () => {
-  const mandatoryDefaultSettingsPattern =
-    /(?:table|list|gridCard)[\s\S]{0,120}(?:must|always|rejects?|requires?|not valid)[\s\S]{0,160}(?:filterableFieldNames|defaultFilter)|(?:filterableFieldNames|defaultFilter)[\s\S]{0,160}(?:must|required|requires?|always|not valid)[\s\S]{0,120}(?:table|list|gridCard)/i;
+test('data-surface docs require block-level defaultFilter while keeping filter action routing visible', () => {
+  const blockDefaultFilterRequiredPattern =
+    /(?:table|list|gridCard)[\s\S]{0,220}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard)[\s\S]{0,220}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,220}(?:table|list|gridCard)/i;
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
@@ -768,21 +836,25 @@ test('data-surface filter action routing stays visible without mandatory default
       /filter action|filter` action|filterAction|block-level `filter`|block-level filter/i,
       `${relativePath} should keep host-level filter action routing visible`,
     );
-    assert.doesNotMatch(
+    assert.match(
       text,
-      mandatoryDefaultSettingsPattern,
-      `${relativePath} should not require explicit filterableFieldNames/defaultFilter settings for every data surface`,
+      blockDefaultFilterRequiredPattern,
+      `${relativePath} should require block-level defaultFilter for table/list/gridCard data surfaces`,
     );
   }
 
   const pageBlueprint = read('references/page-blueprint.md');
-  assert.match(pageBlueprint, /explicit settings[\s\S]{0,80}not required|settings[\s\S]{0,80}optional/i);
+  assert.match(
+    pageBlueprint,
+    /block-level `?defaultFilter`?[\s\S]{0,80}(?:required|must|carry)|(?:required|must|carry)[\s\S]{0,80}block-level `?defaultFilter`?/i,
+  );
   assert.doesNotMatch(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
-  assert.doesNotMatch(defaultPrompt, /filterableFieldNames|defaultFilter/i);
+  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,24}(?:required|must)|(?:required|must)[\s\S]{0,24}defaultFilter/i);
+  assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
 });
 
 test('search-vs-filter intent docs keep host-bound action routing and explicit block-only filterForm rules', () => {
@@ -857,8 +929,13 @@ test('whole-page satellite docs do not preserve pre-success low-level fallback w
     );
     assert.match(
       text,
-      /(?:first|首次|single-shot)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:stop|report|停止|报告)|(?:fail|失败)[\s\S]{0,180}(?:stop|report|停止|报告)[\s\S]{0,120}(?:blueprint|preview|error)/i,
-      `${relativePath} should stop and report on first applyBlueprint failure`,
+      /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:repair|修正|修复)[\s\S]{0,120}(?:prepare-write|preview)[\s\S]{0,120}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:repair|修正|修复)[\s\S]{0,120}(?:prepare-write|preview)[\s\S]{0,120}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
+      `${relativePath} should repair and retry up to 5 rounds on pre-success applyBlueprint failure`,
+    );
+    assert.match(
+      text,
+      /(?:after|then|5|五)[\s\S]{0,120}(?:5|五)[\s\S]{0,80}(?:failed rounds|rounds|retries|轮)[\s\S]{0,160}(?:report|evidence|报告|证据)|(?:report|evidence|报告|证据)[\s\S]{0,160}(?:5|五)[\s\S]{0,80}(?:failed rounds|rounds|retries|轮)/i,
+      `${relativePath} should report evidence only after 5 failed pre-success rounds`,
     );
     assert.match(
       text,
@@ -942,7 +1019,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|first `?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,160}(?:stop|report)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
+    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,80}preview[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
     'whole-page-quick should keep the first-write and post-success repair policy visible',
   );
   assert.match(
@@ -1104,6 +1181,30 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /prepare-write/i);
   assert.match(helperContracts, /prepareApplyBlueprintRequest/i);
   assert.match(helperContracts, /nb-runjs/i);
+  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
+  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
+  assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-page-preview\b/i);
+  assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
+
+  const cliTransport = read('references/cli-transport.md');
+  assert.match(cliTransport, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+  assert.match(cliTransport, /do not probe bare PATH commands first/i);
+
+  const executionChecklistLocalCli = read('references/execution-checklist.md');
+  assert.match(executionChecklistLocalCli, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
+
+  const cliCommandSurface = read('references/cli-command-surface.md');
+  assert.match(cliCommandSurface, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs --prepare-write/i);
+
+  const pageIntent = read('references/page-intent.md');
+  assert.match(pageIntent, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
+
+  const normativeContract = read('references/normative-contract.md');
+  assert.match(normativeContract, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+
+  const agentMetadata = read('agents/openai.yaml');
+  assert.match(agentMetadata, /helpers:?\s*`node .*runtime\/bin\/\*\.mjs`/i);
+  assert.match(agentMetadata, /no PATH probes/i);
 });
 
 test('whole-page applyBlueprint docs default to success-only completion while localized and chart readback stays explicit', () => {

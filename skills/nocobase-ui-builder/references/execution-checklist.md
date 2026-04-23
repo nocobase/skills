@@ -49,7 +49,7 @@ Use this path when the user is describing one entire page.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
-6. Before the first write, run the local prepare-write gate (`nb-page-preview --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+6. Before the first write, run the local prepare-write gate (`node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` from the repo root, or helper `prepareApplyBlueprintRequest(...)`) and confirm:
    - in `create`, every newly created `navigation.group` / `navigation.item` carries a semantic Ant Design icon
    - tabs count matches the request
    - every `tab.blocks` is non-empty
@@ -67,7 +67,7 @@ Use this path when the user is describing one entire page.
 9. Before one whole-page `applyBlueprint` succeeds, do not issue `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
 10. In CLI-first execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nocobase-ctl flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
 11. If you persist the prepared payload to a file for the final CLI write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
-12. If the first `applyBlueprint` fails, stop and report the prepared payload / preview / error evidence. Do not continue with low-level writes in that same pre-success phase.
+12. If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest prepared payload / preview / error evidence.
 13. Only in MCP fallback should that same prepared business object be wrapped under `requestBody`.
 14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nocobase-ctl flow-surfaces get` and targeted readback from [verification.md](./verification.md).
 

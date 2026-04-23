@@ -6,8 +6,8 @@ This file defines the transport policy for `nocobase-ui-builder`.
 
 - Use `nocobase-ctl flow-surfaces` whenever it is available.
 - Treat the retained `applyBlueprint`, `flowSurfaces:*`, and MCP tool docs as the backend contract and fallback reference, not as the first front door.
-- Keep `nb-page-preview` and `nb-runjs` as local helper CLIs only.
-- `nb-page-preview --prepare-write` is a local/read-only gate: it prepares `result.cliBody`, but the remote write still happens in a separate `nocobase-ctl flow-surfaces apply-blueprint` step.
+- Keep `nb-page-preview` and `nb-runjs` as local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
+- `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` is a local/read-only gate: it prepares `result.cliBody`, but the remote write still happens in a separate `nocobase-ctl flow-surfaces apply-blueprint` step.
 
 ## Selection Rule
 

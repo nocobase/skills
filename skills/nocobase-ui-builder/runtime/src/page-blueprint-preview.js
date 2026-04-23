@@ -51,6 +51,7 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
+const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
 const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
@@ -3628,7 +3629,7 @@ function validateDataSurfaceDefaultFilterFieldsExist(fieldNames, block, path, st
   }
 }
 
-function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, state) {
+function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, state, messagePrefix = 'defaultFilter') {
   if (!fieldName) return;
   const collection = getCollectionLabel(block);
   const collectionMetadata = state.collectionMetadata || {};
@@ -3643,18 +3644,30 @@ function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, stat
     state.seenErrors,
     path,
     'data-surface-default-filter-unknown-field',
-    `settings.defaultFilter.items path "${fieldName}" is unsupported for collection ${collection}.`,
+    `${messagePrefix}.items path "${fieldName}" is unsupported for collection ${collection}.`,
   );
 }
 
-function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, block) {
-  if (!isPlainObject(defaultFilter)) {
+function normalizeDefaultFilterGroupForValidation(defaultFilter) {
+  if (defaultFilter === null) {
+    return { logic: '$and', items: [] };
+  }
+  if (isPlainObject(defaultFilter) && Object.keys(defaultFilter).length === 0) {
+    return { logic: '$and', items: [] };
+  }
+  return defaultFilter;
+}
+
+function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, block, options = {}) {
+  const messagePrefix = normalizeText(options.messagePrefix, 'defaultFilter');
+  const normalizedDefaultFilter = normalizeDefaultFilterGroupForValidation(defaultFilter);
+  if (!isPlainObject(normalizedDefaultFilter)) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       path,
       'data-surface-default-filter-required',
-      'filter action settings.defaultFilter must be one filter group object when provided.',
+      `${messagePrefix} must be one filter group object when provided.`,
     );
     return;
   }
@@ -3670,7 +3683,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
         state.seenErrors,
         `${groupPath}.logic`,
         'data-surface-default-filter-logic-required',
-        'settings.defaultFilter.logic must be present.',
+        `${messagePrefix}.logic must be present.`,
       );
     } else if (logic !== '$and' && logic !== '$or') {
       pushValidationError(
@@ -3678,7 +3691,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
         state.seenErrors,
         `${groupPath}.logic`,
         'data-surface-default-filter-logic-invalid',
-        "settings.defaultFilter.logic must be '$and' or '$or'.",
+        `${messagePrefix}.logic must be '$and' or '$or'.`,
       );
     }
 
@@ -3688,18 +3701,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
         state.seenErrors,
         `${groupPath}.items`,
         'data-surface-default-filter-items-required',
-        'settings.defaultFilter.items must include an array of filter items.',
-      );
-      return;
-    }
-
-    if (group.items.length === 0) {
-      pushValidationError(
-        state.errors,
-        state.seenErrors,
-        `${groupPath}.items`,
-        'data-surface-default-filter-items-required',
-        'settings.defaultFilter.items must include at least one field filter item.',
+        `${messagePrefix}.items must include an array of filter items.`,
       );
       return;
     }
@@ -3712,7 +3714,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
           state.seenErrors,
           itemPath,
           'data-surface-default-filter-item-invalid',
-          'Each settings.defaultFilter.items entry must be one object.',
+          `Each ${messagePrefix}.items entry must be one object.`,
         );
         continue;
       }
@@ -3729,7 +3731,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
           state.seenErrors,
           `${itemPath}.path`,
           'data-surface-default-filter-item-path-required',
-          'Each settings.defaultFilter.items entry must include path.',
+          `Each ${messagePrefix}.items entry must include path.`,
         );
       } else {
         filterItemPaths.add(filterPath);
@@ -3739,11 +3741,11 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
             state.seenErrors,
             `${itemPath}.path`,
             'data-surface-default-filter-item-not-filterable',
-            `settings.defaultFilter.items path "${filterPath}" must also appear in filterableFieldNames.`,
+            `${messagePrefix}.items path "${filterPath}" must also appear in filterableFieldNames.`,
           );
         }
         if (fieldNameSet.size === 0) {
-          validateDataSurfaceDefaultFilterPathExists(filterPath, block, `${itemPath}.path`, state);
+          validateDataSurfaceDefaultFilterPathExists(filterPath, block, `${itemPath}.path`, state, messagePrefix);
         }
       }
       if (!normalizeText(item.operator)) {
@@ -3752,13 +3754,13 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
           state.seenErrors,
           `${itemPath}.operator`,
           'data-surface-default-filter-item-operator-required',
-          'Each settings.defaultFilter.items entry must include operator.',
+          `Each ${messagePrefix}.items entry must include operator.`,
         );
       }
     }
   };
 
-  visitGroup(defaultFilter, path);
+  visitGroup(normalizedDefaultFilter, path);
 
   const missingFilterItems = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
   if (missingFilterItems.length > 0) {
@@ -3767,12 +3769,38 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
       state.seenErrors,
       `${path}.items`,
       'data-surface-default-filter-items-incomplete',
-      `settings.defaultFilter.items must cover filterableFieldNames: ${missingFilterItems.join(', ')}.`,
+      `${messagePrefix}.items must cover filterableFieldNames: ${missingFilterItems.join(', ')}.`,
     );
   }
 }
 
-function validateDataSurfaceDefaultFilter(block, path, state) {
+function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
+  if (!isDataSurfaceDefaultFilterBlock(block)) {
+    return;
+  }
+
+  if (!hasOwn(block, 'defaultFilter')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.defaultFilter`,
+      'data-surface-block-default-filter-required',
+      'Data-surface blocks of type table, list, and gridCard must include block-level defaultFilter.',
+    );
+    return;
+  }
+
+  validateDefaultFilterGroup(
+    block.defaultFilter,
+    [],
+    `${path}.defaultFilter`,
+    state,
+    block,
+    { messagePrefix: 'defaultFilter' },
+  );
+}
+
+function validateDataSurfaceFilterActionSettings(block, path, state) {
   if (!isDataSurfaceDefaultFilterBlock(block)) {
     return;
   }
@@ -3823,8 +3851,54 @@ function validateDataSurfaceDefaultFilter(block, path, state) {
         `${settingsPath}.defaultFilter`,
         state,
         block,
+        { messagePrefix: 'settings.defaultFilter' },
+      );
+    } else if (hasFieldNames && hasOwn(block, 'defaultFilter')) {
+      validateDefaultFilterGroup(
+        block.defaultFilter,
+        fieldNames,
+        `${path}.defaultFilter`,
+        state,
+        block,
+        { messagePrefix: 'defaultFilter' },
       );
     }
+  }
+}
+
+function validateCalendarMainBlockShape(block, path, state) {
+  if (!CALENDAR_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return;
+  }
+
+  if (hasOwn(block, 'fields')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fields`,
+      'calendar-main-fields-unsupported',
+      'calendar blocks do not support fields[] on the main block; add event fields inside the quick-create or event-view popup host.',
+    );
+  }
+
+  if (hasOwn(block, 'fieldGroups')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldGroups`,
+      'calendar-main-field-groups-unsupported',
+      'calendar blocks do not support fieldGroups[] on the main block; group fields inside the quick-create or event-view popup host.',
+    );
+  }
+
+  if (hasOwn(block, 'recordActions')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.recordActions`,
+      'calendar-main-record-actions-unsupported',
+      'calendar blocks do not support recordActions[] on the main block; configure event content through the event-view popup host.',
+    );
   }
 }
 
@@ -3845,6 +3919,9 @@ function validateBlock(block, path, state, parentContext = {}) {
     );
   }
 
+  validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
+  validateDataSurfaceFilterActionSettings(block, path, state);
+  validateCalendarMainBlockShape(block, path, state);
   validateBlockFieldGroups(block, path, state);
   validateBlockFieldsLayout(block, path, state);
 
@@ -3877,7 +3954,6 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateDisplayAssociationFieldGroupPopupRequirement(block.fieldGroups, block, blockContext, `${path}.fieldGroups`, state);
   validateFieldPopups(block.fields, `${path}.fields`, state, blockContext);
   validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state, blockContext);
-  validateDataSurfaceDefaultFilter(block, path, state);
   validateActions(block.actions, `${path}.actions`, state, { recordActions: false, blockContext });
   validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true, blockContext });
 }

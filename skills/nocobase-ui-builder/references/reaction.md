@@ -23,7 +23,7 @@ If the interaction logic belongs to the page you are building now:
 - each item accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
 - target blocks/actions by stable same-run keys or public paths
 - keep structure, popup, and reaction in one blueprint when possible
-- if the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence instead of switching to a separate live reaction phase in the same pre-success phase
+- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of switching to a separate live reaction phase during those pre-success retries; after 5 failed rounds, report the latest blueprint / preview / error evidence
 - after one successful whole-page `applyBlueprint`, use a separate live reaction phase only for an explicit residual local/live gap, and keep that repair narrowly scoped
 
 ### Localized edit on an existing live page

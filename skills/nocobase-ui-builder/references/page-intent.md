@@ -34,7 +34,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 9. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the execution fallback. Local popup content may remain as the fallback when present.
 10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 11. Assemble the final blueprint using [page-blueprint.md](./page-blueprint.md).
-12. Before the real write, run the local prepare-write gate (`nb-page-preview --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+12. Before the real write, run the local prepare-write gate (`node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` from the repo root, or helper `prepareApplyBlueprintRequest(...)`) and confirm:
     - in `create`, every newly created `navigation.group` / `navigation.item` carries one semantic Ant Design icon
     - tabs count matches the request
     - every `tab.blocks` is non-empty

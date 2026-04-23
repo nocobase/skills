@@ -91,6 +91,10 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID',
   'GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID',
   'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID',
+  'CALENDAR_MAIN_FIELDS_UNSUPPORTED',
+  'CALENDAR_MAIN_FIELD_GROUPS_UNSUPPORTED',
+  'CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED',
+  'CALENDAR_ACTION_SLOT_USE_INVALID',
 ]);
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
@@ -114,6 +118,7 @@ const BUSINESS_BLOCK_MODEL_USES = new Set([
   // Common public blocks. Validation runs should pass allowedBusinessBlockUses from
   // the live instance schema inventory; this is a lightweight fallback only.
   'ActionPanelBlockModel',
+  'CalendarBlockModel',
   'ChartBlockModel',
   'CommentsBlockModel',
   'GridCardBlockModel',
@@ -162,6 +167,18 @@ const COLLECTION_ACTION_MODEL_USES = new Set([
   'PopupCollectionActionModel',
   'RefreshActionModel',
 ]);
+const CALENDAR_ACTION_MODEL_USES = new Set([
+  'AddNewActionModel',
+  'CalendarTodayActionModel',
+  'CalendarTitleActionModel',
+  'CalendarTurnPagesActionModel',
+  'CalendarSelectViewActionModel',
+  'FilterActionModel',
+  'JSCollectionActionModel',
+  'PopupCollectionActionModel',
+  'RefreshActionModel',
+  'TriggerWorkflowActionModel',
+]);
 const RECORD_ACTION_MODEL_USES = new Set([
   'AddChildActionModel',
   'DeleteActionModel',
@@ -179,7 +196,7 @@ const FILTER_FORM_ACTION_MODEL_USES = new Set([
   'FilterFormJSActionModel',
 ]);
 const GRID_CARD_ITEM_MODEL_USES = new Set(['GridCardItemModel']);
-const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'GridCardBlockModel', 'GridCardItemModel']);
+const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'GridCardBlockModel', 'GridCardItemModel', 'CalendarBlockModel']);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const CREATE_FORM_MODEL_USES = new Set(['CreateFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
@@ -193,6 +210,7 @@ const COLLECTION_RESOURCE_BLOCK_MODEL_USES = new Set([
   'ListBlockModel',
   'MapBlockModel',
   'CommentsBlockModel',
+  'CalendarBlockModel',
 ]);
 const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'TableColumnModel',
@@ -214,6 +232,7 @@ const CANONICALIZE_FOREIGN_KEY_ASSOCIATION_INPUT_MODEL_USES = new Set([
   'FilterFormItemModel',
   'FormItemModel',
 ]);
+const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE = 'FilterFormRecordSelectFieldModel';
 const FORM_ASSOCIATION_FIELD_MODEL_USE = 'RecordSelectFieldModel';
 const DETAILS_LAYOUT_ONLY_MODEL_USES = new Set(['DetailsGridModel', 'BlockGridModel', 'FormGridModel']);
@@ -1102,6 +1121,510 @@ function getCollectionMeta(metadata, collectionName) {
     return null;
   }
   return metadata.collections[collectionName] || null;
+}
+
+function isPublicDataSurfaceBlockType(type) {
+  return PUBLIC_DATA_SURFACE_BLOCK_TYPES.has(normalizeOptionalText(type));
+}
+
+function resolvePublicBlockCollectionName(block) {
+  if (!isPlainObject(block)) {
+    return '';
+  }
+  const directCollection = normalizeOptionalText(block.collection);
+  if (directCollection) {
+    return directCollection;
+  }
+  const resourceCollection = normalizeOptionalText(block.resource?.collectionName);
+  if (resourceCollection) {
+    return resourceCollection;
+  }
+  return normalizeOptionalText(block.resourceInit?.collectionName);
+}
+
+function validatePublicDefaultFilterGroup({
+  defaultFilter,
+  collectionName,
+  pathValue,
+  metadata,
+  mode,
+  blockers,
+  seen,
+  messagePrefix = 'defaultFilter',
+}) {
+  const normalizedDefaultFilter = defaultFilter === null
+    || (isPlainObject(defaultFilter) && Object.keys(defaultFilter).length === 0)
+    ? { logic: '$and', items: [] }
+    : defaultFilter;
+  if (!isPlainObject(normalizedDefaultFilter)) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_INVALID',
+      message: `${messagePrefix} must be one filter group object.`,
+      path: pathValue,
+      mode,
+      dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_INVALID:${pathValue}`,
+    }));
+    return;
+  }
+
+  const visitGroup = (group, groupPath) => {
+    const logic = normalizeOptionalText(group.logic);
+    if (!logic) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_LOGIC_REQUIRED',
+        message: `${messagePrefix}.logic must be present.`,
+        path: `${groupPath}.logic`,
+        mode,
+        dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_LOGIC_REQUIRED:${groupPath}`,
+      }));
+    } else if (logic !== '$and' && logic !== '$or') {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_LOGIC_INVALID',
+        message: `${messagePrefix}.logic must be '$and' or '$or'.`,
+        path: `${groupPath}.logic`,
+        mode,
+        dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_LOGIC_INVALID:${groupPath}:${logic}`,
+      }));
+    }
+
+    if (!Array.isArray(group.items)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_REQUIRED',
+        message: `${messagePrefix}.items must include an array of filter items.`,
+        path: `${groupPath}.items`,
+        mode,
+        dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_REQUIRED:${groupPath}:array`,
+      }));
+      return;
+    }
+
+    group.items.forEach((item, index) => {
+      const itemPath = `${groupPath}.items[${index}]`;
+      if (!isPlainObject(item)) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_INVALID',
+          message: `Each ${messagePrefix}.items entry must be one object.`,
+          path: itemPath,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_INVALID:${itemPath}`,
+        }));
+        return;
+      }
+
+      if (Object.hasOwn(item, 'logic') || Object.hasOwn(item, 'items')) {
+        visitGroup(item, itemPath);
+        return;
+      }
+
+      const fieldPath = normalizeOptionalText(item.path);
+      if (!fieldPath) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_PATH_REQUIRED',
+          message: `Each ${messagePrefix}.items entry must include path.`,
+          path: `${itemPath}.path`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_PATH_REQUIRED:${itemPath}`,
+        }));
+      } else if (collectionName && resolveFieldPathInMetadata(metadata, collectionName, fieldPath) == null) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD',
+          message: `${messagePrefix}.items path "${fieldPath}" is unsupported for collection ${collectionName}.`,
+          path: `${itemPath}.path`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD:${collectionName}:${fieldPath}`,
+          details: {
+            collectionName,
+            fieldPath,
+          },
+        }));
+      }
+
+      const operator = normalizeOptionalText(item.operator);
+      if (!operator) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_OPERATOR_REQUIRED',
+          message: `Each ${messagePrefix}.items entry must include operator.`,
+          path: `${itemPath}.operator`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_OPERATOR_REQUIRED:${itemPath}`,
+        }));
+      }
+    });
+  };
+
+  visitGroup(normalizedDefaultFilter, pathValue);
+}
+
+function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blockers, seen) {
+  const visitBlock = (block, pathValue) => {
+    if (!isPlainObject(block)) {
+      return;
+    }
+
+    if (isPublicDataSurfaceBlockType(block.type)) {
+      if (!Object.hasOwn(block, 'defaultFilter')) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
+          message: 'Public table/list/gridCard payloads must include block-level defaultFilter.',
+          path: `${pathValue}.defaultFilter`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED:${pathValue}`,
+          details: {
+            type: normalizeOptionalText(block.type) || null,
+          },
+        }));
+      } else {
+        validatePublicDefaultFilterGroup({
+          defaultFilter: block.defaultFilter,
+          collectionName: resolvePublicBlockCollectionName(block),
+          pathValue: `${pathValue}.defaultFilter`,
+          metadata,
+          mode,
+          blockers,
+          seen,
+        });
+      }
+    }
+
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${pathValue}.blocks[${index}]`));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${pathValue}.popup.blocks[${index}]`));
+    }
+    ['actions', 'recordActions'].forEach((slot) => {
+      if (!Array.isArray(block[slot])) {
+        return;
+      }
+      block[slot].forEach((action, index) => {
+        if (Array.isArray(action?.popup?.blocks)) {
+          action.popup.blocks.forEach((child, childIndex) => visitBlock(child, `${pathValue}.${slot}[${index}].popup.blocks[${childIndex}]`));
+        }
+      });
+    });
+    ['fields', 'fieldGroups'].forEach((slot) => {
+      const container = block[slot];
+      if (!Array.isArray(container)) {
+        return;
+      }
+      const fields = slot === 'fieldGroups'
+        ? container.flatMap((group) => Array.isArray(group?.fields) ? group.fields : [])
+        : container;
+      fields.forEach((field, index) => {
+        if (Array.isArray(field?.popup?.blocks)) {
+          field.popup.blocks.forEach((child, childIndex) => visitBlock(child, `${pathValue}.${slot}[${index}].popup.blocks[${childIndex}]`));
+        }
+      });
+    });
+  };
+
+  if (!isPlainObject(payload)) {
+    return;
+  }
+
+  if (Array.isArray(payload.tabs)) {
+    payload.tabs.forEach((tab, tabIndex) => {
+      const blocks = Array.isArray(tab?.blocks) ? tab.blocks : [];
+      blocks.forEach((block, blockIndex) => visitBlock(block, `$.tabs[${tabIndex}].blocks[${blockIndex}]`));
+    });
+    return;
+  }
+
+  if (Array.isArray(payload.blocks)) {
+    payload.blocks.forEach((block, blockIndex) => visitBlock(block, `$.blocks[${blockIndex}]`));
+    return;
+  }
+
+  if (isPublicDataSurfaceBlockType(payload.type)) {
+    visitBlock(payload, '$');
+  }
+}
+
+function isRawSetLayoutPayload(payload) {
+  return isPlainObject(payload)
+    && (
+      Object.hasOwn(payload, 'rows')
+      || Object.hasOwn(payload, 'sizes')
+      || Object.hasOwn(payload, 'rowOrder')
+    );
+}
+
+function inspectRawSetLayoutPayload(payload, mode, blockers, seen) {
+  if (!isRawSetLayoutPayload(payload)) {
+    return;
+  }
+
+  const targetUid = normalizeOptionalText(payload?.target?.uid);
+  if (!targetUid) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'SET_LAYOUT_TARGET_UID_REQUIRED',
+      message: 'Low-level set-layout payloads must include target.uid with one live grid uid.',
+      path: '$.target.uid',
+      mode,
+      dedupeKey: 'SET_LAYOUT_TARGET_UID_REQUIRED:$',
+    }));
+  }
+
+  const rows = isPlainObject(payload.rows) ? payload.rows : null;
+  if (!rows) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'SET_LAYOUT_ROWS_OBJECT_REQUIRED',
+      message: 'Low-level set-layout rows must be one object: Record<string, string[][]>.',
+      path: '$.rows',
+      mode,
+      dedupeKey: 'SET_LAYOUT_ROWS_OBJECT_REQUIRED:$',
+    }));
+  }
+
+  const sizes = isPlainObject(payload.sizes) ? payload.sizes : null;
+  if (!sizes) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'SET_LAYOUT_SIZES_OBJECT_REQUIRED',
+      message: 'Low-level set-layout sizes must be one object: Record<string, number[]>.',
+      path: '$.sizes',
+      mode,
+      dedupeKey: 'SET_LAYOUT_SIZES_OBJECT_REQUIRED:$',
+    }));
+  }
+
+  if (!rows) {
+    return;
+  }
+
+  const rowDescriptors = new Map();
+  const rowKeys = Object.keys(rows);
+
+  Object.entries(rows).forEach(([rowKey, rowValue]) => {
+    const rowPath = `$.rows.${rowKey}`;
+    if (!Array.isArray(rowValue)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'SET_LAYOUT_ROW_COLUMNS_ARRAY_REQUIRED',
+        message: `set-layout ${rowPath} must be an array of column cells. Use [[uidA], [uidB]], not [uidA, uidB].`,
+        path: rowPath,
+        mode,
+        dedupeKey: `SET_LAYOUT_ROW_COLUMNS_ARRAY_REQUIRED:${rowKey}:row`,
+      }));
+      return;
+    }
+
+    let hasInvalidCell = false;
+    const cells = rowValue.map((cell, cellIndex) => {
+      const cellPath = `${rowPath}[${cellIndex}]`;
+      if (!Array.isArray(cell)) {
+        hasInvalidCell = true;
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'SET_LAYOUT_ROW_COLUMNS_ARRAY_REQUIRED',
+          message: `Each set-layout row cell must be one uid array. ${cellPath} should look like ["uid"], and two columns should be [[uidA], [uidB]].`,
+          path: cellPath,
+          mode,
+          dedupeKey: `SET_LAYOUT_ROW_COLUMNS_ARRAY_REQUIRED:${rowKey}:${cellIndex}`,
+        }));
+        return [];
+      }
+
+      return cell.map((value, valueIndex) => {
+        const uid = normalizeOptionalText(value);
+        if (!uid) {
+          hasInvalidCell = true;
+          pushFinding(blockers, seen, createFinding({
+            severity: 'blocker',
+            code: 'SET_LAYOUT_CELL_UID_REQUIRED',
+            message: 'Every set-layout cell entry must be one non-empty live child uid.',
+            path: `${cellPath}[${valueIndex}]`,
+            mode,
+            dedupeKey: `SET_LAYOUT_CELL_UID_REQUIRED:${rowKey}:${cellIndex}:${valueIndex}`,
+          }));
+        }
+        return uid;
+      }).filter(Boolean);
+    });
+
+    rowDescriptors.set(rowKey, {
+      cells,
+      hasInvalidCell,
+    });
+  });
+
+  if (Object.hasOwn(payload, 'rowOrder')) {
+    if (!Array.isArray(payload.rowOrder)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'SET_LAYOUT_ROW_ORDER_INVALID',
+        message: 'Low-level set-layout rowOrder, when provided, must be an array of row keys from $.rows.',
+        path: '$.rowOrder',
+        mode,
+        dedupeKey: 'SET_LAYOUT_ROW_ORDER_INVALID:array',
+      }));
+    } else {
+      const normalizedRowOrder = [];
+      const rowOrderKeySet = new Set();
+      const duplicateRowKeys = [];
+      const invalidEntryIndexes = [];
+
+      payload.rowOrder.forEach((value, index) => {
+        const rowKey = normalizeOptionalText(value);
+        if (!rowKey) {
+          invalidEntryIndexes.push(index);
+          return;
+        }
+        normalizedRowOrder.push(rowKey);
+        if (rowOrderKeySet.has(rowKey) && !duplicateRowKeys.includes(rowKey)) {
+          duplicateRowKeys.push(rowKey);
+        }
+        rowOrderKeySet.add(rowKey);
+      });
+
+      if (invalidEntryIndexes.length > 0) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'SET_LAYOUT_ROW_ORDER_INVALID',
+          message: 'Low-level set-layout rowOrder entries must be non-empty strings that match $.rows keys.',
+          path: '$.rowOrder',
+          mode,
+          dedupeKey: 'SET_LAYOUT_ROW_ORDER_INVALID:entry',
+          details: {
+            invalidEntryIndexes,
+          },
+        }));
+      } else {
+        const rowKeySet = new Set(rowKeys);
+        const orphanRowKeys = normalizedRowOrder.filter((rowKey, index) => (
+          !rowKeySet.has(rowKey) && normalizedRowOrder.indexOf(rowKey) === index
+        ));
+        const missingRowKeys = rowKeys.filter((rowKey) => !rowOrderKeySet.has(rowKey));
+
+        if (duplicateRowKeys.length > 0 || orphanRowKeys.length > 0 || missingRowKeys.length > 0) {
+          pushFinding(blockers, seen, createFinding({
+            severity: 'blocker',
+            code: 'SET_LAYOUT_ROW_ORDER_KEYS_MISMATCH',
+            message: 'Low-level set-layout rowOrder must be one full permutation of $.rows keys with no duplicates or unknown rows.',
+            path: '$.rowOrder',
+            mode,
+            dedupeKey: `SET_LAYOUT_ROW_ORDER_KEYS_MISMATCH:${duplicateRowKeys.join(',')}:${orphanRowKeys.join(',')}:${missingRowKeys.join(',')}`,
+            details: {
+              duplicateRowKeys,
+              orphanRowKeys,
+              missingRowKeys,
+              rowKeys,
+            },
+          }));
+        }
+      }
+    }
+  }
+
+  if (!sizes) {
+    return;
+  }
+
+  const rowKeySet = new Set(rowKeys);
+  Object.keys(sizes).forEach((rowKey) => {
+    if (rowKeySet.has(rowKey)) {
+      return;
+    }
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'SET_LAYOUT_SIZE_ROW_ORPHAN',
+      message: `set-layout $.sizes.${rowKey} does not match any row under $.rows. rows and sizes must use the same row keys.`,
+      path: `$.sizes.${rowKey}`,
+      mode,
+      dedupeKey: `SET_LAYOUT_SIZE_ROW_ORPHAN:${rowKey}`,
+      details: {
+        rowKey,
+        rowKeys: [...rowKeySet],
+      },
+    }));
+  });
+
+  for (const [rowKey, descriptor] of rowDescriptors.entries()) {
+    const sizePath = `$.sizes.${rowKey}`;
+    const rowSizes = sizes[rowKey];
+    if (!Array.isArray(rowSizes)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'SET_LAYOUT_ROW_SIZES_ARRAY_REQUIRED',
+        message: `set-layout ${sizePath} must be one numeric span array matching $.rows.${rowKey}.`,
+        path: sizePath,
+        mode,
+        dedupeKey: `SET_LAYOUT_ROW_SIZES_ARRAY_REQUIRED:${rowKey}`,
+      }));
+      continue;
+    }
+
+    let hasInvalidSize = false;
+    rowSizes.forEach((value, index) => {
+      if (Array.isArray(value) || typeof value !== 'number' || !Number.isFinite(value)) {
+        hasInvalidSize = true;
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'SET_LAYOUT_ROW_SIZE_NUMBER_REQUIRED',
+          message: `Each set-layout ${sizePath} entry must be one number. Nested arrays such as [[12, 12]] are invalid.`,
+          path: `${sizePath}[${index}]`,
+          mode,
+          dedupeKey: `SET_LAYOUT_ROW_SIZE_NUMBER_REQUIRED:${rowKey}:${index}`,
+        }));
+      }
+    });
+
+    if (descriptor.hasInvalidCell || hasInvalidSize) {
+      continue;
+    }
+
+    const columnCount = descriptor.cells.length;
+    if (rowSizes.length === columnCount) {
+      continue;
+    }
+
+    const isLikelyStackedVsColumnsMixup =
+      columnCount === 1
+      && descriptor.cells[0]?.length > 1
+      && rowSizes.length > 1;
+    if (isLikelyStackedVsColumnsMixup) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'SET_LAYOUT_STACKED_CELL_MULTI_SIZE_MISMATCH',
+        message: `set-layout $.rows.${rowKey} currently means one stacked column, but ${sizePath} has multiple widths. If you wanted two columns, use [[uidA], [uidB]] with [12, 12]; [[uidA, uidB]] means one stacked column.`,
+        path: sizePath,
+        mode,
+        dedupeKey: `SET_LAYOUT_STACKED_CELL_MULTI_SIZE_MISMATCH:${rowKey}:${rowSizes.length}`,
+        details: {
+          rowKey,
+          columnCount,
+          rowSizesLength: rowSizes.length,
+          stackedCellLength: descriptor.cells[0]?.length || 0,
+        },
+      }));
+      continue;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'SET_LAYOUT_ROW_SIZE_COUNT_MISMATCH',
+      message: `set-layout ${sizePath} must have the same number of entries as $.rows.${rowKey}. Each row size array must align with that row's column-cell count.`,
+      path: sizePath,
+      mode,
+      dedupeKey: `SET_LAYOUT_ROW_SIZE_COUNT_MISMATCH:${rowKey}:${columnCount}:${rowSizes.length}`,
+      details: {
+        rowKey,
+        columnCount,
+        rowSizesLength: rowSizes.length,
+      },
+    }));
+  }
 }
 
 function inspectRequiredMetadataCoverage(requiredMetadata, metadata, mode, blockers, seen) {
@@ -2226,6 +2749,15 @@ function listActionSlotsForNode(node, pathValue) {
     return slots;
   }
 
+  if (node.use === 'CalendarBlockModel') {
+    slots.push({
+      scope: 'block-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
+    return slots;
+  }
+
   if (node.use === 'GridCardItemModel') {
     slots.push({
       scope: 'row-actions',
@@ -2250,7 +2782,7 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen, busin
     if (requirement.scope === 'details-actions' && node.use !== 'DetailsBlockModel') {
       return;
     }
-    if (requirement.scope === 'block-actions' && node.use !== 'TableBlockModel' && node.use !== 'GridCardBlockModel') {
+    if (requirement.scope === 'block-actions' && node.use !== 'TableBlockModel' && node.use !== 'GridCardBlockModel' && node.use !== 'CalendarBlockModel') {
       return;
     }
 
@@ -3972,6 +4504,20 @@ function inspectActionSlots(payload, mode, blockers, seen) {
       return;
     }
 
+    if (node.use === 'CalendarBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: CALENDAR_ACTION_MODEL_USES,
+        code: 'CALENDAR_ACTION_SLOT_USE_INVALID',
+        message: `CalendarBlockModel 的 actions 槽位只能放日历 toolbar actions 或适用 collection actions：${[...CALENDAR_ACTION_MODEL_USES].join(' / ')}；不要放 bulk/import/export/print/table-only/record actions。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
     if (node.use === 'GridCardBlockModel') {
       inspectActionSlotUses({
         hostNode: node,
@@ -3997,6 +4543,47 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         blockers,
         seen,
       });
+    }
+  });
+}
+
+function inspectCalendarBlocks(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'CalendarBlockModel') {
+      return;
+    }
+
+    if (Array.isArray(node.subModels?.fields) && node.subModels.fields.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'CALENDAR_MAIN_FIELDS_UNSUPPORTED',
+        message: 'CalendarBlockModel 主块不支持直接 subModels.fields；事件内容字段应添加到 quick-create / event-view 隐藏 popup host 内的表单或详情块。',
+        path: `${pathValue}.subModels.fields`,
+        mode,
+        dedupeKey: `CALENDAR_MAIN_FIELDS_UNSUPPORTED:${pathValue}`,
+      }));
+    }
+
+    if (Array.isArray(node.subModels?.fieldGroups) && node.subModels.fieldGroups.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'CALENDAR_MAIN_FIELD_GROUPS_UNSUPPORTED',
+        message: 'CalendarBlockModel 主块不支持直接 subModels.fieldGroups；请在 quick-create / event-view popup host 内配置字段分组。',
+        path: `${pathValue}.subModels.fieldGroups`,
+        mode,
+        dedupeKey: `CALENDAR_MAIN_FIELD_GROUPS_UNSUPPORTED:${pathValue}`,
+      }));
+    }
+
+    if (Array.isArray(node.subModels?.recordActions) && node.subModels.recordActions.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED',
+        message: 'CalendarBlockModel 主块不支持 recordActions；事件查看/编辑内容应通过 event-view 隐藏 popup host 构建。',
+        path: `${pathValue}.subModels.recordActions`,
+        mode,
+        dedupeKey: `CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED:${pathValue}`,
+      }));
     }
   });
 }
@@ -6002,12 +6589,15 @@ export function auditPayload({
   let runjsInspection = null;
 
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
+  inspectRawSetLayoutPayload(payload, mode, blockers, blockerSeen);
+  inspectPublicDataSurfaceDefaultFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectCollectionResourceContracts(payload, mode, blockers, blockerSeen);
   inspectChartBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
+  inspectCalendarBlocks(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectTableBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);

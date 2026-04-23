@@ -8,7 +8,8 @@ If the task only needs local blueprint / preview artifacts or common-case drafti
 
 Use this before the first real whole-page write.
 
-- CLI: `nb-page-preview --stdin-json --prepare-write`
+- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
+- If your current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs`; do not probe the bare `nb-page-preview` command first.
 - input: one page blueprint JSON document, or the helper envelope `{ requestBody, templateDecision?, collectionMetadata? }`
 - returns: normalized prepare-write result including prepared `cliBody` plus the ASCII preview
 - treat the normalized write body as authoritative local write shape; expected helper-added or helper-normalized fields should be kept as-is instead of being locally undone
@@ -16,7 +17,7 @@ Use this before the first real whole-page write.
 - this helper is local/read-only; it does not call `nocobase-ctl` or perform the remote write for you
 - does not fetch live collection metadata by itself
 - `collectionMetadata` stays caller-supplied; prepare-write does not fetch it for you
-- accepts omitted `table` / `list` / `gridCard` filter actions and omitted filter settings; if a `filter` action provides `settings`, validates that explicit settings payload
+- accepts omitted `table` / `list` / `gridCard` `filter` actions, but every public `table` / `list` / `gridCard` block must still include block-level `defaultFilter`; if a `filter` action provides `settings.defaultFilter`, validates that explicit action payload too
 - when `collectionMetadata` is provided, validates fixed defaults completeness for every involved scope: missing `defaults.collections.<collection>`, required popup `{ name, description }` entries for the fixed `view` / `addNew` / `edit` trio, and required `fieldGroups` when any fixed generated popup scene still has more than 10 effective fields; any `table` block also pulls its collection into the `addNew` threshold check
 - relation popup defaults stay keyed by the first relation segment; when callers pass deeper `popups.associations` keys such as `department.manager`, prepare-write normalizes them to that first segment in `result.cliBody`, and the explicit one-level key wins if both forms are present
 - explicit local `popup.blocks` still participate in defaults scope collection even when `popup.template` or `popup.tryTemplate` is present; template binding only changes popup content sourcing, not defaults scope registration
@@ -38,7 +39,7 @@ Use this helper in local JS code when you need the same prepare-write behavior w
 
 Use this when you only need the ASCII wireframe and are **not** preparing the real write body yet.
 
-- CLI: `nb-page-preview --stdin-json`
+- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json`
 - input: one page blueprint JSON document
 - returns: preview-only result
 - do not use it as the first real write gate when `--prepare-write` is available
@@ -49,7 +50,7 @@ Use this when the task is JS / RunJS specific and you need local validation.
 
 Before you run it, lock the authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), fill the loop in [runjs-authoring-loop.md](./runjs-authoring-loop.md), and choose a canonical snippet from [js-snippets/catalog.json](./js-snippets/catalog.json). The validator contract now differs between render-style JS models, action-style event/linkage code, and value-return RunJS.
 
-- CLI: `nb-runjs validate --stdin-json --skill-mode`
+- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode`
 - input: `{ model, code, context? }`
 - returns: validation result, policy issues, and execution summary
 - use it for: JS blocks, JS fields, JS actions, and event-flow `Execute JavaScript` snippets

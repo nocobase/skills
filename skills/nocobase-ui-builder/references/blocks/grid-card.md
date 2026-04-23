@@ -69,6 +69,7 @@ skill 至少要知道三件事：
 ## 默认筛选要求
 
 - 如果用户明确说“给卡片 / Grid / GridCard 增加筛选 / 搜索功能”，默认先落该数据块自己的 `filter` action。
+- 无论是否真的创建 `filter` action，只要是 public `gridCard` authoring（`applyBlueprint` / `compose` / `add-block` / `add-blocks`），区块本身都必须带 block-level `defaultFilter`。
 - Whole-page / `compose` authoring 可用 `actions: ["filter"]` 或 `{ "type": "filter" }`。
 - 只有用户显式要求筛选区块 / 搜索区块 / 查询表单时，才升级为 `FilterFormBlockModel`。
 

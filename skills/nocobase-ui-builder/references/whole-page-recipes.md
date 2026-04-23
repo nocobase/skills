@@ -268,5 +268,5 @@ Replace the placeholder collection and field names with live metadata from the c
 - Keep `filterForm` field `target` values on string block keys, not low-level `defaultTargetUid`
 - Put popup content inline with the owning field/action/record action
 - Keep whole-page reaction targets on stable public paths
-- If the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence instead of falling back to low-level APIs in the same pre-success phase
+- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of falling back to low-level APIs during those pre-success retries. After 5 failed rounds, report the latest blueprint / preview / error evidence
 - After one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit residual local/live gap and should stay narrowly scoped

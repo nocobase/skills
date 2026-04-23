@@ -36,6 +36,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
 | create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
 | add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| replace one existing full grid layout | `nocobase-ctl flow-surfaces set-layout` |
 | edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
 | replace existing instance-level event flows | `nocobase-ctl flow-surfaces set-event-flows` |
 | localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
@@ -57,6 +58,7 @@ For whole-page create / replace, author from the draft blueprint first, then run
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `applyBlueprint` is key-oriented and structure-first: layout and in-document targeting use local `key`, whole-page interaction logic may live only in top-level `reaction.items[]`, and you must not author `uid`, `ref`, or `$ref` selectors there.
 - public `applyBlueprint.reaction.items[]` also uses same-run local keys / bind keys, not live uids.
+- low-level `set-layout` is different: `target.uid` is the live grid uid, `rows` is `Record<string, string[][]>`, each inner array stacks live child `uid`s inside one column cell, `[[uidA], [uidB]]` means two columns, and `[[uidA, uidB]]` means one stacked column.
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
 - Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describe-surface`, or a previous create response.
 

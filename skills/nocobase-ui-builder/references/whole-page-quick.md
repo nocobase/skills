@@ -24,7 +24,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - Keep defaults collection-level only: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write must be `applyBlueprint`.
    - Before one whole-page `applyBlueprint` succeeds, do not call `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
-   - If the first `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence. Do not continue with low-level writes in that same pre-success phase.
+   - If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / preview / error evidence.
 5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
 6. If visible same-title menu groups already exist, do not pick one locally and do not create another same-title group just to disambiguate. Require explicit `navigation.group.routeId` before the write whenever title lookup would hit multiple groups.
 7. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
@@ -42,8 +42,9 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
    - use that same host's block-level `filter` action/button; shorthand or object action form is valid
-   - explicit `settings.filterableFieldNames` / `settings.defaultFilter` are optional because the runtime/API may complete defaults
-   - when explicit settings are provided, choose 3 to 4 common live fields when available and ensure every `filterableFieldNames` path appears in `defaultFilter.items`
+   - for every public `table` / `list` / `gridCard` block in the blueprint, always add block-level `defaultFilter`
+   - choose 3 to 4 common live fields when available and ensure block-level `defaultFilter.items` covers them
+   - the `filter` action is optional; if you also provide action-level `settings.defaultFilter`, that action-level payload takes precedence over the block-level one
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
    - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block
@@ -88,7 +89,7 @@ These are still whole-page requests, not a separate route.
 - For computed defaults, autofill, block visibility, or action guards that belong to the page being created now, prefer top-level `reaction.items[]` in that same blueprint rather than a second live-edit phase.
 - If a create/edit form helper depends on `formValues.*`, prefer a helper host that belongs to that same form scene. If the live scene exposes `fields` / `actions` / `node` but not `blocks`, model the helper as a `jsItem` or other field-like helper rather than a separate sibling block.
 - A first-pass miss is not enough to abandon whole-page authoring. Treat it as a blueprint-generation bug or whole-page contract problem to report, not as permission to switch routes mid-phase.
-- If the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence instead of dropping into low-level writes before success.
+- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of dropping into low-level writes before success. After 5 failed rounds, report the latest blueprint / preview / error evidence.
 - Only after one successful whole-page `applyBlueprint` may localized `add*` or `set*Rules` repair address an explicit residual local/live gap, and that repair should stay narrowly scoped.
 
 ## Default artifact-only output

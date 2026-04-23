@@ -15,8 +15,8 @@ Read this file when you need to run the local RunJS validator CLI. For JS model 
 The commands below assume that the current cwd is the repository root and that the Node version is `>=18`.
 
 ```bash
-nb-runjs validate --stdin-json --skill-mode
-nb-runjs batch --input ./runtime/fixtures/batch.json --skill-mode
+node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode
+node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./runtime/fixtures/batch.json --skill-mode
 ```
 
 The canonical execution path for this skill always includes `--skill-mode`:

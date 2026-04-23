@@ -75,6 +75,21 @@ const collectionMetadata = {
 
 const emptyPrepareCollectionMetadata = { collections: {} };
 const defaultPrepareCollectionMetadata = collectionMetadata;
+const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard']);
+const defaultFilterCandidateInterfaces = new Set(['input', 'email', 'url', 'phone', 'textarea', 'select', 'radioGroup']);
+const defaultFilterEqInterfaces = new Set(['select', 'radioGroup']);
+
+function defaultFilterGroup(fieldNames = ['nickname', 'email', 'status']) {
+  const normalizedFieldNames = fieldNames.filter(Boolean);
+  return {
+    logic: '$and',
+    items: normalizedFieldNames.map((path) => ({
+      path,
+      operator: ['status', 'scope', 'priority', 'sort'].includes(path) ? '$eq' : '$includes',
+      value: '',
+    })),
+  };
+}
 
 function defaultFilterAction(fieldNames = ['nickname', 'email', 'status']) {
   const normalizedFieldNames = fieldNames.filter(Boolean);
@@ -82,20 +97,109 @@ function defaultFilterAction(fieldNames = ['nickname', 'email', 'status']) {
     type: 'filter',
     settings: {
       filterableFieldNames: normalizedFieldNames,
-      defaultFilter: {
-        logic: '$and',
-        items: normalizedFieldNames.map((path) => ({
-          path,
-          operator: ['status', 'scope', 'priority', 'sort'].includes(path) ? '$eq' : '$includes',
-          value: '',
-        })),
-      },
+      defaultFilter: defaultFilterGroup(normalizedFieldNames),
     },
   };
 }
 
-function prepareApplyBlueprintRequest(input, options) {
-  return rawPrepareApplyBlueprintRequest(input, options);
+function resolvePublicBlockCollectionName(block) {
+  if (!isObjectRecord(block)) return '';
+  if (typeof block.collection === 'string' && block.collection.trim()) return block.collection.trim();
+  if (isObjectRecord(block.resource) && typeof block.resource.collectionName === 'string' && block.resource.collectionName.trim()) {
+    return block.resource.collectionName.trim();
+  }
+  if (isObjectRecord(block.resourceInit) && typeof block.resourceInit.collectionName === 'string' && block.resourceInit.collectionName.trim()) {
+    return block.resourceInit.collectionName.trim();
+  }
+  return '';
+}
+
+function buildDefaultBlockDefaultFilter(rawCollectionMetadata, collectionName) {
+  const collectionEntry = getPrepareCollectionEntry(rawCollectionMetadata, collectionName);
+  const candidateFields = Array.isArray(collectionEntry?.fields)
+    ? collectionEntry.fields
+      .filter((field) => isObjectRecord(field))
+      .filter((field) => !['id', 'createdAt', 'updatedAt', 'department', 'roles'].includes(field.name))
+      .filter((field) => typeof field.name === 'string' && field.name.trim())
+      .filter((field) => defaultFilterCandidateInterfaces.has(String(field.interface || '').trim()))
+      .slice(0, 4)
+    : [];
+  const fieldNames = candidateFields.map((field) => field.name.trim());
+  const items = fieldNames.map((path) => {
+    const field = candidateFields.find((entry) => entry.name.trim() === path);
+    return {
+      path,
+      operator: defaultFilterEqInterfaces.has(String(field?.interface || '').trim()) ? '$eq' : '$includes',
+      value: '',
+    };
+  });
+  return {
+    logic: '$and',
+    items: items.length > 0 ? items : [{ path: 'nickname', operator: '$includes', value: '' }],
+  };
+}
+
+function injectDefaultFiltersIntoBlockSpecs(blocks, rawCollectionMetadata) {
+  if (!Array.isArray(blocks)) return;
+  for (const block of blocks) {
+    if (!isObjectRecord(block)) continue;
+    const normalizedType = typeof block.type === 'string' ? block.type.trim() : '';
+    if (dataSurfaceBlockTypes.has(normalizedType) && !Object.prototype.hasOwnProperty.call(block, 'defaultFilter')) {
+      block.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(block));
+    }
+
+    if (isObjectRecord(block.popup)) {
+      injectDefaultFiltersIntoBlockSpecs(block.popup.blocks, rawCollectionMetadata);
+    }
+
+    for (const actionListKey of ['actions', 'recordActions']) {
+      if (!Array.isArray(block[actionListKey])) continue;
+      for (const action of block[actionListKey]) {
+        if (isObjectRecord(action?.popup)) {
+          injectDefaultFiltersIntoBlockSpecs(action.popup.blocks, rawCollectionMetadata);
+        }
+      }
+    }
+
+    for (const fieldContainerKey of ['fields', 'fieldGroups']) {
+      const container = block[fieldContainerKey];
+      if (!Array.isArray(container)) continue;
+      const fields = fieldContainerKey === 'fieldGroups'
+        ? container.flatMap((group) => Array.isArray(group?.fields) ? group.fields : [])
+        : container;
+      for (const field of fields) {
+        if (isObjectRecord(field?.popup)) {
+          injectDefaultFiltersIntoBlockSpecs(field.popup.blocks, rawCollectionMetadata);
+        }
+      }
+    }
+  }
+}
+
+function prepareApplyBlueprintRequest(input, options = {}) {
+  const { injectDataSurfaceDefaultFilter = true, ...prepareOptions } = options || {};
+  if (!injectDataSurfaceDefaultFilter || !isObjectRecord(input)) {
+    return rawPrepareApplyBlueprintRequest(input, prepareOptions);
+  }
+
+  const nextInput = structuredClone(input);
+  const rawCollectionMetadata = prepareOptions.collectionMetadata
+    || (isObjectRecord(nextInput.collectionMetadata) ? nextInput.collectionMetadata : undefined);
+  const blueprint = isObjectRecord(nextInput.requestBody) ? nextInput.requestBody : nextInput;
+  if (isObjectRecord(blueprint)) {
+    injectDefaultFiltersIntoBlockSpecs(
+      Array.isArray(blueprint.tabs)
+        ? blueprint.tabs.flatMap((tab) => Array.isArray(tab?.blocks) ? tab.blocks : [])
+        : [],
+      rawCollectionMetadata,
+    );
+    injectDefaultFiltersIntoBlockSpecs(Array.isArray(blueprint.blocks) ? blueprint.blocks : [], rawCollectionMetadata);
+    if (dataSurfaceBlockTypes.has(String(blueprint.type || '').trim()) && !Object.prototype.hasOwnProperty.call(blueprint, 'defaultFilter')) {
+      blueprint.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(blueprint));
+    }
+  }
+
+  return rawPrepareApplyBlueprintRequest(nextInput, prepareOptions);
 }
 
 function isObjectRecord(value) {
@@ -150,14 +254,19 @@ function prepareWithDirectCollectionDefaults(blueprint, options = {}) {
   const {
     collections = ['users'],
     collectionMetadata: providedCollectionMetadata = defaultPrepareCollectionMetadata,
+    injectDataSurfaceDefaultFilter = true,
     ...prepareOptions
   } = options;
   const nextBlueprint = structuredClone(blueprint);
+  if (injectDataSurfaceDefaultFilter) {
+    injectDefaultFiltersIntoBlockSpecs(nextBlueprint.tabs?.flatMap((tab) => Array.isArray(tab?.blocks) ? tab.blocks : []) || [], providedCollectionMetadata);
+  }
   const existingDefaults = isObjectRecord(nextBlueprint.defaults) ? nextBlueprint.defaults : {};
   const existingCollections = isObjectRecord(existingDefaults.collections) ? existingDefaults.collections : {};
   const nextCollections = { ...existingCollections };
   const probe = prepareApplyBlueprintRequest(nextBlueprint, {
     collectionMetadata: providedCollectionMetadata,
+    injectDataSurfaceDefaultFilter,
     ...prepareOptions,
   });
   const collectionRequirements = Array.isArray(probe.defaultsRequirements?.collections)
@@ -228,6 +337,7 @@ function prepareWithDirectCollectionDefaults(blueprint, options = {}) {
 
   return prepareApplyBlueprintRequest(nextBlueprint, {
     collectionMetadata: providedCollectionMetadata,
+    injectDataSurfaceDefaultFilter,
     ...prepareOptions,
   });
 }
@@ -638,6 +748,7 @@ test('renderPageBlueprintAsciiPreview keeps wrapper warning for prepare-write he
               key: 'usersTable',
               type: 'table',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               fields: ['nickname'],
               actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
@@ -787,6 +898,7 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
               type: 'table',
               collection: 'users',
               fields: ['nickname', 'email'],
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
           ],
@@ -847,6 +959,7 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
             type: 'table',
             collection: 'users',
             fields: ['nickname', 'email'],
+            defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
             actions: [defaultFilterAction(['nickname', 'email', 'status'])],
           },
         ],
@@ -855,7 +968,7 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
-test('prepareApplyBlueprintRequest treats data-surface filter settings as optional', () => {
+test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-surface blocks while keeping filter actions optional', () => {
   const missing = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -875,9 +988,10 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
         },
       ],
     },
-    { collectionMetadata },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(missing.ok, true);
+  assert.equal(missing.ok, false);
+  assert.ok(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
 
   const shorthand = prepareWithDirectCollectionDefaults(
     {
@@ -927,6 +1041,31 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
   );
   assert.equal(objectWithoutSettings.ok, true);
 
+  const actionLevelOnly = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionLevelOnly.ok, false);
+  assert.ok(actionLevelOnly.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
+
   const invalidSecondFilterAction = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -966,17 +1105,7 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [
-                {
-                  type: 'filter',
-                  settings: {
-                    defaultFilter: {
-                      logic: '$and',
-                      items: [{ path: 'nickname', operator: '$includes', value: '' }],
-                    },
-                  },
-                },
-              ],
+              defaultFilter: defaultFilterGroup(['nickname']),
             },
           ],
         },
@@ -985,6 +1114,54 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
     { collectionMetadata },
   );
   assert.equal(defaultFilterOnly.ok, true);
+
+  const emptyObjectDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: {},
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyObjectDefaultFilter.ok, true);
+
+  const emptyGroupDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: { logic: '$and', items: [] },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyGroupDefaultFilter.ok, true);
 
   const defaultFilterOnlyUnknownPath = prepareWithDirectCollectionDefaults(
     {
@@ -1000,17 +1177,7 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [
-                {
-                  type: 'filter',
-                  settings: {
-                    defaultFilter: {
-                      logic: '$and',
-                      items: [{ path: 'missingField', operator: '$includes', value: '' }],
-                    },
-                  },
-                },
-              ],
+              defaultFilter: defaultFilterGroup(['missingField']),
             },
           ],
         },
@@ -1057,6 +1224,72 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
   assert.equal(incomplete.ok, false);
   assert.ok(incomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
 
+  const blockLevelIncomplete = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(blockLevelIncomplete.ok, false);
+  assert.ok(blockLevelIncomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+
+  const actionDefaultFilterOverridesBlockLevelCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: defaultFilterGroup(['nickname', 'email']),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(actionDefaultFilterOverridesBlockLevelCoverage.ok, true);
+
   const invalidSettingsShape = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -1096,18 +1329,10 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [
-                {
-                  type: 'filter',
-                  settings: {
-                    filterableFieldNames: ['nickname'],
-                    defaultFilter: {
-                      logic: '$bad',
-                      items: [{ path: 'nickname', operator: '$includes', value: '' }],
-                    },
-                  },
-                },
-              ],
+              defaultFilter: {
+                logic: '$bad',
+                items: [{ path: 'nickname', operator: '$includes', value: '' }],
+              },
             },
           ],
         },
@@ -1132,18 +1357,10 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [
-                {
-                  type: 'filter',
-                  settings: {
-                    filterableFieldNames: ['nickname'],
-                    defaultFilter: {
-                      logic: '$and',
-                      items: [{ logic: '$or', items: [] }],
-                    },
-                  },
-                },
-              ],
+              defaultFilter: {
+                logic: '$and',
+                items: [{ logic: '$or', items: [] }],
+              },
             },
           ],
         },
@@ -1151,8 +1368,7 @@ test('prepareApplyBlueprintRequest treats data-surface filter settings as option
     },
     { collectionMetadata },
   );
-  assert.equal(emptyNestedGroup.ok, false);
-  assert.ok(emptyNestedGroup.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-required'));
+  assert.equal(emptyNestedGroup.ok, true);
 });
 
 test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {
@@ -1970,6 +2186,7 @@ test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors on
               key: 'usersTable',
               type: 'table',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               fields: ['nickname'],
               actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
@@ -2659,6 +2876,7 @@ test('prepareApplyBlueprintRequest does not require fieldGroups for small table 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               fields: ['nickname'],
               actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
@@ -6112,6 +6330,7 @@ test('page preview cli prepare-write returns skipped defaultsRequirements when c
               key: 'usersTable',
               type: 'table',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               fields: ['nickname'],
               actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
@@ -6177,6 +6396,7 @@ test('page preview cli prepare-write returns normalized cli body json', async ()
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
                 fields: ['nickname', 'email'],
                 actions: [defaultFilterAction(['nickname', 'email', 'status'])],
               },
@@ -6232,6 +6452,7 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
                 fields: ['nickname'],
                 actions: [defaultFilterAction(['nickname', 'email', 'status'])],
               },
@@ -6302,6 +6523,7 @@ test('page preview cli prepare-write accepts bootstrap-before-bind templateDecis
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
                 fields: ['nickname'],
                 actions: [defaultFilterAction(['nickname', 'email', 'status'])],
               },
@@ -6373,6 +6595,7 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
                 fields: ['nickname'],
                 actions: [defaultFilterAction(['nickname', 'email', 'status'])],
               },
@@ -6408,4 +6631,79 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
   assert.equal(payload.ok, true);
   assert.equal(payload.facts.expectedOuterTabs, 2);
   assert.equal(payload.facts.outerTabCount, 2);
+});
+
+test('prepareApplyBlueprintRequest accepts calendar blocks without requiring table defaultFilter', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter', 'addNew'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].type, 'calendar');
+});
+
+test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions on calendar main blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              fields: ['nickname'],
+              fieldGroups: [
+                {
+                  title: 'Main',
+                  fields: ['email'],
+                },
+              ],
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-fields-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-field-groups-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-record-actions-unsupported'), true);
 });

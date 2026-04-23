@@ -10,10 +10,11 @@ Canonical front door is `nocobase-ctl flow-surfaces`. This file is for **low-lev
 2. Decision matrix
 3. Legal shapes of `settings`
 4. High-impact reminders
-5. Event-flow replacement
-6. Frequent templates
-7. When not to force something into `settings`
-8. Readback mental model
+5. Layout replacement
+6. Event-flow replacement
+7. Frequent templates
+8. When not to force something into `settings`
+9. Readback mental model
 
 ## Core Rules
 
@@ -41,6 +42,57 @@ Canonical front door is `nocobase-ctl flow-surfaces`. This file is for **low-lev
 - `set-layout` and `set-event-flows` are not ordinary patches. Both are high-impact full-replace APIs.
 - Do not default to them just because "only one layout item" or "only one flow" is changing. If the user is not asking for whole replacement, prefer `compose/add*`, `configure`, or `update-settings` instead.
 - Once you use them, read the full current state before writing, and validate against the full post-write state. Do not rely on local delta only.
+
+## Layout Replacement
+
+Use `set-layout` when the target grid already exists and the user explicitly accepts full layout replacement.
+
+Core rules:
+
+- Preferred CLI family is `nocobase-ctl flow-surfaces set-layout`.
+- Low-level `set-layout` is **not** the public page/popup/fields layout contract. Do not reuse `{ rows: [[{ key, span }]] }` here.
+- `target.uid` must be the live grid uid from readback, not a page/popup block `key`.
+- `rows` is `Record<string, string[][]>`: each row value is an array of column cells, and each cell is an array of stacked live child `uid`s.
+- `sizes` is `Record<string, number[]>`: each row's sizes array must stay aligned with that row's column-cell count, and `rows` / `sizes` must use the same row keys.
+- `rowOrder` is optional; if provided, it must list every `rows` key exactly once.
+- `[[details-uid], [roles-table-uid]]` with `[12, 12]` means one row with two columns.
+- `[[details-uid, roles-table-uid]]` with `[24]` means one column with two vertically stacked blocks.
+- Before the real write, pass the raw `set-layout` body through the local preflight/guard when available so one-dimensional `rows`, nested `sizes`, row/size count mismatches, and `rowOrder` mismatches fail locally instead of surfacing as a misleading runtime layout.
+- Keep [tool-shapes.md](./tool-shapes.md) as the canonical full transport example. This section keeps only the minimum mental model and anti-examples.
+
+Minimal same-row two-column example:
+
+```json
+{
+  "target": { "uid": "popup-grid-uid" },
+  "rows": {
+    "row1": [
+      ["details-uid"],
+      ["roles-table-uid"]
+    ]
+  },
+  "sizes": {
+    "row1": [12, 12]
+  },
+  "rowOrder": ["row1"]
+}
+```
+
+Representative wrong shape:
+
+```json
+{
+  "target": { "uid": "popup-grid-uid" },
+  "rows": {
+    "row1": ["details-uid", "roles-table-uid"]
+  },
+  "sizes": {
+    "row1": [12, 12]
+  }
+}
+```
+
+For the full transport shape and additional anti-examples, see [tool-shapes.md](./tool-shapes.md).
 
 ## Event-flow Replacement
 
@@ -195,6 +247,30 @@ Create `createForm` and give it a title directly:
   "settings": {
     "title": "Create User",
     "displayTitle": true
+  }
+}
+```
+
+When `add-block` creates a public `table` / `list` / `gridCard`, keep `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`.
+
+```json
+{
+  "target": { "uid": "grid-uid" },
+  "type": "table",
+  "resourceInit": {
+    "dataSourceKey": "main",
+    "collectionName": "users"
+  },
+  "defaultFilter": {
+    "logic": "$and",
+    "items": [
+      { "path": "nickname", "operator": "$includes", "value": "" },
+      { "path": "email", "operator": "$includes", "value": "" },
+      { "path": "status", "operator": "$eq", "value": "" }
+    ]
+  },
+  "settings": {
+    "title": "Users"
   }
 }
 ```

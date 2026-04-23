@@ -6,7 +6,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 
 - Canonical front door: `nocobase-ctl flow-surfaces`
 - Retained `applyBlueprint`, `flowSurfaces:*`, and MCP tool docs in this skill remain the backend contract, payload reference, and fallback map.
-- `nb-page-preview` and `nb-runjs` remain local helper CLIs only.
+- `nb-page-preview` and `nb-runjs` remain local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
 - Whole-page `prepare-write` is local/read-only. For the first real whole-page write, it is mandatory, and the sendable business object becomes `result.cliBody`.
 
 ## 1. Precedence
@@ -39,7 +39,7 @@ This file keeps backend action names because they are still the stable payload f
 - Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
 - Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in the whole-page route must be `nocobase-ctl flow-surfaces apply-blueprint`.
 - Before one whole-page `applyBlueprint` succeeds, do not use low-level mutating commands such as `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
-- If the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence. Do not continue with low-level writes in that same pre-success phase.
+- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / preview / error evidence.
 - After a successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and must stay narrowly scoped.
 
 ### What the public page blueprint is
@@ -63,7 +63,7 @@ The public `applyBlueprint` payload is:
 - `fieldsLayout` is allowed only on `createForm`, `editForm`, `details`, and `filterForm`; it references field keys inside that one block and must place every keyed field exactly once
 - for `createForm`, `editForm`, and `details`, once a block contains more than 10 real fields, `fieldGroups` is mandatory instead of one flat `fields[]`
 - `fieldGroups` is supported only on `createForm`, `editForm`, and `details`; it must not be combined with `fields[]` or `fieldsLayout`, and manual `divider` items do not satisfy the grouping requirement
-- when the user asks to add filtering/search to a `table`, `list`, or `gridCard` host, use that host's block-level `filter` action by default; reserve `filterForm` for explicit block/form/query-area intent. Explicit `settings.filterableFieldNames` / `settings.defaultFilter` are optional, and when provided `defaultFilter.items` should cover every listed filterable field
+- when the user asks to add filtering/search to a `table`, `list`, or `gridCard` host, use that host's block-level `filter` action by default; reserve `filterForm` for explicit block/form/query-area intent. For public `applyBlueprint`, `compose`, `add-block`, and `add-blocks` authoring, every `table` / `list` / `gridCard` block must include block-level `defaultFilter`. The `filter` action itself is optional. If both block-level `defaultFilter` and action-level `settings.defaultFilter` exist, the action-level one wins, and any explicit `defaultFilter.items` should still cover every listed `filterableFieldNames` path
 - if `layout` is present, it must be an object
 - in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
 - when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking

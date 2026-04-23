@@ -258,6 +258,16 @@ const metadataWithAssociationFormInvalidTitleField = {
   },
 };
 
+function makePublicDefaultFilter(items = [
+  { path: 'order_no', operator: '$includes', value: '' },
+  { path: 'status', operator: '$eq', value: '' },
+]) {
+  return {
+    logic: '$and',
+    items: cloneJson(items),
+  };
+}
+
 const metadataWithAssociationFormMissingTargetFields = {
   collections: {
     orders: metadataWithAssociationFormTargetFilterKeyOnly.collections.orders,
@@ -3120,6 +3130,352 @@ test('auditPayload blocks multi-block layouts that keep filters away from the fi
   assert.equal(result.blockers.some((item) => item.code === 'MULTI_BLOCK_LAYOUT_SINGLE_COLUMN'), true);
 });
 
+test('auditPayload blocks raw set-layout payloads that use one-dimensional rows', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: ['details-uid', 'roles-table-uid'],
+      },
+      sizes: {
+        row1: [12, 12],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_COLUMNS_ARRAY_REQUIRED'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads with missing target uid', () => {
+  const result = auditPayload({
+    payload: {
+      target: {},
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_TARGET_UID_REQUIRED'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads with missing top-level target object', () => {
+  const result = auditPayload({
+    payload: {
+      rows: {
+        row1: [
+          ['details-uid'],
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [12, 12],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_TARGET_UID_REQUIRED'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads whose rows is not an object', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: [],
+      sizes: {
+        row1: [24],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROWS_OBJECT_REQUIRED'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads whose sizes is not an object', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+      },
+      sizes: [],
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_SIZES_OBJECT_REQUIRED'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads whose rowOrder is not an array', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+      },
+      rowOrder: 'row1',
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_ORDER_INVALID'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads that nest sizes arrays', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [[12, 12]],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_SIZE_NUMBER_REQUIRED'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads with orphan size row keys', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+        row2: [24],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_SIZE_ROW_ORPHAN'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads with rowOrder keys not present in rows', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+      },
+      rowOrder: ['row2'],
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_ORDER_KEYS_MISMATCH'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads whose rowOrder omits existing rows', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+        row2: [
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+        row2: [24],
+      },
+      rowOrder: ['row1'],
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_ORDER_KEYS_MISMATCH'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads whose rowOrder repeats a row key', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+        row2: [
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+        row2: [24],
+      },
+      rowOrder: ['row1', 'row1', 'row2'],
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_ORDER_KEYS_MISMATCH'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads that mix stacked cells with multi-column sizes', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid', 'roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [12, 12],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_STACKED_CELL_MULTI_SIZE_MISMATCH'), true);
+});
+
+test('auditPayload blocks raw set-layout payloads whose row size count does not match column count', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_SIZE_COUNT_MISMATCH'), true);
+});
+
+test('auditPayload accepts raw set-layout payloads for legitimate same-row two-column and stacked layouts', () => {
+  const sideBySideResult = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [12, 12],
+      },
+      rowOrder: ['row1'],
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(sideBySideResult.ok, true);
+  assert.equal(sideBySideResult.blockers.some((item) => item.code.startsWith('SET_LAYOUT_')), false);
+
+  const stackedResult = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid', 'roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(stackedResult.ok, true);
+  assert.equal(stackedResult.blockers.some((item) => item.code.startsWith('SET_LAYOUT_')), false);
+
+  const reorderedResult = auditPayload({
+    payload: {
+      target: { uid: 'popup-grid-uid' },
+      rows: {
+        row1: [
+          ['details-uid'],
+        ],
+        row2: [
+          ['roles-table-uid'],
+        ],
+      },
+      sizes: {
+        row1: [24],
+        row2: [24],
+      },
+      rowOrder: ['row2', 'row1'],
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(reorderedResult.ok, true);
+  assert.equal(reorderedResult.blockers.some((item) => item.code.startsWith('SET_LAYOUT_')), false);
+});
+
 test('auditPayload blocks reparenting an existing uid when live topology disagrees', () => {
   const payload = {
     uid: 'grid-root',
@@ -5223,4 +5579,237 @@ test('auditPayload blocks grid card payloads missing item subtree or invalid act
   assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID'), true);
   assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID'), true);
   assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload blocks public add-block table payloads missing block-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('orders'),
+      settings: {
+        title: 'Orders',
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+});
+
+test('auditPayload does not accept add-block table payloads that only place defaultFilter under settings', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('orders'),
+      settings: {
+        defaultFilter: makePublicDefaultFilter(),
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+});
+
+test('auditPayload accepts public add-block table payloads with top-level defaultFilter and no filter action', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('orders'),
+      defaultFilter: makePublicDefaultFilter(),
+      settings: {
+        title: 'Orders',
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
+test('auditPayload accepts public add-block table payloads with empty top-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('orders'),
+      defaultFilter: {},
+      settings: {
+        title: 'Orders',
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
+test('auditPayload blocks public blocks payloads whose data-surface blocks omit block-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          type: 'table',
+          resourceInit: makeCollectionResourceInit('orders'),
+        },
+      ],
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+});
+
+test('auditPayload accepts public blocks payloads whose data-surface blocks keep top-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          type: 'table',
+          resourceInit: makeCollectionResourceInit('orders'),
+          defaultFilter: makePublicDefaultFilter(),
+        },
+      ],
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
+test('auditPayload accepts public blocks payloads with normalized empty top-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          type: 'table',
+          resourceInit: makeCollectionResourceInit('orders'),
+          defaultFilter: { logic: '$and', items: [] },
+        },
+      ],
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
+for (const dataSurfaceBlockType of ['list', 'gridCard']) {
+  test(`auditPayload blocks public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
+    const result = auditPayload({
+      payload: {
+        target: { uid: 'grid-uid' },
+        blocks: [
+          {
+            type: dataSurfaceBlockType,
+            resourceInit: makeCollectionResourceInit('orders'),
+          },
+        ],
+      },
+      metadata,
+      mode: VALIDATION_CASE_MODE,
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  });
+
+  test(`auditPayload accepts public blocks payloads whose ${dataSurfaceBlockType} blocks keep top-level defaultFilter`, () => {
+    const result = auditPayload({
+      payload: {
+        target: { uid: 'grid-uid' },
+        blocks: [
+          {
+            type: dataSurfaceBlockType,
+            resourceInit: makeCollectionResourceInit('orders'),
+            defaultFilter: makePublicDefaultFilter(),
+          },
+        ],
+      },
+      metadata,
+      mode: VALIDATION_CASE_MODE,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+  });
+}
+
+test('auditPayload accepts CalendarBlockModel as a collection resource block with calendar toolbar actions', () => {
+  const result = auditPayload({
+    payload: {
+      uid: 'orders-calendar',
+      use: 'CalendarBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        actions: [
+          { use: 'CalendarTodayActionModel' },
+          { use: 'CalendarTurnPagesActionModel' },
+          { use: 'CalendarTitleActionModel' },
+          { use: 'CalendarSelectViewActionModel' },
+          { use: 'FilterActionModel' },
+          { use: 'AddNewActionModel' },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('CALENDAR_')), false);
+});
+
+test('auditPayload blocks CalendarBlockModel main fields and unsupported actions', () => {
+  const result = auditPayload({
+    payload: {
+      uid: 'orders-calendar',
+      use: 'CalendarBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        fields: [{ use: 'FormItemModel' }],
+        fieldGroups: [{ use: 'FieldGroupModel' }],
+        recordActions: [{ use: 'ViewActionModel' }],
+        actions: [
+          { use: 'BulkDeleteActionModel' },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_MAIN_FIELDS_UNSUPPORTED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_MAIN_FIELD_GROUPS_UNSUPPORTED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_ACTION_SLOT_USE_INVALID'), true);
 });
