@@ -50,6 +50,7 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
+const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
 const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
@@ -3129,7 +3130,18 @@ function validateBlueprintDefaults(blueprint, state) {
   }
 }
 
-function validatePopupDocument(popup, path, state) {
+function getValidationPopupSurfaceContext(state, blockContext, fieldPath = '') {
+  const associationRequirement = resolveAssociationFieldRequirement(
+    state.collectionMetadata,
+    blockContext,
+    fieldPath,
+  );
+  return {
+    surfaceCollection: associationRequirement?.targetCollection || getTraversalSurfaceCollection(blockContext),
+  };
+}
+
+function validatePopupDocument(popup, path, state, parentContext = {}) {
   if (!isPlainObject(popup)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-popup', 'Popup must be one object.');
     return;
@@ -3217,7 +3229,7 @@ function validatePopupDocument(popup, path, state) {
   }
 
   for (const [index, block] of ensureArray(popup.blocks).entries()) {
-    validateBlock(block, `${path}.blocks[${index}]`, state);
+    validateBlock(block, `${path}.blocks[${index}]`, state, parentContext);
   }
 
   validateMultiBlockDataTitles(popup.blocks, `${path}.blocks`, state);
@@ -3242,20 +3254,75 @@ function validateCustomEditPopup(popup, path, state) {
   }
 }
 
-function validateFieldPopups(items, path, state) {
+function validateFieldPopups(items, path, state, blockContext) {
   for (const [index, item] of ensureArray(items).entries()) {
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
-    validatePopupDocument(item.popup, `${path}[${index}].popup`, state);
+    validatePopupDocument(
+      item.popup,
+      `${path}[${index}].popup`,
+      state,
+      getValidationPopupSurfaceContext(state, blockContext, item.field),
+    );
   }
 }
 
-function validateFieldGroupPopups(fieldGroups, path, state) {
+function validateFieldGroupPopups(fieldGroups, path, state, blockContext) {
   forEachFieldGroup(fieldGroups, (group, groupIndex) => {
-    validateFieldPopups(group.fields, `${path}[${groupIndex}].fields`, state);
+    validateFieldPopups(group.fields, `${path}[${groupIndex}].fields`, state, blockContext);
   });
 }
 
-function validateActions(items, path, state, { recordActions = false } = {}) {
+function resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath) {
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedFieldPath || normalizedFieldPath.includes('.')) return null;
+  const collectionName = getTraversalSurfaceCollection(blockContext);
+  if (!collectionName) return null;
+  const resolved = resolveFieldPathInCollectionMetadata(collectionMetadata, collectionName, normalizedFieldPath);
+  if (!resolved?.field || !isAssociationFieldMeta(resolved.field)) return null;
+  return resolved.field;
+}
+
+function validateDisplayAssociationFieldPopupRequirement(items, block, blockContext, path, state) {
+  if (!DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return;
+  }
+
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!Object.keys(collectionMetadata).length) {
+    return;
+  }
+
+  for (const [index, item] of ensureArray(items).entries()) {
+    const itemPath = `${path}[${index}]`;
+    const fieldPath =
+      typeof item === 'string'
+        ? normalizeText(item)
+        : isPlainObject(item)
+          ? normalizeText(item.field)
+          : '';
+    if (!resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath)) {
+      continue;
+    }
+    if (isPlainObject(item) && hasOwn(item, 'popup')) {
+      continue;
+    }
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      itemPath,
+      'display-association-field-popup-required',
+      `Display relation field "${fieldPath}" must use object form with explicit popup in table/details/list/gridCard blocks. Use { "field": "${fieldPath}", "popup": { ... } } instead of the shorthand or popup-less form.`,
+    );
+  }
+}
+
+function validateDisplayAssociationFieldGroupPopupRequirement(fieldGroups, block, blockContext, path, state) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    validateDisplayAssociationFieldPopupRequirement(group.fields, block, blockContext, `${path}[${groupIndex}].fields`, state);
+  });
+}
+
+function validateActions(items, path, state, { recordActions = false, blockContext = {} } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
     const actionType =
       typeof item === 'string' ? normalizeLowerText(item) : isPlainObject(item) ? normalizeLowerText(item.type) : '';
@@ -3270,7 +3337,12 @@ function validateActions(items, path, state, { recordActions = false } = {}) {
     }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
     const popupPath = `${path}[${index}].popup`;
-    validatePopupDocument(item.popup, popupPath, state);
+    validatePopupDocument(
+      item.popup,
+      popupPath,
+      state,
+      getValidationPopupSurfaceContext(state, blockContext),
+    );
     if (EDIT_ACTION_TYPES.has(normalizeLowerText(item.type))) {
       validateCustomEditPopup(item.popup, popupPath, state);
     }
@@ -3500,10 +3572,9 @@ function isDataSurfaceDefaultFilterBlock(block) {
   return DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES.has(normalizeText(block?.type));
 }
 
-function findDataSurfaceFilterAction(block) {
-  return ensureArray(block?.actions).find((action) =>
-    isPlainObject(action) && normalizeLowerText(action.type) === 'filter',
-  );
+function isDataSurfaceFilterAction(action) {
+  return (typeof action === 'string' && normalizeLowerText(action) === 'filter')
+    || (isPlainObject(action) && normalizeLowerText(action.type) === 'filter');
 }
 
 function validateFilterableFieldNames(fieldNames, path, state) {
@@ -3513,7 +3584,7 @@ function validateFilterableFieldNames(fieldNames, path, state) {
       state.seenErrors,
       path,
       'data-surface-default-filter-fields-required',
-      'table/list/gridCard blocks must set filter action settings.filterableFieldNames to a non-empty field name array.',
+      'filter action settings.filterableFieldNames must be a non-empty field name array when provided.',
     );
     return [];
   }
@@ -3557,86 +3628,139 @@ function validateDataSurfaceDefaultFilterFieldsExist(fieldNames, block, path, st
   }
 }
 
-function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, requireFieldCoverage = fieldNames.length > 0) {
+function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, state) {
+  if (!fieldName) return;
+  const collection = getCollectionLabel(block);
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!collection || Object.keys(collectionMetadata).length === 0 || !getCollectionMeta(collectionMetadata, collection)) {
+    return;
+  }
+  if (resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldName)) {
+    return;
+  }
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    'data-surface-default-filter-unknown-field',
+    `settings.defaultFilter.items path "${fieldName}" is unsupported for collection ${collection}.`,
+  );
+}
+
+function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, block) {
   if (!isPlainObject(defaultFilter)) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       path,
       'data-surface-default-filter-required',
-      'table/list/gridCard filter actions must set settings.defaultFilter to one filter group object.',
-    );
-    return;
-  }
-  if (!normalizeText(defaultFilter.logic)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.logic`,
-      'data-surface-default-filter-logic-required',
-      'settings.defaultFilter.logic must be present.',
-    );
-  }
-  if (!Array.isArray(defaultFilter.items) || defaultFilter.items.length === 0) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.items`,
-      'data-surface-default-filter-items-required',
-      'settings.defaultFilter.items must include at least one field filter item.',
+      'filter action settings.defaultFilter must be one filter group object when provided.',
     );
     return;
   }
 
   const fieldNameSet = new Set(fieldNames);
   const filterItemPaths = new Set();
-  for (const [index, item] of defaultFilter.items.entries()) {
-    const itemPath = `${path}.items[${index}]`;
-    if (!isPlainObject(item)) {
+
+  const visitGroup = (group, groupPath) => {
+    const logic = normalizeText(group.logic);
+    if (!logic) {
       pushValidationError(
         state.errors,
         state.seenErrors,
-        itemPath,
-        'data-surface-default-filter-item-invalid',
-        'Each settings.defaultFilter.items entry must be one object.',
+        `${groupPath}.logic`,
+        'data-surface-default-filter-logic-required',
+        'settings.defaultFilter.logic must be present.',
       );
-      continue;
+    } else if (logic !== '$and' && logic !== '$or') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.logic`,
+        'data-surface-default-filter-logic-invalid',
+        "settings.defaultFilter.logic must be '$and' or '$or'.",
+      );
     }
-    const filterPath = normalizeText(item.path);
-    if (!filterPath) {
+
+    if (!Array.isArray(group.items)) {
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${itemPath}.path`,
-        'data-surface-default-filter-item-path-required',
-        'Each settings.defaultFilter.items entry must include path.',
+        `${groupPath}.items`,
+        'data-surface-default-filter-items-required',
+        'settings.defaultFilter.items must include an array of filter items.',
       );
-    } else {
-      filterItemPaths.add(filterPath);
-      if (requireFieldCoverage && fieldNameSet.size > 0 && !fieldNameSet.has(filterPath)) {
+      return;
+    }
+
+    if (group.items.length === 0) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.items`,
+        'data-surface-default-filter-items-required',
+        'settings.defaultFilter.items must include at least one field filter item.',
+      );
+      return;
+    }
+
+    for (const [index, item] of group.items.entries()) {
+      const itemPath = `${groupPath}.items[${index}]`;
+      if (!isPlainObject(item)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          itemPath,
+          'data-surface-default-filter-item-invalid',
+          'Each settings.defaultFilter.items entry must be one object.',
+        );
+        continue;
+      }
+
+      if (hasOwn(item, 'logic') || hasOwn(item, 'items')) {
+        visitGroup(item, itemPath);
+        continue;
+      }
+
+      const filterPath = normalizeText(item.path);
+      if (!filterPath) {
         pushValidationError(
           state.errors,
           state.seenErrors,
           `${itemPath}.path`,
-          'data-surface-default-filter-item-not-filterable',
-          `settings.defaultFilter.items path "${filterPath}" must also appear in filterableFieldNames.`,
+          'data-surface-default-filter-item-path-required',
+          'Each settings.defaultFilter.items entry must include path.',
+        );
+      } else {
+        filterItemPaths.add(filterPath);
+        if (fieldNameSet.size > 0 && !fieldNameSet.has(filterPath)) {
+          pushValidationError(
+            state.errors,
+            state.seenErrors,
+            `${itemPath}.path`,
+            'data-surface-default-filter-item-not-filterable',
+            `settings.defaultFilter.items path "${filterPath}" must also appear in filterableFieldNames.`,
+          );
+        }
+        if (fieldNameSet.size === 0) {
+          validateDataSurfaceDefaultFilterPathExists(filterPath, block, `${itemPath}.path`, state);
+        }
+      }
+      if (!normalizeText(item.operator)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${itemPath}.operator`,
+          'data-surface-default-filter-item-operator-required',
+          'Each settings.defaultFilter.items entry must include operator.',
         );
       }
     }
-    if (!normalizeText(item.operator)) {
-      pushValidationError(
-        state.errors,
-        state.seenErrors,
-        `${itemPath}.operator`,
-        'data-surface-default-filter-item-operator-required',
-        'Each settings.defaultFilter.items entry must include operator.',
-      );
-    }
-  }
+  };
 
-  const missingFilterItems = requireFieldCoverage
-    ? fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName))
-    : [];
+  visitGroup(defaultFilter, path);
+
+  const missingFilterItems = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
   if (missingFilterItems.length > 0) {
     pushValidationError(
       state.errors,
@@ -3652,61 +3776,64 @@ function validateDataSurfaceDefaultFilter(block, path, state) {
   if (!isDataSurfaceDefaultFilterBlock(block)) {
     return;
   }
-  const filterAction = findDataSurfaceFilterAction(block);
-  if (!filterAction) {
-    return;
-  }
 
-  const filterActionIndex = ensureArray(block.actions).indexOf(filterAction);
-  const actionPath = `${path}.actions[${filterActionIndex}]`;
-  const settingsPath = `${actionPath}.settings`;
-  if (!hasOwn(filterAction, 'settings')) {
-    return;
-  }
-  if (!isPlainObject(filterAction.settings)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      settingsPath,
-      'data-surface-filter-settings-invalid',
-      'filter action settings must be one object when provided.',
-    );
-    return;
-  }
+  for (const [filterActionIndex, filterAction] of ensureArray(block.actions).entries()) {
+    if (!isDataSurfaceFilterAction(filterAction)) {
+      continue;
+    }
+    if (!isPlainObject(filterAction) || !hasOwn(filterAction, 'settings')) {
+      continue;
+    }
 
-  const hasFieldNames = hasOwn(filterAction.settings, 'filterableFieldNames');
-  const hasDefaultFilter = hasOwn(filterAction.settings, 'defaultFilter');
-  const fieldNames = hasFieldNames
-    ? validateFilterableFieldNames(
-      filterAction.settings.filterableFieldNames,
-      `${settingsPath}.filterableFieldNames`,
-      state,
-    )
-    : [];
-  if (hasFieldNames) {
-    validateDataSurfaceDefaultFilterFieldsExist(
-      fieldNames,
-      block,
-      `${settingsPath}.filterableFieldNames`,
-      state,
-    );
-  }
-  if (hasDefaultFilter) {
-    validateDefaultFilterGroup(
-      filterAction.settings.defaultFilter,
-      fieldNames,
-      `${settingsPath}.defaultFilter`,
-      state,
-      hasFieldNames,
-    );
+    const actionPath = `${path}.actions[${filterActionIndex}]`;
+    const settingsPath = `${actionPath}.settings`;
+    if (!isPlainObject(filterAction.settings)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        settingsPath,
+        'data-surface-filter-settings-invalid',
+        'filter action settings must be one object when provided.',
+      );
+      continue;
+    }
+
+    const hasFieldNames = hasOwn(filterAction.settings, 'filterableFieldNames');
+    const hasDefaultFilter = hasOwn(filterAction.settings, 'defaultFilter');
+
+    const fieldNames = hasFieldNames
+      ? validateFilterableFieldNames(
+        filterAction.settings.filterableFieldNames,
+        `${settingsPath}.filterableFieldNames`,
+        state,
+      )
+      : [];
+    if (hasFieldNames) {
+      validateDataSurfaceDefaultFilterFieldsExist(
+        fieldNames,
+        block,
+        `${settingsPath}.filterableFieldNames`,
+        state,
+      );
+    }
+    if (hasDefaultFilter) {
+      validateDefaultFilterGroup(
+        filterAction.settings.defaultFilter,
+        fieldNames,
+        `${settingsPath}.defaultFilter`,
+        state,
+        block,
+      );
+    }
   }
 }
 
-function validateBlock(block, path, state) {
+function validateBlock(block, path, state, parentContext = {}) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
     return;
   }
+  const blockContext = buildBlockTraversalContext(block, parentContext, state.collectionMetadata);
 
   if (hasOwn(block, 'layout')) {
     pushValidationError(
@@ -3746,11 +3873,13 @@ function validateBlock(block, path, state) {
     }
   }
 
-  validateFieldPopups(block.fields, `${path}.fields`, state);
-  validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state);
+  validateDisplayAssociationFieldPopupRequirement(block.fields, block, blockContext, `${path}.fields`, state);
+  validateDisplayAssociationFieldGroupPopupRequirement(block.fieldGroups, block, blockContext, `${path}.fieldGroups`, state);
+  validateFieldPopups(block.fields, `${path}.fields`, state, blockContext);
+  validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state, blockContext);
   validateDataSurfaceDefaultFilter(block, path, state);
-  validateActions(block.actions, `${path}.actions`, state, { recordActions: false });
-  validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true });
+  validateActions(block.actions, `${path}.actions`, state, { recordActions: false, blockContext });
+  validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true, blockContext });
 }
 
 function validateTab(tab, index, state) {

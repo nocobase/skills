@@ -45,6 +45,7 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
+- In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
@@ -465,7 +466,25 @@ Right:
   "layout": {
     "rows": [["employeesTable"]]
   },
-  "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }]
+  "blocks": [
+    {
+      "key": "employeesTable",
+      "type": "table",
+      "collection": "employees",
+      "actions": [
+        {
+          "type": "filter",
+          "settings": {
+            "filterableFieldNames": ["nickname"],
+            "defaultFilter": {
+              "logic": "$and",
+              "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -731,17 +750,29 @@ For collection-action hosts (`table`, `list`, `gridCard`):
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
 
-Default filter action shape:
+Optional explicit filter settings shape:
 
 ```json
 {
-  "type": "filter"
+  "type": "filter",
+  "settings": {
+    "filterableFieldNames": ["username", "email", "status"],
+    "defaultFilter": {
+      "logic": "$and",
+      "items": [
+        { "path": "username", "operator": "$includes", "value": "" },
+        { "path": "email", "operator": "$includes", "value": "" },
+        { "path": "status", "operator": "$eq", "value": "" }
+      ]
+    }
+  }
 }
 ```
 
 Planning rules:
 
-- `actions: ["filter"]` and `{ "type": "filter" }` are both valid public authoring shapes
+- a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit settings are not required for first-write `prepare-write`
+- if explicit settings are provided, pick 3 to 4 common fields when available, and ensure `defaultFilter.items` covers every `filterableFieldNames` path
 - if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action
 
 ### Popup

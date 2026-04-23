@@ -409,7 +409,7 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /reads\/preview\/prepare-write ok|reads[\s\S]{0,32}preview[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
+    /reads\/metadata\/preview\/prepare-write ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}preview[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
     'openai prompt should allow read-only prep before the first mutating write',
   );
   assert.match(
@@ -745,12 +745,16 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.ok(defaultPrompt.length <= 1200, 'openai default_prompt should stay at or below 1200 chars');
 });
 
-test('docs and prompt do not force explicit default filter payloads on every data surface', () => {
+test('data-surface filter action routing stays visible without mandatory default settings', () => {
+  const mandatoryDefaultSettingsPattern =
+    /(?:table|list|gridCard)[\s\S]{0,120}(?:must|always|rejects?|requires?|not valid)[\s\S]{0,160}(?:filterableFieldNames|defaultFilter)|(?:filterableFieldNames|defaultFilter)[\s\S]{0,160}(?:must|required|requires?|always|not valid)[\s\S]{0,120}(?:table|list|gridCard)/i;
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
     'references/page-blueprint.md',
     'references/tool-shapes.md',
+    'references/helper-contracts.md',
+    'references/local-edit-quick.md',
     'references/normative-contract.md',
   ]) {
     const text = read(relativePath);
@@ -759,18 +763,25 @@ test('docs and prompt do not force explicit default filter payloads on every dat
       /table[\s\S]{0,80}list[\s\S]{0,80}gridCard|table[\s\S]{0,80}gridCard[\s\S]{0,80}list/i,
       `${relativePath} should name table/list/gridCard data surfaces`,
     );
+    assert.match(
+      text,
+      /filter action|filter` action|filterAction|block-level `filter`|block-level filter/i,
+      `${relativePath} should keep host-level filter action routing visible`,
+    );
     assert.doesNotMatch(
       text,
-      /must include an object `filter` action with `settings\.filterableFieldNames` and `settings\.defaultFilter`|must carry explicit default filter settings|always rejects[\s\S]{0,120}filterableFieldNames[\s\S]{0,120}defaultFilter/i,
-      `${relativePath} should not force explicit filterableFieldNames/defaultFilter settings everywhere`,
+      mandatoryDefaultSettingsPattern,
+      `${relativePath} should not require explicit filterableFieldNames/defaultFilter settings for every data surface`,
     );
   }
 
   const pageBlueprint = read('references/page-blueprint.md');
-  assert.match(pageBlueprint, /actions:\s*\["filter"\]|"type":\s*"filter"/i);
+  assert.match(pageBlueprint, /explicit settings[\s\S]{0,80}not required|settings[\s\S]{0,80}optional/i);
+  assert.doesNotMatch(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
   assert.doesNotMatch(defaultPrompt, /filterableFieldNames|defaultFilter/i);
 });
 

@@ -855,123 +855,304 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
-test('prepareApplyBlueprintRequest keeps data-surface filter settings optional', () => {
-  const missing = rawPrepareApplyBlueprintRequest({
-    version: '1',
-    mode: 'create',
-    page: { title: 'Users' },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            type: 'table',
-            title: 'Users table',
-            collection: 'users',
-            fields: ['nickname'],
-          },
-        ],
-      },
-    ],
-  });
+test('prepareApplyBlueprintRequest treats data-surface filter settings as optional', () => {
+  const missing = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
   assert.equal(missing.ok, true);
 
-  const shorthand = rawPrepareApplyBlueprintRequest({
-    version: '1',
-    mode: 'create',
-    page: { title: 'Users' },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            type: 'list',
-            title: 'Users list',
-            collection: 'users',
-            fields: ['nickname'],
-            actions: ['filter'],
-          },
-        ],
-      },
-    ],
-  });
+  const shorthand = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'list',
+              title: 'Users list',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: ['filter'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
   assert.equal(shorthand.ok, true);
 
-  const objectWithoutSettings = rawPrepareApplyBlueprintRequest({
-    version: '1',
-    mode: 'create',
-    page: { title: 'Users' },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            type: 'gridCard',
-            title: 'Users grid',
-            collection: 'users',
-            fields: ['nickname'],
-            actions: [{ type: 'filter' }],
-          },
-        ],
-      },
-    ],
-  });
+  const objectWithoutSettings = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [{ type: 'filter' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
   assert.equal(objectWithoutSettings.ok, true);
 
-  const incomplete = rawPrepareApplyBlueprintRequest({
-    version: '1',
-    mode: 'create',
-    page: { title: 'Users' },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            type: 'gridCard',
-            title: 'Users grid',
-            collection: 'users',
-            fields: ['nickname'],
-            actions: [
-              {
-                type: 'filter',
-                settings: {
-                  filterableFieldNames: ['nickname', 'email'],
-                  defaultFilter: {
-                    logic: '$and',
-                    items: [{ path: 'nickname', operator: '$includes', value: '' }],
+  const invalidSecondFilterAction = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: ['filter', { type: 'filter', settings: 'invalid' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalidSecondFilterAction.ok, false);
+  assert.ok(invalidSecondFilterAction.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
+
+  const defaultFilterOnly = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [{ path: 'nickname', operator: '$includes', value: '' }],
+                    },
                   },
                 },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(defaultFilterOnly.ok, true);
+
+  const defaultFilterOnlyUnknownPath = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [{ path: 'missingField', operator: '$includes', value: '' }],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(defaultFilterOnlyUnknownPath.ok, false);
+  assert.ok(defaultFilterOnlyUnknownPath.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
+
+  const incomplete = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [{ path: 'nickname', operator: '$includes', value: '' }],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
   assert.equal(incomplete.ok, false);
   assert.ok(incomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
 
-  const invalidSettingsShape = rawPrepareApplyBlueprintRequest({
-    version: '1',
-    mode: 'create',
-    page: { title: 'Users' },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            type: 'table',
-            title: 'Users table',
-            collection: 'users',
-            fields: ['nickname'],
-            actions: [{ type: 'filter', settings: 'invalid' }],
-          },
-        ],
-      },
-    ],
-  });
+  const invalidSettingsShape = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [{ type: 'filter', settings: 'invalid' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
   assert.equal(invalidSettingsShape.ok, false);
   assert.ok(invalidSettingsShape.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
+
+  const invalidLogic = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname'],
+                    defaultFilter: {
+                      logic: '$bad',
+                      items: [{ path: 'nickname', operator: '$includes', value: '' }],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalidLogic.ok, false);
+  assert.ok(invalidLogic.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-logic-invalid'));
+
+  const emptyNestedGroup = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [{ logic: '$or', items: [] }],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyNestedGroup.ok, false);
+  assert.ok(emptyNestedGroup.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-required'));
 });
 
 test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {
@@ -999,6 +1180,49 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   );
   assert.equal(valid.ok, true);
 
+  const nested = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [
+                        {
+                          logic: '$or',
+                          items: [
+                            { path: 'nickname', operator: '$includes', value: '' },
+                            { path: 'email', operator: '$includes', value: '' },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(nested.ok, true);
+
   const unknown = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -1023,6 +1247,47 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   );
   assert.equal(unknown.ok, false);
   assert.ok(unknown.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
+
+  const nestedMissingCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [
+                        {
+                          logic: '$or',
+                          items: [{ path: 'nickname', operator: '$includes', value: '' }],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(nestedMissingCoverage.ok, false);
+  assert.ok(nestedMissingCoverage.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
 });
 
 test('prepareApplyBlueprintRequest accepts collection defaults and summarizes them', () => {
@@ -4901,6 +5166,213 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
+});
+
+test('prepareApplyBlueprintRequest rejects one-level relation shorthand fields on table display blocks without popup', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'roles'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fields[1]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects one-level relation field objects on details blocks when popup is omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fields[0]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects inherited currentRecord relation fields when popup is omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      resource: { binding: 'currentRecord' },
+                      fields: ['roles'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.blocks[0].fields[0]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects one-level relation fieldGroups entries on details blocks when popup is omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Assignments',
+                fields: [
+                  {
+                    field: 'roles',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fieldGroups[0].fields[0]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest allows one-level relation fields on editForm blocks without popup', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            collection: 'users',
+            fields: ['username', 'roles'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['username', 'roles']);
+});
+
+test('prepareApplyBlueprintRequest allows dotted relation display fields without popup', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'department.title'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['nickname', 'department.title']);
 });
 
 test('prepareApplyBlueprintRequest requires explicit layout when multiple non-filter blocks share one popup', () => {

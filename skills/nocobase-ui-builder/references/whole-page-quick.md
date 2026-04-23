@@ -31,6 +31,8 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
+   - in display hosts (`table`, `details`, `list`, `gridCard`), first-level relation fields such as `roles` must use object form with inline `popup`; do not leave them as ``"roles"`` or `{ "field": "roles" }`
+   - dotted paths such as `department.title` stay allowed without popup, and `createForm` / `editForm` are exempt from that display-only rule
 8. If the page explicitly asks for a filter block/form, keep a real `filterForm` in that first-pass blueprint:
    - add non-empty filter `fields`
    - when the filter has fewer than 4 fields, add `actions: ["submit", "reset"]`
@@ -39,7 +41,9 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
-   - use a normal block-level `filter` action, such as `actions: ["filter"]` or `{ "type": "filter" }`
+   - use that same host's block-level `filter` action/button; shorthand or object action form is valid
+   - explicit `settings.filterableFieldNames` / `settings.defaultFilter` are optional because the runtime/API may complete defaults
+   - when explicit settings are provided, choose 3 to 4 common live fields when available and ensure every `filterableFieldNames` path appears in `defaultFilter.items`
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
    - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block

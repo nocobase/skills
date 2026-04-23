@@ -16,6 +16,7 @@ Use this before the first real whole-page write.
 - this helper is local/read-only; it does not call `nocobase-ctl` or perform the remote write for you
 - does not fetch live collection metadata by itself
 - `collectionMetadata` stays caller-supplied; prepare-write does not fetch it for you
+- accepts omitted `table` / `list` / `gridCard` filter actions and omitted filter settings; if a `filter` action provides `settings`, validates that explicit settings payload
 - when `collectionMetadata` is provided, validates fixed defaults completeness for every involved scope: missing `defaults.collections.<collection>`, required popup `{ name, description }` entries for the fixed `view` / `addNew` / `edit` trio, and required `fieldGroups` when any fixed generated popup scene still has more than 10 effective fields; any `table` block also pulls its collection into the `addNew` threshold check
 - relation popup defaults stay keyed by the first relation segment; when callers pass deeper `popups.associations` keys such as `department.manager`, prepare-write normalizes them to that first segment in `result.cliBody`, and the explicit one-level key wins if both forms are present
 - explicit local `popup.blocks` still participate in defaults scope collection even when `popup.template` or `popup.tryTemplate` is present; template binding only changes popup content sourcing, not defaults scope registration
