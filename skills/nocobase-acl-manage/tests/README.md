@@ -14,16 +14,20 @@ This folder tracks runtime verification for `nocobase-acl-manage` v2.
 ```bash
 cd <BASE_DIR>
 nb --help
-nb env -s project
-nb env update <ENV_NAME>
+nb env list -s project
+nb env update <ENV_NAME>  # use current env from the `*` row
 nb api acl --help
 nb api acl roles --help
 ```
 
-2. If env context is missing, recover through bootstrap skill:
+2. If env context is missing, recover through direct CLI:
 
-```text
-Use $nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<BASE_DIR>
+```bash
+nb env list -s project
+# add env when missing
+nb env add <ENV_NAME> --scope project --api-base-url <BASE_URL>/api --auth-type oauth
+# or switch to existing env
+nb env use <ENV_NAME> -s project
 ```
 
 If needed, follow with add/use actions before continuing ACL tests.

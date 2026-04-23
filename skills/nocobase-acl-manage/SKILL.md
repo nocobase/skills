@@ -4,8 +4,8 @@ description: Task-driven ACL governance through nb CLI for role lifecycle, globa
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.4.3
-last-reviewed: 2026-04-22
+version: 2.5.1
+last-reviewed: 2026-04-23
 risk-level: high
 ---
 
@@ -35,6 +35,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 - Do not bypass CLI by calling direct REST endpoints.
 - Do not mutate ACL through ad-hoc database operations.
 - Do not create temporary script files to execute ACL writes.
+- Do not invoke other skills for env/plugin bootstrap; use direct `nb` commands in this skill.
 - Do not hide high-impact blast radius (global mode, broad snippets, broad strategy actions).
 - Do not claim one-click coverage for workflows that require governance review.
 
@@ -191,10 +192,11 @@ Default behavior when user says `you decide`:
 - prefer structured body flags (for example `--resources`, `--actions`) over inline `--body` when possible
 - if raw JSON body is required, prefer `--body-file` over inline `--body`
 - `--body-file` content must be valid JSON encoded as UTF-8 without BOM
+- if inline `--body` fails JSON parsing in PowerShell, regenerate payload as `--body-file` and retry once
 - avoid Bash-style escaped JSON in PowerShell (for example `{\"k\":\"v\"}`), it may be parsed as invalid JSON
 - policy payload guard (hard rule for independent resource writes):
-- preflight must block `api acl roles data-source-resources create|update` when `--body` is missing or invalid
-- for those writes, `--body` must include `usingActionsConfig: true` and non-empty `actions[]`
+- preflight must block `api acl roles data-source-resources create|update` when payload is missing or invalid (`--body-file` preferred, `--body` compatible)
+- for those writes, payload must include `usingActionsConfig: true` and non-empty `actions[]`
 - for actions `create/view/update/export/importXlsx`, each action must carry non-empty `fields[]`
 - for every action item, scope binding must be explicit via one of:
 - `scopeId` (for explicit id binding)
@@ -208,21 +210,24 @@ Default behavior when user says `you decide`:
 - for `roles data-source-resources get|update`, locator must be one of:
 - `--filter-by-tk <resource_config_id>`
 - `--data-source-key <data_source_key> --name <collection_name>`
-- for `roles data-sources-collections list`, ensure `dataSourceKey` is present (`--data-source-key` or `filter.dataSourceKey`)
+- for `roles data-sources-collections list`, use `--data-source-key <data_source_key>` as the default locator; use `--filter` only for compatibility
+- for collection/field resolution, prefer `nb api resource list --resource collections --filter '{}' --appends fields -j` as primary metadata source
 - for `roles desktop-routes add`, request body must be JSON array of numeric route ids
 - never execute write commands with uncertain, unresolved, or type-mismatched parameters
 - lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
 - run execution guard sequence before ACL writes:
-- `nb env -s project`
+- `nb env list -s project`
+- `nb env update <current_env_name>`
 - `nb api acl --help`
 - `nb api acl roles --help`
 - fail-closed policy:
 - if `nb api acl --help` or `nb api acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
-- confirm current env context through bootstrap skill app-manage (`$nocobase-env-bootstrap task=app-manage app_env_action=current target_dir=<target_dir> app_scope=project`)
-- if no env is configured/current, request env bootstrap through `$nocobase-env-bootstrap task=app-manage` (`app_env_action=add/use`)
-- if runtime command cache is missing/stale, run `nb env update <current_env_name>`
+- confirm current env context through direct CLI: run `nb env list -s project` and resolve current env from the row marked with `*`
+- if no env is configured/current, stop writes and ask user whether to add/switch env using direct CLI (`nb env add ...` or `nb env use ... -s project`)
+- if runtime command cache is missing/stale or command schema changed, run `nb env update <current_env_name>`
 - if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
-- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- `nb pm enable @nocobase/plugin-api-doc`
+- `nb pm enable @nocobase/plugin-api-keys`
 - restart app before retrying runtime refresh
 - if token is missing/invalid, ensure `@nocobase/plugin-api-keys` is active and refresh token env first
 - resolve runtime command names via [intent-to-tool-map-v1](references/intent-to-tool-map-v1.md) and command help discovery
@@ -269,7 +274,7 @@ Hard restrictions:
 - never use direct HTTP fallback
 - never use direct database mutation
 - never use generic resource commands for ACL policy writes when ACL-specific runtime commands exist
-- never infer "ACL unsupported" without checking `nb api acl --help` and `nb api acl roles --help` in the same locked `base-dir`
+- determine ACL support by checking `nb api acl --help` and `nb api acl roles --help` in the same locked `base-dir` before concluding capability status
 - never create temporary `.js/.ps1/.sh` executor scripts to bypass runtime command discovery
 
 # Safety Gate
@@ -299,10 +304,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 
 - task normalized to canonical task
 - required inputs complete before writes
-- CLI capability gate passes (env context available via `$nocobase-env-bootstrap task=app-manage app_env_action=current`, runtime commands resolvable)
+- CLI capability gate passes (env context available via direct `nb env list -s project`, runtime commands resolvable)
 - CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
 - runtime command names resolved from command map/help
-- execution guard evidence includes locked `base-dir` plus `env -s project`, `nb api acl --help`, and `nb api acl roles --help`
+- execution guard evidence includes locked `base-dir` plus `nb env list -s project`, `nb env update <current_env_name>`, `nb api acl --help`, and `nb api acl roles --help`
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
 - for `permission.data-source.resource.set`, readback confirms `usingActionsConfig=true` and action-level scope/fields in the same write cycle
@@ -311,7 +316,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
 - command-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
 - `roles data-source-resources get|update` locator is explicit (`filterByTk` or `data-source-key + name`) before execution
-- `roles data-sources-collections list` includes explicit `dataSourceKey`
+- collection/field metadata is resolved through `resource collections` read path; `roles data-sources-collections list` is compatibility-only for role-facing view
 - `roles desktop-routes add` uses JSON array body with numeric route ids
 - no write executes with uncertain or type-mismatched parameters
 - global role-mode tasks do not require `role_name`

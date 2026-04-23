@@ -29,6 +29,12 @@ This playbook is aligned to:
 - `<ORIGINAL_ROLE_MODE>`: role mode captured before TC07-TC09
 - `<TEST_USER_ID>`: target user id for guarded membership checks
 - `<DESKTOP_ROUTE_KEY>`: desktop route key/id for route permission checks
+- `<TC03_BODY_FILE>`: malformed payload file path for TC03
+- `<TC04_BODY_FILE>`: role create payload file path for TC04
+- `<TC11_BODY_FILE>`: snippets payload file path for TC11
+- `<TC12_BODY_FILE>`: data-source strategy payload file path for TC12
+- `<TC14_BODY_FILE>`: desktop route payload file path for TC14
+- `<TC20_BODY_FILE>`: batch independent payload file path for TC20
 
 ## Global Assertions
 
@@ -58,8 +64,50 @@ Before any write command, enforce:
 - for `roles data-source-resources get|update`, use:
   - `--filter-by-tk <RESOURCE_CONFIG_ID>`, or
   - `--data-source-key <DATA_SOURCE_KEY> --name <COLLECTION_NAME>`
+- for `roles data-sources-collections list`, use `--data-source-key <DATA_SOURCE_KEY>` by default; do not rely on `--filter` as the only source
 - for `roles desktop-routes add`, body must be a JSON array of route ids, not an object payload
+- on PowerShell/Windows, prefer `--body-file <path>` over inline `--body` for all JSON write payloads
 - if required ids are missing or unresolved, stop and mark case blocked/warn; do not execute writes
+
+## Body File Templates (Windows/PowerShell)
+
+Use UTF-8 without BOM.
+
+- `<TC03_BODY_FILE>` (intentionally malformed for guard check):
+
+```json
+{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}
+```
+
+- `<TC04_BODY_FILE>`:
+
+```json
+{"name":"<ROLE_NAME>","title":"<ROLE_TITLE>","description":"ACL test role","hidden":false,"allowConfigure":false,"allowNewMenu":false,"snippets":["!ui.*","!pm","!pm.*","!app"],"strategy":{"actions":[]}}
+```
+
+- `<TC11_BODY_FILE>`:
+
+```json
+{"snippets":["ui.*","pm"]}
+```
+
+- `<TC12_BODY_FILE>`:
+
+```json
+{"roleName":"<ROLE_NAME>","dataSourceKey":"<DATA_SOURCE_KEY>","strategy":{"actions":["view","update"]}}
+```
+
+- `<TC14_BODY_FILE>`:
+
+```json
+[<DESKTOP_ROUTE_KEY>]
+```
+
+- `<TC20_BODY_FILE>`:
+
+```json
+{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeKey":"all","fields":["id"]}]},{"name":"users","usingActionsConfig":true,"actions":[{"name":"create","scopeKey":"own","fields":["id","createdById"]}]}]}
+```
 
 ## Serial Execution Strategy
 
@@ -119,7 +167,8 @@ Runtime Command:
 ```bash
 cd <BASE_DIR>
 nb --help
-nb env -s project
+nb env list -s project
+nb env update <ENV_NAME>
 ```
 
 Expected:
@@ -140,7 +189,7 @@ Runtime Command:
 
 ```bash
 cd <WRONG_BASE_DIR>
-nb env -s project
+nb env list -s project
 nb api acl --help
 nb api acl roles --help
 ```
@@ -163,7 +212,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl roles data-source-resources update --role-name <ROLE_NAME> --filter-by-tk <RESOURCE_CONFIG_ID> --body '{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}' -j
+nb api acl roles data-source-resources update --role-name <ROLE_NAME> --filter-by-tk <RESOURCE_CONFIG_ID> --body-file <TC03_BODY_FILE> -j
 ```
 
 Expected:
@@ -184,7 +233,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl roles create --body '{"name":"<ROLE_NAME>","title":"<ROLE_TITLE>","description":"ACL test role","hidden":false,"allowConfigure":false,"allowNewMenu":false,"snippets":["!ui.*","!pm","!pm.*","!app"],"strategy":{"actions":[]}}' -j
+nb api acl roles create --body-file <TC04_BODY_FILE> -j
 nb api acl roles get --filter-by-tk <ROLE_NAME> -j
 ```
 
@@ -336,7 +385,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl roles update --filter-by-tk <ROLE_NAME> --body '{"snippets":["ui.*","pm"]}' -j
+nb api acl roles update --filter-by-tk <ROLE_NAME> --body-file <TC11_BODY_FILE> -j
 nb api acl roles get --filter-by-tk <ROLE_NAME> -j
 ```
 
@@ -358,7 +407,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl data-sources roles update --data-source-key <DATA_SOURCE_KEY> --filter-by-tk <ROLE_NAME> --body '{"roleName":"<ROLE_NAME>","dataSourceKey":"<DATA_SOURCE_KEY>","strategy":{"actions":["view","update"]}}' -j
+nb api acl data-sources roles update --data-source-key <DATA_SOURCE_KEY> --filter-by-tk <ROLE_NAME> --body-file <TC12_BODY_FILE> -j
 nb api acl data-sources roles get --data-source-key <DATA_SOURCE_KEY> --filter-by-tk <ROLE_NAME> -j
 ```
 
@@ -380,7 +429,8 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl roles data-sources-collections list --role-name <ROLE_NAME> --filter '{"dataSourceKey":"<DATA_SOURCE_KEY>"}' -j
+nb api resource list --resource collections --filter '{}' --appends fields -j
+nb api acl roles data-sources-collections list --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> -j
 nb api acl data-sources roles-resources-scopes list --data-source-key <DATA_SOURCE_KEY> -j
 nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name <COLLECTION_NAME> -j
 ```
@@ -404,7 +454,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl roles desktop-routes add --role-name <ROLE_NAME> --body '[<DESKTOP_ROUTE_KEY>]' -j
+nb api acl roles desktop-routes add --role-name <ROLE_NAME> --body-file <TC14_BODY_FILE> -j
 nb api acl roles desktop-routes list --role-name <ROLE_NAME> -j
 ```
 
@@ -536,7 +586,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api acl roles apply-data-permissions --filter-by-tk <ROLE_NAME> --body '{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeKey":"all","fields":["id"]}]},{"name":"users","usingActionsConfig":true,"actions":[{"name":"create","scopeKey":"own","fields":["id","createdById"]}]}]}' -j
+nb api acl roles apply-data-permissions --filter-by-tk <ROLE_NAME> --body-file <TC20_BODY_FILE> -j
 nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name users -j
 ```
 

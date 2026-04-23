@@ -17,14 +17,16 @@ Use this template before any ACL write (for example `role.create-blank`, role mo
 ## Guard Sequence (Mandatory)
 
 ```bash
-nb env -s project
+nb env list -s project
+nb env update <current_env_name>
 nb api acl --help
 nb api acl roles --help
 ```
 
 Pass criteria:
 
-- `env -s project` returns an active project env.
+- `env list -s project` returns an active project env (`*` row).
+- `env update <current_env_name>` succeeds or returns actionable recovery guidance.
 - `nb api acl --help` resolves successfully.
 - `nb api acl roles --help` resolves successfully and lists role lifecycle commands (`create/get/list/update/destroy`).
 
@@ -45,7 +47,22 @@ If any guard command fails:
 Preferred contract form:
 
 ```bash
-nb api acl roles create --body '{"name":"<role_name>","title":"<role_title>","description":"Blank role baseline","hidden":false,"allowConfigure":false,"allowNewMenu":false,"snippets":["!ui.*","!pm","!pm.*","!app"],"strategy":{"actions":[]}}'
+nb api acl roles create --body-file <role_payload.json> -j
+```
+
+`<role_payload.json>` (UTF-8 without BOM):
+
+```json
+{
+  "name": "<role_name>",
+  "title": "<role_title>",
+  "description": "Blank role baseline",
+  "hidden": false,
+  "allowConfigure": false,
+  "allowNewMenu": false,
+  "snippets": ["!ui.*", "!pm", "!pm.*", "!app"],
+  "strategy": { "actions": [] }
+}
 ```
 
 Readback:
@@ -59,7 +76,8 @@ nb api acl roles get --filter-by-tk <role_name> -j
 ```text
 execution_guard:
 - base_dir: <acl_base_dir>
-- env_project_scope: <summary of env -s project>
+- env_project_scope: <summary of env list -s project>
+- env_update: pass|fail
 - acl_help: pass|fail
 - acl_roles_help: pass|fail
 runtime_write:

@@ -140,7 +140,7 @@ Common scope-related CLI commands:
 - `data_sources_roles_resources_scopes_update`
 - `data_sources_roles_resources_scopes_destroy`
 
-All calls should use resolved `nb` runtime commands through direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) discovered from CLI help, after env context is confirmed by `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>`.
+All calls should use resolved `nb` runtime commands through direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) discovered from CLI help, after env context is confirmed by `nb env list -s project`.
 
 Business rules:
 

@@ -66,12 +66,13 @@ Current transport strategy is CLI-first:
 CLI capability gate requires:
 
 - direct nb CLI exists (`nb`) and `node` exists
-- bootstrap skill app-manage is available and current env is available (`$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>`)
+- current env is available via direct CLI (`nb env list -s project`; switch/add through `nb env use` / `nb env add`)
 - runtime commands are available (`nb env update` when needed)
 - `@nocobase/plugin-api-doc` is active so `swagger:get` can provide runtime command schema
 - `@nocobase/plugin-api-keys` is active so token bootstrap/refresh can recover auth failures
 - recovery command for missing dependencies:
-- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- `nb pm enable @nocobase/plugin-api-doc`
+- `nb pm enable @nocobase/plugin-api-keys`
 
 ## 4. Current Constraints
 
