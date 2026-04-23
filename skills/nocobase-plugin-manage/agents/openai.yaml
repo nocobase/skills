@@ -1,4 +1,4 @@
 interface:
   display_name: "NocoBase Plugin Manage"
   short_description: "Safe plugin management for NocoBase apps"
-  default_prompt: "Use $nocobase-plugin-manage <action> [plugin] to inspect plugin status and run safe enable or disable operations with auto local/remote and backend resolution. For local inspect/readback, prefer `yarn nocobase pm list` (or docker compose equivalent) and parse JSON between `--- BEGIN_PLUGIN_LIST_JSON ---` and `--- END_PLUGIN_LIST_JSON ---`. For local write actions, use deterministic fallback order: `docker_cli` first, then `remote_api` when docker path fails and token/base_url are ready, and finally return manual fallback guidance when both paths fail."
+  default_prompt: "Use $nocobase-plugin-manage <action> [plugin] to manage plugins with direct `nb pm` commands only. Use `nb pm list` for inspect/readback, and use `nb pm enable` / `nb pm disable` for writes. Do not use docker, API, or legacy ctl fallback paths."

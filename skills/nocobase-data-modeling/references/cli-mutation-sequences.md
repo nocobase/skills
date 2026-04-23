@@ -1,8 +1,8 @@
-# MCP Mutation Sequences
+# CLI Mutation Sequences
 
-Use this file when the user needs a reliable operational pattern for applying data-model changes through MCP.
+Use this file when the user needs a reliable operational pattern for applying data-model changes through `nb api data-modeling`.
 
-This file is about mutation flow, not schema design. Use the collection, field, relation, and model-pack references to design the payload first. Then use this file to execute the change safely.
+This file is about mutation flow, not schema design. Use the collection, field, relation, and model-pack references to design the payload first. Then use this file to execute the change safely through the CLI.
 
 ## Core principle
 
@@ -39,29 +39,24 @@ Confirm:
 
 Recommended inspection order:
 
-1. list plugins first
-2. identify the plugin record that matches the requested capability
-3. capture the runtime plugin `name`
-4. only then decide whether an enable action is needed
+1. read `nb api pm --help` and the matching subcommand help first
+2. list plugins
+3. identify the plugin record that matches the requested capability
+4. capture the runtime plugin `name`
+5. only then decide whether an enable action is needed
 
 ### Step 2: enable if disabled
 
 If the plugin is installed but disabled:
 
-- enable it first through the plugin-management capability exposed by the instance
+- enable it first through the CLI plugin-management command family exposed by the instance
 - use the runtime plugin `name` returned by plugin inspection, not a guessed package-name transform
-- for plugin-manager MCP actions, pass that plugin name in `filterByTk`
 - if enablement returns `plugin name invalid`, treat that as a name-resolution failure and go back to plugin inspection instead of retrying with schema mutation
 
-Malformed-call rule:
-
-- if the enable call used `requestBody.name` instead of `filterByTk`, fix the MCP parameter shape first
-- do not interpret that request-shape error as proof that the plugin itself is missing
-
-If the instance does not expose plugin enablement through the current MCP surface:
+If the instance cannot expose the needed plugin-management runtime command safely:
 
 - stop schema mutation and tell the user the exact plugin that must be enabled
-- ask the user to enable that plugin or provide the correct management path
+- ask the user to enable that plugin or repair the environment/runtime path first
 
 Do not create a weaker substitute field while this gate is unresolved.
 Do not attempt a collection or field create call just to probe whether the plugin is missing.
@@ -73,7 +68,7 @@ Examples:
 - `comments` behavior exists
 - `chinaRegions` resource exists
 - attachment capability exists
-- `mbm` interface exists
+- the expected interface exists
 
 Only after this step should schema mutation proceed.
 
@@ -85,8 +80,7 @@ Use this when creating a new `general`, `tree`, `file`, or `calendar` collection
 
 Read:
 
-- `collections:listMeta` when available
-- or `collections:list`
+- `nb api data-modeling collections list -j`
 
 Goal:
 
@@ -106,19 +100,19 @@ Build:
 
 Use:
 
-- `collections:create`
+- `nb api data-modeling collections apply`
 
 Rules:
 
-- send a direct request body, not a redundant `values` wrapper when the MCP endpoint expects direct body shape
-- do not send partial field payloads
+- prefer body field flags or one compact `--body` / `--body-file`
+- do not send partial system/template fields unless the CLI help explicitly requires them
+- do not send a larger replacement payload when a compact create payload is enough
 
 ### Step 4: read back
 
 Read:
 
-- `collections:get`
-- `collections/{collectionName}/fields:list`
+- `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`
 
 ### Step 5: verify
 
@@ -133,7 +127,7 @@ Focus:
 - correct preset fields
 - correct high-risk business fields
 
-## Sequence 2: Add fields to an existing collection
+## Sequence 2: Add or update fields on an existing collection
 
 Use this when the collection exists and only fields must be added or corrected.
 
@@ -141,8 +135,8 @@ Use this when the collection exists and only fields must be added or corrected.
 
 Read:
 
-- `collections:get`
-- `collections/{collectionName}/fields:list`
+- `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`
+- `nb api data-modeling collections fields list --collection-name <collection> -j` when a field-focused follow-up is still needed
 
 Goal:
 
@@ -156,7 +150,7 @@ Choose one:
 
 - create one field
 - update one field
-- batch-add a small set of related fields
+- batch-add a small set of related fields together with `collections apply`
 
 Do not jump to full replacement unless patching is genuinely insufficient.
 
@@ -164,15 +158,15 @@ Do not jump to full replacement unless patching is genuinely insufficient.
 
 Use:
 
-- `collections/{collectionName}/fields:create`
-- or `collections/{collectionName}/fields:update`
+- `nb api data-modeling fields apply` for targeted field create/update
+- `nb api data-modeling collections apply` only when the collection-level payload should own the field batch together
 
 ### Step 4: read back
 
 Read:
 
-- `collections/{collectionName}/fields:list`
-- optionally `collections:listMeta`
+- `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`
+- `nb api data-modeling collections fields list --collection-name <collection> -j` when you need one tighter field read
 
 ### Step 5: verify
 
@@ -181,8 +175,7 @@ Focus:
 - exact `interface`
 - exact `type`
 - `uiSchema.title`
-- `uiSchema.x-component`
-- defaults, enums, and validators
+- defaults, enums, and validators when needed
 
 ## Sequence 3: Replace a whole field set
 
@@ -210,7 +203,7 @@ Bad reasons:
 
 Use:
 
-- `collections:setFields`
+- `nb api data-modeling collections apply --replace-fields`
 
 Rule:
 
@@ -218,7 +211,7 @@ Rule:
 
 ### Step 4: read back
 
-Read all field metadata again.
+Read all field metadata again through `collections get --appends fields`.
 
 ### Step 5: verify
 
@@ -257,7 +250,10 @@ Use:
 
 ### Step 3: mutate
 
-Use the appropriate field create or update operation on the source collection.
+Use the smallest suitable command:
+
+- `nb api data-modeling fields apply`
+- or `nb api data-modeling collections apply` when the relation is being authored together with a broader collection-level patch
 
 ### Step 4: read back both sides
 
@@ -295,38 +291,37 @@ Examples:
 
 Hard rule for `view`:
 
-- if `dbViews:list` or `dbViews:get` does not find the upstream database view, stop this sequence;
-- do not create a placeholder `view` collection;
-- do not downgrade to `general` unless the user explicitly changes the modeling intent.
+- if `nb api data-modeling db-views list` or `nb api data-modeling db-views get` does not find the upstream database view, stop this sequence
+- do not create a placeholder `view` collection
+- do not downgrade to `general` unless the user explicitly changes the modeling intent
 
 ### Step 2: inspect the upstream source
 
 Examples:
 
 - `sql`: inspect the projected columns and aliases
-- `view`: inspect `dbViews:get`
+- `view`: inspect `nb api data-modeling db-views get`
 - `inherit`: inspect parent collection fields
 
 For `view`:
 
-- if upstream inspection fails, treat that as a blocker, not as a reason to continue with guessed fields.
+- if upstream inspection fails, treat that as a blocker, not as a reason to continue with guessed fields
 
 ### Step 3: create collection
 
 Use:
 
-- `collections:create`
+- `nb api data-modeling collections apply`
 
 For `view`:
 
-- only create after upstream view existence, schema, and columns were confirmed.
+- only create after upstream view existence, schema, and columns were confirmed
 
 ### Step 4: read back
 
 Read:
 
-- `collections:get`
-- `collections/{collectionName}/fields:list`
+- `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`
 - upstream metadata again if needed
 
 ### Step 5: verify

@@ -1,88 +1,56 @@
-# ACL CLI Capability Notes
+# ACL Test Notes
 
-This folder now tracks CLI-oriented verification for `nocobase-acl-manage` v2.
+This folder tracks runtime verification for `nocobase-acl-manage` v2.
 
-## Current Status
+## Primary Test Assets
 
-- Primary transport: `nocobase-ctl` CLI
-- Legacy MCP runner files are retained for historical comparison only
+- `./capability-test-plan.md`: capability matrix and assertions
+- `./test-playbook.md`: prompt-first acceptance cases (default execution entry)
 
-Legacy files:
+## Recommended Verification Flow
 
-- `run-acl-mcp-capability.js`
-- `debug-mcp.js`
-
-These legacy files are not the default validation path for the current skill contract.
-
-## Recommended CLI Verification Flow
-
-1. Verify CLI and env through skill-local wrapper:
+1. Run baseline CLI/env readiness checks in one locked base-dir:
 
 ```bash
-node ./scripts/run-ctl.mjs -- --help
-node ./scripts/run-ctl.mjs -- env update -e local
+cd <BASE_DIR>
+nb --help
+nb env list -s project
+nb env update <ENV_NAME>  # use current env from the `*` row
+nb api acl --help
+nb api acl roles --help
 ```
 
-Before ACL writes, run execution guard in one locked base-dir:
+2. If env context is missing, recover through direct CLI:
 
 ```bash
-node ./scripts/run-ctl.mjs --base-dir . -- env -s project
-node ./scripts/run-ctl.mjs --base-dir . -- acl --help
-node ./scripts/run-ctl.mjs --base-dir . -- acl roles --help
+nb env list -s project
+# add env when missing
+nb env add <ENV_NAME> --scope project --api-base-url <BASE_URL>/api --auth-type oauth
+# or switch to existing env
+nb env use <ENV_NAME> -s project
 ```
 
-If guard fails, stop writes and follow recovery guidance. Do not create temporary executor scripts.
+If needed, follow with add/use actions before continuing ACL tests.
 
-Verify wrapper payload guard for independent resource writes (expected to fail fast before execution):
+3. Execute the full serial suite from `./test-playbook.md` (TC01-TC20).
 
-```bash
-node ./scripts/run-ctl.mjs -- acl roles data-source-resources update --data-source-key main --role-name reader --collection-name users --filter-by-tk 1 --body '{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}' -j
-```
+4. Capture command evidence and expected assertions for each case.
 
-Expected behavior:
+## Safety Requirements
 
-- command is blocked by wrapper validation
-- error message indicates missing `scopeId` for scoped action and provides correction hints
-
-Use `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=.` to verify current env context before ACL writes.
-
-If there is no current env, bootstrap first:
-
-```text
-Use $nocobase-env-bootstrap task=app-manage:
-- app_env_action=add app_env_name=local app_base_url=http://localhost:13000/api app_scope=project target_dir=.
-- app_env_action=use app_env_name=local app_scope=project target_dir=.
-```
-
-If `env update` fails with `swagger:get`/API documentation plugin errors, activate dependency plugins and retry:
-
-```text
-Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys
-```
-
-Then restart app, refresh token env if needed, and rerun `node ./scripts/run-ctl.mjs -- env update -e local`.
-
-2. Verify runtime command availability:
-
-```bash
-node ./scripts/run-ctl.mjs -- --help
-# then inspect resolved acl command group help
-```
-
-3. Run task-level checks according to `references/capability-test-plan.md`.
-
-4. For guarded membership fallback checks, explicitly enable policy in task context and use:
-
-```bash
-node ./scripts/run-ctl.mjs -- resource update --resource users ...
-node ./scripts/run-ctl.mjs -- resource list --resource users.roles ...
-```
+- execute through CLI only
+- no direct ACL REST fallback
+- no ad-hoc script fallback (`*.js`, `*.ps1`, `*.sh`)
+- keep high-impact writes gated and reversible
+- restore global role mode when modified
+- cleanup temporary test role when run completes
 
 ## Report Guidance
 
-For each check, report:
+For each case, record:
 
-- command executed
+- case id
+- command(s) executed
 - status (`pass/warn/fail`)
-- concise evidence (key output snippet)
-- follow-up mitigation when `warn` or `fail`
+- concise evidence
+- mitigation or rerun guidance when `warn/fail`
