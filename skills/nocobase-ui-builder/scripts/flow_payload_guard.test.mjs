@@ -26,6 +26,8 @@ const metadata = {
       fields: [
         { name: 'order_no', type: 'string', interface: 'input' },
         { name: 'status', type: 'string', interface: 'select' },
+        { name: 'start_at', type: 'date', interface: 'datetime' },
+        { name: 'end_at', type: 'date', interface: 'datetime' },
         { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id', targetKey: 'id' },
       ],
     },
@@ -5655,6 +5657,83 @@ test('auditPayload accepts public add-block table payloads with empty top-level 
   assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
+test('auditPayload accepts template-backed public add-block table payloads without block-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      template: { uid: 'orders-table-template', mode: 'reference' },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
+test('auditPayload blocks template-backed public add-block table payloads with block-level defaultFilter', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      template: { uid: 'orders-table-template', mode: 'reference' },
+      defaultFilter: {},
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED'), true);
+});
+
+test('auditPayload validates add-block defaultActionSettings filterable fields against block-level defaultFilter fallback', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('orders'),
+      defaultFilter: makePublicDefaultFilter([{ path: 'status', operator: '$eq', value: '' }]),
+      defaultActionSettings: {
+        filter: {
+          filterableFieldNames: ['status', 'customer'],
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE'), true);
+});
+
+test('auditPayload lets add-block defaultActionSettings.defaultFilter override block-level coverage', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('orders'),
+      defaultFilter: makePublicDefaultFilter([{ path: 'status', operator: '$eq', value: '' }]),
+      defaultActionSettings: {
+        filter: {
+          filterableFieldNames: ['status', 'customer'],
+          defaultFilter: makePublicDefaultFilter([
+            { path: 'status', operator: '$eq', value: '' },
+            { path: 'customer', operator: '$eq', value: '' },
+          ]),
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
 test('auditPayload blocks public blocks payloads whose data-surface blocks omit block-level defaultFilter', () => {
   const result = auditPayload({
     payload: {
@@ -5692,6 +5771,31 @@ test('auditPayload accepts public blocks payloads whose data-surface blocks keep
 
   assert.equal(result.ok, true);
   assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+});
+
+test('auditPayload validates add-blocks item defaultActionSettings against block-level defaultFilter fallback', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          type: 'table',
+          resourceInit: makeCollectionResourceInit('orders'),
+          defaultFilter: makePublicDefaultFilter([{ path: 'status', operator: '$eq', value: '' }]),
+          defaultActionSettings: {
+            filter: {
+              filterableFieldNames: ['status', 'customer'],
+            },
+          },
+        },
+      ],
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE'), true);
 });
 
 test('auditPayload accepts public blocks payloads with normalized empty top-level defaultFilter', () => {
@@ -5812,4 +5916,30 @@ test('auditPayload blocks CalendarBlockModel main fields and unsupported actions
   assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_MAIN_FIELD_GROUPS_UNSUPPORTED'), true);
   assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED'), true);
   assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload blocks CalendarBlockModel invalid date and display field bindings', () => {
+  const result = auditPayload({
+    payload: {
+      uid: 'orders-calendar',
+      use: 'CalendarBlockModel',
+      props: {
+        titleField: 'customer',
+        startField: 'order_no',
+        endField: 'missing',
+      },
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_FIELD_BINDING_INVALID' && item.details?.key === 'titleField'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_FIELD_BINDING_INVALID' && item.details?.key === 'startField'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_FIELD_BINDING_INVALID' && item.details?.key === 'endField'), true);
 });

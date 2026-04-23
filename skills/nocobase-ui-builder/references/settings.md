@@ -251,7 +251,9 @@ Create `createForm` and give it a title directly:
 }
 ```
 
-When `add-block` creates a public `table` / `list` / `gridCard`, keep `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`.
+When `add-block` creates a direct non-template public `table` / `list` / `gridCard`, keep `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter`.
+
+When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block.
 
 ```json
 {
@@ -279,7 +281,14 @@ Common settings that are suitable for direct inline use:
 
 - generic block: `title`, `displayTitle`, `height`, `heightMode`
 - `table`: `quickEdit`, `treeTable`, `defaultExpandAllRows`, `dragSort`, `dragSortBy`
+- `calendar`: `titleField`, `colorField`, `startField`, `endField`, `defaultView`, `quickCreateEvent`, `showLunar`, `weekStart`, `dataScope`, `linkageRules`, `quickCreatePopup`, `eventPopup`
 - form-like blocks: `labelWidth`, `labelWrap`, `layout`, `labelAlign`, `colon`
+
+Calendar reminders:
+
+- `settings.startField` and `settings.endField` must bind date-capable non-association fields.
+- `settings.titleField` and `settings.colorField` must bind existing non-association display fields.
+- Public main calendar blocks do not accept `fields`, `fieldGroups`, or `recordActions`; event forms/details belong in the quick-create and event-view popup hosts.
 
 ### `add-field`
 

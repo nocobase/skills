@@ -689,6 +689,7 @@ const SUPPORTED_PLANNING_MODES = new Set([
 const STABLE_BUSINESS_BLOCK_USES = [
   'FilterFormBlockModel',
   'TableBlockModel',
+  'CalendarBlockModel',
   'DetailsBlockModel',
   'CreateFormModel',
   'EditFormModel',
@@ -704,6 +705,7 @@ const STRUCTURAL_OR_META_USES = new Set([
 ]);
 
 const COLLECTION_BOUND_PUBLIC_USES = new Set([
+  'CalendarBlockModel',
   'GridCardBlockModel',
   'ListBlockModel',
   'MapBlockModel',
@@ -711,6 +713,7 @@ const COLLECTION_BOUND_PUBLIC_USES = new Set([
 ]);
 
 const FILTER_ACTION_HOST_USES = new Set([
+  'CalendarBlockModel',
   'TableBlockModel',
   'ListBlockModel',
   'GridCardBlockModel',
@@ -836,6 +839,15 @@ const SEARCH_HOST_USE_PATTERNS = [
     ],
   },
   {
+    use: 'CalendarBlockModel',
+    patterns: [
+      /(?:日历|排期|排班|日程)/i,
+      /\bcalendar(?:\s+(?:page|view))?\b/i,
+      /\bschedule(?:\s+(?:page|view))?\b/i,
+      /\bevent\s+calendar\b/i,
+    ],
+  },
+  {
     use: 'GridCardBlockModel',
     patterns: [
       /(?:grid\s*card|gridcard|卡片|指标卡)/i,
@@ -878,6 +890,21 @@ const SEARCH_HOST_DECLARATION_PATTERNS = [
 ];
 
 function getCreativePriorityUses(requestText = '') {
+  if (hasAnyKeyword(requestText, ['calendar', '日历', '排期', '排班', '日程', 'schedule', 'event calendar'])) {
+    return [
+      'CalendarBlockModel',
+      'ChartBlockModel',
+      'GridCardBlockModel',
+      'JSBlockModel',
+      'ListBlockModel',
+      'MapBlockModel',
+      'MarkdownBlockModel',
+      'DetailsBlockModel',
+      'CreateFormModel',
+      'EditFormModel',
+      'TableBlockModel',
+    ];
+  }
   if (hasAnyKeyword(requestText, JS_INSIGHT_KEYWORDS)) {
     return [
       'JSBlockModel',
@@ -926,6 +953,15 @@ const PRIMARY_BLOCK_DEFINITIONS = [
     keywords: ['图表', 'chart', 'dashboard', '看板', '分析', '报表', '总览', '概览', '趋势', '分布', '统计', '占比', 'analytics', 'trend', 'distribution', 'overview'],
     collectionRequired: false,
     titleSuffix: '分析看板',
+    kind: 'public-use',
+  },
+  {
+    use: 'CalendarBlockModel',
+    archetypeId: 'calendar-main',
+    archetypeLabel: '日历主块页',
+    keywords: ['calendar', '日历', '排期', '排班', '日程', 'schedule', 'event calendar', 'events'],
+    collectionRequired: true,
+    titleSuffix: '日历视图',
     kind: 'public-use',
   },
   {
@@ -1913,6 +1949,8 @@ function collectUseFamilies(use, catalogEntry = null) {
   const base = [];
   if (normalizedUse === 'TableBlockModel') {
     base.push('collection', 'table');
+  } else if (normalizedUse === 'CalendarBlockModel') {
+    base.push('collection', 'calendar');
   } else if (normalizedUse === 'DetailsBlockModel') {
     base.push('collection', 'details');
   } else if (normalizedUse === 'CreateFormModel' || normalizedUse === 'EditFormModel') {

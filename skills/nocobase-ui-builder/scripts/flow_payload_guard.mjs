@@ -179,6 +179,8 @@ const CALENDAR_ACTION_MODEL_USES = new Set([
   'RefreshActionModel',
   'TriggerWorkflowActionModel',
 ]);
+const CALENDAR_DATE_FIELD_INTERFACES = new Set(['datetime', 'datetimeNoTz', 'dateOnly', 'date']);
+const CALENDAR_DATE_FIELD_TYPES = new Set(['date', 'datetime', 'datetimeNoTz', 'dateOnly']);
 const RECORD_ACTION_MODEL_USES = new Set([
   'AddChildActionModel',
   'DeleteActionModel',
@@ -199,7 +201,7 @@ const GRID_CARD_ITEM_MODEL_USES = new Set(['GridCardItemModel']);
 const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'GridCardBlockModel', 'GridCardItemModel', 'CalendarBlockModel']);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const CREATE_FORM_MODEL_USES = new Set(['CreateFormModel']);
-const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
+const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel', 'CalendarBlockModel']);
 const COLLECTION_RESOURCE_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
   'TableBlockModel',
@@ -1127,6 +1129,19 @@ function isPublicDataSurfaceBlockType(type) {
   return PUBLIC_DATA_SURFACE_BLOCK_TYPES.has(normalizeOptionalText(type));
 }
 
+function hasPublicTemplateBinding(block) {
+  return !!normalizeOptionalText(block?.template?.uid);
+}
+
+function isDirectPublicDataSurfaceBlock(block) {
+  return isPlainObject(block) && isPublicDataSurfaceBlockType(block.type) && !hasPublicTemplateBinding(block);
+}
+
+function isPublicFilterAction(action) {
+  return (typeof action === 'string' && action.trim().toLowerCase() === 'filter')
+    || (isPlainObject(action) && String(action.type || '').trim().toLowerCase() === 'filter');
+}
+
 function resolvePublicBlockCollectionName(block) {
   if (!isPlainObject(block)) {
     return '';
@@ -1142,6 +1157,68 @@ function resolvePublicBlockCollectionName(block) {
   return normalizeOptionalText(block.resourceInit?.collectionName);
 }
 
+function validatePublicFilterableFieldNames({
+  fieldNames,
+  collectionName,
+  pathValue,
+  metadata,
+  mode,
+  blockers,
+  seen,
+  messagePrefix = 'filterableFieldNames',
+}) {
+  if (!Array.isArray(fieldNames) || fieldNames.length === 0) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'PUBLIC_DATA_SURFACE_FILTERABLE_FIELDS_REQUIRED',
+      message: `${messagePrefix} must be a non-empty field name array when provided.`,
+      path: pathValue,
+      mode,
+      dedupeKey: `PUBLIC_DATA_SURFACE_FILTERABLE_FIELDS_REQUIRED:${pathValue}`,
+    }));
+    return [];
+  }
+
+  const normalizedFieldNames = [];
+  fieldNames.forEach((value, index) => {
+    const fieldName = normalizeOptionalText(value);
+    if (!fieldName) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'PUBLIC_DATA_SURFACE_FILTERABLE_FIELD_INVALID',
+        message: `${messagePrefix} entries must be non-empty strings.`,
+        path: `${pathValue}[${index}]`,
+        mode,
+        dedupeKey: `PUBLIC_DATA_SURFACE_FILTERABLE_FIELD_INVALID:${pathValue}:${index}`,
+      }));
+      return;
+    }
+    if (!normalizedFieldNames.includes(fieldName)) {
+      normalizedFieldNames.push(fieldName);
+    }
+  });
+
+  normalizedFieldNames.forEach((fieldName, index) => {
+    if (!collectionName || resolveFieldPathInMetadata(metadata, collectionName, fieldName) != null) {
+      return;
+    }
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'PUBLIC_DATA_SURFACE_FILTERABLE_FIELD_UNKNOWN',
+      message: `${messagePrefix} includes unsupported field path "${fieldName}" for collection ${collectionName}.`,
+      path: `${pathValue}[${index}]`,
+      mode,
+      dedupeKey: `PUBLIC_DATA_SURFACE_FILTERABLE_FIELD_UNKNOWN:${collectionName}:${fieldName}`,
+      details: {
+        collectionName,
+        fieldPath: fieldName,
+      },
+    }));
+  });
+
+  return normalizedFieldNames;
+}
+
 function validatePublicDefaultFilterGroup({
   defaultFilter,
   collectionName,
@@ -1150,6 +1227,7 @@ function validatePublicDefaultFilterGroup({
   mode,
   blockers,
   seen,
+  fieldNames = [],
   messagePrefix = 'defaultFilter',
 }) {
   const normalizedDefaultFilter = defaultFilter === null
@@ -1167,6 +1245,9 @@ function validatePublicDefaultFilterGroup({
     }));
     return;
   }
+
+  const fieldNameSet = new Set(fieldNames);
+  const filterItemPaths = new Set();
 
   const visitGroup = (group, groupPath) => {
     const logic = normalizeOptionalText(group.logic);
@@ -1231,19 +1312,31 @@ function validatePublicDefaultFilterGroup({
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_PATH_REQUIRED:${itemPath}`,
         }));
-      } else if (collectionName && resolveFieldPathInMetadata(metadata, collectionName, fieldPath) == null) {
-        pushFinding(blockers, seen, createFinding({
-          severity: 'blocker',
-          code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD',
-          message: `${messagePrefix}.items path "${fieldPath}" is unsupported for collection ${collectionName}.`,
-          path: `${itemPath}.path`,
-          mode,
-          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD:${collectionName}:${fieldPath}`,
-          details: {
-            collectionName,
-            fieldPath,
-          },
-        }));
+      } else {
+        filterItemPaths.add(fieldPath);
+        if (fieldNameSet.size > 0 && !fieldNameSet.has(fieldPath)) {
+          pushFinding(blockers, seen, createFinding({
+            severity: 'blocker',
+            code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_NOT_FILTERABLE',
+            message: `${messagePrefix}.items path "${fieldPath}" must also appear in filterableFieldNames.`,
+            path: `${itemPath}.path`,
+            mode,
+            dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_NOT_FILTERABLE:${pathValue}:${fieldPath}`,
+          }));
+        } else if (fieldNameSet.size === 0 && collectionName && resolveFieldPathInMetadata(metadata, collectionName, fieldPath) == null) {
+          pushFinding(blockers, seen, createFinding({
+            severity: 'blocker',
+            code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD',
+            message: `${messagePrefix}.items path "${fieldPath}" is unsupported for collection ${collectionName}.`,
+            path: `${itemPath}.path`,
+            mode,
+            dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD:${collectionName}:${fieldPath}`,
+            details: {
+              collectionName,
+              fieldPath,
+            },
+          }));
+        }
       }
 
       const operator = normalizeOptionalText(item.operator);
@@ -1261,6 +1354,149 @@ function validatePublicDefaultFilterGroup({
   };
 
   visitGroup(normalizedDefaultFilter, pathValue);
+
+  const missingFieldNames = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
+  if (missingFieldNames.length > 0) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE',
+      message: `${messagePrefix}.items must cover filterableFieldNames: ${missingFieldNames.join(', ')}.`,
+      path: `${pathValue}.items`,
+      mode,
+      dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE:${pathValue}:${missingFieldNames.join(',')}`,
+      details: {
+        missingFieldNames,
+      },
+    }));
+  }
+}
+
+function validatePublicFilterSettings({
+  settings,
+  settingsPath,
+  collectionName,
+  blockDefaultFilter,
+  blockDefaultFilterPath,
+  metadata,
+  mode,
+  blockers,
+  seen,
+  settingsPrefix,
+  filterableFieldNamesPath = `${settingsPath}.filterableFieldNames`,
+}) {
+  if (!isPlainObject(settings)) {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'PUBLIC_DATA_SURFACE_FILTER_SETTINGS_INVALID',
+      message: `${settingsPrefix} must be an object when provided.`,
+      path: settingsPath,
+      mode,
+      dedupeKey: `PUBLIC_DATA_SURFACE_FILTER_SETTINGS_INVALID:${settingsPath}`,
+    }));
+    return;
+  }
+
+  const hasFieldNames = Object.hasOwn(settings, 'filterableFieldNames');
+  const hasDefaultFilter = Object.hasOwn(settings, 'defaultFilter');
+  const fieldNames = hasFieldNames
+    ? validatePublicFilterableFieldNames({
+      fieldNames: settings.filterableFieldNames,
+      collectionName,
+      pathValue: filterableFieldNamesPath,
+      metadata,
+      mode,
+      blockers,
+      seen,
+      messagePrefix: 'filterableFieldNames',
+    })
+    : [];
+
+  if (hasDefaultFilter) {
+    validatePublicDefaultFilterGroup({
+      defaultFilter: settings.defaultFilter,
+      collectionName,
+      fieldNames,
+      pathValue: `${settingsPath}.defaultFilter`,
+      metadata,
+      mode,
+      blockers,
+      seen,
+      messagePrefix: `${settingsPrefix}.defaultFilter`,
+    });
+    return;
+  }
+
+  if (hasFieldNames && blockDefaultFilter !== undefined) {
+    validatePublicDefaultFilterGroup({
+      defaultFilter: blockDefaultFilter,
+      collectionName,
+      fieldNames,
+      pathValue: blockDefaultFilterPath,
+      metadata,
+      mode,
+      blockers,
+      seen,
+      messagePrefix: 'defaultFilter',
+    });
+  }
+}
+
+function validatePublicDataSurfaceFilterSettings(block, pathValue, metadata, mode, blockers, seen) {
+  if (!isDirectPublicDataSurfaceBlock(block)) {
+    return;
+  }
+
+  const collectionName = resolvePublicBlockCollectionName(block);
+  const blockDefaultFilter = Object.hasOwn(block, 'defaultFilter') ? block.defaultFilter : undefined;
+  const blockDefaultFilterPath = `${pathValue}.defaultFilter`;
+
+  if (Array.isArray(block.actions)) {
+    block.actions.forEach((action, index) => {
+      if (!isPublicFilterAction(action) || !isPlainObject(action) || !Object.hasOwn(action, 'settings')) {
+        return;
+      }
+      validatePublicFilterSettings({
+        settings: action.settings,
+        settingsPath: `${pathValue}.actions[${index}].settings`,
+        collectionName,
+        blockDefaultFilter,
+        blockDefaultFilterPath,
+        metadata,
+        mode,
+        blockers,
+        seen,
+        settingsPrefix: 'settings',
+      });
+    });
+  }
+
+  if (Object.hasOwn(block, 'defaultActionSettings')) {
+    if (!isPlainObject(block.defaultActionSettings)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'PUBLIC_DATA_SURFACE_DEFAULT_ACTION_SETTINGS_INVALID',
+        message: 'defaultActionSettings must be an object when provided.',
+        path: `${pathValue}.defaultActionSettings`,
+        mode,
+        dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_ACTION_SETTINGS_INVALID:${pathValue}`,
+      }));
+      return;
+    }
+    if (Object.hasOwn(block.defaultActionSettings, 'filter')) {
+      validatePublicFilterSettings({
+        settings: block.defaultActionSettings.filter,
+        settingsPath: `${pathValue}.defaultActionSettings.filter`,
+        collectionName,
+        blockDefaultFilter,
+        blockDefaultFilterPath,
+        metadata,
+        mode,
+        blockers,
+        seen,
+        settingsPrefix: 'defaultActionSettings.filter',
+      });
+    }
+  }
 }
 
 function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blockers, seen) {
@@ -1269,7 +1505,21 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
       return;
     }
 
-    if (isPublicDataSurfaceBlockType(block.type)) {
+    if (isPublicDataSurfaceBlockType(block.type) && hasPublicTemplateBinding(block)) {
+      if (Object.hasOwn(block, 'defaultFilter')) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED',
+          message: 'Template-backed table/list/gridCard payloads do not support block-level defaultFilter; only direct blocks may define it.',
+          path: `${pathValue}.defaultFilter`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED:${pathValue}`,
+          details: {
+            type: normalizeOptionalText(block.type) || null,
+          },
+        }));
+      }
+    } else if (isDirectPublicDataSurfaceBlock(block)) {
       if (!Object.hasOwn(block, 'defaultFilter')) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
@@ -1293,6 +1543,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
           seen,
         });
       }
+      validatePublicDataSurfaceFilterSettings(block, pathValue, metadata, mode, blockers, seen);
     }
 
     if (Array.isArray(block.blocks)) {
@@ -1658,6 +1909,19 @@ function isAssociationField(field) {
       || field.interface === 'm2o'
       || field.interface === 'o2m',
   );
+}
+
+function isCalendarDateField(field) {
+  return !!field
+    && !isAssociationField(field)
+    && (
+      CALENDAR_DATE_FIELD_INTERFACES.has(normalizeOptionalText(field.interface))
+      || CALENDAR_DATE_FIELD_TYPES.has(normalizeOptionalText(field.type))
+    );
+}
+
+function isCalendarBindableField(field) {
+  return !!field && !isAssociationField(field) && !!normalizeOptionalText(field.interface);
 }
 
 function findAssociationFieldToTarget(collectionMeta, targetCollectionName) {
@@ -4547,7 +4811,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
   });
 }
 
-function inspectCalendarBlocks(payload, mode, blockers, seen) {
+function inspectCalendarBlocks(payload, metadata, mode, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'CalendarBlockModel') {
       return;
@@ -4585,6 +4849,55 @@ function inspectCalendarBlocks(payload, mode, blockers, seen) {
         dedupeKey: `CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED:${pathValue}`,
       }));
     }
+
+    const collectionName = normalizeOptionalText(node.stepParams?.resourceSettings?.init?.collectionName);
+    const collectionMeta = getCollectionMeta(metadata, collectionName);
+    if (!collectionMeta) {
+      return;
+    }
+
+    const settings = isPlainObject(node.stepParams?.calendarSettings?.configure)
+      ? node.stepParams.calendarSettings.configure
+      : isPlainObject(node.props)
+        ? node.props
+        : {};
+    const dateCapableFields = collectionMeta.fields.filter((field) => isCalendarDateField(field));
+    if (dateCapableFields.length === 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'CALENDAR_DATE_FIELDS_MISSING',
+        message: `CalendarBlockModel 绑定的 collection "${collectionName}" 缺少可用于日历的日期字段。`,
+        path: `${pathValue}.stepParams.resourceSettings.init.collectionName`,
+        mode,
+        dedupeKey: `CALENDAR_DATE_FIELDS_MISSING:${pathValue}:${collectionName}`,
+      }));
+    }
+
+    const validateFieldBinding = (key, validator, description) => {
+      const fieldPath = normalizeOptionalText(settings?.[key]);
+      if (!fieldPath) return;
+      const resolved = resolveFieldPathInMetadata(metadata, collectionName, fieldPath);
+      if (!resolved?.field || !validator(resolved.field)) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'CALENDAR_FIELD_BINDING_INVALID',
+          message: `CalendarBlockModel 的 ${key} 必须绑定到${description}；当前值 "${fieldPath}" 无效。`,
+          path: `${pathValue}.${isPlainObject(node.stepParams?.calendarSettings?.configure) ? `stepParams.calendarSettings.configure.${key}` : `props.${key}`}`,
+          mode,
+          dedupeKey: `CALENDAR_FIELD_BINDING_INVALID:${pathValue}:${key}:${fieldPath}`,
+          details: {
+            collectionName,
+            fieldPath,
+            key,
+          },
+        }));
+      }
+    };
+
+    validateFieldBinding('titleField', isCalendarBindableField, '可展示的非关联字段');
+    validateFieldBinding('colorField', isCalendarBindableField, '可展示的非关联字段');
+    validateFieldBinding('startField', isCalendarDateField, '日期类字段');
+    validateFieldBinding('endField', isCalendarDateField, '日期类字段');
   });
 }
 
@@ -6597,7 +6910,7 @@ export function auditPayload({
   inspectCollectionResourceContracts(payload, mode, blockers, blockerSeen);
   inspectChartBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
-  inspectCalendarBlocks(payload, mode, blockers, blockerSeen);
+  inspectCalendarBlocks(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectTableBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);

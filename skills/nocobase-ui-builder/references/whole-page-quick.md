@@ -42,7 +42,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
    - use that same host's block-level `filter` action/button; shorthand or object action form is valid
-   - for every public `table` / `list` / `gridCard` block in the blueprint, always add block-level `defaultFilter`
+   - for every direct, non-template public `table` / `list` / `gridCard` block in the blueprint, always add block-level `defaultFilter`
    - choose 3 to 4 common live fields when available and ensure block-level `defaultFilter.items` covers them
    - the `filter` action is optional; if you also provide action-level `settings.defaultFilter`, that action-level payload takes precedence over the block-level one
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
@@ -146,6 +146,7 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
           "key": "ticketsTable",
           "type": "table",
           "collection": "support_tickets",
+          "defaultFilter": {},
           "fields": ["subject", "status", "assignee"],
           "actions": ["filter", "addNew"],
           "recordActions": ["view", "edit"]

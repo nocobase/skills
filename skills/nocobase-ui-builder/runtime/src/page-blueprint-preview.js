@@ -30,6 +30,18 @@ const DEFAULTS_POPUP_ACTION_TYPE_MAP = new Map([
   ['edit', 'edit'],
   ['addnew', 'addNew'],
 ]);
+const CALENDAR_ACTION_TYPE_MAP = new Map([
+  ['today', 'today'],
+  ['turnpages', 'turnPages'],
+  ['title', 'title'],
+  ['selectview', 'selectView'],
+  ['filter', 'filter'],
+  ['addnew', 'addNew'],
+  ['popup', 'popup'],
+  ['refresh', 'refresh'],
+  ['js', 'js'],
+  ['triggerworkflow', 'triggerWorkflow'],
+]);
 const EDIT_ACTION_TYPES = new Set(['edit']);
 const REAL_TEMPLATE_MODES = new Set(['reference', 'copy']);
 const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
@@ -52,6 +64,20 @@ const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
+const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
+  'today',
+  'turnPages',
+  'title',
+  'selectView',
+  'filter',
+  'addNew',
+  'popup',
+  'refresh',
+  'js',
+  'triggerWorkflow',
+]);
+const CALENDAR_DATE_FIELD_INTERFACES = new Set(['datetime', 'datetimeNoTz', 'dateOnly', 'date']);
+const CALENDAR_DATE_FIELD_TYPES = new Set(['date', 'datetime', 'datetimeNoTz', 'dateOnly']);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
 const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
@@ -1140,6 +1166,21 @@ function getCollectionMeta(collectionMetadata, collectionName) {
   return collectionMetadata?.collections?.[normalizedCollectionName] || null;
 }
 
+function isCalendarDateFieldMeta(field) {
+  return !!field
+    && !isAssociationFieldMeta(field)
+    && (
+      CALENDAR_DATE_FIELD_INTERFACES.has(normalizeText(field.interface))
+      || CALENDAR_DATE_FIELD_TYPES.has(normalizeText(field.type))
+    );
+}
+
+function isCalendarBindableFieldMeta(field) {
+  return !!field
+    && !isAssociationFieldMeta(field)
+    && !!normalizeText(field.interface);
+}
+
 function getCollectionFieldMeta(collectionMetadata, collectionName, fieldName) {
   const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
   const normalizedFieldName = normalizeText(fieldName);
@@ -1166,6 +1207,10 @@ function getDefaultsAssociationFieldKey(associationField) {
 
 function normalizePopupActionType(value) {
   return DEFAULTS_POPUP_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
+}
+
+function normalizeCalendarActionType(value) {
+  return CALENDAR_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
 }
 
 function popupHasExplicitTemplate(popup) {
@@ -3325,8 +3370,12 @@ function validateDisplayAssociationFieldGroupPopupRequirement(fieldGroups, block
 
 function validateActions(items, path, state, { recordActions = false, blockContext = {} } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
+    const rawActionType =
+      typeof item === 'string' ? item : isPlainObject(item) ? item.type : '';
     const actionType =
-      typeof item === 'string' ? normalizeLowerText(item) : isPlainObject(item) ? normalizeLowerText(item.type) : '';
+      normalizeText(blockContext.hostBlockType) === 'calendar'
+        ? normalizeCalendarActionType(rawActionType)
+        : normalizeLowerText(rawActionType);
     if (!recordActions && actionType === 'addchild') {
       pushValidationError(
         state.errors,
@@ -3334,6 +3383,19 @@ function validateActions(items, path, state, { recordActions = false, blockConte
         `${path}[${index}]`,
         'add-child-must-use-record-actions',
         ADD_CHILD_RECORD_ACTION_MESSAGE,
+      );
+    }
+    if (
+      !recordActions
+      && normalizeText(blockContext.hostBlockType) === 'calendar'
+      && !CALENDAR_ALLOWED_ACTION_TYPES.has(actionType)
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'calendar-action-unsupported',
+        `calendar blocks only support actions: ${[...CALENDAR_ALLOWED_ACTION_TYPES].join(', ')}.`,
       );
     }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
@@ -3570,7 +3632,7 @@ function validateBlockFieldsLayout(block, path, state) {
 }
 
 function isDataSurfaceDefaultFilterBlock(block) {
-  return DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES.has(normalizeText(block?.type));
+  return DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES.has(normalizeText(block?.type)) && !isTemplateBackedBlock(block);
 }
 
 function isDataSurfaceFilterAction(action) {
@@ -3775,7 +3837,20 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
 }
 
 function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
-  if (!isDataSurfaceDefaultFilterBlock(block)) {
+  if (!DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return;
+  }
+
+  if (isTemplateBackedBlock(block)) {
+    if (hasOwn(block, 'defaultFilter')) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.defaultFilter`,
+        'data-surface-block-default-filter-template-unsupported',
+        'Template-backed table, list, and gridCard blocks do not support block-level defaultFilter; only direct blocks may define it.',
+      );
+    }
     return;
   }
 
@@ -3900,6 +3975,71 @@ function validateCalendarMainBlockShape(block, path, state) {
       'calendar blocks do not support recordActions[] on the main block; configure event content through the event-view popup host.',
     );
   }
+
+  const collection = getCollectionLabel(block);
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!collection || Object.keys(collectionMetadata).length === 0) {
+    return;
+  }
+
+  const collectionMeta = getCollectionMeta(collectionMetadata, collection);
+  if (!collectionMeta) {
+    return;
+  }
+
+  const settings = isPlainObject(block.settings) ? block.settings : {};
+  const hasAnyFieldBinding = ['titleField', 'colorField', 'startField', 'endField'].some((key) => hasOwn(settings, key));
+  const dateFieldCount = collectionMeta.fields.filter((field) => isCalendarDateFieldMeta(field)).length;
+
+  if (dateFieldCount === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.collection`,
+      'calendar-date-fields-missing',
+      `calendar block collection ${collection} must expose at least one date-capable field.`,
+    );
+  }
+
+  const validateBoundField = (key, validator, messageSuffix) => {
+    if (!hasOwn(settings, key)) return;
+    const fieldPath = normalizeText(settings[key]);
+    if (!fieldPath) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings.${key}`,
+        'calendar-field-binding-required',
+        `calendar settings.${key} must be a non-empty field path.`,
+      );
+      return;
+    }
+    const resolved = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldPath);
+    if (!resolved?.field || !validator(resolved.field)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings.${key}`,
+        'calendar-field-binding-invalid',
+        `calendar settings.${key} must reference ${messageSuffix}; got "${fieldPath}".`,
+      );
+    }
+  };
+
+  validateBoundField('titleField', isCalendarBindableFieldMeta, 'an existing non-association display field');
+  validateBoundField('colorField', isCalendarBindableFieldMeta, 'an existing non-association display field');
+  validateBoundField('startField', isCalendarDateFieldMeta, 'an existing date-capable field');
+  validateBoundField('endField', isCalendarDateFieldMeta, 'an existing date-capable field');
+
+  if (hasAnyFieldBinding && !hasOwn(settings, 'startField')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.settings.startField`,
+      'calendar-start-field-required',
+      'calendar settings.startField is required when configuring a calendar block.',
+    );
+  }
 }
 
 function validateBlock(block, path, state, parentContext = {}) {
@@ -3908,6 +4048,7 @@ function validateBlock(block, path, state, parentContext = {}) {
     return;
   }
   const blockContext = buildBlockTraversalContext(block, parentContext, state.collectionMetadata);
+  blockContext.hostBlockType = normalizeText(block?.type);
 
   if (hasOwn(block, 'layout')) {
     pushValidationError(

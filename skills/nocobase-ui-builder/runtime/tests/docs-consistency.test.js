@@ -849,6 +849,68 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     /block-level `?defaultFilter`?[\s\S]{0,80}(?:required|must|carry)|(?:required|must|carry)[\s\S]{0,80}block-level `?defaultFilter`?/i,
   );
   assert.doesNotMatch(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
+  assert.doesNotMatch(
+    pageBlueprint,
+    /Required block-level `?defaultFilter`?[\s\S]{0,120}```json\s*\{\s*"defaultFilter"/i,
+    'page-blueprint should not show block-level defaultFilter as if it lived directly on a filter action object',
+  );
+  assert.match(
+    pageBlueprint,
+    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,80}"defaultFilter":\s*\{\}/,
+    'page-blueprint canonical table example should include a minimal block-level defaultFilter',
+  );
+  assert.match(
+    pageBlueprint,
+    /"type":\s*"table"[\s\S]{0,160}"defaultFilter"[\s\S]{0,260}"actions"[\s\S]{0,120}"type":\s*"filter"/,
+    'page-blueprint filter-action example should show defaultFilter on the host table block',
+  );
+  assert.match(
+    pageBlueprint,
+    /direct,?\s+non-template[\s\S]{0,120}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,120}defaultFilter/i,
+    'page-blueprint should scope block-level defaultFilter to direct non-template data surfaces',
+  );
+  assert.match(
+    pageBlueprint,
+    /\{\}[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}valid empty groups/i,
+    'page-blueprint should document accepted empty defaultFilter groups',
+  );
+  assert.match(
+    pageBlueprint,
+    /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i,
+    'page-blueprint should document effective defaultFilter coverage precedence',
+  );
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(
+    wholePageQuick,
+    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"support_tickets"[\s\S]{0,80}"defaultFilter":\s*\{\}/,
+    'whole-page quick table example should include a minimal block-level defaultFilter',
+  );
+
+  const toolShapes = read('references/tool-shapes.md');
+  assert.match(
+    toolShapes,
+    /direct\s+non-template[\s\S]{0,120}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,120}defaultFilter/i,
+    'tool-shapes should scope block-level defaultFilter to direct non-template data surfaces',
+  );
+  assert.match(
+    toolShapes,
+    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,80}"defaultFilter":\s*\{\}/,
+    'tool-shapes applyBlueprint table example should include a minimal block-level defaultFilter',
+  );
+  assert.match(
+    toolShapes,
+    /"key":\s*"employeesTable"[\s\S]{0,240}"defaultFilter":\s*\{\}/,
+    'tool-shapes compose table example should include a minimal block-level defaultFilter',
+  );
+
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /\{\}[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\]/i);
+  assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+
+  const normativeContract = read('references/normative-contract.md');
+  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,120}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,120}defaultFilter/i);
+  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}defaultActionSettings[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');

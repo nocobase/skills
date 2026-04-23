@@ -75,6 +75,21 @@ const collectionMetadata = {
 
 const emptyPrepareCollectionMetadata = { collections: {} };
 const defaultPrepareCollectionMetadata = collectionMetadata;
+const calendarCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'createdAt', type: 'date', interface: 'datetime' },
+        { name: 'updatedAt', type: 'date', interface: 'datetime' },
+      ],
+    },
+  },
+};
 const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard']);
 const defaultFilterCandidateInterfaces = new Set(['input', 'email', 'url', 'phone', 'textarea', 'select', 'radioGroup']);
 const defaultFilterEqInterfaces = new Set(['select', 'radioGroup']);
@@ -144,7 +159,8 @@ function injectDefaultFiltersIntoBlockSpecs(blocks, rawCollectionMetadata) {
   for (const block of blocks) {
     if (!isObjectRecord(block)) continue;
     const normalizedType = typeof block.type === 'string' ? block.type.trim() : '';
-    if (dataSurfaceBlockTypes.has(normalizedType) && !Object.prototype.hasOwnProperty.call(block, 'defaultFilter')) {
+    const templateBacked = isObjectRecord(block.template) && typeof block.template.uid === 'string' && block.template.uid.trim();
+    if (dataSurfaceBlockTypes.has(normalizedType) && !templateBacked && !Object.prototype.hasOwnProperty.call(block, 'defaultFilter')) {
       block.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(block));
     }
 
@@ -194,7 +210,8 @@ function prepareApplyBlueprintRequest(input, options = {}) {
       rawCollectionMetadata,
     );
     injectDefaultFiltersIntoBlockSpecs(Array.isArray(blueprint.blocks) ? blueprint.blocks : [], rawCollectionMetadata);
-    if (dataSurfaceBlockTypes.has(String(blueprint.type || '').trim()) && !Object.prototype.hasOwnProperty.call(blueprint, 'defaultFilter')) {
+    const templateBacked = isObjectRecord(blueprint.template) && typeof blueprint.template.uid === 'string' && blueprint.template.uid.trim();
+    if (dataSurfaceBlockTypes.has(String(blueprint.type || '').trim()) && !templateBacked && !Object.prototype.hasOwnProperty.call(blueprint, 'defaultFilter')) {
       blueprint.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(blueprint));
     }
   }
@@ -988,7 +1005,7 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
   assert.equal(missing.ok, false);
   assert.ok(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
@@ -1061,10 +1078,58 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
   assert.equal(actionLevelOnly.ok, false);
   assert.ok(actionLevelOnly.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
+
+  const templateBackedWithoutDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              template: { uid: 'users-table-template', mode: 'reference' },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithoutDefaultFilter.ok, true);
+
+  const templateBackedWithDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              template: { uid: 'users-table-template', mode: 'reference' },
+              defaultFilter: {},
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithDefaultFilter.ok, false);
+  assert.ok(templateBackedWithDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-template-unsupported'));
 
   const invalidSecondFilterAction = prepareWithDirectCollectionDefaults(
     {
@@ -6665,7 +6730,7 @@ test('prepareApplyBlueprintRequest accepts calendar blocks without requiring tab
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
 
   assert.equal(result.ok, true);
@@ -6699,11 +6764,53 @@ test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions 
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
 
   assert.equal(result.ok, false);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-fields-unsupported'), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-field-groups-unsupported'), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-record-actions-unsupported'), true);
+});
+
+test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field bindings on calendar blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              settings: {
+                titleField: 'roles',
+                startField: 'nickname',
+                endField: 'missingField',
+              },
+              actions: ['bulkDelete'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-action-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.titleField')), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.startField')), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.endField')), true);
 });

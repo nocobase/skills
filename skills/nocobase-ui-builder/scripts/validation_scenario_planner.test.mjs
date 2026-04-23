@@ -49,6 +49,7 @@ function makeInstanceInventory() {
         'CreateFormModel',
         'EditFormModel',
         'GridCardBlockModel',
+        'CalendarBlockModel',
         'ChartBlockModel',
         'JSBlockModel',
         'MarkdownBlockModel',
@@ -59,6 +60,13 @@ function makeInstanceInventory() {
           use: 'ListBlockModel',
           title: 'List',
           semanticTags: ['feed'],
+          contextRequirements: [],
+          unresolvedReasons: [],
+        },
+        {
+          use: 'CalendarBlockModel',
+          title: 'Calendar',
+          semanticTags: ['calendar'],
           contextRequirements: [],
           unresolvedReasons: [],
         },
@@ -396,6 +404,21 @@ test('dynamic scenario planner prefers explicit block keywords when the anchor b
   assert.ok(selectedCandidate);
   assert.equal(result.scenario.selectedCandidateId, selectedCandidate.candidateId);
   assert.equal(selectedCandidate.primaryBlockType, 'ChartBlockModel');
+});
+
+test('dynamic scenario planner recognizes calendar pages as collection-bound primary blocks', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个日历排期页面，展示审批事件，并带筛选',
+    sessionId: 'sess-calendar',
+    baseSlug: 'approvals-calendar',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-calendar',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.eligibleUses.includes('CalendarBlockModel'), true);
+  assert.equal(selectedCandidate.primaryBlockType, 'CalendarBlockModel');
 });
 
 test('dynamic scenario planner keeps chart eligible when runtime hints are covered by visualization contracts', () => {
