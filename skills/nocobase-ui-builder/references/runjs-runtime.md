@@ -49,9 +49,9 @@ Field notes:
 - `code`: required string
 - `context`: optional JSON object
 - `network`: optional JSON object; constraints continue to follow "Network-mode constraints" below
-- `skillMode`: optional; if the CLI explicitly passes `--skill-mode`, the CLI wins
-- `version`: optional; if the CLI explicitly passes `--version`, the CLI wins
-- `timeoutMs`: optional; if the CLI explicitly passes `--timeout`, the CLI wins
+- `skillMode`: optional; if nb explicitly passes `--skill-mode`, nb wins
+- `version`: optional; if nb explicitly passes `--version`, nb wins
+- `timeoutMs`: optional; if nb explicitly passes `--timeout`, nb wins
 - `filename`: optional; defaults to `<stdin>`
 
 ## Dev entry points inside the runtime directory

@@ -2,28 +2,24 @@
 
 This file summarizes the request shapes most often needed by this skill.
 
-Do not open this file until you are preparing the real CLI body or MCP fallback envelope. For the common local helper surface first, use [helper-contracts.md](./helper-contracts.md).
+Do not open this file until you are preparing the real nb body. For the common local helper surface first, use [helper-contracts.md](./helper-contracts.md).
 
 Use it with:
 
-- [cli-command-surface.md](./cli-command-surface.md) for canonical CLI command families
-- [transport-crosswalk.md](./transport-crosswalk.md) for the MCP fallback family
+- [cli-command-surface.md](./cli-command-surface.md) for canonical nb API families
+- [transport-crosswalk.md](./transport-crosswalk.md) for the nb API family
 - [page-blueprint.md](./page-blueprint.md), [reaction.md](./reaction.md), and [templates.md](./templates.md) for business-object rules and template planning
 
-Canonical front door is `nocobase-ctl`. Use this file in two layers:
-
-1. the **CLI request body / locator shape** you actually send through `nocobase-ctl flow-surfaces`
-2. the **MCP fallback mapping** you only use when the CLI path is unavailable or cannot expose the required runtime command family after repair
+Canonical front door is `nb api flow-surfaces`. Use this file for the nb request body / locator shape you actually send.
 
 ## 0. Global Rule
 
-- `nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body.
+- `nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body.
 - Most other body-based `flow-surfaces` commands take the raw business object through CLI `--body` / `--body-file`.
-- Only in MCP fallback should that same business object be wrapped under `requestBody`.
 - Never stringify the business object.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
-- For `applyBlueprint`, the CLI request body is one page blueprint business object. On a first whole-page write that already ran `prepare-write`, that means `result.cliBody`, not the original draft blueprint. The helper stays local/read-only; the later transport step must send only that prepared object. Do not wrap it again.
+- For `applyBlueprint`, the nb request body is one page blueprint business object. On a first whole-page write that already ran `prepare-write`, that means `result.cliBody`, not the original draft blueprint. The helper stays local/read-only; the later transport step must send only that prepared object. Do not wrap it again.
 - For whole-page `applyBlueprint`, recompute the involved target collections from live metadata and rebuild top-level `defaults.collections` from scratch on each draft. Every involved direct collection keeps fixed `popups.view` / `addNew` / `edit` `{ name, description }` descriptors there, `defaults.collections.<collection>.fieldGroups` stays only on the target collection when a fixed generated popup scene should still have more than 10 effective fields, `table` blocks always pull their collection into the `addNew` threshold evaluation, and relation popup naming stays under `popups.associations` keyed only by the first relation segment; do not send `defaults.blocks` or popup-default content/layout.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
@@ -31,7 +27,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit keyed layout is required.
 - Public page/popup/fields layout `{ rows: [[{ key, span }]] }` is different from low-level `set-layout` runtime `rows` / `sizes`. Do not mix those grammars.
-- When authoring direct non-template public `table` / `list` / `gridCard` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, always include block-level `defaultFilter` on that block/create envelope. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional.
+- When authoring direct non-template public `table` / `list` / `gridCard` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, always include a non-empty block-level `defaultFilter` on that block/create envelope. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
@@ -42,23 +38,23 @@ Safe mental model:
 
 1. author the inner business object
 2. send that same prepared object as raw JSON through CLI `--body` / `--body-file`, or use locator flags when the command is bodyless
-3. only in MCP fallback wrap that same object under `requestBody`
-4. never transform the business object into a stringified nested `requestBody`
+3. do not wrap that object again
+4. never transform the business object into a stringified nested wrapper
 
 Common wrong shapes:
 
-Wrong CLI body:
+Wrong nb body:
 
 ```json
 {
-  "requestBody": {
+  "blueprint": {
     "target": { "uid": "table-block-uid" },
     "changes": { "pageSize": 20 }
   }
 }
 ```
 
-Correct CLI body for `configure`:
+Correct nb body for `configure`:
 
 ```json
 {
@@ -67,11 +63,11 @@ Correct CLI body for `configure`:
 }
 ```
 
-Wrong fallback envelope:
+Wrong stringified wrapper:
 
 ```json
 {
-  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
+  "blueprint": "{\"version\":\"1\",\"mode\":\"create\"}"
 }
 ```
 
@@ -94,7 +90,7 @@ Locator shape:
 
 Use `describe-surface` only when its richer public tree helps analyze an existing surface.
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -108,7 +104,7 @@ CLI request body:
 
 Use `catalog` when current-target capability is the question.
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -132,7 +128,7 @@ If you do not yet have a real target uid, read structure first; do not guess `"r
 
 Use `get-reaction-meta` as the first discovery read for default values, linkage, computed fields, block visibility, or action state.
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -144,13 +140,13 @@ Notes:
 
 - For form `fieldValue` / `fieldLinkage`, keep targeting the outer form block uid.
 - Reuse the returned capability `fingerprint` in the matching `set-*` write.
-- Use `flow_surfaces_context` only when you still need lower-level ctx paths beyond the returned metadata.
+- Use `flow-surfaces context` only when you still need lower-level ctx paths beyond the returned metadata.
 
 ### `set-event-flows`
 
 Use `set-event-flows` only for full replacement of a target node's instance-level `flowRegistry`.
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -198,11 +194,11 @@ Notes:
 - For `Execute JavaScript`, keep the existing step shape and update only `params.code` after local RunJS validation.
 - Do not guess unsupported `eventName`, `phase`, `flowKey`, or `stepKey`; keep the live contract from readback.
 
-MCP fallback envelope:
+Wrong wrapped body:
 
 ```json
 {
-  "requestBody": {
+  "blueprint": {
     "target": { "uid": "submit-action-uid" },
     "flowRegistry": {
       "submitFlow": {
@@ -225,7 +221,7 @@ MCP fallback envelope:
 
 Use `set-layout` only for full replacement of one existing live grid layout.
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -306,11 +302,11 @@ Wrong nested `sizes`:
 }
 ```
 
-MCP fallback envelope:
+Wrong wrapped body:
 
 ```json
 {
-  "requestBody": {
+  "blueprint": {
     "target": { "uid": "popup-grid-uid" },
     "rows": {
       "row1": [
@@ -330,7 +326,7 @@ MCP fallback envelope:
 
 ### Create
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -362,7 +358,12 @@ CLI request body:
         {
           "type": "table",
           "collection": "employees",
-          "defaultFilter": {},
+          "defaultFilter": {
+            "logic": "$and",
+            "items": [
+              { "path": "nickname", "operator": "$includes", "value": "" }
+            ]
+          },
           "fields": ["nickname"],
           "actions": ["filter"]
         }
@@ -530,7 +531,7 @@ Whole-page reaction example:
 
 `replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
 
-CLI request body:
+nb request body:
 
 ```json
 {
@@ -588,7 +589,12 @@ CLI request body:
         "dataSourceKey": "main",
         "collectionName": "employees"
       },
-      "defaultFilter": {},
+      "defaultFilter": {
+        "logic": "$and",
+        "items": [
+          { "path": "nickname", "operator": "$includes", "value": "" }
+        ]
+      },
       "fields": ["nickname", "status"],
       "actions": ["filter"]
     }
@@ -897,67 +903,5 @@ Wrong: object-style `field.target`
       ]
     }
   ]
-}
-```
-
-## 5. MCP Fallback Mapping
-
-Only when the CLI path is unavailable, or after repair still cannot expose the required runtime command family, switch to the MCP/tool-call envelopes below.
-
-### `get`
-
-`flow_surfaces_get` uses top-level locator fields directly:
-
-```json
-{ "pageSchemaUid": "employees-page-schema" }
-```
-
-### Most other `flow_surfaces_*` backend actions
-
-Wrap the same business object under `requestBody`.
-
-`describeSurface` fallback:
-
-```json
-{
-  "requestBody": {
-    "locator": {
-      "pageSchemaUid": "employees-page-schema"
-    }
-  }
-}
-```
-
-`applyBlueprint` fallback:
-
-```json
-{
-  "requestBody": {
-    "version": "1",
-    "mode": "create",
-    "tabs": [
-      {
-        "title": "Overview",
-        "blocks": [
-          {
-            "type": "table",
-            "collection": "employees",
-            "fields": ["nickname"]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-`configure` fallback:
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "table-block-uid" },
-    "changes": { "pageSize": 20 }
-  }
 }
 ```

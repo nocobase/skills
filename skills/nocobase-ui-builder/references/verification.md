@@ -2,7 +2,7 @@
 
 Use this file to verify inspect/prewrite output and post-write persistence.
 
-Canonical front door is `nocobase-ctl flow-surfaces`. Treat the readback routes below as CLI-first families; use MCP only as fallback after the CLI path is unavailable.
+Canonical front door is `nb api flow-surfaces`. Treat the readback routes below as nb command families.
 
 For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
 
@@ -13,8 +13,8 @@ For template-mode semantics and localized existing-reference edit routing, keep 
 - `inspect` and page-blueprint drafting are read-only.
 - whole-page `applyBlueprint` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete blueprint draft, whether execution pauses for review or continues immediately.
 - For menu questions, default to the visible menu tree first.
-- For initialized pages/popup trees, default to `nocobase-ctl flow-surfaces get` first.
-- Use `nocobase-ctl flow-surfaces describe-surface` only when its richer public tree is actually needed.
+- For initialized pages/popup trees, default to `nb api flow-surfaces get` first.
+- Use `nb api flow-surfaces describe-surface` only when its richer public tree is actually needed.
 - desktop-route `id` values from the menu tree are not flow-surface `uid` values. When the menu tree gives `{ id, schemaUid }`, carry `id` only as `routeId` context and use `schemaUid` as `pageSchemaUid` for page readback.
 - Do not describe a draft as if a write already succeeded.
 
@@ -59,19 +59,19 @@ A page-blueprint draft is good when:
 
 | operation | minimum readback |
 | --- | --- |
-| `apply-blueprint` create | default: none after successful response; if menu placement matters or follow-up localized work / explicit inspection is needed, read the menu tree and `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
-| `apply-blueprint` replace | default: none after successful response; `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
-| `apply-blueprint` with `reaction.items[]` | default: none after successful response; `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
-| `create-page` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` create | default: none after successful response; if menu placement matters or follow-up localized work / explicit inspection is needed, read the menu tree and `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` replace | default: none after successful response; `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
+| `apply-blueprint` with `reaction.items[]` | default: none after successful response; `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
+| `create-page` | `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` |
 | `add-tab` / `update-tab` / `move-tab` / `remove-tab` | page or tab readback |
 | `add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | popup page/tab readback |
 | `compose` / `add-block` / `add-field` / `add-action` / `add-record-action` | direct parent/target readback |
 | `configure` / `update-settings` | modified target readback |
-| `save-template` | `nocobase-ctl flow-surfaces get-template --uid <templateUid>` and, for `saveMode="convert"`, source-target readback |
+| `save-template` | `nb api flow-surfaces get-template --uid <templateUid>` and, for `saveMode="convert"`, source-target readback |
 | `get-reaction-meta` + `set-*` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
 | `move-node` / `remove-node` | parent/target readback |
 | `convert-template-to-copy` | modified target readback |
-| `update-template` | `nocobase-ctl flow-surfaces get-template --uid <uid>` |
+| `update-template` | `nb api flow-surfaces get-template --uid <uid>` |
 | `update-menu` / `create-menu` | menu tree when placement matters |
 
 ### Reaction-specific readback

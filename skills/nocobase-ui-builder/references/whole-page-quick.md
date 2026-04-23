@@ -42,7 +42,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
    - use that same host's block-level `filter` action/button; shorthand or object action form is valid
-   - for every direct, non-template public `table` / `list` / `gridCard` block in the blueprint, always add block-level `defaultFilter`
+   - for every direct, non-template public `table` / `list` / `gridCard` block in the blueprint, always add a non-empty block-level `defaultFilter`
    - choose 3 to 4 common live fields when available and ensure block-level `defaultFilter.items` covers them
    - the `filter` action is optional; if you also provide action-level `settings.defaultFilter`, that action-level payload takes precedence over the block-level one
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
@@ -58,13 +58,13 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - custom edit popup -> keep exactly one `editForm` block in that popup
 12. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
    - keep menu placement on `routeId` only
-   - use `pageSchemaUid` for `nocobase-ctl flow-surfaces get`
+   - use `pageSchemaUid` for `nb api flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
    - after one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and should stay narrow
 13. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
 14. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-15. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact CLI body becomes `result.cliBody`, not the original draft blueprint.
+15. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body or nb helper envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact nb body becomes `result.cliBody`, not the original draft blueprint.
 16. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails
@@ -146,7 +146,12 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
           "key": "ticketsTable",
           "type": "table",
           "collection": "support_tickets",
-          "defaultFilter": {},
+          "defaultFilter": {
+            "logic": "$and",
+            "items": [
+              { "path": "subject", "operator": "$includes", "value": "" }
+            ]
+          },
           "fields": ["subject", "status", "assignee"],
           "actions": ["filter", "addNew"],
           "recordActions": ["view", "edit"]

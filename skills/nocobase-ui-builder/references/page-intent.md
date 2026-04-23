@@ -6,7 +6,7 @@ Start with [whole-page-quick.md](./whole-page-quick.md) when the route is still 
 
 Do not use this as the first stop for a standard single-tab management, detail, or dashboard draft.
 
-This file is for the inner page document only. For the actual CLI raw body and MCP fallback envelope, pair it with [tool-shapes.md](./tool-shapes.md). For template choices, keep [templates.md](./templates.md) as the planning source of truth.
+This file is for the inner page document only. For the actual nb raw body, pair it with [tool-shapes.md](./tool-shapes.md). For template choices, keep [templates.md](./templates.md) as the planning source of truth.
 
 ## Goal
 
@@ -14,8 +14,7 @@ Turn business intent into:
 
 1. one executable draft page blueprint document
 2. one ASCII-first preview rendered from that same draft blueprint
-3. one prepared CLI raw body (`result.cliBody`) for `nocobase-ctl flow-surfaces apply-blueprint`
-4. and, only in MCP fallback, `{ "requestBody": <that same prepared object> }`
+3. one prepared nb raw body (`result.cliBody`) for `nb api flow-surfaces apply-blueprint`
 
 ## Route
 
@@ -46,9 +45,10 @@ Use this file only when the task is whole-page authoring. If the request is real
     - ambiguous `筛选` defaults to a block-level `filter` action, not a `filterForm`
     - any `filterForm` with 4 or more fields includes `collapse`
     - every custom `edit` popup contains exactly one `editForm`
-    - when `collectionMetadata` is supplied, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
+    - any data-bound block has caller-supplied `collectionMetadata`; missing or empty metadata fails prepare-write with `missing-collection-metadata`
+    - with `collectionMetadata`, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
-14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the CLI raw body. Keep the local `prepare-write` gate and the later `nocobase-ctl flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Only in MCP fallback should that same prepared object be wrapped under `requestBody`.
+14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the nb raw body. Keep the local `prepare-write` gate and the later `nb api flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Do not wrap that prepared object again.
 
 ## Heuristics
 

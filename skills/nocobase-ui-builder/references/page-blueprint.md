@@ -2,7 +2,7 @@
 
 This file defines the simplified public page-structure JSON blueprint used by `applyBlueprint`.
 
-Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file owns the inner page document only; for CLI raw body and MCP fallback envelope details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
+Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns the inner page document only; for nb raw body details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
 
 ## 1. Core Rules
 
@@ -46,7 +46,7 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
-- Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
+- Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. Prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
 - `calendar` main blocks do not support direct `fields[]`, `fieldGroups[]`, or `recordActions[]`. Bind only calendar settings such as `titleField` / `colorField` / `startField` / `endField` on the main block; event content fields belong in quick-create / event-view popup hosts.
@@ -60,10 +60,10 @@ Envelope boundary:
 
 - This file describes the inner page blueprint document only.
 - Before whole-page `prepare-write`, this document is the authoring draft blueprint.
-- For the first real whole-page write, `prepare-write` is mandatory, and the actual CLI raw body becomes `result.cliBody`, not the original draft blueprint.
-- Only in MCP fallback should that same object be wrapped under `requestBody` as an object. If `prepare-write` already ran, that same object means the prepared `result.cliBody`.
-- Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
-- Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint draft; for the first real whole-page write, send the returned `cliBody` instead of the raw draft snippet.
+- For the first real whole-page write, `prepare-write` is mandatory, and the actual nb raw body becomes `result.cliBody`, not the original draft blueprint.
+- Do not wrap that object again. If `prepare-write` already ran, that same object means the prepared `result.cliBody`.
+- Do not stringify this document into nested JSON such as `blueprint: "{\"version\":\"1\"...}"`.
+- Every JSON snippet below should be treated as the inner blueprint draft; for the first real whole-page write, send the returned `cliBody` instead of the raw draft snippet.
 
 ## 2. Top-level Shape
 
@@ -109,7 +109,12 @@ Envelope boundary:
         {
           "type": "table",
           "collection": "employees",
-          "defaultFilter": {}
+          "defaultFilter": {
+            "logic": "$and",
+            "items": [
+              { "path": "nickname", "operator": "$includes", "value": "" }
+            ]
+          }
         }
       ]
     }
@@ -800,7 +805,7 @@ Required block-level `defaultFilter` plus optional filter action settings shape:
 
 Planning rules:
 
-- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` block; `{}` and `{ "logic": "$and", "items": [] }` are valid empty groups
+- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
 - a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for first-write `prepare-write`
 - if explicit `filterableFieldNames` are provided, validate coverage against action-level `settings.defaultFilter` when present, otherwise against block-level `defaultFilter`
 - if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action
@@ -868,7 +873,7 @@ Use this file as the **shape reference**, not as a second full contract document
 
 - Send only the structure fields described here.
 - Use the canonical names from Section 8.
-- Keep `requestBody`, `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
+- Keep `blueprint`, `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
 - Keep non-blueprint control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
 
 ## 10. Response Shape

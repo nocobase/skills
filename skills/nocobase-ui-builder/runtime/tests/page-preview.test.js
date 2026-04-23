@@ -117,6 +117,18 @@ function defaultFilterAction(fieldNames = ['nickname', 'email', 'status']) {
   };
 }
 
+function assertMissingCollectionMetadata(result, expectedPath) {
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-collection-metadata'
+        && issue.path === 'collectionMetadata'
+        && (!expectedPath || issue.message.includes(expectedPath)),
+    ),
+  );
+}
+
 function resolvePublicBlockCollectionName(block) {
   if (!isObjectRecord(block)) return '';
   if (typeof block.collection === 'string' && block.collection.trim()) return block.collection.trim();
@@ -985,6 +997,51 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
+test('prepareApplyBlueprintRequest accepts public blueprint envelope with metadata', () => {
+  const result = prepareApplyBlueprintRequest({
+    blueprint: {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Employees', icon: 'TeamOutlined' },
+      },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      page: { title: 'Employees' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.warnings, []);
+  assert.equal(result.cliBody.page.title, 'Employees');
+});
+
 test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-surface blocks while keeping filter actions optional', () => {
   const missing = prepareWithDirectCollectionDefaults(
     {
@@ -1131,6 +1188,39 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
   assert.equal(templateBackedWithDefaultFilter.ok, false);
   assert.ok(templateBackedWithDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-template-unsupported'));
 
+  const templateBackedWithDefaultActionSettings = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              template: { uid: 'users-table-template', mode: 'reference' },
+              defaultActionSettings: {
+                filter: {
+                  filterableFieldNames: ['nickname', 'status'],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithDefaultActionSettings.ok, false);
+  assert.ok(
+    templateBackedWithDefaultActionSettings.errors.some(
+      (issue) => issue.ruleId === 'data-surface-block-default-action-settings-template-unsupported',
+    ),
+  );
+
   const invalidSecondFilterAction = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -1202,7 +1292,33 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
     },
     { collectionMetadata },
   );
-  assert.equal(emptyObjectDefaultFilter.ok, true);
+  assert.equal(emptyObjectDefaultFilter.ok, false);
+  assert.ok(emptyObjectDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
+
+  const nullDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: null,
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(nullDefaultFilter.ok, false);
+  assert.ok(nullDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
 
   const emptyGroupDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -1226,7 +1342,8 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
     },
     { collectionMetadata },
   );
-  assert.equal(emptyGroupDefaultFilter.ok, true);
+  assert.equal(emptyGroupDefaultFilter.ok, false);
+  assert.ok(emptyGroupDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
 
   const defaultFilterOnlyUnknownPath = prepareWithDirectCollectionDefaults(
     {
@@ -1433,7 +1550,8 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
     },
     { collectionMetadata },
   );
-  assert.equal(emptyNestedGroup.ok, true);
+  assert.equal(emptyNestedGroup.ok, false);
+  assert.ok(emptyNestedGroup.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
 });
 
 test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {
@@ -1503,6 +1621,39 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     { collectionMetadata },
   );
   assert.equal(nested.ok, true);
+
+  const emptyActionDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname'],
+                    defaultFilter: {},
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyActionDefaultFilter.ok, false);
+  assert.ok(emptyActionDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
 
   const unknown = prepareWithDirectCollectionDefaults(
     {
@@ -1830,7 +1981,7 @@ test('prepareApplyBlueprintRequest requires description on defaults popup values
   );
 });
 
-test('prepareApplyBlueprintRequest marks defaults completeness as skipped when current-record field popups need collectionMetadata', () => {
+test('prepareApplyBlueprintRequest requires collectionMetadata when field popups contain data-bound blocks', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
@@ -1843,11 +1994,20 @@ test('prepareApplyBlueprintRequest marks defaults completeness as skipped when c
             key: 'usersTable',
             type: 'table',
             collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname']),
             fields: [
               {
                 field: 'nickname',
                 popup: {
                   title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
                 },
               },
             ],
@@ -1857,25 +2017,12 @@ test('prepareApplyBlueprintRequest marks defaults completeness as skipped when c
     ],
   });
 
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.warnings, []);
-  assert.deepEqual(result.errors, []);
-  assert.deepEqual(result.defaultsRequirements, {
-    skipped: true,
-    collections: [
-      {
-        collection: 'users',
-        popupActions: ['addNew', 'edit', 'view'],
-        requiresFieldGroups: false,
-        fieldGroupActions: [],
-      },
-    ],
-    associations: [],
-  });
-  assert.notEqual(result.cliBody, undefined);
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.ok(result.errors[0].message.includes('tabs[0].blocks[0].fields[0].popup.blocks[0]'));
+  assert.equal(result.defaultsRequirements, undefined);
 });
 
-test('prepareApplyBlueprintRequest marks defaults completeness as skipped when table defaults completeness is needed but collectionMetadata is missing', () => {
+test('prepareApplyBlueprintRequest requires collectionMetadata when table defaults completeness is needed', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
@@ -1888,6 +2035,7 @@ test('prepareApplyBlueprintRequest marks defaults completeness as skipped when t
             key: 'usersTable',
             type: 'table',
             collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname']),
             fields: ['nickname'],
             recordActions: ['view'],
           },
@@ -1896,25 +2044,11 @@ test('prepareApplyBlueprintRequest marks defaults completeness as skipped when t
     ],
   });
 
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.warnings, []);
-  assert.deepEqual(result.errors, []);
-  assert.deepEqual(result.defaultsRequirements, {
-    skipped: true,
-    collections: [
-      {
-        collection: 'users',
-        popupActions: ['addNew', 'edit', 'view'],
-        requiresFieldGroups: false,
-        fieldGroupActions: [],
-      },
-    ],
-    associations: [],
-  });
-  assert.notEqual(result.cliBody, undefined);
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.equal(result.defaultsRequirements, undefined);
 });
 
-test('prepareApplyBlueprintRequest treats empty collectionMetadata like missing metadata and skips defaults completeness', () => {
+test('prepareApplyBlueprintRequest treats empty collectionMetadata like missing metadata for data-bound blocks', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
@@ -1939,6 +2073,7 @@ test('prepareApplyBlueprintRequest treats empty collectionMetadata like missing 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
               fields: ['nickname'],
               recordActions: ['view'],
             },
@@ -1949,24 +2084,11 @@ test('prepareApplyBlueprintRequest treats empty collectionMetadata like missing 
     { collectionMetadata: emptyPrepareCollectionMetadata },
   );
 
-  assert.equal(result.ok, true);
-  assert.notEqual(result.cliBody, undefined);
-  assert.deepEqual(result.errors, []);
-  assert.deepEqual(result.defaultsRequirements, {
-    skipped: true,
-    collections: [
-      {
-        collection: 'users',
-        popupActions: ['addNew', 'edit', 'view'],
-        requiresFieldGroups: false,
-        fieldGroupActions: [],
-      },
-    ],
-    associations: [],
-  });
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.equal(result.defaultsRequirements, undefined);
 });
 
-test('prepareApplyBlueprintRequest skips defaults completeness without inventing association targets when collectionMetadata is missing', () => {
+test('prepareApplyBlueprintRequest requires collectionMetadata before resolving associated-record blocks', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
@@ -1979,6 +2101,7 @@ test('prepareApplyBlueprintRequest skips defaults completeness without inventing
             key: 'usersTable',
             type: 'table',
             collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname']),
             fields: ['nickname'],
             recordActions: [
               {
@@ -2007,21 +2130,33 @@ test('prepareApplyBlueprintRequest skips defaults completeness without inventing
     ],
   });
 
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.errors, []);
-  assert.deepEqual(result.defaultsRequirements, {
-    skipped: true,
-    collections: [
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.ok(result.errors[0].message.includes('tabs[0].blocks[0].recordActions[0].popup.blocks[0]'));
+  assert.equal(result.defaultsRequirements, undefined);
+});
+
+test('prepareApplyBlueprintRequest accepts non-data-bound pages without collectionMetadata', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Info' },
+    tabs: [
       {
-        collection: 'users',
-        popupActions: ['addNew', 'edit', 'view'],
-        requiresFieldGroups: false,
-        fieldGroupActions: [],
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'intro',
+            type: 'markdown',
+            content: 'Static launch notes',
+          },
+        ],
       },
     ],
-    associations: [],
   });
+
+  assert.equal(result.ok, true);
   assert.notEqual(result.cliBody, undefined);
+  assert.equal(result.defaultsRequirements, undefined);
 });
 
 test('prepareApplyBlueprintRequest validates current-record field popup defaults completeness against collectionMetadata', () => {
@@ -5801,12 +5936,13 @@ test('prepareApplyBlueprintRequest defaults inline create-time popups to popup.t
 });
 
 test('prepareApplyBlueprintRequest defaults first-layer popups with more than three direct blocks to page mode', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     buildPopupModeBlueprint({
       title: 'User details',
       blocks: buildFourBlockPopupBlocks(),
       layout: buildFourBlockPopupLayout(),
     }),
+    { collections: ['users', 'roles'] },
   );
 
   assert.equal(result.ok, true);
@@ -5815,7 +5951,7 @@ test('prepareApplyBlueprintRequest defaults first-layer popups with more than th
 });
 
 test('prepareApplyBlueprintRequest defaults first-layer popups with more than twenty direct effective fields to page mode', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     buildPopupModeBlueprint({
       title: 'User data explorer',
       blocks: [
@@ -5828,6 +5964,7 @@ test('prepareApplyBlueprintRequest defaults first-layer popups with more than tw
         },
       ],
     }),
+    { collections: ['users', 'roles'] },
   );
 
   assert.equal(result.ok, true);
@@ -5836,7 +5973,7 @@ test('prepareApplyBlueprintRequest defaults first-layer popups with more than tw
 });
 
 test('prepareApplyBlueprintRequest keeps popup mode unset at the auto-page thresholds', () => {
-  const exactBlockThreshold = prepareApplyBlueprintRequest(
+  const exactBlockThreshold = prepareWithDirectCollectionDefaults(
     buildPopupModeBlueprint({
       title: 'User details',
       blocks: buildFourBlockPopupBlocks().slice(0, 3),
@@ -5847,11 +5984,12 @@ test('prepareApplyBlueprintRequest keeps popup mode unset at the auto-page thres
         ],
       },
     }),
+    { collections: ['users', 'roles'] },
   );
   assert.equal(exactBlockThreshold.ok, true);
   assert.equal(exactBlockThreshold.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
 
-  const exactFieldThreshold = prepareApplyBlueprintRequest(
+  const exactFieldThreshold = prepareWithDirectCollectionDefaults(
     buildPopupModeBlueprint({
       title: 'User data explorer',
       blocks: [
@@ -5864,13 +6002,14 @@ test('prepareApplyBlueprintRequest keeps popup mode unset at the auto-page thres
         },
       ],
     }),
+    { collections: ['users', 'roles'] },
   );
   assert.equal(exactFieldThreshold.ok, true);
   assert.equal(exactFieldThreshold.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
 });
 
 test('prepareApplyBlueprintRequest does not auto-upgrade nested popups to page mode', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     buildPopupModeBlueprint({
       title: 'User details',
       blocks: [
@@ -5893,6 +6032,7 @@ test('prepareApplyBlueprintRequest does not auto-upgrade nested popups to page m
         },
       ],
     }),
+    { collections: ['users', 'roles'] },
   );
 
   assert.equal(result.ok, true);
@@ -5905,13 +6045,14 @@ test('prepareApplyBlueprintRequest does not auto-upgrade nested popups to page m
 
 test('prepareApplyBlueprintRequest preserves explicit popup modes on complex first-layer popups', () => {
   for (const explicitMode of ['drawer', 'dialog', 'page']) {
-    const result = prepareApplyBlueprintRequest(
+    const result = prepareWithDirectCollectionDefaults(
       buildPopupModeBlueprint({
         title: `User details ${explicitMode}`,
         mode: explicitMode,
         blocks: buildFourBlockPopupBlocks(),
         layout: buildFourBlockPopupLayout(),
       }),
+      { collections: ['users', 'roles'] },
     );
 
     assert.equal(result.ok, true);
@@ -5920,7 +6061,7 @@ test('prepareApplyBlueprintRequest preserves explicit popup modes on complex fir
 });
 
 test('prepareApplyBlueprintRequest does not auto-add page mode when a popup template is already bound', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     buildPopupModeBlueprint({
       title: 'User details',
       template: {
@@ -5930,6 +6071,7 @@ test('prepareApplyBlueprintRequest does not auto-add page mode when a popup temp
       blocks: buildFourBlockPopupBlocks(),
       layout: buildFourBlockPopupLayout(),
     }),
+    { collections: ['users', 'roles'] },
   );
 
   assert.equal(result.ok, true);
@@ -6379,7 +6521,7 @@ test('prepareApplyBlueprintRequest ignores local popup blocks for write shape wh
   assert.deepEqual(result.warnings, ['Popup "Edit user" will ignore local popup keys: mode, blocks, layout.']);
 });
 
-test('page preview cli prepare-write returns skipped defaultsRequirements when collectionMetadata is missing', async () => {
+test('page preview cli prepare-write fails when data-bound blocks are missing collectionMetadata', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -6412,25 +6554,20 @@ test('page preview cli prepare-write returns skipped defaultsRequirements when c
     stderr: stderr.stream,
   });
 
-  assert.equal(exitCode, 0);
+  assert.equal(exitCode, 1);
   assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
-  assert.equal(payload.ok, true);
+  assert.equal(payload.ok, false);
   assert.deepEqual(payload.warnings, []);
-  assert.deepEqual(payload.errors, []);
-  assert.deepEqual(payload.defaultsRequirements, {
-    skipped: true,
-    collections: [
-      {
-        collection: 'users',
-        popupActions: ['addNew', 'edit', 'view'],
-        requiresFieldGroups: false,
-        fieldGroupActions: [],
-      },
-    ],
-    associations: [],
-  });
-  assert.equal(payload.cliBody?.tabs?.[0]?.blocks?.[0]?.collection, 'users');
+  assert.equal(payload.defaultsRequirements, undefined);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(
+    payload.errors.some(
+      (issue) => issue.ruleId === 'missing-collection-metadata'
+        && issue.path === 'collectionMetadata'
+        && issue.message.includes('tabs[0].blocks[0]'),
+    ),
+  );
 });
 
 test('page preview cli prepare-write returns normalized cli body json', async () => {

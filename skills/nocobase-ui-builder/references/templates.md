@@ -4,7 +4,7 @@ Read this file when template routing is already confirmed: reusable popup / bloc
 
 Start with [template-quick.md](./template-quick.md) when you are still deciding whether template routing is in scope. Come here once that route is clear.
 
-Canonical front door is `nocobase-ctl flow-surfaces`. JSON examples below use the CLI raw body. Only in MCP fallback should that same object be wrapped under `requestBody`. For envelopes see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
+Canonical front door is `nb api flow-surfaces`. JSON examples below use the nb raw body. Do not wrap that object again. For body details see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
 
 This file is the single normative source for template selection and localized existing-reference edit routing. If another doc starts restating the template rules, shorten the other doc and point back here.
 
@@ -157,7 +157,7 @@ Use this routing table before writing:
 | switch an existing popup opener to another popup template | `switch-template-reference` | `configure(changes.openView.template)` on the current opener |
 | explicit “只改当前这个” / “不要影响别处” / `copy` / detach intent | `detach-to-copy` | `convert-template-to-copy`, then edit the detached local content |
 
-## CLI-first Request Shapes
+## nb-first Request Shapes
 
 `list-templates` for popup discovery:
 
@@ -237,8 +237,6 @@ Fields-only reuse from a form template switches `usage` to `"fields"`. Popup-cap
   }
 }
 ```
-
-Only in MCP fallback should that same business object be wrapped under `requestBody`.
 
 `configure(changes.openView.template)` switches an existing popup opener to another popup template:
 

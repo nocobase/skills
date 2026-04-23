@@ -264,7 +264,7 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /Do not open \[tool-shapes\.md\][\s\S]{0,40}or \[helper-contracts\.md\][\s\S]{0,220}(real CLI body|prewrite gate|prepared write body)/i,
+    /Do not open \[tool-shapes\.md\][\s\S]{0,40}or \[helper-contracts\.md\][\s\S]{0,220}(real (?:CLI|nb) body|prewrite gate|prepared write body)/i,
     'SKILL.md should keep tool-shapes and helper-contracts behind the real-write stage',
   );
   assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md intent-first rule should not absorb popup.tryTemplate details');
@@ -525,28 +525,43 @@ test('upstream js snapshot relative links stay valid', () => {
   }
 });
 
-test('docs keep canonical CLI-first envelope boundaries', () => {
+test('docs keep canonical nb boundaries', () => {
   const skill = read('SKILL.md');
-  assert.match(skill, /Canonical transport is `nocobase-ctl flow-surfaces`/);
-  assert.match(skill, /nocobase-ctl flow-surfaces apply-blueprint/);
-  assert.match(skill, /nocobase-ctl flow-surfaces get-reaction-meta/);
+  assert.match(skill, /Canonical transport is `nb api flow-surfaces`/);
+  assert.match(skill, /nb api flow-surfaces apply-blueprint/);
+  assert.match(skill, /nb api flow-surfaces get-reaction-meta/);
   assert.match(skill, /prepare-write/i);
-  assert.doesNotMatch(skill, /flow_surfaces_apply_blueprint\.requestBody/);
-  assert.doesNotMatch(skill, /normalized \{ requestBody: <blueprint> \}/i);
+  assert.doesNotMatch(skill, /nocobase-ctl|MCP fallback|flow_surfaces_|requestBody|collections:get/i);
 
   const pageBlueprint = read('references/page-blueprint.md');
-  assert.match(pageBlueprint, /Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`/);
-  assert.match(pageBlueprint, /raw JSON body|raw JSON request body|CLI raw body/i);
-  assert.match(pageBlueprint, /Only in MCP fallback should that same object be wrapped under `requestBody`/i);
+  assert.match(pageBlueprint, /Canonical front door is `nb api flow-surfaces apply-blueprint`/);
+  assert.match(pageBlueprint, /nb raw body/i);
+  assert.match(pageBlueprint, /Do not wrap that object again/i);
 
   const toolShapes = read('references/tool-shapes.md');
-  assert.match(toolShapes, /Only in MCP fallback should that same business object be wrapped under `requestBody`/i);
-  assert.match(toolShapes, /`nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body/i);
+  assert.match(toolShapes, /Do not wrap it again/i);
+  assert.match(toolShapes, /`nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body/i);
+  assert.doesNotMatch(toolShapes, /MCP fallback|requestBody|flow_surfaces_|collections:get/i);
+  assert.doesNotMatch(
+    toolShapes,
+    /nb request body:\s*\n\s*\n```json\s*\{\s*"blueprint"\s*:/i,
+    'tool-shapes should not present wrapped { blueprint: ... } bodies as canonical nb request bodies',
+  );
 
   const asciiPreview = read('references/ascii-preview.md');
-  assert.match(asciiPreview, /\{\s*requestBody,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
+  assert.match(asciiPreview, /\{\s*blueprint,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
   assert.match(asciiPreview, /normalized `templateDecision`/i);
-  assert.doesNotMatch(asciiPreview, /return the normalized \{ requestBody: <blueprint> \} tool-call envelope/i);
+  assert.doesNotMatch(asciiPreview, /requestBody|tool-call envelope/i);
+});
+
+test('public ui-builder docs do not expose old ctl or MCP transport contracts', () => {
+  for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
+    assertFileDoesNotContain(
+      relativePath,
+      /nocobase-ctl|MCP fallback|flow_surfaces_|requestBody|collections:get/i,
+      `${relativePath} should not expose the old ctl/MCP transport contract`,
+    );
+  }
 });
 
 test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
@@ -692,7 +707,7 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
-  assert.match(crosswalk, /flow_surfaces_set_event_flows/i, 'transport-crosswalk should expose MCP fallback for set-event-flows');
+  assert.match(crosswalk, /nb api flow-surfaces set-event-flows/i, 'transport-crosswalk should expose nb command for set-event-flows');
 
   const settings = read('references/settings.md');
   assert.match(settings, /Event-flow Replacement/i, 'settings.md should document event-flow replacement explicitly');
@@ -803,7 +818,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /Canonical front door: `nocobase-ctl flow-surfaces`/);
+  assert.match(defaultPrompt, /Canonical front door: `nb api flow-surfaces`/);
   assert.match(defaultPrompt, /Intent-first/i);
   assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
@@ -856,8 +871,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     pageBlueprint,
-    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,80}"defaultFilter":\s*\{\}/,
-    'page-blueprint canonical table example should include a minimal block-level defaultFilter',
+    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
+    'page-blueprint canonical table example should include a non-empty block-level defaultFilter',
   );
   assert.match(
     pageBlueprint,
@@ -871,8 +886,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     pageBlueprint,
-    /\{\}[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}valid empty groups/i,
-    'page-blueprint should document accepted empty defaultFilter groups',
+    /\{\}[\s\S]{0,120}`?null`?[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}rejected/i,
+    'page-blueprint should document rejected empty defaultFilter groups',
   );
   assert.match(
     pageBlueprint,
@@ -883,8 +898,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(
     wholePageQuick,
-    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"support_tickets"[\s\S]{0,80}"defaultFilter":\s*\{\}/,
-    'whole-page quick table example should include a minimal block-level defaultFilter',
+    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"support_tickets"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"subject"/,
+    'whole-page quick table example should include a non-empty block-level defaultFilter',
   );
 
   const toolShapes = read('references/tool-shapes.md');
@@ -895,17 +910,17 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     toolShapes,
-    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,80}"defaultFilter":\s*\{\}/,
-    'tool-shapes applyBlueprint table example should include a minimal block-level defaultFilter',
+    /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
+    'tool-shapes applyBlueprint table example should include a non-empty block-level defaultFilter',
   );
   assert.match(
     toolShapes,
-    /"key":\s*"employeesTable"[\s\S]{0,240}"defaultFilter":\s*\{\}/,
-    'tool-shapes compose table example should include a minimal block-level defaultFilter',
+    /"key":\s*"employeesTable"[\s\S]{0,300}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
+    'tool-shapes compose table example should include a non-empty block-level defaultFilter',
   );
 
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /\{\}[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\]/i);
+  assert.match(helperContracts, /\{\}[\s\S]{0,80}`?null`?[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\][\s\S]{0,80}rejected/i);
   assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const normativeContract = read('references/normative-contract.md');
@@ -1680,26 +1695,30 @@ test('whole-page defaults docs keep the fixed popup trio and table addNew thresh
   );
 });
 
-test('helper contracts keep prepare-write caller-driven for collectionMetadata completeness checks', () => {
+test('helper contracts require caller-supplied collectionMetadata for data-bound prepare-write', () => {
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /does not fetch live collection metadata/i);
   assert.match(helperContracts, /collectionMetadata/i);
+  assert.match(helperContracts, /data-bound block/i);
+  assert.match(helperContracts, /missing-collection-metadata/i);
   assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
   assert.match(helperContracts, /caller-supplied/i);
-  assert.match(helperContracts, /missing[\s\S]{0,160}(skip|skipped)/i);
-  assert.doesNotMatch(helperContracts, /collectionMetadata[\s\S]{0,220}(validation error instead of skipping|must fail|fails with a validation error)/i);
+  assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });
 
-test('prepare-write helper-envelope docs include optional collectionMetadata', () => {
+test('prepare-write helper-envelope docs explain collectionMetadata requirements', () => {
   for (const relativePath of [
     'references/ascii-preview.md',
     'references/template-decision-summary.md',
   ]) {
     const text = read(relativePath);
-    assert.match(text, /requestBody/i, `${relativePath} should keep requestBody in the helper envelope`);
+    assert.match(text, /blueprint/i, `${relativePath} should keep the helper envelope blueprint payload`);
+    assert.doesNotMatch(text, /requestBody/i, `${relativePath} should not keep the old helper payload name`);
     assert.match(text, /templateDecision/i, `${relativePath} should keep templateDecision in the helper envelope`);
-    assert.match(text, /collectionMetadata/i, `${relativePath} should document optional collectionMetadata in the helper envelope`);
+    assert.match(text, /collectionMetadata/i, `${relativePath} should document collectionMetadata in the helper envelope`);
+    assert.match(text, /data-bound/i, `${relativePath} should explain when collectionMetadata is required`);
+    assert.match(text, /missing-collection-metadata/i, `${relativePath} should name the hard-fail rule`);
   }
 });
 

@@ -17,7 +17,7 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 | 只有一部分属于 Modern page，剩余内容应收窄 / handoff | [boundary-quick.md](boundary-quick.md) | [template-quick.md](template-quick.md) |
 | 模板复用 / 已有 template reference / `copy` vs `reference` | [template-quick.md](template-quick.md) | [templates.md](templates.md), [template-decision-summary.md](template-decision-summary.md), [popup.md](popup.md) |
 | helper CLI / prepare-write / 本地 validator | [helper-contracts.md](helper-contracts.md) | [ascii-preview.md](ascii-preview.md), [runjs-runtime.md](runjs-runtime.md) |
-| transport / CLI / fallback 规则 | [cli-transport.md](cli-transport.md) | [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md) |
+| transport / nb 命令规则 | [cli-transport.md](cli-transport.md) | [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md) |
 | JS / RunJS / `ctx.*` / event-flow JS | [js.md](js.md) | [js-surfaces/index.md](js-surfaces/index.md), [runjs-authoring-loop.md](runjs-authoring-loop.md), [js-snippets/index.md](js-snippets/index.md), [runjs-repair-playbook.md](runjs-repair-playbook.md), [js-reference-index.md](js-reference-index.md), [runjs-runtime.md](runjs-runtime.md), [settings.md](settings.md) |
 | 图表主题 | [chart.md](chart.md) | [chart-core.md](chart-core.md), [chart-validation.md](chart-validation.md) |
 
@@ -26,7 +26,7 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 这些文档不会替代 quick route。先命中一个 quick route，再按实际写入 / prepare-write / readback 阶段按需打开下面这些文件。
 
 - 写入前 gate / helper: [helper-contracts.md](helper-contracts.md), [execution-checklist.md](execution-checklist.md), [verification.md](verification.md)
-- CLI / MCP 包装边界: [cli-transport.md](cli-transport.md), [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md), [tool-shapes.md](tool-shapes.md)
+- nb 命令边界: [cli-transport.md](cli-transport.md), [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md), [tool-shapes.md](tool-shapes.md)
 - 规则与能力边界: [normative-contract.md](normative-contract.md), [settings.md](settings.md), [runtime-playbook.md](runtime-playbook.md)
 
 ## Topic Deep Dives

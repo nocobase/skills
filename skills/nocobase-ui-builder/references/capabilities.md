@@ -34,9 +34,9 @@ Read this file when you already know you need to add something into a content ar
 
 ## 4. Field Rules
 
-- Use live collection metadata as the default field truth. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`.
-- Do **not** use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring / field discovery; they are compact browse views only.
-- Use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up, or `collections.fields:get` only when already on MCP fallback.
+- Use live collection metadata as the default field truth. Prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`.
+- Do **not** use `nb api data-modeling collections fields list` / `data-modeling fields list` for page authoring / field discovery; they are compact browse views only.
+- Use `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up.
 - A field existing in collection schema does not automatically mean it is addable on the current UI target.
 - If the live collection metadata truth shows `interface: null` / empty, do not author that field into page-blueprint `fields[]`.
 - When current-target addability matters, read `catalog({ target, sections: ["fields"] })`.

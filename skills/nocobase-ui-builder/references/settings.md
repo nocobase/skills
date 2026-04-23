@@ -2,7 +2,7 @@
 
 Read this file first when you already know you are creating a block / field / action / record action, and the user also requires frequent public attributes such as title, label, required, or button style. The goal is to inline public semantic `settings` directly into `add*`, rather than creating an empty node first and then mechanically adding a separate `configure`. Whether `catalog` is mandatory is governed by [normative-contract.md](./normative-contract.md).
 
-Canonical front door is `nocobase-ctl flow-surfaces`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below default to the CLI raw body unless a block is explicitly labeled as MCP fallback. For CLI/MCP envelope mapping, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
+Canonical front door is `nb api flow-surfaces`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below use the nb raw body. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
 
 ## Contents
 
@@ -49,7 +49,7 @@ Use `set-layout` when the target grid already exists and the user explicitly acc
 
 Core rules:
 
-- Preferred CLI family is `nocobase-ctl flow-surfaces set-layout`.
+- Preferred CLI family is `nb api flow-surfaces set-layout`.
 - Low-level `set-layout` is **not** the public page/popup/fields layout contract. Do not reuse `{ rows: [[{ key, span }]] }` here.
 - `target.uid` must be the live grid uid from readback, not a page/popup block `key`.
 - `rows` is `Record<string, string[][]>`: each row value is an array of column cells, and each cell is an array of stacked live child `uid`s.
@@ -100,14 +100,14 @@ Use `set-event-flows` when the target already exists and the user explicitly acc
 
 Core rules:
 
-- Preferred CLI family is `nocobase-ctl flow-surfaces set-event-flows`.
+- Preferred CLI family is `nb api flow-surfaces set-event-flows`.
 - Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
 - For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.
 - Do not invent event names, flow keys, step keys, or step payload shapes locally when the live readback has not shown them yet.
 - If `on` is an object instead of a bare string, preserve its `eventName / phase / flowKey / stepKey` structure from readback.
 
-CLI body shape:
+nb body shape:
 
 ```json
 {
@@ -251,7 +251,7 @@ Create `createForm` and give it a title directly:
 }
 ```
 
-When `add-block` creates a direct non-template public `table` / `list` / `gridCard`, keep `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter`.
+When `add-block` creates a direct non-template public `table` / `list` / `gridCard`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
 
 When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block.
 

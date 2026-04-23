@@ -32,7 +32,7 @@ Whole-page-first rule:
 
 ### Existing live page
 
-1. `nocobase-ctl flow-surfaces get-reaction-meta`
+1. `nb api flow-surfaces get-reaction-meta`
 2. choose the returned capability by `kind`
 3. reuse its `fingerprint`
 4. call the matching `set-*` rules command
@@ -40,7 +40,7 @@ Whole-page-first rule:
 When extracting fingerprints from CLI JSON, do not pipe the meta through `rg` and then copy the nearest fingerprint. A single target can expose `fieldValue`, `blockLinkage`, and `fieldLinkage` at once, and their fingerprints are not interchangeable. Select by `kind`:
 
 ```bash
-nocobase-ctl flow-surfaces get-reaction-meta -e <env> -j \
+nb api flow-surfaces get-reaction-meta -e <env> -j \
   --target '{"uid":"<target-uid>"}' > /tmp/reaction-meta.json
 
 jq -r '.data.capabilities[] | select(.kind=="fieldLinkage") | .fingerprint' /tmp/reaction-meta.json
@@ -231,7 +231,7 @@ For a form-scoped helper item, use this exact decision order:
 Verified CLI shape for a form-scoped helper item:
 
 ```bash
-nocobase-ctl flow-surfaces add-field -e <env> -j \
+nb api flow-surfaces add-field -e <env> -j \
   --target '{"uid":"<create-form-uid>"}' \
   --type jsItem \
   --settings '{"label":"Helper","showLabel":false,"version":"v2","code":"const selected = Array.isArray(ctx.formValues?.roles) ? ctx.formValues.roles.length > 0 : Boolean(ctx.formValues?.roles); if (!selected) { ctx.render(null); return; } ctx.render(\"Helper content is now visible.\");"}'

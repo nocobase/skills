@@ -16,7 +16,7 @@ const PLACEHOLDER_TEXT_PATTERN = /^(summary|later|placeholder|todo)$/i;
 const PLACEHOLDER_TEXT_CN_PATTERN = /^(备用|待定|稍后)$/;
 const CJK_TEXT_PATTERN = /[\u3400-\u9fff]/;
 const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
-const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['requestBody', 'templateDecision', 'collectionMetadata']);
+const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['blueprint', 'requestBody', 'templateDecision', 'collectionMetadata']);
 const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
 const DEFAULTS_ROOT_ALLOWED_KEYS = new Set(['collections']);
 const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set(['fieldGroups', 'popups']);
@@ -1641,15 +1641,66 @@ function buildDefaultsRequirementsSummary(requirements) {
   };
 }
 
-function buildMissingCollectionMetadataDefaultsRequirements(blueprint) {
-  const requirements = collectBlueprintDefaultsRequirements(blueprint, { collections: {} });
-  if (requirements.collections.size === 0 && requirements.associations.size === 0) {
-    return null;
+function collectDataBoundBlockPathsFromPopup(popup, pathPrefix, paths) {
+  if (!shouldTraversePopupBlocks(popup)) return;
+  collectDataBoundBlockPathsFromBlocks(popup.blocks, `${pathPrefix}.blocks`, paths);
+}
+
+function collectDataBoundBlockPathsFromActions(items, pathPrefix, paths) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    collectDataBoundBlockPathsFromPopup(item.popup, `${pathPrefix}[${index}].popup`, paths);
   }
-  return {
-    skipped: true,
-    ...buildDefaultsRequirementsSummary(requirements),
-  };
+}
+
+function collectDataBoundBlockPathsFromFields(items, pathPrefix, paths) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    collectDataBoundBlockPathsFromPopup(item.popup, `${pathPrefix}[${index}].popup`, paths);
+  }
+}
+
+function collectDataBoundBlockPathsFromFieldGroups(fieldGroups, pathPrefix, paths) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    collectDataBoundBlockPathsFromFields(group.fields, `${pathPrefix}[${groupIndex}].fields`, paths);
+  });
+}
+
+function collectDataBoundBlockPathsFromBlock(block, path, paths) {
+  if (!isPlainObject(block)) return;
+  if (isDataBlock(block)) {
+    paths.push(path);
+  }
+  collectDataBoundBlockPathsFromFields(block.fields, `${path}.fields`, paths);
+  collectDataBoundBlockPathsFromFieldGroups(block.fieldGroups, `${path}.fieldGroups`, paths);
+  collectDataBoundBlockPathsFromActions(block.actions, `${path}.actions`, paths);
+  collectDataBoundBlockPathsFromActions(block.recordActions, `${path}.recordActions`, paths);
+}
+
+function collectDataBoundBlockPathsFromBlocks(blocks, pathPrefix, paths) {
+  for (const [index, block] of ensureArray(blocks).entries()) {
+    collectDataBoundBlockPathsFromBlock(block, `${pathPrefix}[${index}]`, paths);
+  }
+}
+
+function collectBlueprintDataBoundBlockPaths(blueprint) {
+  const paths = [];
+  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
+    if (!isPlainObject(tab)) continue;
+    collectDataBoundBlockPathsFromBlocks(tab.blocks, `tabs[${tabIndex}].blocks`, paths);
+  }
+  return paths;
+}
+
+function createMissingCollectionMetadataError(dataBoundBlockPaths) {
+  const visiblePaths = dataBoundBlockPaths.slice(0, 5);
+  const hiddenCount = dataBoundBlockPaths.length - visiblePaths.length;
+  const suffix = hiddenCount > 0 ? `, and ${hiddenCount} more` : '';
+  return createValidationError(
+    'collectionMetadata',
+    'missing-collection-metadata',
+    `collectionMetadata is required for prepare-write when the blueprint contains data-bound blocks: ${visiblePaths.join(', ')}${suffix}.`,
+  );
 }
 
 function collectBlueprintDefaultsRequirements(blueprint, collectionMetadata) {
@@ -2186,12 +2237,18 @@ function renderTab(tab, index, context) {
   return makeBox(`Tab: ${tabTitle}`, body);
 }
 
+function getWrappedBlueprintKey(input) {
+  if (hasOwn(input, 'blueprint')) return 'blueprint';
+  if (hasOwn(input, 'requestBody')) return 'requestBody';
+  return '';
+}
+
 function isWrappedBlueprintInput(input) {
   return isPlainObject(input)
     && !Array.isArray(input.tabs)
     && !normalizeText(input.mode)
     && !normalizeText(input.version)
-    && hasOwn(input, 'requestBody');
+    && Boolean(getWrappedBlueprintKey(input));
 }
 
 function isPrepareHelperEnvelope(input) {
@@ -2203,19 +2260,21 @@ function normalizeBlueprintInput(input, warnings, errors = [], options = {}) {
   if (!isPlainObject(input)) return null;
 
   if (isWrappedBlueprintInput(input)) {
-    if (isPlainObject(input.requestBody)) {
-      if (!suppressLegacyWrapperWarning) {
+    const wrappedKey = getWrappedBlueprintKey(input);
+    const wrappedBlueprint = input[wrappedKey];
+    if (isPlainObject(wrappedBlueprint)) {
+      if (wrappedKey === 'requestBody' && !suppressLegacyWrapperWarning) {
         warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
       }
-      return input.requestBody;
+      return wrappedBlueprint;
     }
 
-    if (typeof input.requestBody === 'string') {
+    if (typeof wrappedBlueprint === 'string') {
       errors.push(
         createValidationError(
-          'requestBody',
-          'stringified-request-body',
-          'Outer requestBody must stay an object page blueprint, not a JSON string.',
+          wrappedKey,
+          wrappedKey === 'requestBody' ? 'stringified-request-body' : 'stringified-blueprint',
+          `Outer ${wrappedKey} must stay an object page blueprint, not a JSON string.`,
         ),
       );
       return null;
@@ -2223,9 +2282,9 @@ function normalizeBlueprintInput(input, warnings, errors = [], options = {}) {
 
     errors.push(
       createValidationError(
-        'requestBody',
-        'invalid-request-body',
-        'Outer requestBody must contain one object page blueprint.',
+        wrappedKey,
+        wrappedKey === 'requestBody' ? 'invalid-request-body' : 'invalid-blueprint',
+        `Outer ${wrappedKey} must contain one object page blueprint.`,
       ),
     );
     return null;
@@ -3710,20 +3769,24 @@ function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, stat
   );
 }
 
-function normalizeDefaultFilterGroupForValidation(defaultFilter) {
-  if (defaultFilter === null) {
-    return { logic: '$and', items: [] };
-  }
-  if (isPlainObject(defaultFilter) && Object.keys(defaultFilter).length === 0) {
-    return { logic: '$and', items: [] };
-  }
-  return defaultFilter;
-}
-
 function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, block, options = {}) {
   const messagePrefix = normalizeText(options.messagePrefix, 'defaultFilter');
-  const normalizedDefaultFilter = normalizeDefaultFilterGroupForValidation(defaultFilter);
-  if (!isPlainObject(normalizedDefaultFilter)) {
+  const pushEmptyDefaultFilterError = (emptyPath = path) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      emptyPath,
+      'data-surface-default-filter-empty',
+      `${messagePrefix} must include at least one concrete filter item; empty defaultFilter groups such as {}, null, or { logic, items: [] } are not allowed.`,
+    );
+  };
+
+  if (defaultFilter === null || (isPlainObject(defaultFilter) && Object.keys(defaultFilter).length === 0)) {
+    pushEmptyDefaultFilterError();
+    return;
+  }
+
+  if (!isPlainObject(defaultFilter)) {
     pushValidationError(
       state.errors,
       state.seenErrors,
@@ -3736,6 +3799,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
 
   const fieldNameSet = new Set(fieldNames);
   const filterItemPaths = new Set();
+  let filterItemCount = 0;
 
   const visitGroup = (group, groupPath) => {
     const logic = normalizeText(group.logic);
@@ -3786,6 +3850,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
         continue;
       }
 
+      filterItemCount += 1;
       const filterPath = normalizeText(item.path);
       if (!filterPath) {
         pushValidationError(
@@ -3822,7 +3887,12 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
     }
   };
 
-  visitGroup(normalizedDefaultFilter, path);
+  visitGroup(defaultFilter, path);
+
+  if (filterItemCount === 0) {
+    pushEmptyDefaultFilterError(`${path}.items`);
+    return;
+  }
 
   const missingFilterItems = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
   if (missingFilterItems.length > 0) {
@@ -3842,13 +3912,27 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
   }
 
   if (isTemplateBackedBlock(block)) {
-    if (hasOwn(block, 'defaultFilter')) {
+    for (const unsupportedProperty of [
+      {
+        key: 'defaultFilter',
+        ruleId: 'data-surface-block-default-filter-template-unsupported',
+        message: 'Template-backed table, list, and gridCard blocks do not support block-level defaultFilter; only direct blocks may define it.',
+      },
+      {
+        key: 'defaultActionSettings',
+        ruleId: 'data-surface-block-default-action-settings-template-unsupported',
+        message: 'Template-backed table, list, and gridCard blocks do not support defaultActionSettings; use filter action settings on direct blocks instead.',
+      },
+    ]) {
+      if (!hasOwn(block, unsupportedProperty.key)) {
+        continue;
+      }
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}.defaultFilter`,
-        'data-surface-block-default-filter-template-unsupported',
-        'Template-backed table, list, and gridCard blocks do not support block-level defaultFilter; only direct blocks may define it.',
+        `${path}.${unsupportedProperty.key}`,
+        unsupportedProperty.ruleId,
+        unsupportedProperty.message,
       );
     }
     return;
@@ -4466,12 +4550,23 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     errors: collectionMetadataErrors,
   } = normalizeCollectionMetadataInput(collectionMetadataInput);
   const hasUsableCollectionMetadata = hasCollectionMetadata && Object.keys(collectionMetadata).length > 0;
+  const dataBoundBlockPaths = recognizableBlueprint ? collectBlueprintDataBoundBlockPaths(blueprint) : [];
+  const missingCollectionMetadataErrors =
+    dataBoundBlockPaths.length > 0 && !hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
+      ? [createMissingCollectionMetadataError(dataBoundBlockPaths)]
+      : [];
   const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, blueprint);
   const resolvedTemplateDecision = recognizableBlueprint && templateDecision && !templateDecisionConsistencyErrors.length
     ? cloneSerializable(templateDecision)
     : undefined;
 
-  let errors = [...normalizeErrors, ...templateDecisionErrors, ...collectionMetadataErrors, ...templateDecisionConsistencyErrors];
+  let errors = [
+    ...normalizeErrors,
+    ...templateDecisionErrors,
+    ...collectionMetadataErrors,
+    ...missingCollectionMetadataErrors,
+    ...templateDecisionConsistencyErrors,
+  ];
   if (!recognizableBlueprint) {
     if (!errors.length) {
       errors = [
@@ -4500,16 +4595,10 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     }),
   ];
   let defaultsRequirements;
-  const missingCollectionMetadataDefaultsRequirements =
-    !hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
-      ? buildMissingCollectionMetadataDefaultsRequirements(blueprint)
-      : null;
   if (hasUsableCollectionMetadata && collectionMetadataErrors.length === 0) {
     const completeness = validateDefaultsCompleteness(blueprint, { collections: collectionMetadata });
     errors = [...errors, ...completeness.errors];
     defaultsRequirements = completeness.defaultsRequirements;
-  } else if (missingCollectionMetadataDefaultsRequirements) {
-    defaultsRequirements = missingCollectionMetadataDefaultsRequirements;
   }
   const result = {
     ok: errors.length === 0,

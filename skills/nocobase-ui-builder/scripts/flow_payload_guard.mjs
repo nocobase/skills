@@ -1230,11 +1230,23 @@ function validatePublicDefaultFilterGroup({
   fieldNames = [],
   messagePrefix = 'defaultFilter',
 }) {
-  const normalizedDefaultFilter = defaultFilter === null
-    || (isPlainObject(defaultFilter) && Object.keys(defaultFilter).length === 0)
-    ? { logic: '$and', items: [] }
-    : defaultFilter;
-  if (!isPlainObject(normalizedDefaultFilter)) {
+  const pushEmptyDefaultFilterFinding = (emptyPath = pathValue) => {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY',
+      message: `${messagePrefix} must include at least one concrete filter item; empty defaultFilter groups such as {}, null, or { logic, items: [] } are not allowed.`,
+      path: emptyPath,
+      mode,
+      dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY:${emptyPath}`,
+    }));
+  };
+
+  if (defaultFilter === null || (isPlainObject(defaultFilter) && Object.keys(defaultFilter).length === 0)) {
+    pushEmptyDefaultFilterFinding();
+    return;
+  }
+
+  if (!isPlainObject(defaultFilter)) {
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_INVALID',
@@ -1248,6 +1260,7 @@ function validatePublicDefaultFilterGroup({
 
   const fieldNameSet = new Set(fieldNames);
   const filterItemPaths = new Set();
+  let filterItemCount = 0;
 
   const visitGroup = (group, groupPath) => {
     const logic = normalizeOptionalText(group.logic);
@@ -1302,6 +1315,7 @@ function validatePublicDefaultFilterGroup({
         return;
       }
 
+      filterItemCount += 1;
       const fieldPath = normalizeOptionalText(item.path);
       if (!fieldPath) {
         pushFinding(blockers, seen, createFinding({
@@ -1353,7 +1367,12 @@ function validatePublicDefaultFilterGroup({
     });
   };
 
-  visitGroup(normalizedDefaultFilter, pathValue);
+  visitGroup(defaultFilter, pathValue);
+
+  if (filterItemCount === 0) {
+    pushEmptyDefaultFilterFinding(`${pathValue}.items`);
+    return;
+  }
 
   const missingFieldNames = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
   if (missingFieldNames.length > 0) {
@@ -1514,6 +1533,19 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
           path: `${pathValue}.defaultFilter`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED:${pathValue}`,
+          details: {
+            type: normalizeOptionalText(block.type) || null,
+          },
+        }));
+      }
+      if (Object.hasOwn(block, 'defaultActionSettings')) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED',
+          message: 'Template-backed table/list/gridCard payloads do not support defaultActionSettings; only direct blocks may define it.',
+          path: `${pathValue}.defaultActionSettings`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED:${pathValue}`,
           details: {
             type: normalizeOptionalText(block.type) || null,
           },

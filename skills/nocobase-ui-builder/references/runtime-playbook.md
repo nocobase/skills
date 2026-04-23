@@ -4,7 +4,7 @@ This file provides the family / locator / write-target mental model for the skil
 
 Start with [local-edit-quick.md](./local-edit-quick.md) when the request looks like a normal localized edit and you only need the default route first. Come here when the family / locator model itself is the blocker.
 
-Canonical front door is `nocobase-ctl`. The operation names below are the stable runtime families; discover the exact generated command shape through `nocobase-ctl flow-surfaces --help`.
+Canonical front door is `nb`. The operation names below are the stable runtime families; discover the exact generated command shape through `nb api flow-surfaces --help`.
 
 ## 1. Common Families
 
@@ -20,29 +20,29 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 
 ## 2. Default Read Routing
 
-- menu question -> `nocobase-ctl desktop-routes list-accessible`
-- normal page/popup inspection -> `nocobase-ctl flow-surfaces get`
-- richer public surface snapshot -> `nocobase-ctl flow-surfaces describe-surface`
-- capability uncertainty -> `nocobase-ctl flow-surfaces catalog`
-- reaction-capability uncertainty -> `nocobase-ctl flow-surfaces get-reaction-meta`
-- context-variable uncertainty -> `nocobase-ctl flow-surfaces context` as lower-level supplement
+- menu question -> `nb api desktop-routes list-accessible`
+- normal page/popup inspection -> `nb api flow-surfaces get`
+- richer public surface snapshot -> `nb api flow-surfaces describe-surface`
+- capability uncertainty -> `nb api flow-surfaces catalog`
+- reaction-capability uncertainty -> `nb api flow-surfaces get-reaction-meta`
+- context-variable uncertainty -> `nb api flow-surfaces context` as lower-level supplement
 
 ## 3. Default Write Routing
 
 | user intent | default write path |
 | --- | --- |
-| create one whole page | `nocobase-ctl flow-surfaces apply-blueprint` |
-| replace/rebuild one whole page | `nocobase-ctl flow-surfaces apply-blueprint` |
-| whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
-| create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
-| add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
-| replace one existing full grid layout | `nocobase-ctl flow-surfaces set-layout` |
+| create one whole page | `nb api flow-surfaces apply-blueprint` |
+| replace/rebuild one whole page | `nb api flow-surfaces apply-blueprint` |
+| whole-page interaction / reaction authoring | `nb api flow-surfaces apply-blueprint` |
+| create/move menu only | `nb api flow-surfaces create-menu` / `update-menu` |
+| add/update content under an existing surface | `nb api flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| replace one existing full grid layout | `nb api flow-surfaces set-layout` |
 | edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
-| replace existing instance-level event flows | `nocobase-ctl flow-surfaces set-event-flows` |
-| localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
-| reorder/remove tab or popup tab | `nocobase-ctl flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
-| reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
-| initialize a menu item into a page | `nocobase-ctl flow-surfaces create-page` |
+| replace existing instance-level event flows | `nb api flow-surfaces set-event-flows` |
+| localized reaction edit | `nb api flow-surfaces get-reaction-meta` -> matching `set-*` rules |
+| reorder/remove tab or popup tab | `nb api flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
+| reorder/remove node | `nb api flow-surfaces move-node` / `remove-node` |
+| initialize a menu item into a page | `nb api flow-surfaces create-page` |
 
 For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, use pageSchemaUid/live uids for the downstream localized work.
 

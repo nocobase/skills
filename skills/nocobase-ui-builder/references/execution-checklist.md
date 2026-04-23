@@ -1,29 +1,29 @@
 # Execution Checklist
 
-Canonical front door is `nocobase-ctl flow-surfaces`. Use CLI first, and treat MCP only as the fallback transport after the CLI path has been repaired and still cannot expose the required runtime command family.
+Canonical front door is `nb api flow-surfaces`. Use `nb` only; when env/runtime/auth is missing, repair the `nb` path before writing.
 
 Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
 
 ## 1. Preflight
 
 - Confirm the task is really about Modern page (v2) UI.
-- Confirm `nocobase-ctl` is available, then run:
-  - `nocobase-ctl --help`
-  - `nocobase-ctl env --help`
-  - `nocobase-ctl flow-surfaces --help`
-- If env/runtime/auth is missing, repair it before doing any fallback planning.
-- Before first use of a specific subcommand, run `nocobase-ctl flow-surfaces <subcommand> --help`.
+- Confirm `nb` is available, then run:
+  - `nb --help`
+  - `nb env --help`
+  - `nb api flow-surfaces --help`
+- If env/runtime/auth is missing, repair it before writing.
+- Before first use of a specific subcommand, run `nb api flow-surfaces <subcommand> --help`.
 - Decide the route early:
   - whole-page create / replace
   - localized existing-surface edit
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
-- If real fields or relations matter, gather live schema first with `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`, and only then to MCP `collections:get(appends=["fields"])`. Drop any field whose `interface` is empty / null before authoring.
+- If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
-  - body-based CLI commands take the raw business object through `--body` / `--body-file`
-  - only MCP fallback wraps that same object under `requestBody`
+  - body-based nb commands take the raw business object through `--body` / `--body-file`
+  - never wrap that same object again before passing it to `nb api`
 - Never invent `"root"` for `target.uid` or `locator.uid`.
 
 ## 2. Template Decision Gate
@@ -44,7 +44,7 @@ Use this checklist after the matching quick route is already clear. For global r
 
 Use this path when the user is describing one entire page.
 
-1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), and [ascii-preview.md](./ascii-preview.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real CLI body or MCP fallback envelope.
+1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), and [ascii-preview.md](./ascii-preview.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real nb body or nb helper envelope.
 2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch. Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
@@ -61,15 +61,16 @@ Use this path when the user is describing one entire page.
    - any requested `table` / `list` / `gridCard` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
-   - when `collectionMetadata` is supplied, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
+   - any data-bound block has caller-supplied `collectionMetadata`; missing or empty metadata fails prepare-write with `missing-collection-metadata`
+   - with `collectionMetadata`, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
 7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same draft blueprint.
-8. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in this route must be `nocobase-ctl flow-surfaces apply-blueprint`.
+8. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in this route must be `nb api flow-surfaces apply-blueprint`.
 9. Before one whole-page `applyBlueprint` succeeds, do not issue `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
-10. In CLI-first execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nocobase-ctl flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
-11. If you persist the prepared payload to a file for the final CLI write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
+10. In nb execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nb api flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
+11. If you persist the prepared payload to a file for the final nb write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
 12. If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest prepared payload / preview / error evidence.
-13. Only in MCP fallback should that same prepared business object be wrapped under `requestBody`.
-14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nocobase-ctl flow-surfaces get` and targeted readback from [verification.md](./verification.md).
+13. Do not wrap that prepared business object again.
+14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nb api flow-surfaces get` and targeted readback from [verification.md](./verification.md).
 
 ## 4. Localized Existing-surface Edit
 
@@ -95,17 +96,17 @@ Use this path when the user wants to change only part of an existing surface.
 
 ## 6. Schema / Capability Reads
 
-- Use `nocobase-ctl data-modeling collections list -j` only to narrow candidates; on MCP fallback, use `collections:list`.
-- Use `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the authoring truth. If that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`, and only then MCP `collections:get(appends=["fields"])`.
-- Do not use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring / field discovery.
-- Use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up, or MCP `collections.fields:get` only when already on MCP fallback.
+- Use `nb api data-modeling collections list -j` only to narrow candidates.
+- Use `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the authoring truth. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`.
+- Do not use `nb api data-modeling collections fields list` / `data-modeling fields list` for page authoring / field discovery.
+- Use `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up.
 - If required schema is missing, stop and hand off to `nocobase-data-modeling`.
 
 ## 7. Stop / Handoff
 
 Stop instead of guessing when:
 
-- the CLI is unavailable and MCP fallback is also unavailable
+- `nb` is unavailable or cannot expose the required command family after env repair and `nb env update`
 - the target is still ambiguous after readback
 - the task is really ACL, workflow, data-modeling, browser validation, or non-Modern-page navigation
 - the request is about editing template-owned content under an existing template reference but still does not clearly resolve to edit-template-source, edit-host-local-config, switch-template-reference, or detach-to-copy
