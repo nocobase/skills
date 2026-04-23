@@ -36,10 +36,12 @@ Collection targeting UX rule:
 - do not force user to provide exact technical collection names
 - resolve actual collection names from collection metadata (`nb api resource list --resource collections --filter '{}' --appends fields -j`)
 - data source defaults to `main` unless user specifies another data source
+- scope defaults to `all` unless user explicitly requests `own` or `custom`
 - if resolution is ambiguous or empty, ask for clarification before write
 - when scope is `all` or `own`, resolve built-in scope id and write explicit action scope binding
 - do not keep `scopeId=null` when user selected `all` or `own`
 - before write, confirm data source + resolved collections + actions + scope
+- if scope is defaulted, confirmation must state `scope=all (default)` and allow user override
 
 ## MANDATORY: Field Configuration
 
@@ -155,6 +157,7 @@ Operational default:
 
 - if user only provides collection + action + scope, do not block execution for missing field lists
 - apply full-field access as default and state this in the result
+- if user does not provide scope, apply `all` as default and state this in confirmation/result
 - for `view`, default to full-field visibility unless user explicitly restricts fields
 - implement full-field default as explicit field-name arrays resolved from collection metadata
 

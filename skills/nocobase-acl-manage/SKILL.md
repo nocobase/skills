@@ -4,7 +4,7 @@ description: Task-driven ACL governance through nb CLI for role lifecycle, globa
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.5.1
+version: 2.5.3
 last-reviewed: 2026-04-23
 risk-level: high
 ---
@@ -69,7 +69,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 | `permission.system-snippets.set` | set role-level system snippets | `role_name`, (`snippet_preset` or `snippets`) | none |
 | `permission.route.desktop.set` | set desktop route permissions for a role | `role_name`, `route_ids[]` | `set_mode` (`set` or `add` or `remove`) |
 | `permission.data-source.global.set` | set global strategy actions for all tables in one data source | `role_name`, `global_actions[]` | `data_source_key` |
-| `permission.data-source.resource.set` | set independent actions for one or more collections | `role_name`, (`collection_hint` or `collection_hints[]`), `actions[]`, `resource_scope` | `data_source_key`, `fields_map`, `scope_map` |
+| `permission.data-source.resource.set` | set independent actions for one or more collections | `role_name`, (`collection_hint` or `collection_hints[]`), `actions[]` | `data_source_key`, `fields_map`, `scope_map`, `resource_scope` (`all` by default) |
 | `permission.scope.manage` | create/update/list reusable scopes | `scope_task` | `data_source_key`, `scope_id`, `scope_payload` |
 
 ## D) User Domain
@@ -91,6 +91,8 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 Role creation interaction policy:
 
 - always create with the same default read-only baseline (`role.create-blank`)
+- `role_name` must use NocoBase role uid format with `r_` prefix
+- if user input has no `r_` prefix, normalize to `r_<normalized_name>` and show normalized value in confirmation/readback
 - do not ask users to choose role archetypes (for example, "employee/auditor/manager/custom")
 - if `role_name` is provided, execute creation directly
 - after creation succeeds, move to permission assignment guidance
@@ -102,7 +104,7 @@ Resource permission interaction policy:
 - data source key (`main` by default unless user specifies another)
 - resolved target collection(s)
 - action list
-- data scope
+- data scope (`all` by default when user does not specify)
 - disambiguate operation verbs from ACL action names:
 - phrases like `add table permission` / `configure permission` describe the operation, not ACL action `create`
 - only treat `create` as selected action when user clearly asks for data-creation capability (`can create records` / `can add data`)
@@ -112,16 +114,18 @@ Resource permission interaction policy:
 - if matching is ambiguous, present candidates and ask user to choose
 - if no match is found, ask user for a clearer business keyword
 - resolve scope binding before write:
+- if user does not specify scope, default to `all`
 - `all` -> built-in scope `key=all` id in target data source
 - `own` -> built-in scope `key=own` id in target data source
 - `custom` -> user-specified scope id (or resolved scope key)
-- do not leave action scope as `null` when user selected `all` or `own`
+- do not leave action scope as `null` when final scope is `all` or `own`
 - write completeness (hard rule):
 - for `permission.data-source.resource.set`, execute one complete write payload per target collection
 - the write payload must include `usingActionsConfig: true`
 - the same payload must include the final `actions[]` set, with resolved `scopeId` for `all|own` bindings and explicit non-empty `fields` arrays for field-configurable actions
 - do not stage writes as "set actions first, then patch fields/scope/usingActionsConfig"
 - before any write, show confirmation summary (data source + resolved collections + actions + scope)
+- when scope is defaulted, confirmation must explicitly state `scope=all (default)` and allow user override
 - if any required item is missing or unresolved, ask user first and do not write
 - default field rule: all fields
 - full-field default must be written as explicit field-name lists resolved from target collection metadata
@@ -139,12 +143,12 @@ Resource permission interaction policy:
 | Input | Required | Default | Validation | Clarification Question |
 |---|---|---|---|---|
 | `task` | yes | none | one of canonical tasks or alias | "Which ACL governance task should run?" |
-| `role_name` | conditional | none | role exists for update/audit tasks | "Which role should be targeted?" |
+| `role_name` | conditional | none | role exists for update/audit tasks; write tasks normalize to `r_*` uid | "Which role should be targeted?" |
 | `role_mode` | conditional | none | one of `default/allow-use-union/only-use-union` | "Which global role mode should be set?" |
 | `collection_hint` / `collection_hints[]` | conditional | none | required for `permission.data-source.resource.set`; business name/keyword input is allowed | "Which business table(s) should be configured?" |
 | `resolved_collection_names[]` | conditional | runtime resolved | required before write for `permission.data-source.resource.set`; each collection must exist in selected data source | "I found these matching collections. Which should be used?" |
 | `actions[]` | conditional | none | required for `permission.data-source.resource.set` | "Which actions should be granted on these collections?" |
-| `resource_scope` | conditional | none | required for `permission.data-source.resource.set`; one of `all` / `own` / `custom(scope_id or scope_filter)` | "Which data scope should be used: all, own, or custom?" |
+| `resource_scope` | no | `all` | one of `all` / `own` / `custom(scope_id or scope_filter)` | "Which data scope should be used? Default is all; choose own/custom only when needed." |
 | `data_source_key` | no | `main` | must exist at runtime | "Which data source key should be used? (default: main)" |
 | `strict_mode` | no | `safe` | `safe` or `fast` | "Use safe mode with full readback?" |
 | `allow_generic_association_write` | no | `false` | boolean | "Allow guarded generic association writes for user-role assignment?" |
@@ -166,9 +170,12 @@ Default behavior when user says `you decide`:
 - max questions per round: `3`
 - never execute writes before required inputs are complete
 - for `role.create-blank`, ask only for `role_name` when missing; do not ask role-type questions
+- for write tasks with `role_name`, normalize to `r_*` uid and echo normalized value in confirmation
 - for `permission.data-source.resource.set`, default `data_source_key=main` when omitted unless user explicitly provides another data source
 - for `permission.data-source.resource.set`, if collection hint cannot be resolved or is ambiguous, ask follow-up questions before write
-- for `permission.data-source.resource.set`, if actions/scope are incomplete, ask follow-up questions before write
+- for `permission.data-source.resource.set`, if actions are incomplete, ask follow-up questions before write
+- for `permission.data-source.resource.set`, if scope is omitted, apply default `all` and require confirmation before write
+- for `permission.data-source.resource.set`, if custom scope is requested but scope id/key is unresolved, ask follow-up questions before write
 - for `permission.data-source.resource.set`, if user has not confirmed the final write plan, do not write
 - if user asks to set role mode for a specific role, clarify and normalize to global mode change
 - if task implies writes and target identity is missing, stop and ask first
@@ -195,7 +202,7 @@ Default behavior when user says `you decide`:
 - if inline `--body` fails JSON parsing in PowerShell, regenerate payload as `--body-file` and retry once
 - avoid Bash-style escaped JSON in PowerShell (for example `{\"k\":\"v\"}`), it may be parsed as invalid JSON
 - policy payload guard (hard rule for independent resource writes):
-- preflight must block `api acl roles data-source-resources create|update` when payload is missing or invalid (`--body-file` preferred, `--body` compatible)
+- preflight must block `api acl roles data-source-resources create|update` and `api acl roles apply-data-permissions` when payload is missing or invalid (`--body-file` preferred, `--body` compatible)
 - for those writes, payload must include `usingActionsConfig: true` and non-empty `actions[]`
 - for actions `create/view/update/export/importXlsx`, each action must carry non-empty `fields[]`
 - for every action item, scope binding must be explicit via one of:
@@ -210,6 +217,8 @@ Default behavior when user says `you decide`:
 - for `roles data-source-resources get|update`, locator must be one of:
 - `--filter-by-tk <resource_config_id>`
 - `--data-source-key <data_source_key> --name <collection_name>`
+- for action-level independent-permission readback, use `roles data-source-resources get ... --appends actions`
+- for unified independent-permission writes (single or batch collections), prefer `roles apply-data-permissions --filter-by-tk <role_name> --body-file <path>`
 - for `roles data-sources-collections list`, use `--data-source-key <data_source_key>` as the default locator; use `--filter` only for compatibility
 - for collection/field resolution, prefer `nb api resource list --resource collections --filter '{}' --appends fields -j` as primary metadata source
 - for `roles desktop-routes add`, request body must be JSON array of numeric route ids
@@ -239,7 +248,7 @@ Default behavior when user says `you decide`:
 - data source key
 - resolved target collection list
 - action list
-- scope choice
+- scope choice (default `all` when omitted)
 - resolved scope binding (`scopeId` / scope key)
 - field policy (`all fields` by default unless user provided restrictions)
 - resolved full-field list per action when field restrictions are omitted
@@ -247,10 +256,12 @@ Default behavior when user says `you decide`:
 4. Execute one task at a time.
 - keep writes minimal and scoped
 - prefer ACL-specific runtime commands generated from swagger
+- for `permission.data-source.resource.set`, prefer unified write via `nb api acl roles apply-data-permissions` with complete `resources[]` payload; use `roles data-source-resources create|update` only as compatibility path
 
 5. Readback verification.
 - verify target data changed as requested
 - include concise evidence blocks
+- for independent resource permissions, use `nb api acl roles data-source-resources get ... --appends actions` when verifying action-level scope/fields
 
 6. Risk and boundary reporting.
 - return high-impact notes even on success
@@ -310,7 +321,9 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - execution guard evidence includes locked `base-dir` plus `nb env list -s project`, `nb env update <current_env_name>`, `nb api acl --help`, and `nb api acl roles --help`
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
+- when user did not provide scope, confirmation/readback shows `all` as the applied default scope
 - for `permission.data-source.resource.set`, readback confirms `usingActionsConfig=true` and action-level scope/fields in the same write cycle
+- for action-level verification of independent permissions, readback command includes `--appends actions`
 - for scope=`all|own`, readback shows non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
@@ -329,16 +342,17 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 3. `permission.data-source.global.set` and verify strategy actions.
 4. `permission.data-source.resource.set` with business collection name should auto-resolve real collection name(s) from target data source.
 5. `permission.data-source.resource.set` with ambiguous collection match should ask for disambiguation before write.
-6. `permission.data-source.resource.set` with missing actions/scope should ask for clarification before write.
-7. `permission.data-source.resource.set` with `view` and no field restrictions should apply full-field permission by default via explicit non-empty field lists.
-8. `permission.data-source.resource.set` with scope=`all` should write explicit built-in scope binding (non-null `scopeId` for key=`all`).
-9. `permission.data-source.resource.set` should require pre-write confirmation including data source + resolved collections + actions + scope.
-10. `permission.data-source.resource.set` should write independent policy in one complete payload (`usingActionsConfig + actions + scope + fields`), not multi-step patching.
-11. `user.assign-role` in strict mode should use dedicated membership command when available; if unavailable, block with boundary guidance.
-12. `user.assign-role` guarded fallback should run only when dedicated command is unavailable and guarded mode is explicitly enabled.
-13. `risk.assess-role` should return score + evidence + recommendations.
-14. Full-field default should preserve system fields in readback when metadata includes them.
-15. Wrong base-dir or missing runtime command cache must fail-closed with boundary message, not ad-hoc script fallback.
+6. `permission.data-source.resource.set` with missing actions should ask for clarification before write.
+7. `permission.data-source.resource.set` with missing scope should default to `all`, show this in confirmation, and allow user override before write.
+8. `permission.data-source.resource.set` with `view` and no field restrictions should apply full-field permission by default via explicit non-empty field lists.
+9. `permission.data-source.resource.set` with scope=`all` should write explicit built-in scope binding (non-null `scopeId` for key=`all`).
+10. `permission.data-source.resource.set` should require pre-write confirmation including data source + resolved collections + actions + scope.
+11. `permission.data-source.resource.set` should write independent policy in one complete payload (`usingActionsConfig + actions + scope + fields`), not multi-step patching.
+12. `user.assign-role` in strict mode should use dedicated membership command when available; if unavailable, block with boundary guidance.
+13. `user.assign-role` guarded fallback should run only when dedicated command is unavailable and guarded mode is explicitly enabled.
+14. `risk.assess-role` should return score + evidence + recommendations.
+15. Full-field default should preserve system fields in readback when metadata includes them.
+16. Wrong base-dir or missing runtime command cache must fail-closed with boundary message, not ad-hoc script fallback.
 
 # Reference Loading Map
 

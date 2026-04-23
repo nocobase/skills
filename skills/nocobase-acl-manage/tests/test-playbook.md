@@ -21,10 +21,11 @@ This playbook is aligned to:
 - `<WRONG_BASE_DIR>`: non-project or wrong directory used for fail-closed checks
 - `<ENV_NAME>`: environment name (for example `local`)
 - `<DATA_SOURCE_KEY>`: data source key (default `main`)
-- `<ROLE_NAME>`: temporary test role name (for example `acl_playbook_reader`)
+- `<ROLE_NAME>`: temporary test role name (for example `r_acl_playbook_reader`)
 - `<ROLE_TITLE>`: role title (for example `ACL Playbook Reader`)
 - `<COLLECTION_HINT>`: business collection hint from user prompt (for example `users`)
 - `<COLLECTION_NAME>`: resolved technical collection name (for example `users`)
+- `<SCOPE_ALL_ID>`: built-in scope id for key `all` in target data source
 - `<RESOURCE_CONFIG_ID>`: existing ACL resource config id for update path
 - `<ORIGINAL_ROLE_MODE>`: role mode captured before TC07-TC09
 - `<TEST_USER_ID>`: target user id for guarded membership checks
@@ -33,6 +34,7 @@ This playbook is aligned to:
 - `<TC04_BODY_FILE>`: role create payload file path for TC04
 - `<TC11_BODY_FILE>`: snippets payload file path for TC11
 - `<TC12_BODY_FILE>`: data-source strategy payload file path for TC12
+- `<TC13_BODY_FILE>`: single-resource independent permission payload file path for TC13
 - `<TC14_BODY_FILE>`: desktop route payload file path for TC14
 - `<TC20_BODY_FILE>`: batch independent payload file path for TC20
 
@@ -76,7 +78,7 @@ Use UTF-8 without BOM.
 - `<TC03_BODY_FILE>` (intentionally malformed for guard check):
 
 ```json
-{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}
+{"usingActionsConfig":true}
 ```
 
 - `<TC04_BODY_FILE>`:
@@ -101,6 +103,12 @@ Use UTF-8 without BOM.
 
 ```json
 [<DESKTOP_ROUTE_KEY>]
+```
+
+- `<TC13_BODY_FILE>`:
+
+```json
+{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeId":<SCOPE_ALL_ID>,"fields":["id","createdAt","createdBy","updatedAt","updatedBy"]}]}]}
 ```
 
 - `<TC20_BODY_FILE>`:
@@ -147,10 +155,10 @@ Recommended serial order (mandatory):
 ## Failure Tracking (2026-04-22)
 
 - `TC03`: fixed by adding pre-action payload validation for `roles.data-source-resources update`.
-- `TC13`: fixed by locator compatibility (`--data-source-key + --name`) for `roles.data-source-resources get`.
+- `TC13`: fixed by adding explicit write step (`apply-data-permissions`) before readback, and using explicit get locator (`--data-source-key + --name`).
 - `TC15`: fixed by `dataSourceKey` query normalization for `roles data-sources-collections list`.
 - `TC17`: adjusted default runtime path to dedicated ACL membership command when available.
-- `TC20` (readback step): fixed by the same `roles.data-source-resources get` locator compatibility.
+- `TC20` (readback step): fixed by get locator compatibility plus `--appends actions` for action-level scope/fields verification.
 
 ## Cases
 
@@ -218,8 +226,8 @@ nb api acl roles data-source-resources update --role-name <ROLE_NAME> --filter-b
 Expected:
 
 1. Preflight rejects malformed payload before execution.
-2. Error explains missing `scopeId` for scoped action.
-3. Error includes correction hints for `usingActionsConfig/actions/scopeId/fields`.
+2. Error explains missing/invalid `actions[]` in payload.
+3. Error includes correction hints for `usingActionsConfig/actions/fields`.
 
 ### TC04 Create Blank Role (`ACL-ROLE-001`)
 
@@ -432,7 +440,8 @@ cd <BASE_DIR>
 nb api resource list --resource collections --filter '{}' --appends fields -j
 nb api acl roles data-sources-collections list --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> -j
 nb api acl data-sources roles-resources-scopes list --data-source-key <DATA_SOURCE_KEY> -j
-nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name <COLLECTION_NAME> -j
+nb api acl roles apply-data-permissions --filter-by-tk <ROLE_NAME> --body-file <TC13_BODY_FILE> -j
+nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name <COLLECTION_NAME> --appends actions -j
 ```
 
 Expected:
@@ -587,7 +596,7 @@ Runtime Command:
 ```bash
 cd <BASE_DIR>
 nb api acl roles apply-data-permissions --filter-by-tk <ROLE_NAME> --body-file <TC20_BODY_FILE> -j
-nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name users -j
+nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name users --appends actions -j
 ```
 
 Expected:
