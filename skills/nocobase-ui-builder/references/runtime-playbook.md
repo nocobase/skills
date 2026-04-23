@@ -4,7 +4,7 @@ This file provides the family / locator / write-target mental model for the skil
 
 Start with [local-edit-quick.md](./local-edit-quick.md) when the request looks like a normal localized edit and you only need the default route first. Come here when the family / locator model itself is the blocker.
 
-Canonical front door is `nocobase-ctl`. The operation names below are the stable runtime families; discover the exact generated command shape through `nocobase-ctl flow-surfaces --help`.
+Canonical front door is `nb`. The operation names below are the stable runtime families; discover the exact generated command shape through `nb api flow-surfaces --help`.
 
 ## 1. Common Families
 
@@ -20,38 +20,45 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 
 ## 2. Default Read Routing
 
-- menu question -> `nocobase-ctl desktop-routes list-accessible`
-- normal page/popup inspection -> `nocobase-ctl flow-surfaces get`
-- richer public surface snapshot -> `nocobase-ctl flow-surfaces describe-surface`
-- capability uncertainty -> `nocobase-ctl flow-surfaces catalog`
-- reaction-capability uncertainty -> `nocobase-ctl flow-surfaces get-reaction-meta`
-- context-variable uncertainty -> `nocobase-ctl flow-surfaces context` as lower-level supplement
+- menu question -> `nb api desktop-routes list-accessible`
+- normal page/popup inspection -> `nb api flow-surfaces get`
+- richer public surface snapshot -> `nb api flow-surfaces describe-surface`
+- capability uncertainty -> `nb api flow-surfaces catalog`
+- reaction-capability uncertainty -> `nb api flow-surfaces get-reaction-meta`
+- context-variable uncertainty -> `nb api flow-surfaces context` as lower-level supplement
 
 ## 3. Default Write Routing
 
 | user intent | default write path |
 | --- | --- |
-| create one whole page | `nocobase-ctl flow-surfaces apply-blueprint` |
-| replace/rebuild one whole page | `nocobase-ctl flow-surfaces apply-blueprint` |
-| whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
-| create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
-| add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| create one whole page | `nb api flow-surfaces apply-blueprint` |
+| replace/rebuild one whole page | `nb api flow-surfaces apply-blueprint` |
+| whole-page interaction / reaction authoring | `nb api flow-surfaces apply-blueprint` |
+| create/move menu only | `nb api flow-surfaces create-menu` / `update-menu` |
+| add/update content under an existing surface | `nb api flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| replace one existing full grid layout | `nb api flow-surfaces set-layout` |
 | edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
-| replace existing instance-level event flows | `nocobase-ctl flow-surfaces set-event-flows` |
-| localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
-| reorder/remove tab or popup tab | `nocobase-ctl flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
-| reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
-| initialize a menu item into a page | `nocobase-ctl flow-surfaces create-page` |
+| replace existing instance-level event flows | `nb api flow-surfaces set-event-flows` |
+| localized reaction edit | `nb api flow-surfaces get-reaction-meta` -> matching `set-*` rules |
+| reorder/remove tab or popup tab | `nb api flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
+| reorder/remove node | `nb api flow-surfaces move-node` / `remove-node` |
+| initialize a menu item into a page | `nb api flow-surfaces create-page` |
+
+For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, use pageSchemaUid/live uids for the downstream localized work.
 
 ## 4. Targeting Notes
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
 - desktop-route `id` and `navigation.group.routeId` are navigation locators, not flow-surface `uid` values.
-- after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
+- For precise localized edits from an admin URL, parse the URL into a start uid first. If the path contains any `view/<uid>` segments, the last `view/<uid>` wins; otherwise fallback to the `admin/<pageSchemaUid>` segment and read it with page-level `get --page-schema-uid`.
+- A URL-sourced start uid is not the final content uid. After selecting it, continue normal live expansion with `get`, popup subtree / template-reference checks, and the localized write-family decision.
+- Example: `/admin/<page>/view/<outerView>/filterbytk/1/view/<innerView>/filterbytk/1` starts from `<innerView>`, not `<outerView>`. The final editable content still comes from live tree and template routing.
+- when follow-up reads are needed after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
 - only after `get` / `describe-surface` / create responses return a live `uid` should that value feed `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, or `remove*`.
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `applyBlueprint` is key-oriented and structure-first: layout and in-document targeting use local `key`, whole-page interaction logic may live only in top-level `reaction.items[]`, and you must not author `uid`, `ref`, or `$ref` selectors there.
 - public `applyBlueprint.reaction.items[]` also uses same-run local keys / bind keys, not live uids.
+- low-level `set-layout` is different: `target.uid` is the live grid uid, `rows` is `Record<string, string[][]>`, each inner array stacks live child `uid`s inside one column cell, `[[uidA], [uidB]]` means two columns, and `[[uidA, uidB]]` means one stacked column.
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
 - Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describe-surface`, or a previous create response.
 

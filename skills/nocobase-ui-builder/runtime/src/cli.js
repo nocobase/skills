@@ -1,26 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { parseCliArgs } from './cli-args.js';
 import { runBatch, validateRunJSSnippet } from './index.js';
-
-function parseArgs(argv) {
-  const args = { _: [] };
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (!token.startsWith('--')) {
-      args._.push(token);
-      continue;
-    }
-    const key = token.slice(2);
-    const next = argv[index + 1];
-    if (!next || next.startsWith('--')) {
-      args[key] = true;
-      continue;
-    }
-    args[key] = next;
-    index += 1;
-  }
-  return args;
-}
 
 async function loadTextFile(cwd, filePath) {
   return fs.readFile(path.resolve(cwd, filePath), 'utf8');
@@ -80,7 +61,7 @@ function usage() {
   return {
     commands: {
       validate:
-        'Validate one trusted snippet. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode --timeout <ms> --version <version>.',
+        'Validate one trusted snippet. Required: ((--model <model> | --surface <surface>) --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode --timeout <ms> --version <version>.',
       batch: 'Run multiple validate tasks from one JSON file. Required: --input <path>. Optional: --skill-mode.',
     },
   };
@@ -100,13 +81,18 @@ async function loadValidateTask(args, io, cwd) {
     if (args.model && payload.model && args.model !== payload.model) {
       throw new Error(`CLI --model "${args.model}" does not match stdin payload model "${payload.model}".`);
     }
+    if (args.surface && payload.surface && args.surface !== payload.surface) {
+      throw new Error(`CLI --surface "${args.surface}" does not match stdin payload surface "${payload.surface}".`);
+    }
     const model = args.model || payload.model;
-    if (!model) throw new Error('Missing required model in stdin payload.');
+    const surface = args.surface || payload.surface;
+    if (!model && !surface) throw new Error('Missing required model or surface in stdin payload.');
     if (typeof payload.code !== 'string') {
       throw new Error('Missing required code string in stdin payload.');
     }
     return {
       model,
+      surface,
       code: payload.code,
       context: payload.context,
       network: payload.network,
@@ -120,10 +106,11 @@ async function loadValidateTask(args, io, cwd) {
     };
   }
 
-  if (!args.model) throw new Error('Missing required --model.');
+  if (!args.model && !args.surface) throw new Error('Missing required --model or --surface.');
   if (!args['code-file']) throw new Error('Missing required --code-file.');
   return {
     model: args.model,
+    surface: args.surface,
     code: await loadTextFile(cwd, args['code-file']),
     context: args['context-file'] ? await loadJsonFile(cwd, args['context-file']) : undefined,
     network: args['network-file'] ? await loadJsonFile(cwd, args['network-file']) : undefined,
@@ -138,10 +125,14 @@ export async function runCli(argv, io = {}) {
   const cwd = io.cwd || process.cwd();
   const stdout = io.stdout || process.stdout;
   const stderr = io.stderr || process.stderr;
-  const args = parseArgs(argv);
-  const command = args._[0];
 
   try {
+    const args = parseCliArgs(argv, {
+      valueFlags: ['model', 'surface', 'code-file', 'context-file', 'network-file', 'timeout', 'version', 'input'],
+      booleanFlags: ['help', 'stdin-json'],
+      booleanValueFlags: ['skill-mode'],
+    });
+    const command = args._[0];
     if (args.help || command === 'help' || !command) {
       writeJson(stdout, {
         ok: true,

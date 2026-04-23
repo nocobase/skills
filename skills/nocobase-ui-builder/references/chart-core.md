@@ -1,10 +1,10 @@
 # Chart block
 
-Read [chart.md](./chart.md) first for chart tasks. Read this file only after you are already inside the chart topic and need to handle runtime setup, reconfiguration, readback, or legacy fallback. The goal is not to expose every frontend-internal detail, but to generate charts that reliably render with the smallest necessary parameter set, while leaving a small number of escape hatches for complex scenarios.
+Read [chart.md](./chart.md) first for chart tasks. Read this file only after you are already inside the chart topic and need to handle runtime setup, reconfiguration, or readback. The goal is not to expose every frontend-internal detail, but to generate charts that reliably render with the smallest necessary parameter set, while leaving a small number of escape hatches for complex scenarios.
 
 If you need to verify complex contracts, negative cases, or regression matrices, continue with [chart-validation.md](./chart-validation.md). This file only keeps the runtime main path.
 
-Canonical front door is `nocobase-ctl flow-surfaces`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to CLI command families and raw CLI bodies; use MCP only as fallback, and use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for envelope details.
+Canonical front door is `nb api flow-surfaces`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to nb API families and raw nb bodies; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
 
 ## Contents
 
@@ -25,7 +25,7 @@ Canonical front door is `nocobase-ctl flow-surfaces`. When this file mentions `a
 
 ## Public Blueprint
 
-For chart, `nocobase-ctl flow-surfaces configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
+For chart, `nb api flow-surfaces configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
 
 ```json
 {
@@ -35,7 +35,7 @@ For chart, `nocobase-ctl flow-surfaces configure --body { changes }` / `compose 
 }
 ```
 
-`configure` is still kept as a legacy fallback, but do not mix `configure` with `query / visual / events`. The server normalizes legacy `configure` through the same chart contract. For example, builder query is normalized to `query.collectionPath`, rather than keeping `query.resource`.
+`configure` is still kept for small semantic updates, but do not mix `configure` with `query / visual / events`. The server normalizes legacy `configure` through the same chart contract. For example, builder query is normalized to `query.collectionPath`, rather than keeping `query.resource`.
 
 Other than that, the chart block should only expose four additional outer-block parameters for this skill. Detailed rules are covered in the later section "Outer block parameters (minimum exposed set)".
 
@@ -47,7 +47,7 @@ Chart is also an example of the general public-settings pattern: when creating o
 
 1. Default to `query.mode = "builder"` first.
 2. Default to `visual.mode = "basic"` first.
-3. When reconfiguring an existing chart, default to the `safeDefaults` returned by `nocobase-ctl flow-surfaces context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
+3. When reconfiguring an existing chart, default to the `safeDefaults` returned by `nb api flow-surfaces context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
 4. If you hit `riskyPatterns`, do not forbid the path outright. You may continue, but you must mark the result as risky and add `readback`.
 5. If you hit `unsupportedPatterns`, do not invent a payload. Rewrite it into a safe subset or tell the user clearly that the current contract does not support it.
 6. Only upgrade under the following conditions:
@@ -64,7 +64,7 @@ The most stable execution order for a chart block is not a one-shot blind write.
 3. Run `configure(changes={ query, title?, displayTitle?, height?, heightMode? })` first
 4. Then read `context(path="chart")`
 5. Based on `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns`, run `configure(changes={ visual, events? })`
-6. Use `nocobase-ctl flow-surfaces get --uid <chart-uid>` for canonical readback
+6. Use `nb api flow-surfaces get --uid <chart-uid>` for canonical readback
 7. If a risky pattern is hit, state clearly in the result that this is a risky path, and confirm persistence through readback
 
 When reconfiguring an existing chart, you may skip the initial block-creation step and continue directly from "read `path="chart"` / clear stale query state / reconfigure visual". If you want to clear old builder state, especially residue such as `sorting` / `filter`, do not rely on omission and hope the server clears it. Pass explicit empties instead, for example:
@@ -357,7 +357,7 @@ Key points:
 Two different context types must be distinguished here:
 
 1. **FlowSurfaces stable context**
-   - fields stably exposed to the skill by `nocobase-ctl flow-surfaces context`
+   - fields stably exposed to the skill by `nb api flow-surfaces context`
    - for chart, the currently stable fields are:
      - `collection`
      - `chart.queryOutputs`
@@ -370,7 +370,7 @@ Two different context types must be distinguished here:
 2. **frontend runtime assumptions**
    - variables typically available at runtime to `ChartBlockModel` / `ChartOptionModel` / `ChartEventsModel`
    - they are appropriate for writing `visual.raw` / `events.raw`
-   - do not mistake them for fields that `nocobase-ctl flow-surfaces context` is guaranteed to return
+   - do not mistake them for fields that `nb api flow-surfaces context` is guaranteed to return
 
 ### `visual.raw`
 

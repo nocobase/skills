@@ -1,0 +1,169 @@
+{
+  "version": 1,
+  "surfaces": [
+    {
+      "id": "event-flow.execute-javascript",
+      "entryDoc": "js-surfaces/event-flow.md",
+      "editorScene": "eventFlow",
+      "validationStyle": "action",
+      "writePathHints": [
+        "flowRegistry.*.steps.*.params.code"
+      ],
+      "recommendedSnippetIds": [
+        "global/message-success",
+        "global/resource-list",
+        "scene/table/selected-rows-count"
+      ],
+      "recommendedBySceneHint": {
+        "eventFlow": [
+          "global/message-success",
+          "global/resource-list"
+        ],
+        "table": [
+          "scene/table/selected-rows-count",
+          "scene/table/iterate-selected-rows",
+          "scene/table/destroy-selected-rows"
+        ],
+        "action": [
+          "global/message-success",
+          "global/resource-list"
+        ]
+      }
+    },
+    {
+      "id": "linkage.execute-javascript",
+      "entryDoc": "js-surfaces/linkage.md",
+      "editorScene": "linkage",
+      "validationStyle": "action",
+      "writePathHints": [
+        "actions[].name=\"linkageRunjs\" -> params.value.script"
+      ],
+      "recommendedSnippetIds": [
+        "scene/form/set-field-value",
+        "scene/form/copy-field-values",
+        "scene/form/calculate-subtotal"
+      ],
+      "recommendedBySceneHint": {
+        "linkage": [
+          "scene/form/set-field-value",
+          "scene/form/copy-field-values",
+          "scene/form/calculate-subtotal"
+        ],
+        "form": [
+          "scene/form/set-field-value",
+          "scene/form/toggle-disabled",
+          "scene/form/calculate-subtotal"
+        ],
+        "action": [
+          "global/message-success"
+        ]
+      }
+    },
+    {
+      "id": "reaction.value-runjs",
+      "entryDoc": "js-surfaces/value-return.md",
+      "editorScene": "formValue",
+      "validationStyle": "value",
+      "writePathHints": [
+        "value.source=\"runjs\""
+      ],
+      "recommendedSnippetIds": [
+        "value-return/subtotal",
+        "value-return/total-with-tax",
+        "value-return/copy-single-field"
+      ],
+      "recommendedBySceneHint": {
+        "formValue": [
+          "value-return/subtotal",
+          "value-return/total-with-tax",
+          "value-return/copy-single-field"
+        ]
+      }
+    },
+    {
+      "id": "custom-variable.runjs",
+      "entryDoc": "js-surfaces/value-return.md",
+      "editorScene": "customVariable",
+      "validationStyle": "value",
+      "writePathHints": [
+        "variables[].runjs"
+      ],
+      "recommendedSnippetIds": [
+        "value-return/subtotal",
+        "value-return/total-with-tax",
+        "value-return/copy-single-field"
+      ],
+      "recommendedBySceneHint": {
+        "customVariable": [
+          "value-return/subtotal",
+          "value-return/total-with-tax",
+          "value-return/copy-single-field"
+        ]
+      }
+    },
+    {
+      "id": "js-model.render",
+      "entryDoc": "js-surfaces/js-model-render.md",
+      "editorScene": "jsModel",
+      "validationStyle": "render",
+      "writePathHints": [
+        "stepParams.jsSettings.runJs"
+      ],
+      "recommendedSnippetIds": [
+        "scene/block/text-summary",
+        "scene/detail/status-tag",
+        "render/helper-from-form-value"
+      ],
+      "recommendedBySceneHint": {
+        "block": [
+          "scene/block/text-summary",
+          "scene/block/list-summary",
+          "render/list-from-resource"
+        ],
+        "detail": [
+          "scene/detail/status-tag",
+          "scene/detail/value-with-fallback",
+          "render/text-from-record"
+        ],
+        "form": [
+          "render/helper-from-form-value",
+          "render/null-when-empty"
+        ],
+        "table": [
+          "render/status-tag",
+          "render/text-from-record"
+        ]
+      }
+    },
+    {
+      "id": "js-model.action",
+      "entryDoc": "js-surfaces/js-model-action.md",
+      "editorScene": "jsAction",
+      "validationStyle": "action",
+      "writePathHints": [
+        "clickSettings.runJs"
+      ],
+      "recommendedSnippetIds": [
+        "action/message-success",
+        "action/resource-refresh",
+        "action/form-submit-guard"
+      ],
+      "recommendedBySceneHint": {
+        "action": [
+          "action/message-success",
+          "action/resource-refresh"
+        ],
+        "form": [
+          "action/form-submit-guard",
+          "scene/form/set-field-value",
+          "scene/form/calculate-subtotal"
+        ],
+        "table": [
+          "action/resource-refresh",
+          "scene/table/selected-rows-count",
+          "scene/table/destroy-selected-rows"
+        ]
+      }
+    }
+  ]
+}

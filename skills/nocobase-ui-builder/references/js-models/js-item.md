@@ -37,7 +37,7 @@ ctx.render(<div>Total: {total}</div>);
 在表单里创建非字段绑定辅助项时，用 `flow-surfaces add-field --type jsItem`，不要传 `fieldPath`。当前 `settings` 支持 `label`、`tooltip`、`extra`、`showLabel`、`labelWidth`、`labelWrap`、`code`、`version`，不支持 `title`。
 
 ```bash
-nocobase-ctl flow-surfaces add-field -e <env> -j \
+nb api flow-surfaces add-field -e <env> -j \
   --target '{"uid":"<create-form-uid>"}' \
   --type jsItem \
   --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}'
