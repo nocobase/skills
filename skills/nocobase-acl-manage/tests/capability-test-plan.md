@@ -27,7 +27,7 @@ Excluded:
 |---|---|---|---|
 | ACL-SMOKE-001 | cli | `nb --help` + `nb env list -s project` availability | runtime |
 | ACL-SMOKE-002 | cli | execution guard fail-closed check (`env list -s project`, `env update`, `nb api acl --help`, `nb api acl roles --help`) in one locked base-dir | runtime |
-| ACL-SMOKE-003 | cli | payload guard rejects malformed `nb api acl roles data-source-resources create|update` payload (`--body-file` preferred) before execution | contract + runtime |
+| ACL-SMOKE-003 | cli | payload guard rejects malformed independent-permission write payload (`nb api acl roles data-source-resources create|update` or `nb api acl roles apply-data-permissions`) before execution | contract + runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -88,12 +88,14 @@ Optional:
   - action `scopeId` is non-null and equals the resolved scope id
   - scope key matches expected built-in/custom scope
   - action field list length matches resolved collection field count for default-all actions
+- `ACL-PERM-003` readback should use `roles data-source-resources get ... --appends actions` for action-level assertions.
 - For `ACL-PERM-006`, write should complete in one command call with `resources[]` payload that includes at least two collections.
 - `ACL-PERM-006` must verify action-level `scopeKey` is resolved to non-null `scopeId` in readback.
+- `ACL-PERM-006` readback should use `roles data-source-resources get ... --appends actions` for action-level assertions.
 - `ACL-PERM-006` must not require pre-querying scope list before write execution.
 - `ACL-SMOKE-002` must verify fail-closed behavior:
   - when guard commands fail in the selected base-dir, runner stops writes and emits recovery guidance
   - no ad-hoc script file is created to continue execution
 - `ACL-SMOKE-003` must verify payload guard behavior:
   - malformed independent-resource write payload is blocked before CLI execution
-  - error output explains missing/invalid keys (`usingActionsConfig`, `actions`, `scopeId`, `fields`)
+  - error output explains missing/invalid keys (`usingActionsConfig`, `actions`, `fields`)

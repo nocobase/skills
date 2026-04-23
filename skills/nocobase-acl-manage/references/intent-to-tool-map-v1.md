@@ -11,7 +11,7 @@ Execute ACL commands through direct nb CLI:
 - wrong: `nb -e local`
 - correct: `nb api resource list --resource users -e local -j`
 - preflight must validate independent resource policy writes:
-  - target commands: `api acl roles data-source-resources create|update`
+  - target commands: `api acl roles data-source-resources create|update` and `api acl roles apply-data-permissions`
   - prefer `--body-file <json_path>` over inline `--body` in PowerShell/Windows
   - require payload JSON with `usingActionsConfig=true` and non-empty `actions[]`
   - require non-empty `fields[]` for `create/view/update/export/importXlsx`
@@ -72,9 +72,10 @@ Prefer `-j` for all readback and verification steps.
 | `acl roles check` | none | none | Returns current user's role context + global roleMode |
 | `acl roles set-system-role-mode` | `--role-mode <default|allow-use-union|only-use-union>` | none | Global setting, not per-role |
 | `acl roles data-sources-collections list` | `--role-name <name>`, `--data-source-key <key>` | `--page`, `--page-size`, `--filter` | Prefer `--data-source-key`; `--filter` is compatibility only |
-| `acl roles data-source-resources get` | `--role-name <name>`, (`--filter-by-tk <id>` or `--data-source-key <key> --name <coll>`) | `--filter` | Prefer explicit locator (`filterByTk` or `data-source-key + name`) |
+| `acl roles data-source-resources get` | `--role-name <name>`, (`--filter-by-tk <id>` or `--data-source-key <key> --name <coll>`) | `--filter`, `--appends actions` | Prefer explicit locator (`filterByTk` or `data-source-key + name`); for action-level readback use `--appends actions` |
 | `acl roles data-source-resources create` | `--role-name <name>`, (`--body <json>` or `--body-file <path>`) | none | Prefer `--body-file`; payload must include `name`, `dataSourceKey`, `usingActionsConfig`, `actions` |
 | `acl roles data-source-resources update` | `--role-name <name>`, (`--body <json>` or `--body-file <path>`), (`--filter-by-tk <id>` or `--data-source-key <key> --name <coll>`) | `--filter` | Prefer `--body-file`; `--filter-by-tk` is resource config id |
+| `acl roles apply-data-permissions` | `--filter-by-tk <roleName>`, (`--body <json>` or `--body-file <path>`) | `--data-source-key`, `--resources` | Unified independent-permission write path (single or batch resources) |
 | `acl data-sources roles get` | `--data-source-key <key>`, `--filter-by-tk <roleName>` | none | Get global strategy for role in data source |
 | `acl data-sources roles update` | `--data-source-key <key>`, `--filter-by-tk <roleName>`, (`--body <json>` or `--body-file <path>`) | none | Prefer `--body-file`; body should include `roleName`, `dataSourceKey`, `strategy` |
 | `acl data-sources roles-resources-scopes list` | `--data-source-key <key>` | `--page`, `--filter` | Lists reusable scopes |
@@ -105,6 +106,7 @@ Prefer `-j` for all readback and verification steps.
 | `roles_data_source_resources_get` | `nb api acl roles data-source-resources get --role-name <name> --data-source-key <key> --name <coll>` | `roles.*data.*source.*resources.*get` |
 | `roles_data_source_resources_create` | `nb api acl roles data-source-resources create --role-name <name> --body-file <path>` | `roles.*data.*source.*resources.*create$` |
 | `roles_data_source_resources_update` | `nb api acl roles data-source-resources update --role-name <name> --filter-by-tk <id> --body-file <path>` | `roles.*data.*source.*resources.*update$` |
+| `roles_apply_data_permissions` | `nb api acl roles apply-data-permissions --filter-by-tk <name> --body-file <path>` | `roles.*apply.*data.*permissions$` |
 | `roles_desktop_routes_list` | `nb api acl roles desktop-routes list --role-name <name>` | `roles.*desktop.*routes.*list` |
 | `roles_desktop_routes_set` | `nb api acl roles desktop-routes set --role-name <name> --body-file <path>` | `roles.*desktop.*routes.*set` |
 | `roles_desktop_routes_add` | `nb api acl roles desktop-routes add --role-name <name> --body-file <path>` | `roles.*desktop.*routes.*add` |
@@ -194,7 +196,7 @@ Required planning inputs before write:
 1. data source key (`data_source_key`, default `main`)
 2. collection hint(s) from user (`collection_hint` or `collection_hints[]`)
 3. action list
-4. data scope (`all` or `own` or `custom`)
+4. data scope (`all` default when omitted; or `own` / `custom`)
 5. resolved collection names (`resolved_collection_names[]`)
 6. resolved scope binding (`resolved_scope_id` / `resolved_scope_key`)
 7. resolved full-field list for field-configurable actions (`resolved_field_names_by_action`)
@@ -205,6 +207,8 @@ Resolution policy:
 - do not infer ACL action `create` from generic operation wording
 - resolve by listing collection metadata via `resource list --resource collections --filter '{}' --appends fields` and matching hints
 - `roles data-sources-collections list` is optional role-facing evidence; do not treat it as the only source of truth
+- if user does not specify scope, default to `all`
+- confirmation must explicitly show `scope=all (default)` and allow user override before write
 - if any hint maps to multiple collections, ask user to choose
 - if any hint has no matches, ask user for clearer input
 - resolve scope through scope-list command:
@@ -221,9 +225,9 @@ Execution chain:
 4. resolve hints into concrete collection names
 5. resolve full-field defaults from collection metadata when user did not provide field restrictions
 6. show pre-write confirmation summary
-7. `roles_data_source_resources_get` (for each resolved collection)
-8. `roles_data_source_resources_create` or `roles_data_source_resources_update` (for each resolved collection) with one complete payload (`usingActionsConfig=true` + final `actions[]` with resolved `scopeId` and explicit `fields[]` where applicable)
-9. `roles_data_source_resources_get` readback
+7. optional `roles_data_source_resources_get` (for each resolved collection) to check current record existence
+8. preferred write: `roles_apply_data_permissions` with one complete `resources[]` payload (single or batch collections), each item including `usingActionsConfig=true` + final `actions[]` with resolved `scopeId` and explicit `fields[]` where applicable; compatibility path: `roles_data_source_resources_create` or `roles_data_source_resources_update`
+9. `roles_data_source_resources_get` readback with `--appends actions`
 
 ## D) User Domain
 
@@ -270,9 +274,11 @@ Risk tasks are computed by combining read commands:
 
 - resolve all required logical commands before write operations
 - `roles data-source-resources` supports `create|get|update` only; do not attempt a `list` subcommand
+- `roles apply-data-permissions` is the preferred unified write path for independent resource permissions (single or batch collections)
 - prefer `roles data-source-resources` locator as `--filter-by-tk` or `--data-source-key + --name`; do not rely on `--filter` as the primary path
 - for collection metadata resolution, do not rely solely on `roles data-sources-collections list`; use `resource collections` metadata path as the authoritative source
 - for scope=`all|own`, require non-null scope binding in write payload (`scopeId`)
+- when scope input is omitted, apply `all` by default and resolve non-null `scopeId` in payload
 - for field-configurable actions with default-all behavior, require explicit non-empty `fields` arrays in write payload
 - for `permission.data-source.resource.set`, require `usingActionsConfig=true` in the same write payload that carries `actions[]`
 - do not split resource writes into staged patches (for example, first write `actions`, then patch `usingActionsConfig` or `fields` later)
@@ -281,6 +287,7 @@ Risk tasks are computed by combining read commands:
 - do not execute `permission.data-source.resource.set` writes until resolved collections are confirmed by user
 - never execute guarded fallback path unless explicitly enabled
 - every write must have readback evidence
+- action-level independent-permission readback should use `roles data-source-resources get ... --appends actions`
 
 ## Unsupported / Blocked Rules
 
