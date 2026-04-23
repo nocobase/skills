@@ -43,7 +43,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - block `key` values are unique
     - any explicit `layout` references only real keyed blocks and places every keyed block exactly once
     - every chosen field has a non-empty live `interface`
-    - every `table` / `list` / `gridCard` has an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`
+    - ambiguous `筛选` defaults to a block-level `filter` action, not a `filterForm`
     - any `filterForm` with 4 or more fields includes `collapse`
     - every custom `edit` popup contains exactly one `editForm`
     - when `collectionMetadata` is supplied, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check

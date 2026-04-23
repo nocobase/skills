@@ -68,9 +68,9 @@ skill 至少要知道三件事：
 
 ## 默认筛选要求
 
-- 新建 `GridCardBlockModel` 时必须同时给默认筛选设置。
-- Whole-page / `compose` authoring 使用 block-level `actions[]` 里的对象 `filter` action，带 `settings.filterableFieldNames` 和 `settings.defaultFilter`。
-- 默认筛选字段从目标 collection 里选 3 到 4 个常用字段；字段不足时用现有字段。文本字段用 `$includes`，枚举、布尔、数字、日期、关系字段用 `$eq`，`defaultFilter.items` 必须覆盖所有 `filterableFieldNames`。
+- 如果用户明确说“给卡片 / Grid / GridCard 增加筛选 / 搜索功能”，默认先落该数据块自己的 `filter` action。
+- Whole-page / `compose` authoring 可用 `actions: ["filter"]` 或 `{ "type": "filter" }`。
+- 只有用户显式要求筛选区块 / 搜索区块 / 查询表单时，才升级为 `FilterFormBlockModel`。
 
 ## 两层 actions slot
 

@@ -30,7 +30,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs or placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit keyed layout is required.
-- `table` / `list` / `gridCard` creations must carry explicit default filter settings. In whole-page and `compose` bodies, put an object `filter` action in block `actions[]` with `settings.filterableFieldNames` and `settings.defaultFilter`.
+- `table` / `list` / `gridCard` may carry a normal block-level `filter` action when the user asks for filtering/search on that host. Public shapes may use `actions: ["filter"]` or `{ "type": "filter" }`.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
@@ -481,21 +481,7 @@ CLI request body:
         "collectionName": "employees"
       },
       "fields": ["nickname", "status"],
-      "actions": [
-        {
-          "type": "filter",
-          "settings": {
-            "filterableFieldNames": ["nickname", "status"],
-            "defaultFilter": {
-              "logic": "$and",
-              "items": [
-                { "path": "nickname", "operator": "$includes", "value": "" },
-                { "path": "status", "operator": "$eq", "value": "" }
-              ]
-            }
-          }
-        }
-      ]
+      "actions": ["filter"]
     }
   ]
 }
@@ -506,7 +492,7 @@ Notes:
 - `fieldsLayout` is available on `compose` only for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block.
 - Each `fieldsLayout` row must be non-empty, every keyed field must be placed exactly once, and object-cell `span` must be numeric.
 - `addBlock` does not accept `fieldsLayout`; when the first write must shape a field grid directly, prefer `compose` over `addBlock`.
-- For `table` / `list` / `gridCard`, keep the object `filter` action in `actions[]` with `settings.filterableFieldNames` and `settings.defaultFilter`.
+- For `table` / `list` / `gridCard`, keep filtering/search as a normal block-level `filter` action unless the user explicitly asked for `filterForm`.
 - `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
 - After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
 

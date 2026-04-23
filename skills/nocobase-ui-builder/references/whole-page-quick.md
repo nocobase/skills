@@ -10,16 +10,13 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
 
 1. Pick the simplest page shape directly:
    - management page with explicit filter/search block/form intent -> read [blocks/filter-form.md](./blocks/filter-form.md) and keep a real `filterForm` in the same blueprint
-   - management page with ambiguous filter wording, or with wording that explicitly adds search to table/list/grid/card-like content -> keep the data block and materialize an object `filter` action with default filter settings first
+   - management page with ambiguous filter wording, or with wording that explicitly adds search to table/list/grid/card-like content -> keep the data block and materialize a block-level `filter` action
    - management page without filtering -> table, list, details, or another primary data block
    - detail page -> details block, maybe one related table
    - dashboard -> summary, charts, light actions
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
-   - For every `table` / `list` / `gridCard` block, add an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`. Pick 3 to 4 common scalar fields from that block collection when available; if fewer exist, use the available fields.
-   - Prefer human/common fields such as `username`, `nickname`, `name`, `title`, `email`, `status`, `type`, `category`, or useful dates. Avoid `id`, audit fields, passwords, tokens, secrets, and large text fields.
-   - Use `$includes` for text/title-like fields and `$eq` for enum, boolean, number, date, and relation fields. The filter item `value` may be an empty string, and `defaultFilter.items` must cover every `filterableFieldNames` path.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
    - Under `defaults.collections`, every involved direct collection always carries fixed `popups.view` / `addNew` / `edit` `{ name, description }` objects, and any `table` block always pulls its collection into the `addNew` threshold evaluation even when the draft omitted an explicit `addNew` opener.
    - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when one of those fixed backend-generated popup scenes should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
@@ -42,10 +39,10 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
-   - prefer the object action form shown below; `actions: ["filter"]` is not valid for first-write `prepare-write` on `table` / `list` / `gridCard`
+   - use a normal block-level `filter` action, such as `actions: ["filter"]` or `{ "type": "filter" }`
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
-   - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
-   - if the chosen primary block cannot host a filter action, attach the filter action to the nearest supported companion data block instead of silently creating a `filterForm`
+   - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
+   - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block
 10. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
@@ -145,23 +142,7 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
           "type": "table",
           "collection": "support_tickets",
           "fields": ["subject", "status", "assignee"],
-          "actions": [
-            {
-              "type": "filter",
-              "settings": {
-                "filterableFieldNames": ["subject", "status", "assignee"],
-                "defaultFilter": {
-                  "logic": "$and",
-                  "items": [
-                    { "path": "subject", "operator": "$includes", "value": "" },
-                    { "path": "status", "operator": "$eq", "value": "" },
-                    { "path": "assignee", "operator": "$eq", "value": "" }
-                  ]
-                }
-              }
-            },
-            "addNew"
-          ],
+          "actions": ["filter", "addNew"],
           "recordActions": ["view", "edit"]
         }
       ]

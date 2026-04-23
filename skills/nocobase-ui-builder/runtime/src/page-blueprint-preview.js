@@ -3557,7 +3557,7 @@ function validateDataSurfaceDefaultFilterFieldsExist(fieldNames, block, path, st
   }
 }
 
-function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state) {
+function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, requireFieldCoverage = fieldNames.length > 0) {
   if (!isPlainObject(defaultFilter)) {
     pushValidationError(
       state.errors,
@@ -3613,7 +3613,7 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state) {
       );
     } else {
       filterItemPaths.add(filterPath);
-      if (fieldNameSet.size > 0 && !fieldNameSet.has(filterPath)) {
+      if (requireFieldCoverage && fieldNameSet.size > 0 && !fieldNameSet.has(filterPath)) {
         pushValidationError(
           state.errors,
           state.seenErrors,
@@ -3634,7 +3634,9 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state) {
     }
   }
 
-  const missingFilterItems = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
+  const missingFilterItems = requireFieldCoverage
+    ? fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName))
+    : [];
   if (missingFilterItems.length > 0) {
     pushValidationError(
       state.errors,
@@ -3652,42 +3654,52 @@ function validateDataSurfaceDefaultFilter(block, path, state) {
   }
   const filterAction = findDataSurfaceFilterAction(block);
   if (!filterAction) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.actions`,
-      'data-surface-default-filter-action-required',
-      'table/list/gridCard blocks must include an object filter action with default filter settings before prepare-write.',
-    );
     return;
   }
 
   const filterActionIndex = ensureArray(block.actions).indexOf(filterAction);
   const actionPath = `${path}.actions[${filterActionIndex}]`;
   const settingsPath = `${actionPath}.settings`;
+  if (!hasOwn(filterAction, 'settings')) {
+    return;
+  }
   if (!isPlainObject(filterAction.settings)) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       settingsPath,
-      'data-surface-default-filter-settings-required',
-      'table/list/gridCard filter actions must include settings with filterableFieldNames and defaultFilter.',
+      'data-surface-filter-settings-invalid',
+      'filter action settings must be one object when provided.',
     );
     return;
   }
 
-  const fieldNames = validateFilterableFieldNames(
-    filterAction.settings.filterableFieldNames,
-    `${settingsPath}.filterableFieldNames`,
-    state,
-  );
-  validateDataSurfaceDefaultFilterFieldsExist(
-    fieldNames,
-    block,
-    `${settingsPath}.filterableFieldNames`,
-    state,
-  );
-  validateDefaultFilterGroup(filterAction.settings.defaultFilter, fieldNames, `${settingsPath}.defaultFilter`, state);
+  const hasFieldNames = hasOwn(filterAction.settings, 'filterableFieldNames');
+  const hasDefaultFilter = hasOwn(filterAction.settings, 'defaultFilter');
+  const fieldNames = hasFieldNames
+    ? validateFilterableFieldNames(
+      filterAction.settings.filterableFieldNames,
+      `${settingsPath}.filterableFieldNames`,
+      state,
+    )
+    : [];
+  if (hasFieldNames) {
+    validateDataSurfaceDefaultFilterFieldsExist(
+      fieldNames,
+      block,
+      `${settingsPath}.filterableFieldNames`,
+      state,
+    );
+  }
+  if (hasDefaultFilter) {
+    validateDefaultFilterGroup(
+      filterAction.settings.defaultFilter,
+      fieldNames,
+      `${settingsPath}.defaultFilter`,
+      state,
+      hasFieldNames,
+    );
+  }
 }
 
 function validateBlock(block, path, state) {

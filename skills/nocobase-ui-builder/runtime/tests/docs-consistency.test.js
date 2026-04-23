@@ -745,13 +745,12 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.ok(defaultPrompt.length <= 1200, 'openai default_prompt should stay at or below 1200 chars');
 });
 
-test('data-surface default filter requirements stay visible in docs and prompt', () => {
+test('docs and prompt do not force explicit default filter payloads on every data surface', () => {
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
     'references/page-blueprint.md',
     'references/tool-shapes.md',
-    'references/helper-contracts.md',
     'references/normative-contract.md',
   ]) {
     const text = read(relativePath);
@@ -760,24 +759,19 @@ test('data-surface default filter requirements stay visible in docs and prompt',
       /table[\s\S]{0,80}list[\s\S]{0,80}gridCard|table[\s\S]{0,80}gridCard[\s\S]{0,80}list/i,
       `${relativePath} should name table/list/gridCard data surfaces`,
     );
-    assert.match(
+    assert.doesNotMatch(
       text,
-      /filterableFieldNames[\s\S]{0,120}defaultFilter|defaultFilter[\s\S]{0,120}filterableFieldNames/i,
-      `${relativePath} should require explicit filterableFieldNames and defaultFilter settings`,
+      /must include an object `filter` action with `settings\.filterableFieldNames` and `settings\.defaultFilter`|must carry explicit default filter settings|always rejects[\s\S]{0,120}filterableFieldNames[\s\S]{0,120}defaultFilter/i,
+      `${relativePath} should not force explicit filterableFieldNames/defaultFilter settings everywhere`,
     );
   }
 
   const pageBlueprint = read('references/page-blueprint.md');
-  assert.match(pageBlueprint, /3 to 4 common fields/i);
-  assert.match(pageBlueprint, /defaultFilter\.items[\s\S]{0,80}cover every `?filterableFieldNames`?/i);
-  assert.match(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
+  assert.match(pageBlueprint, /actions:\s*\["filter"\]|"type":\s*"filter"/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(
-    defaultPrompt,
-    /table\/list\/gridCard[\s\S]{0,80}filterableFieldNames[\s\S]{0,40}defaultFilter[\s\S]{0,40}3-4(?: fields)?/i,
-  );
+  assert.doesNotMatch(defaultPrompt, /filterableFieldNames|defaultFilter/i);
 });
 
 test('search-vs-filter intent docs keep host-bound action routing and explicit block-only filterForm rules', () => {
@@ -812,6 +806,7 @@ test('search-vs-filter intent docs keep host-bound action routing and explicit b
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索[\s\S]{0,20}filter/i);
   assert.match(defaultPrompt, /searchPage≠filter/i);
+  assert.match(defaultPrompt, /sameHost[\s\S]{0,20}filterAction/i);
   assert.match(
     defaultPrompt,
     /(?:explicit )?filter\/search block[\s\S]{0,24}filterForm|filterForm[\s\S]{0,36}(?:explicit )?filter\/search block/i,

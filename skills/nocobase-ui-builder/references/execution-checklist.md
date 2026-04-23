@@ -58,7 +58,7 @@ Use this path when the user is describing one entire page.
    - any explicit `layout` references only real keyed blocks, places every keyed block exactly once, and does not duplicate one block across multiple cells
    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
    - every chosen field has a non-empty live `interface`
-   - every `table` / `list` / `gridCard` has an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`
+   - any requested `table` / `list` / `gridCard` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
    - when `collectionMetadata` is supplied, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check

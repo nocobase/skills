@@ -94,72 +94,8 @@ function defaultFilterAction(fieldNames = ['nickname', 'email', 'status']) {
   };
 }
 
-function inferDefaultFilterFieldsForTestBlock(block) {
-  const explicitFields = (Array.isArray(block?.fields) ? block.fields : [])
-    .map((field) => (typeof field === 'string' ? field : typeof field?.field === 'string' ? field.field : ''))
-    .map((field) => field.trim())
-    .filter(Boolean)
-    .filter((field) => !['id', 'createdAt', 'updatedAt'].includes(field));
-  if (explicitFields.length) {
-    return explicitFields.slice(0, 3);
-  }
-  const collectionName =
-    typeof block?.collection === 'string'
-      ? block.collection
-      : typeof block?.resource?.collectionName === 'string'
-        ? block.resource.collectionName
-        : '';
-  if (collectionName === 'roles') {
-    return ['name', 'title', 'scope'];
-  }
-  return ['nickname', 'email', 'status'];
-}
-
-function addTestDataSurfaceDefaultFilters(input) {
-  const next = structuredClone(input);
-  const visitBlocks = (blocks) => {
-    for (const block of Array.isArray(blocks) ? blocks : []) {
-      if (!isObjectRecord(block)) continue;
-      if (['table', 'list', 'gridCard'].includes(block.type)) {
-        const actions = Array.isArray(block.actions) ? block.actions : [];
-        const filterIndex = actions.findIndex((action) =>
-          (typeof action === 'string' && action === 'filter')
-          || (isObjectRecord(action) && action.type === 'filter')
-        );
-        const filterAction = defaultFilterAction(inferDefaultFilterFieldsForTestBlock(block));
-        const existingFilterAction = filterIndex >= 0 ? actions[filterIndex] : undefined;
-        if (isObjectRecord(existingFilterAction) && isObjectRecord(existingFilterAction.settings)) {
-          // Keep explicit test coverage payloads intact; only backfill legacy fixtures.
-        } else if (filterIndex >= 0) {
-          actions[filterIndex] = filterAction;
-        } else {
-          actions.unshift(filterAction);
-        }
-        block.actions = actions;
-      }
-      visitBlocks(block.blocks);
-      for (const field of Array.isArray(block.fields) ? block.fields : []) {
-        visitBlocks(field?.popup?.blocks);
-      }
-      for (const group of Array.isArray(block.fieldGroups) ? block.fieldGroups : []) {
-        for (const field of Array.isArray(group?.fields) ? group.fields : []) {
-          visitBlocks(field?.popup?.blocks);
-        }
-      }
-      for (const action of [...(Array.isArray(block.actions) ? block.actions : []), ...(Array.isArray(block.recordActions) ? block.recordActions : [])]) {
-        visitBlocks(action?.popup?.blocks);
-      }
-    }
-  };
-  const blueprint = isObjectRecord(next?.requestBody) ? next.requestBody : next;
-  for (const tab of Array.isArray(blueprint?.tabs) ? blueprint.tabs : []) {
-    visitBlocks(tab.blocks);
-  }
-  return next;
-}
-
 function prepareApplyBlueprintRequest(input, options) {
-  return rawPrepareApplyBlueprintRequest(addTestDataSurfaceDefaultFilters(input), options);
+  return rawPrepareApplyBlueprintRequest(input, options);
 }
 
 function isObjectRecord(value) {
@@ -919,7 +855,7 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
-test('prepareApplyBlueprintRequest requires default filter settings on data surfaces', () => {
+test('prepareApplyBlueprintRequest keeps data-surface filter settings optional', () => {
   const missing = rawPrepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
@@ -938,8 +874,7 @@ test('prepareApplyBlueprintRequest requires default filter settings on data surf
       },
     ],
   });
-  assert.equal(missing.ok, false);
-  assert.ok(missing.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-action-required'));
+  assert.equal(missing.ok, true);
 
   const shorthand = rawPrepareApplyBlueprintRequest({
     version: '1',
@@ -960,8 +895,28 @@ test('prepareApplyBlueprintRequest requires default filter settings on data surf
       },
     ],
   });
-  assert.equal(shorthand.ok, false);
-  assert.ok(shorthand.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-action-required'));
+  assert.equal(shorthand.ok, true);
+
+  const objectWithoutSettings = rawPrepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            type: 'gridCard',
+            title: 'Users grid',
+            collection: 'users',
+            fields: ['nickname'],
+            actions: [{ type: 'filter' }],
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(objectWithoutSettings.ok, true);
 
   const incomplete = rawPrepareApplyBlueprintRequest({
     version: '1',
@@ -995,6 +950,28 @@ test('prepareApplyBlueprintRequest requires default filter settings on data surf
   });
   assert.equal(incomplete.ok, false);
   assert.ok(incomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+
+  const invalidSettingsShape = rawPrepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            type: 'table',
+            title: 'Users table',
+            collection: 'users',
+            fields: ['nickname'],
+            actions: [{ type: 'filter', settings: 'invalid' }],
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(invalidSettingsShape.ok, false);
+  assert.ok(invalidSettingsShape.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
 });
 
 test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {

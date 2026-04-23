@@ -26,7 +26,7 @@ Use this file when natural-language wording is ambiguous and you still need to n
 | 增加筛选按钮 / 筛选操作 / Filter Action | narrow to a block-level `filter` action | when the user might instead mean a dedicated controls area rather than one action |
 | 增加筛选区块 / 筛选表单 / 查询表单 / 搜索区块 / 搜索表单 / 条件查询区 / filter form / search block | narrow to `FilterFormBlockModel` | when both a dedicated block and a simple action would satisfy the request and the user has not named the host |
 
-`筛选 / filter` is ambiguous by itself. Unless the user explicitly asks for a block/form, default it to a button/action on the existing data block. `搜索 / search` should follow that rule only when the request explicitly adds search to a table / list / Grid / card-like host, including “支持搜索 / 带搜索 / 可搜索 / searchable”; page-noun wording such as `搜索页` or `搜索结果页` should not. 像“帮助中心页面，用列表展示帮助文档入口，并支持搜索”这种页面级搜索诉求，也不应仅因为同句出现了 `列表` 就自动收窄成 data-block `filter` action。For whole-page `table` / `list` / `gridCard` creation, the filter action must be the object form with default filter settings, not `actions: ["filter"]`.
+`筛选 / filter` is ambiguous by itself. Unless the user explicitly asks for a block/form, default it to a button/action on the existing data block. `搜索 / search` should follow that rule only when the request explicitly adds search to a table / list / Grid / card-like host, including “支持搜索 / 带搜索 / 可搜索 / searchable”; page-noun wording such as `搜索页`, `搜索结果页`, or `搜索门户` should not. 像“帮助中心页面，用列表展示帮助文档入口，并支持搜索”这种页面级搜索诉求，也不应仅因为同句出现了 `列表` 就自动收窄成 data-block `filter` action。
 
 ## 4. Conservative Moves
 

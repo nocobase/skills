@@ -67,7 +67,7 @@ The public `applyBlueprint` payload is:
 - in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
 - when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
 - explicit `layout` may reference only real block keys, and every keyed block in that tab/popup must be placed by the layout
-- every whole-page `table`, `list`, and `gridCard` block must include an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`; choose 3 to 4 common collection fields when available, and do not use the string shorthand `actions: ["filter"]` for first-write `prepare-write`
+- when the user asks to add filtering/search to a `table`, `list`, or `gridCard` host, use a block-level `filter` action on that host by default; reserve `filterForm` for explicit block/form/query-area intent
 - if a `filterForm` contains 4 or more fields, its actions must include `collapse`
 - generic `form` is not a public applyBlueprint block type; use `editForm` or `createForm`
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
@@ -113,18 +113,7 @@ Correct CLI body:
           "type": "table",
           "collection": "employees",
           "fields": ["nickname"],
-          "actions": [
-            {
-              "type": "filter",
-              "settings": {
-                "filterableFieldNames": ["nickname"],
-                "defaultFilter": {
-                  "logic": "$and",
-                  "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
-                }
-              }
-            }
-          ]
+          "actions": ["filter"]
         }
       ]
     }

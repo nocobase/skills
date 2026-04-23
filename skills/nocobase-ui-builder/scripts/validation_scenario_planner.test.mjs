@@ -44,6 +44,7 @@ function makeInstanceInventory() {
       detected: true,
       rootPublicUses: [
         'TableBlockModel',
+        'ListBlockModel',
         'DetailsBlockModel',
         'CreateFormModel',
         'EditFormModel',
@@ -54,6 +55,13 @@ function makeInstanceInventory() {
         'CommentsBlockModel',
       ],
       publicUseCatalog: [
+        {
+          use: 'ListBlockModel',
+          title: 'List',
+          semanticTags: ['feed'],
+          contextRequirements: [],
+          unresolvedReasons: [],
+        },
         {
           use: 'GridCardBlockModel',
           title: 'Grid card',
@@ -116,13 +124,23 @@ function buildPlannerResult({ caseRequest, caseId, planningMode } = {}) {
   });
 }
 
-function assertFilterAction(result, expectedHostUses = []) {
+function collectFilterActionHostUses(result) {
+  return [...new Set(
+    (Array.isArray(result?.scenario?.actionPlan) ? result.scenario.actionPlan : [])
+      .filter((item) => item?.kind === 'filter-action')
+      .map((item) => item.hostUse)
+      .filter(Boolean),
+  )];
+}
+
+function assertFilterAction(result, expectedHostUses = [], exact = false) {
   assert.equal(collectActionKinds(result.scenario.actionPlan).includes('filter-action'), true);
   if (Array.isArray(expectedHostUses) && expectedHostUses.length > 0) {
-    assert.equal(
-      result.scenario.actionPlan.some((item) => item.kind === 'filter-action' && expectedHostUses.includes(item.hostUse)),
-      true,
-    );
+    const actualHostUses = collectFilterActionHostUses(result);
+    assert.equal(actualHostUses.some((hostUse) => expectedHostUses.includes(hostUse)), true);
+    if (exact) {
+      assert.deepEqual(actualHostUses, expectedHostUses);
+    }
   }
 }
 
@@ -200,45 +218,65 @@ const SEARCH_INTENT_CASES = [
     caseId: 'search-bound',
     caseRequest: '基于 approvals 做一个审批列表页，展示 status applicant，并增加搜索功能',
     expectation: 'filter-action',
-    expectedHostUses: ['TableBlockModel', 'ListBlockModel', 'GridCardBlockModel'],
+    expectedHostUses: ['ListBlockModel'],
+    exactHostUses: true,
     expectNoControlsSection: true,
   },
   {
     caseId: 'search-cross-sentence',
     caseRequest: '基于 approvals 做一个审批列表页。增加搜索功能，展示 status applicant',
     expectation: 'filter-action',
+    expectedHostUses: ['ListBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'search-page-table-action',
     caseRequest: '基于 approvals 做一个搜索结果页，用表格展示结果，并给表格增加搜索功能',
     expectation: 'filter-action',
-    expectedHostUses: ['TableBlockModel', 'ListBlockModel', 'GridCardBlockModel'],
+    expectedHostUses: ['TableBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'search-cross-sentence-bare-host',
     caseRequest: '基于 approvals 做一个审批列表。增加搜索功能，展示 status applicant',
     expectation: 'filter-action',
+    expectedHostUses: ['ListBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'search-list-view-cross-sentence',
     caseRequest: '基于 approvals 创建一个审批列表视图。增加搜索功能，展示 status applicant',
     expectation: 'filter-action',
+    expectedHostUses: ['ListBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'searchable-list-view',
     caseRequest: 'build an approvals list view. add search',
     expectation: 'filter-action',
+    expectedHostUses: ['ListBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'searchable-list',
     caseRequest: '做一个 searchable approvals list page，展示 status applicant',
     expectation: 'filter-action',
+    expectedHostUses: ['ListBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'search-card',
     caseRequest: '基于 approvals 做一个审批卡片页，展示 status applicant，并增加搜索功能',
     expectation: 'filter-action',
     expectedHostUses: ['GridCardBlockModel'],
+    exactHostUses: true,
+  },
+  {
+    caseId: 'search-results-table-action-english',
+    caseRequest: 'build a search results list page for approvals, use a table for results, and add search to the table',
+    expectation: 'filter-action',
+    expectedHostUses: ['TableBlockModel'],
+    exactHostUses: true,
   },
   {
     caseId: 'hostless-english-search',
@@ -295,6 +333,16 @@ const SEARCH_INTENT_CASES = [
     caseRequest: '基于 approvals 做一个帮助中心页面，用列表展示审批入口，并支持搜索',
     expectation: 'none',
   },
+  {
+    caseId: 'search-portal-searchable-list',
+    caseRequest: 'build a search portal with a searchable approvals list',
+    expectation: 'none',
+  },
+  {
+    caseId: 'search-portal-searchable-list-cn',
+    caseRequest: '做一个搜索门户，用可搜索列表展示审批入口',
+    expectation: 'none',
+  },
 ];
 
 for (const planningMode of [undefined, 'stable-first']) {
@@ -325,7 +373,7 @@ for (const planningMode of [undefined, 'stable-first']) {
         if (searchCase.expectNoControlsSection) {
           assert.equal(result.scenario.pagePlan.sections.some((section) => section.role === 'controls'), false);
         }
-        assertFilterAction(result, searchCase.expectedHostUses);
+        assertFilterAction(result, searchCase.expectedHostUses, searchCase.exactHostUses === true);
         return;
       }
 

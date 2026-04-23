@@ -245,8 +245,27 @@ function buildFilterAction(label = '筛选') {
   };
 }
 
+function resolveRequestedFilterActionHostUses(operationIntent) {
+  return uniqueStrings(Array.isArray(operationIntent?.requestedFilterActionHostUses)
+    ? operationIntent.requestedFilterActionHostUses
+    : []);
+}
+
+function canAttachRequestedFilterActionToUse(use, operationIntent) {
+  const normalizedUse = normalizeText(use);
+  if (!operationIntent?.requestedFilterAction || !FILTER_ACTION_HOST_USES.has(normalizedUse)) {
+    return false;
+  }
+  const preferredHostUses = resolveRequestedFilterActionHostUses(operationIntent);
+  return preferredHostUses.length === 0 || preferredHostUses.includes(normalizedUse);
+}
+
+function canAttachRequestedFilterActionToBlock(block, operationIntent) {
+  return canAttachRequestedFilterActionToUse(resolvePlannedBlockUse(block), operationIntent);
+}
+
 function withRequestedFilterAction(block, operationIntent) {
-  if (!block || !operationIntent?.requestedFilterAction || !supportsFilterActionOnBlock(block)) {
+  if (!block || !canAttachRequestedFilterActionToBlock(block, operationIntent)) {
     return block;
   }
   if (!Array.isArray(block.actions)) {
@@ -792,22 +811,61 @@ const SEARCH_PAGE_NOUN_PATTERNS = [
   /搜索(?:结果)?(?:列表)?页(?:面)?/giu,
   /\bsearch(?:\s+results?)?(?:\s+list)?\s+page\b/giu,
 ];
+const SEARCH_PAGE_CONTEXT_PATTERNS = [
+  /搜索(?:结果)?(?:列表)?页(?:面)?/iu,
+  /\bsearch(?:\s+results?)?(?:\s+list)?\s+page\b/iu,
+  /搜索门户/iu,
+  /\bsearch\s+portal\b/iu,
+  /帮助中心(?:页|页面)?/iu,
+  /\bhelp\s+center\b/iu,
+];
 
-const SEARCH_DIRECT_HOST_BOUND_PATTERNS = [
-  new RegExp(`${SEARCH_DATA_HOST_SURFACE_SOURCE}\\s*(?:增加|添加|加上?|带上?|支持|启用|带|含|有)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?`, 'i'),
-  new RegExp(`(?:支持|带|含|有)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?(?:的)?\\s*${SEARCH_DATA_HOST_SURFACE_SOURCE}`, 'i'),
-  new RegExp(`可(?:搜索|检索)(?:的)?\\s*${SEARCH_DATA_HOST_CN_SOURCE}(?:视图)?`, 'i'),
-  new RegExp(`\\b${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\s+(?:supports?|with)\\s+search\\b`, 'i'),
+const SEARCH_HOST_USE_PATTERNS = [
+  {
+    use: 'TableBlockModel',
+    patterns: [
+      /(?:表格|数据表)/i,
+      /\btable(?:\s+(?:page|view))?\b/i,
+    ],
+  },
+  {
+    use: 'ListBlockModel',
+    patterns: [
+      /列表/i,
+      /\blist(?:\s+(?:page|view))?\b/i,
+    ],
+  },
+  {
+    use: 'GridCardBlockModel',
+    patterns: [
+      /(?:grid\s*card|gridcard|卡片|指标卡)/i,
+      /\bgrid(?:\s+card)?(?:\s+(?:page|view))?\b/i,
+      /\bcard(?:\s+(?:page|view))?\b/i,
+    ],
+  },
+];
+
+const SEARCH_STRONG_HOST_BOUND_PATTERNS = [
+  new RegExp(`(?:给|为|替|对)\\s*${SEARCH_DATA_HOST_SURFACE_SOURCE}\\s*(?:增加|添加|加上?|启用|支持)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?`, 'i'),
+  new RegExp(`${SEARCH_DATA_HOST_SURFACE_SOURCE}\\s*(?:增加|添加|加上?|启用)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?`, 'i'),
+  new RegExp(`${SEARCH_DATA_HOST_SURFACE_SOURCE}\\s*(?:支持|带|含|有)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?`, 'i'),
   new RegExp(`\\bsupports?\\s+search(?:\\s+for)?\\s+(?:the\\s+)?${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\b`, 'i'),
   new RegExp(`\\badd\\s+search(?:\\s+(?:to|on|for))\\s+(?:the\\s+)?${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\b`, 'i'),
+  new RegExp(`\\b${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\s+supports?\\s+search\\b`, 'i'),
+];
+
+const SEARCH_WEAK_HOST_BOUND_PATTERNS = [
+  new RegExp(`(?:带|含|有)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?(?:的)?\\s*${SEARCH_DATA_HOST_SURFACE_SOURCE}`, 'i'),
+  new RegExp(`可(?:搜索|检索)(?:的)?\\s*${SEARCH_DATA_HOST_CN_SOURCE}(?:视图)?`, 'i'),
+  new RegExp(`\\b${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\s+with\\s+search\\b`, 'i'),
   new RegExp(`\\bsearchable\\s+(?:(?:[a-z0-9_-]+)\\s+){0,3}${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+view)?\\b`, 'i'),
 ];
 
 const SEARCH_STANDALONE_ACTION_PATTERNS = [
-  /(?:增加|添加|加上?|带上?|支持|启用)(?:一个|一项|个)?\s*(?:搜索|search)(?!页|结果|列表页)(?:功能|能力|操作|按钮)?/i,
+  /(?:增加|添加|加上?|带上?|支持|启用)(?:一个|一项|个)?\s*(?:搜索|search)(?!页|结果|列表页|门户)(?:功能|能力|操作|按钮)?/i,
   /(?:支持|带|含|有)\s*(?:搜索|search)(?:功能|能力|操作|按钮)?/i,
   /可(?:搜索|检索)(?:的)?/i,
-  /\b(?:add|enable|support)(?:\s+(?:a|an))?\s+search(?!\s+(?:page|result|results))/i,
+  /\b(?:add|enable|support)(?:\s+(?:a|an))?\s+search(?!\s+(?:page|portal|result|results))/i,
   /\bwith\s+(?:a\s+)?search(?:\s+box)?\b/i,
   /\bsearchable\b/i,
 ];
@@ -1634,25 +1692,40 @@ function resolveOperationIntent(requestText, primaryBlockUse) {
     delete: explicitDelete || defaultCrud,
     view: explicitView || defaultCrud,
     requestedTabs: hasAnyKeyword(requestText, ['tab', 'tabs', '页签', '标签']),
-    filterIntent,
-    requestedFilter: filterIntent !== 'none',
-    requestedFilterAction: filterIntent === 'action',
-    requestedFilterForm: filterIntent === 'form',
+    filterIntent: filterIntent.intent,
+    filterIntentSource: filterIntent.source,
+    requestedFilter: filterIntent.intent !== 'none',
+    requestedFilterAction: filterIntent.intent === 'action',
+    requestedFilterActionHostUses: filterIntent.preferredHostUses,
+    requestedFilterForm: filterIntent.intent === 'form',
     minimal,
   };
 }
 
 function resolveFilterIntent(requestText) {
   if (hasAnyKeyword(requestText, FILTER_FORM_INTENT_KEYWORDS)) {
-    return 'form';
+    return {
+      intent: 'form',
+      preferredHostUses: [],
+      source: 'explicit-filter-form',
+    };
+  }
+  const searchIntent = analyzeSearchActionIntent(requestText);
+  if (searchIntent.intent === 'action') {
+    return searchIntent;
   }
   if (hasAnyKeyword(requestText, GENERIC_FILTER_ACTION_INTENT_KEYWORDS)) {
-    return 'action';
+    return {
+      intent: 'action',
+      preferredHostUses: resolveSearchHostUses(requestText),
+      source: 'generic-filter-action',
+    };
   }
-  if (isExplicitSearchActionOnDataHost(requestText)) {
-    return 'action';
-  }
-  return 'none';
+  return {
+    intent: 'none',
+    preferredHostUses: [],
+    source: '',
+  };
 }
 
 function normalizeSearchIntentText(requestText) {
@@ -1673,6 +1746,16 @@ function matchesSearchIntentPattern(text, patterns) {
   return patterns.some((pattern) => pattern.test(text));
 }
 
+function resolveSearchHostUses(text) {
+  const normalizedText = normalizeSearchIntentText(text);
+  if (!normalizedText) {
+    return [];
+  }
+  return SEARCH_HOST_USE_PATTERNS
+    .filter(({ patterns }) => patterns.some((pattern) => pattern.test(normalizedText)))
+    .map(({ use }) => use);
+}
+
 function stripSearchPageNouns(text) {
   return SEARCH_PAGE_NOUN_PATTERNS.reduce(
     (current, pattern) => current.replace(pattern, ' '),
@@ -1682,34 +1765,83 @@ function stripSearchPageNouns(text) {
     .trim();
 }
 
+function hasSearchPageContext(text) {
+  const normalizedText = normalizeSearchIntentText(text);
+  if (!normalizedText) {
+    return false;
+  }
+  return SEARCH_PAGE_CONTEXT_PATTERNS.some((pattern) => pattern.test(normalizedText));
+}
+
 function collectSearchIntentSentenceSignals(requestText) {
   return splitSearchIntentSentences(requestText)
     .map((sentence) => {
       const hostSignalText = stripSearchPageNouns(sentence);
       return {
-        hasDirectHostBinding: matchesSearchIntentPattern(hostSignalText, SEARCH_DIRECT_HOST_BOUND_PATTERNS),
+        hasStrongHostBinding: matchesSearchIntentPattern(hostSignalText, SEARCH_STRONG_HOST_BOUND_PATTERNS),
+        hasWeakHostBinding: matchesSearchIntentPattern(hostSignalText, SEARCH_WEAK_HOST_BOUND_PATTERNS),
         hasStandaloneAction: matchesSearchIntentPattern(sentence, SEARCH_STANDALONE_ACTION_PATTERNS),
         declaresHostSurface: matchesSearchIntentPattern(hostSignalText, SEARCH_HOST_DECLARATION_PATTERNS),
+        hostUses: resolveSearchHostUses(hostSignalText || sentence),
       };
     });
 }
 
-function isExplicitSearchActionOnDataHost(requestText) {
+function analyzeSearchActionIntent(requestText) {
   const normalized = normalizeSearchIntentText(requestText);
   if (!normalized) {
-    return false;
+    return {
+      intent: 'none',
+      preferredHostUses: [],
+      source: '',
+    };
   }
   const sentences = collectSearchIntentSentenceSignals(requestText);
-  return sentences.some((sentence, index) => {
-    if (sentence.hasDirectHostBinding) {
-      return true;
+  for (const sentence of sentences) {
+    if (sentence.hasStrongHostBinding) {
+      return {
+        intent: 'action',
+        preferredHostUses: sentence.hostUses,
+        source: 'host-bound-search',
+      };
+    }
+  }
+  if (hasSearchPageContext(normalized)) {
+    return {
+      intent: 'none',
+      preferredHostUses: [],
+      source: 'page-search-context',
+    };
+  }
+  const weakHostUses = [];
+  for (const [index, sentence] of sentences.entries()) {
+    if (sentence.hasWeakHostBinding) {
+      weakHostUses.push(...sentence.hostUses);
+      continue;
     }
     if (!sentence.hasStandaloneAction) {
-      return false;
+      continue;
     }
-    return sentence.declaresHostSurface
-      || sentences[index - 1]?.declaresHostSurface === true;
-  });
+    if (sentence.declaresHostSurface) {
+      weakHostUses.push(...sentence.hostUses);
+      continue;
+    }
+    if (sentences[index - 1]?.declaresHostSurface) {
+      weakHostUses.push(...sentences[index - 1].hostUses);
+    }
+  }
+  if (weakHostUses.length > 0) {
+    return {
+      intent: 'action',
+      preferredHostUses: uniqueStrings(weakHostUses),
+      source: 'host-described-search',
+    };
+  }
+  return {
+    intent: 'none',
+    preferredHostUses: [],
+    source: '',
+  };
 }
 
 function resolveRequestedFilterPattern(operationIntent) {
@@ -1867,18 +1999,6 @@ function isCollectionBoundBusinessBlock(block) {
 function layoutHasCollectionBoundBusinessBlock(layout) {
   const visitBlocks = (items) => (Array.isArray(items) ? items : []).some((block) => {
     if (isCollectionBoundBusinessBlock(block)) {
-      return true;
-    }
-    const popupBlocks = Array.isArray(block?.popup?.blocks) ? block.popup.blocks : [];
-    return visitBlocks(block?.blocks) || visitBlocks(popupBlocks);
-  });
-  return visitBlocks(layout?.blocks)
-    || (Array.isArray(layout?.tabs) ? layout.tabs.some((tab) => visitBlocks(tab.blocks)) : false);
-}
-
-function layoutHasFilterActionHost(layout) {
-  const visitBlocks = (items) => (Array.isArray(items) ? items : []).some((block) => {
-    if (supportsFilterActionOnBlock(block)) {
       return true;
     }
     const popupBlocks = Array.isArray(block?.popup?.blocks) ? block.popup.blocks : [];
@@ -2374,7 +2494,7 @@ function buildTableActions({
 }) {
   const actions = [];
   const rowActions = [];
-  if (operationIntent.requestedFilterAction) {
+  if (canAttachRequestedFilterActionToUse('TableBlockModel', operationIntent)) {
     actions.push(buildFilterAction());
   }
   if (operationIntent.create) {
@@ -2582,7 +2702,7 @@ function createLayoutFromPrimary({
     return null;
   }
   const companionBlocks = [];
-  const requiresFilterActionHost = operationIntent.requestedFilterAction && !supportsFilterActionOnBlock(primaryBlock);
+  const requiresFilterActionHost = operationIntent.requestedFilterAction && !canAttachRequestedFilterActionToBlock(primaryBlock, operationIntent);
   if (
     collectionMeta
     && (
@@ -2844,8 +2964,11 @@ function collectActionPlan(layout) {
   return plans;
 }
 
-function layoutHasFilterAction(layout) {
-  return collectActionPlan(layout).some((item) => normalizeText(item.kind) === 'filter-action');
+function layoutHasRequestedFilterAction(layout, operationIntent) {
+  return collectActionPlan(layout).some((item) => (
+    normalizeText(item.kind) === 'filter-action'
+    && canAttachRequestedFilterActionToUse(item.hostUse, operationIntent)
+  ));
 }
 
 function buildCoverageFromLayout(layout) {
@@ -3074,9 +3197,10 @@ function finalizeCreativeLayout({
   collectionFallbackBlock,
   requireCollectionFallback = false,
   requireFilterActionHost = false,
+  operationIntent = null,
 }) {
   const normalizedBlocks = blocks.filter(Boolean).map((block) => cloneJson(block));
-  if (requireFilterActionHost && collectionMeta && !layoutHasFilterActionHost({ blocks: normalizedBlocks, tabs })) {
+  if (requireFilterActionHost && collectionMeta && !layoutHasRequestedFilterAction({ blocks: normalizedBlocks, tabs }, operationIntent)) {
     const fallbackBlock = cloneBlockOrNull(collectionFallbackBlock);
     if (fallbackBlock) {
       normalizedBlocks.push(fallbackBlock);
@@ -3116,7 +3240,7 @@ function buildCandidateScoreSummary({
   const tabCount = Array.isArray(layout?.tabs) ? layout.tabs.length : 0;
   const actionPlan = collectActionPlan(layout);
   const hasFilterForm = uses.includes('FilterFormBlockModel');
-  const hasFilterAction = layoutHasFilterAction(layout);
+  const hasFilterAction = layoutHasRequestedFilterAction(layout, operationIntent);
   const hasRequestedFilterMaterialized = operationIntent?.requestedFilterForm
     ? hasFilterForm
     : (operationIntent?.requestedFilterAction ? hasFilterAction : true);
@@ -3606,6 +3730,10 @@ function buildStableFirstValidationScenario({
   let selectionMode = explicitCollectionRequested ? 'collection-first' : collectionResolution.selectionMode;
   let primaryBlockDefinition = matchedPrimaryBlockDefinition;
   const collectionMeta = collectionResolution.collectionMeta;
+  if (hasSearchPageContext(requestText) && !collectionMeta && matchedPrimaryBlockDefinition?.collectionRequired) {
+    primaryBlockDefinition = null;
+    selectionMode = 'dynamic-exploration';
+  }
   const explorationDefinitions = rankExplorationDefinitions(requestText, PRIMARY_BLOCK_DEFINITIONS
     .filter((entry) => !entry.collectionRequired)
     .filter((entry) => entry.use === 'TableBlockModel'
@@ -3921,6 +4049,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
         requireFilterActionHost: operationIntent.requestedFilterAction,
+        operationIntent,
       }),
       title,
       summary: `${normalizeText(title)} / 关键词锚点方案`,
@@ -3945,6 +4074,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock: detailsBlock || supportTableBlock || collectionFallbackBlock,
         requireFilterActionHost: operationIntent.requestedFilterAction,
+        operationIntent,
       }),
       title: `${title} 内容控制`,
       summary: `${normalizeText(title)} / 单主块内容控制`,
@@ -3966,6 +4096,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock,
         requireFilterActionHost: operationIntent.requestedFilterAction,
+        operationIntent,
       }),
       title: `${title} 工作台`,
       summary: `${normalizeText(title)} / collection workbench`,
@@ -3987,6 +4118,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
         requireFilterActionHost: operationIntent.requestedFilterAction,
+        operationIntent,
       }),
       title: `${title} 分析混合`,
       summary: `${normalizeText(title)} / analytics mix`,
@@ -4018,6 +4150,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
         requireFilterActionHost: operationIntent.requestedFilterAction,
+        operationIntent,
       }),
       title: `${title} 多界面`,
       summary: `${normalizeText(title)} / tabbed multi surface`,
@@ -4151,9 +4284,12 @@ function buildCreativeFirstValidationScenario({
     : (creativeIntent === 'insight-first'
       ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).some((use) => INSIGHT_PRIORITY_USES.has(use)))
       : layoutCandidates);
-  const effectiveSelectedCandidatePool = selectedCandidatePool.length > 0
-    ? selectedCandidatePool
-    : layoutCandidates;
+  const explicitPrimarySelectedCandidatePool = explicitAnchorUse
+    ? selectedCandidatePool.filter((candidate) => normalizeText(candidate.primaryBlockType) === explicitAnchorUse)
+    : [];
+  const effectiveSelectedCandidatePool = explicitPrimarySelectedCandidatePool.length > 0
+    ? explicitPrimarySelectedCandidatePool
+    : (selectedCandidatePool.length > 0 ? selectedCandidatePool : layoutCandidates);
   const selectedCandidate = [...effectiveSelectedCandidatePool]
     .sort((left, right) => {
       if ((right.score || 0) !== (left.score || 0)) {
