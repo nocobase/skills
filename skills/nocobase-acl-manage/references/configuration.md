@@ -373,7 +373,7 @@ Use CLI command contracts when auditing results. Do not fallback to direct HTTP 
 4. `roles_data_source_resources_get`
 5. `data_sources_roles_resources_scopes_get` or `data_sources_roles_resources_scopes_list`
 
-All checks above should be executed through resolved CLI runtime commands via skill-local wrapper (`node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`) and command help discovery, with env context resolved first by `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>`.
+All checks above should be executed through resolved CLI runtime commands via direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) and command help discovery, with env context resolved first by `nb env list -s project`.
 
 For scoped actions, do not rely only on appended `actions.scope` payloads. Prefer:
 

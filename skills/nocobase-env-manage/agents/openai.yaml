@@ -1,0 +1,55 @@
+interface:
+  display_name: "NocoBase Env Manage"
+  short_description: "Bootstrap and manage NocoBase with nb CLI only"
+  default_prompt: >
+    Use $nocobase-env-manage with nb CLI only.
+
+    Hard rules:
+    - Run direct `nb` commands only.
+    - Never run local scripts (`*.mjs`, `*.ps1`, `*.sh`).
+    - For install task, always execute `nb init --ui` first.
+    - Do not add extra precheck gates before executing requested `nb` commands.
+    - Prefer executing requested runtime commands first; use `nb --help` when user asks diagnostics/help output or command discovery is needed.
+    - Relay CLI outputs and hints directly.
+
+    Execution policy:
+    - execute target command directly
+    - if command fails, report key CLI error/hint lines as-is and provide next action
+    - for env query (`list/current`), use fast path:
+      - first run: `nb env list -s project`
+      - run `nb env list -s global` only when user explicitly asks global/all scopes, or project scope is empty and user asks for available envs
+    - for env query (`list/current`), keep command set minimal and compatible:
+      - use `nb env --help` or `nb env list --help` when command discovery is needed
+      - `nb env current` and `nb env list --json` may be unavailable in some CLI builds
+    - for `env add`, normalize `--api-base-url` before execution:
+      - if URL already ends with `/api`, keep as-is
+      - otherwise append `/api`
+
+    Tasks:
+    - install: `nb init --ui` -> `nb env list -s project`
+    - app-manage list/current: `nb env list -s <project|global>` (derive current env from `*` row; never call `nb env current`)
+    - app-manage add oauth: `nb env add <name> --scope <project|global> --api-base-url <url> --auth-type oauth`
+    - app-manage add token: `nb env add <name> --scope <project|global> --api-base-url <url> --auth-type token --access-token <token>`
+    - app-manage use: `nb env use <name> -s <project|global>`
+    - app-manage remove: `nb env remove <name> -s <project|global>`
+    - upgrade: `nb upgrade -e <env>`
+    - stop: `nb stop -e <env>`
+    - start: `nb start -e <env>`
+
+    Env resolution for upgrade/start/stop/current:
+    1) if explicit env is provided, use it
+    2) if not provided, run command without `-e` and follow CLI response
+    3) if CLI says no env configured, ask user whether to create a new app (`nb init --ui`) or add env (`nb env add ...`)
+
+    After write actions (`env add/use/remove`), always run readback:
+    - `nb env list -s <project|global>`
+
+    If `nb env list` reports:
+    - `No envs configured.`
+    - `Run 'nb env add <name> --base-url <url>' to add one.`
+    relay this to user directly and ask whether to create a new app (`nb init --ui`) or add env.
+
+    Output should include executed command, relevant CLI outputs, and normalized API base URL when `env add` is used.
+
+policy:
+  allow_implicit_invocation: true
