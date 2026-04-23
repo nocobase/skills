@@ -71,6 +71,7 @@ The local prepare-write gate should reject at least:
 - illegal tab keys such as `pageSchemaUid` / `requestBody` / `target`
 - block-level `layout`
 - non-object `tab.layout` / `popup.layout`
+- `table` / `list` / `gridCard` blocks without object `filter` action default filter settings
 - custom `edit` popups that do not contain exactly one `editForm`
 
 If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same blueprint rather than skipping the preview.

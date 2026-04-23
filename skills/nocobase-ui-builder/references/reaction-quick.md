@@ -27,8 +27,8 @@ For artifact-only localized reaction drafting, stay on this file. Do not enumera
 Whole-page-first rule:
 
 - do not split a newly created page into a separate live reaction phase just because the page has more blocks, more popups, or more reaction families
-- if a first-pass blueprint still fails, treat that as either a blueprint-generation bug or a public contract gap first
-- only switch to localized `get-reaction-meta` + `set*Rules` after the failure proves the whole-page contract cannot satisfy the request
+- if the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence; do not switch to localized `get-reaction-meta` + `set*Rules` in the same pre-success phase
+- after one successful whole-page `applyBlueprint`, use localized `get-reaction-meta` + `set*Rules` repair only for an explicit residual local/live gap, and keep that repair narrowly scoped
 
 ### Existing live page
 

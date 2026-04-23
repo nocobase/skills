@@ -4,23 +4,30 @@ Use this file as the default first stop for whole-page `create` / `replace` work
 
 Stay on this route when the user is asking for a full page or one route-backed tab, not a small patch on an existing live surface.
 
+Treat these as whole-page too: a whole page create / replace, one route-backed tab full build, a complex multi-block page, a nested-popup page, or a page with multiple reaction families.
+
 ## Common-case flow
 
 1. Pick the simplest page shape directly:
-   - management page with explicit filter block/form intent -> read [blocks/filter-form.md](./blocks/filter-form.md) and keep a real `filterForm` in the same blueprint
-   - management page with only ambiguous filter/search wording on table/list/grid-like content -> keep the data block and materialize `actions: ["filter"]` first
+   - management page with explicit filter/search block/form intent -> read [blocks/filter-form.md](./blocks/filter-form.md) and keep a real `filterForm` in the same blueprint
+   - management page with ambiguous filter wording, or with wording that explicitly adds search to table/list/grid/card-like content -> keep the data block and materialize an object `filter` action with default filter settings first
    - management page without filtering -> table, list, details, or another primary data block
    - detail page -> details block, maybe one related table
    - dashboard -> summary, charts, light actions
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
+   - For every `table` / `list` / `gridCard` block, add an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`. Pick 3 to 4 common scalar fields from that block collection when available; if fewer exist, use the available fields.
+   - Prefer human/common fields such as `username`, `nickname`, `name`, `title`, `email`, `status`, `type`, `category`, or useful dates. Avoid `id`, audit fields, passwords, tokens, secrets, and large text fields.
+   - Use `$includes` for text/title-like fields and `$eq` for enum, boolean, number, date, and relation fields. The filter item `value` may be an empty string, and `defaultFilter.items` must cover every `filterableFieldNames` path.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
    - Under `defaults.collections`, every involved direct collection always carries fixed `popups.view` / `addNew` / `edit` `{ name, description }` objects, and any `table` block always pulls its collection into the `addNew` threshold evaluation even when the draft omitted an explicit `addNew` opener.
    - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when one of those fixed backend-generated popup scenes should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
    - Keep `fieldGroups` collection-only on the target collection; do not create per-association `fieldGroups`. Keep relation-field popup descriptors under `popups.associations.<associationField>.<action>` with the same fixed `view` / `addNew` / `edit` `{ name, description }` contract, keyed only by the first relation segment.
    - Keep defaults collection-level only: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
-4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
+4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write must be `applyBlueprint`.
+   - Before one whole-page `applyBlueprint` succeeds, do not call `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
+   - If the first `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence. Do not continue with low-level writes in that same pre-success phase.
 5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
 6. If visible same-title menu groups already exist, do not pick one locally and do not create another same-title group just to disambiguate. Require explicit `navigation.group.routeId` before the write whenever title lookup would hit multiple groups.
 7. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
@@ -34,9 +41,10 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - point each filter field `target` at a same-blueprint table key as a plain string block key
    - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
-9. If the page only says “增加筛选 / filter / 搜索” on an existing or requested table/list/gridCard-like surface, default to the block action slot instead:
-   - prefer `actions: ["filter"]` on that data block
-   - do not upgrade that request into `filterForm` unless the user explicitly names a filter block/form/query area
+9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
+   - prefer the object action form shown below; `actions: ["filter"]` is not valid for first-write `prepare-write` on `table` / `list` / `gridCard`
+   - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
+   - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the chosen primary block cannot host a filter action, attach the filter action to the nearest supported companion data block instead of silently creating a `filterForm`
 10. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
@@ -51,6 +59,7 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - use `pageSchemaUid` for `nocobase-ctl flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
+   - after one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and should stay narrow
 13. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
 14. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
 15. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact CLI body becomes `result.cliBody`, not the original draft blueprint.
@@ -77,10 +86,9 @@ These are still whole-page requests, not a separate route.
 - When one tab or popup contains multiple non-filter blocks, explicit layout is no longer optional. The layout must reference real keyed blocks and place every keyed block.
 - For computed defaults, autofill, block visibility, or action guards that belong to the page being created now, prefer top-level `reaction.items[]` in that same blueprint rather than a second live-edit phase.
 - If a create/edit form helper depends on `formValues.*`, prefer a helper host that belongs to that same form scene. If the live scene exposes `fields` / `actions` / `node` but not `blocks`, model the helper as a `jsItem` or other field-like helper rather than a separate sibling block.
-- A first-pass miss is not enough to abandon whole-page authoring. Treat it as either:
-  - a blueprint-generation bug in the skill, or
-  - a public whole-page contract gap that still needs proof
-- Only move to low-level `add*` or localized `set*Rules` after the failure proves the public whole-page contract cannot satisfy the request.
+- A first-pass miss is not enough to abandon whole-page authoring. Treat it as a blueprint-generation bug or whole-page contract problem to report, not as permission to switch routes mid-phase.
+- If the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence instead of dropping into low-level writes before success.
+- Only after one successful whole-page `applyBlueprint` may localized `add*` or `set*Rules` repair address an explicit residual local/live gap, and that repair should stay narrowly scoped.
 
 ## Default artifact-only output
 
@@ -137,7 +145,23 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
           "type": "table",
           "collection": "support_tickets",
           "fields": ["subject", "status", "assignee"],
-          "actions": ["addNew"],
+          "actions": [
+            {
+              "type": "filter",
+              "settings": {
+                "filterableFieldNames": ["subject", "status", "assignee"],
+                "defaultFilter": {
+                  "logic": "$and",
+                  "items": [
+                    { "path": "subject", "operator": "$includes", "value": "" },
+                    { "path": "status", "operator": "$eq", "value": "" },
+                    { "path": "assignee", "operator": "$eq", "value": "" }
+                  ]
+                }
+              }
+            },
+            "addNew"
+          ],
           "recordActions": ["view", "edit"]
         }
       ]
@@ -148,7 +172,7 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
 
 ## Open next only if needed
 
-- [blocks/filter-form.md](./blocks/filter-form.md) if the page explicitly asks for filtering / search / screening and you need the real filter-form completion contract
+- [blocks/filter-form.md](./blocks/filter-form.md) if the page explicitly asks for a filter/search block, form, query area, or screening form and you need the real filter-form completion contract
 - [popup.md](./popup.md) if the page needs inline popup structure or custom edit/view popup composition
 - [whole-page-recipes.md](./whole-page-recipes.md) for reusable whole-page blueprint patterns with paired blocks, nested popups, and top-level reactions
 - [page-archetypes.md](./page-archetypes.md) if none of the common page shapes fits cleanly

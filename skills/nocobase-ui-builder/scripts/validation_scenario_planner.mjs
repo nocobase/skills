@@ -764,24 +764,59 @@ const FILTER_FORM_INTENT_KEYWORDS = [
   '筛选区块',
   '筛选块',
   '筛选表单',
+  '搜索区块',
+  '搜索块',
   '查询表单',
   '搜索表单',
   '条件查询区',
   '条件筛选区',
   'filter form',
   'filter block',
+  'search block',
   'search form',
   'query form',
   'query block',
 ];
 
-const GENERIC_FILTER_INTENT_KEYWORDS = [
+const GENERIC_FILTER_ACTION_INTENT_KEYWORDS = [
   '筛选',
   'filter',
-  '搜索',
-  'search',
   '条件查询',
   'screening',
+];
+
+const SEARCH_DATA_HOST_CN_SOURCE = '(?:表格|数据表|列表|grid(?:\\s*card)?|gridcard|卡片|指标卡)';
+const SEARCH_DATA_HOST_EN_SOURCE = '(?:table|list|grid(?:\\s+card)?|card)';
+const SEARCH_DATA_HOST_SURFACE_SOURCE = `(?:${SEARCH_DATA_HOST_CN_SOURCE}(?:页|页面|区块|块|视图)?|${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?)`;
+const SEARCH_PAGE_NOUN_PATTERNS = [
+  /搜索(?:结果)?(?:列表)?页(?:面)?/giu,
+  /\bsearch(?:\s+results?)?(?:\s+list)?\s+page\b/giu,
+];
+
+const SEARCH_DIRECT_HOST_BOUND_PATTERNS = [
+  new RegExp(`${SEARCH_DATA_HOST_SURFACE_SOURCE}\\s*(?:增加|添加|加上?|带上?|支持|启用|带|含|有)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?`, 'i'),
+  new RegExp(`(?:支持|带|含|有)\\s*(?:搜索|search)(?:功能|能力|操作|按钮)?(?:的)?\\s*${SEARCH_DATA_HOST_SURFACE_SOURCE}`, 'i'),
+  new RegExp(`可(?:搜索|检索)(?:的)?\\s*${SEARCH_DATA_HOST_CN_SOURCE}(?:视图)?`, 'i'),
+  new RegExp(`\\b${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\s+(?:supports?|with)\\s+search\\b`, 'i'),
+  new RegExp(`\\bsupports?\\s+search(?:\\s+for)?\\s+(?:the\\s+)?${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\b`, 'i'),
+  new RegExp(`\\badd\\s+search(?:\\s+(?:to|on|for))\\s+(?:the\\s+)?${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?\\b`, 'i'),
+  new RegExp(`\\bsearchable\\s+(?:(?:[a-z0-9_-]+)\\s+){0,3}${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+view)?\\b`, 'i'),
+];
+
+const SEARCH_STANDALONE_ACTION_PATTERNS = [
+  /(?:增加|添加|加上?|带上?|支持|启用)(?:一个|一项|个)?\s*(?:搜索|search)(?!页|结果|列表页)(?:功能|能力|操作|按钮)?/i,
+  /(?:支持|带|含|有)\s*(?:搜索|search)(?:功能|能力|操作|按钮)?/i,
+  /可(?:搜索|检索)(?:的)?/i,
+  /\b(?:add|enable|support)(?:\s+(?:a|an))?\s+search(?!\s+(?:page|result|results))/i,
+  /\bwith\s+(?:a\s+)?search(?:\s+box)?\b/i,
+  /\bsearchable\b/i,
+];
+
+const SEARCH_HOST_DECLARATION_PATTERNS = [
+  new RegExp(`${SEARCH_DATA_HOST_CN_SOURCE}(?:页|页面|区块|块|视图)`, 'i'),
+  new RegExp(`(?:做(?:一个|个)?|创建(?:一个)?|新建(?:一个)?|新增(?:一个)?)(?:(?!用(?:表格|数据表|列表|卡片|指标卡)|用grid).){0,32}${SEARCH_DATA_HOST_CN_SOURCE}(?:视图)?(?:\\s|$)`, 'i'),
+  new RegExp(`\\b${SEARCH_DATA_HOST_EN_SOURCE}\\s+(?:page|view)\\b`, 'i'),
+  new RegExp(`\\b(?:build|create|make)\\s+(?:(?:an?|the)\\s+)?(?:(?:[a-z0-9_-]+)\\s+){0,6}${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+view)?\\b`, 'i'),
 ];
 
 function getCreativePriorityUses(requestText = '') {
@@ -1611,10 +1646,70 @@ function resolveFilterIntent(requestText) {
   if (hasAnyKeyword(requestText, FILTER_FORM_INTENT_KEYWORDS)) {
     return 'form';
   }
-  if (hasAnyKeyword(requestText, GENERIC_FILTER_INTENT_KEYWORDS)) {
+  if (hasAnyKeyword(requestText, GENERIC_FILTER_ACTION_INTENT_KEYWORDS)) {
+    return 'action';
+  }
+  if (isExplicitSearchActionOnDataHost(requestText)) {
     return 'action';
   }
   return 'none';
+}
+
+function normalizeSearchIntentText(requestText) {
+  return normalizeText(requestText)
+    .replace(/[，、,。！？；;\n]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitSearchIntentSentences(requestText) {
+  return normalizeText(requestText)
+    .split(/[。！？；;\n]+/g)
+    .map((item) => normalizeSearchIntentText(item))
+    .filter(Boolean);
+}
+
+function matchesSearchIntentPattern(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function stripSearchPageNouns(text) {
+  return SEARCH_PAGE_NOUN_PATTERNS.reduce(
+    (current, pattern) => current.replace(pattern, ' '),
+    normalizeSearchIntentText(text),
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function collectSearchIntentSentenceSignals(requestText) {
+  return splitSearchIntentSentences(requestText)
+    .map((sentence) => {
+      const hostSignalText = stripSearchPageNouns(sentence);
+      return {
+        hasDirectHostBinding: matchesSearchIntentPattern(hostSignalText, SEARCH_DIRECT_HOST_BOUND_PATTERNS),
+        hasStandaloneAction: matchesSearchIntentPattern(sentence, SEARCH_STANDALONE_ACTION_PATTERNS),
+        declaresHostSurface: matchesSearchIntentPattern(hostSignalText, SEARCH_HOST_DECLARATION_PATTERNS),
+      };
+    });
+}
+
+function isExplicitSearchActionOnDataHost(requestText) {
+  const normalized = normalizeSearchIntentText(requestText);
+  if (!normalized) {
+    return false;
+  }
+  const sentences = collectSearchIntentSentenceSignals(requestText);
+  return sentences.some((sentence, index) => {
+    if (sentence.hasDirectHostBinding) {
+      return true;
+    }
+    if (!sentence.hasStandaloneAction) {
+      return false;
+    }
+    return sentence.declaresHostSurface
+      || sentences[index - 1]?.declaresHostSurface === true;
+  });
 }
 
 function resolveRequestedFilterPattern(operationIntent) {
@@ -3213,6 +3308,47 @@ function collectPopupAssertionValues(actionConfig) {
   );
 }
 
+function buildFilterPlanningState({
+  requestText,
+  collectionMeta,
+  fieldResolution,
+  operationIntent,
+}) {
+  const planningBlockers = [];
+  const filterFields = collectionMeta ? resolveFilterFields(collectionMeta, fieldResolution) : [];
+  if (operationIntent?.requestedFilter && !collectionMeta) {
+    planningBlockers.push(makePlanningBlocker(
+      'FILTER_COLLECTION_UNRESOLVED',
+      operationIntent.requestedFilterForm
+        ? '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。'
+        : '请求要求筛选操作，但当前没有可绑定的 collection 或可承载的 data block，无法稳定规划 filter action。',
+      {
+        requestedText: requestText,
+      },
+    ));
+  }
+  if (operationIntent?.requestedFilterForm && collectionMeta && filterFields.length === 0) {
+    planningBlockers.push(makePlanningBlocker(
+      'FILTER_FIELDS_UNRESOLVED',
+      `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
+      {
+        collectionName: collectionMeta.name,
+      },
+    ));
+  }
+  const filterBlock = planningBlockers.length === 0 && operationIntent?.requestedFilterForm && collectionMeta
+    ? buildFilterBlock({
+      title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
+      collectionName: collectionMeta.name,
+      fields: filterFields,
+    })
+    : null;
+  return {
+    planningBlockers,
+    filterBlock,
+  };
+}
+
 function buildVerifySpecInput({ title, layout, actionPlan, planningStatus }) {
   const primaryTexts = [title];
   const firstVisibleBlock = Array.isArray(layout.blocks) && layout.blocks.length > 0
@@ -3547,27 +3683,13 @@ function buildStableFirstValidationScenario({
   }
 
   const operationIntent = resolveOperationIntent(requestText, primaryBlockDefinition?.use || '');
-  if (operationIntent.requestedFilter && !collectionMeta) {
-    planningBlockers.push(makePlanningBlocker(
-      'FILTER_COLLECTION_UNRESOLVED',
-      operationIntent.requestedFilterForm
-        ? '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。'
-        : '请求要求筛选操作，但当前没有可绑定的 collection 或可承载的 data block，无法稳定规划 filter action。',
-      {
-        requestedText: requestText,
-      },
-    ));
-  }
-  const filterFields = collectionMeta ? resolveFilterFields(collectionMeta, fieldResolution) : [];
-  if (operationIntent.requestedFilterForm && collectionMeta && filterFields.length === 0) {
-    planningBlockers.push(makePlanningBlocker(
-      'FILTER_FIELDS_UNRESOLVED',
-      `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
-      {
-        collectionName: collectionMeta.name,
-      },
-    ));
-  }
+  const filterPlanning = buildFilterPlanningState({
+    requestText,
+    collectionMeta,
+    fieldResolution,
+    operationIntent,
+  });
+  planningBlockers.push(...filterPlanning.planningBlockers);
   const explicitPublicUses = findExplicitPublicUses(
     requestText,
     inventoryMerge.availableUses,
@@ -3579,13 +3701,7 @@ function buildStableFirstValidationScenario({
       ? `${humanizeCollectionTitle(collectionMeta)} ${primaryBlockDefinition?.titleSuffix || '工作台'}`
       : `Validation ${primaryBlockDefinition?.titleSuffix || 'workspace'}`
   );
-  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilterForm && collectionMeta
-    ? buildFilterBlock({
-      title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
-      collectionName: collectionMeta.name,
-      fields: filterFields,
-    })
-    : null;
+  const filterBlock = planningBlockers.length === 0 ? filterPlanning.filterBlock : null;
   const alternatePrimaryDefinitions = selectionMode === 'dynamic-exploration'
     ? explorationDefinitions.filter((entry) => entry.use !== primaryBlockDefinition?.use)
     : [
@@ -3996,41 +4112,20 @@ function buildCreativeFirstValidationScenario({
     ));
   }
 
-  if (operationIntent.requestedFilter && !collectionMeta) {
-    planningBlockers.push(makePlanningBlocker(
-      'FILTER_COLLECTION_UNRESOLVED',
-      operationIntent.requestedFilterForm
-        ? '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。'
-        : '请求要求筛选操作，但当前没有可绑定的 collection 或可承载的 data block，无法稳定规划 filter action。',
-      {
-        requestedText: requestText,
-      },
-    ));
-  }
-
-  const filterFields = collectionMeta ? resolveFilterFields(collectionMeta, fieldResolution) : [];
-  if (operationIntent.requestedFilterForm && collectionMeta && filterFields.length === 0) {
-    planningBlockers.push(makePlanningBlocker(
-      'FILTER_FIELDS_UNRESOLVED',
-      `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
-      {
-        collectionName: collectionMeta.name,
-      },
-    ));
-  }
+  const filterPlanning = buildFilterPlanningState({
+    requestText,
+    collectionMeta,
+    fieldResolution,
+    operationIntent,
+  });
+  planningBlockers.push(...filterPlanning.planningBlockers);
 
   const title = explicitTitle || (
     collectionMeta
       ? `${humanizeCollectionTitle(collectionMeta)} 创意工作台`
       : `Creative ${anchorDescriptor?.titleSuffix || 'workspace'}`
   );
-  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilterForm && collectionMeta
-    ? buildFilterBlock({
-      title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
-      collectionName: collectionMeta.name,
-      fields: filterFields,
-    })
-    : null;
+  const filterBlock = planningBlockers.length === 0 ? filterPlanning.filterBlock : null;
   const planningStatus = planningBlockers.length > 0 ? 'blocked' : 'ready';
   const layoutCandidates = planningStatus === 'ready'
     ? buildCreativeRecipeCandidates({

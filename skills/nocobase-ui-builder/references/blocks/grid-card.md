@@ -66,6 +66,12 @@ skill 至少要知道三件事：
 - `subModels.item.subModels.grid.use` 必须是 `DetailsGridModel`
 - block 与 item 各有一层 `actions`，语义不同
 
+## 默认筛选要求
+
+- 新建 `GridCardBlockModel` 时必须同时给默认筛选设置。
+- Whole-page / `compose` authoring 使用 block-level `actions[]` 里的对象 `filter` action，带 `settings.filterableFieldNames` 和 `settings.defaultFilter`。
+- 默认筛选字段从目标 collection 里选 3 到 4 个常用字段；字段不足时用现有字段。文本字段用 `$includes`，枚举、布尔、数字、日期、关系字段用 `$eq`，`defaultFilter.items` 必须覆盖所有 `filterableFieldNames`。
+
 ## 两层 actions slot
 
 ### `GridCardBlockModel.subModels.actions`

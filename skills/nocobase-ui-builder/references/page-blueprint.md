@@ -726,8 +726,39 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 
 For collection-action hosts (`table`, `list`, `gridCard`):
 
-- when the user only asks to “增加筛选 / filter” on that data block, prefer block `actions: ["filter"]`
-- do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter block/form/query area
+- every whole-page `table`, `list`, and `gridCard` block must include an object `filter` action with default filter settings before `prepare-write`
+- when the user only asks to “增加筛选 / filter” on that data block, or explicitly adds “搜索 / search” to that host with wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, prefer the same block-level object `filter` action
+- do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
+- page-noun wording such as “搜索页 / 搜索结果页 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
+
+Default filter action shape:
+
+```json
+{
+  "type": "filter",
+  "settings": {
+    "filterableFieldNames": ["username", "email", "status"],
+    "defaultFilter": {
+      "logic": "$and",
+      "items": [
+        { "path": "username", "operator": "$includes", "value": "" },
+        { "path": "email", "operator": "$includes", "value": "" },
+        { "path": "status", "operator": "$eq", "value": "" }
+      ]
+    }
+  }
+}
+```
+
+Planning rules:
+
+- choose 3 to 4 common fields from the block collection when available; if fewer useful fields exist, use what exists
+- prefer human/common fields such as `username`, `nickname`, `name`, `title`, `email`, `status`, `type`, `category`, or useful dates
+- avoid `id`, audit fields, passwords, tokens, secrets, and large text fields
+- use `$includes` for text/title-like fields and `$eq` for enum, boolean, number, date, and relation fields
+- `value` may be an empty string
+- `defaultFilter.items` must cover every `filterableFieldNames` path
+- the string shorthand `actions: ["filter"]` is not valid for first-write `prepare-write` on `table` / `list` / `gridCard`
 
 ### Popup
 

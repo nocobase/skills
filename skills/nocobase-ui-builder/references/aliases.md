@@ -22,10 +22,11 @@ Use this file when natural-language wording is ambiguous and you still need to n
 | user expression | default narrowing path | when to stop and confirm |
 | --- | --- | --- |
 | 给表格 / 列表 / Grid 增加筛选、筛选功能、filter | default to the data block's collection action slot and add a `filter` action first; do **not** create `filterForm` by default | when the target surface is still ambiguous or there is no supported data block host |
+| 给表格 / 列表 / Grid / 卡片增加搜索、搜索功能、search | only when the wording explicitly adds search to that data block, including “支持搜索 / 带搜索 / 可搜索 / searchable”, narrow it to the same block-level `filter` action path; do not infer filtering from page-noun wording alone | when the request may instead mean a global search page, search portal, search results page, or non-filter search experience |
 | 增加筛选按钮 / 筛选操作 / Filter Action | narrow to a block-level `filter` action | when the user might instead mean a dedicated controls area rather than one action |
-| 增加筛选区块 / 筛选表单 / 查询表单 / 条件查询区 / filter form | narrow to `FilterFormBlockModel` | when both a dedicated block and a simple action would satisfy the request and the user has not named the host |
+| 增加筛选区块 / 筛选表单 / 查询表单 / 搜索区块 / 搜索表单 / 条件查询区 / filter form / search block | narrow to `FilterFormBlockModel` | when both a dedicated block and a simple action would satisfy the request and the user has not named the host |
 
-`筛选 / filter / 搜索` is ambiguous by itself. Unless the user explicitly asks for a block/form, default it to a button/action on the existing data block.
+`筛选 / filter` is ambiguous by itself. Unless the user explicitly asks for a block/form, default it to a button/action on the existing data block. `搜索 / search` should follow that rule only when the request explicitly adds search to a table / list / Grid / card-like host, including “支持搜索 / 带搜索 / 可搜索 / searchable”; page-noun wording such as `搜索页` or `搜索结果页` should not. 像“帮助中心页面，用列表展示帮助文档入口，并支持搜索”这种页面级搜索诉求，也不应仅因为同句出现了 `列表` 就自动收窄成 data-block `filter` action。For whole-page `table` / `list` / `gridCard` creation, the filter action must be the object form with default filter settings, not `actions: ["filter"]`.
 
 ## 4. Conservative Moves
 

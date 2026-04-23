@@ -24,7 +24,7 @@ Read this file when you already know you need to add something into a content ar
 
 - the block already exists and the user wants a button-like operation
 - examples: `addNew`, `view`, `edit`, custom `popup`, `submit` on `createForm` / `editForm`, `reset` only when the live target / catalog explicitly shows it is supported, js action, and `addChild` under `recordActions`
-- if the user says “给表格 / 列表 / Grid 增加筛选” and does not explicitly ask for a filter block/form, default to a block-level `filter` action first
+- if the user says “给表格 / 列表 / Grid 增加筛选”, or explicitly adds search to a table / list / Grid / card-like host, including “支持搜索 / 带搜索 / 可搜索 / searchable”, and does not explicitly ask for a filter/search block or form, default to a block-level `filter` action first
 - if the requirement is really "click a title/name-like field to open details", prefer a field popup / clickable-field route instead of adding a redundant `view` action first
 
 ## 3. Data-bound vs Non-data Blocks
@@ -49,6 +49,6 @@ Read this file when you already know you need to add something into a content ar
 - `view` / `edit` / `addNew` may create or use popup behavior; see [popup.md](./popup.md).
 - `addChild` is a record action, not a block action.
 - For the canonical `addChild` placement and live-target rule, follow [normative-contract.md](./normative-contract.md).
-- For localized writes, API may auto-merge default actions: `table` / `list` / `gridCard` commonly fill `filter` + `addNew` + `refresh`, and `details` commonly fills `edit`. Do not fight that completion with duplicate follow-up writes; read back first.
+- For localized creates, read back the persisted surface before adding follow-up actions or popup wiring. New `table` / `list` / `gridCard` creations must still carry an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`.
 - When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
 - If click-to-open already covers the requested details behavior on a shown Name/Title-like field, avoid adding a separate `view` record action unless the user explicitly asked for a button/action column.

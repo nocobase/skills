@@ -45,7 +45,7 @@ Use this checklist after the matching quick route is already clear. For global r
 Use this path when the user is describing one entire page.
 
 1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), and [ascii-preview.md](./ascii-preview.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real CLI body or MCP fallback envelope.
-2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch.
+2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch. Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
@@ -58,14 +58,18 @@ Use this path when the user is describing one entire page.
    - any explicit `layout` references only real keyed blocks, places every keyed block exactly once, and does not duplicate one block across multiple cells
    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
    - every chosen field has a non-empty live `interface`
+   - every `table` / `list` / `gridCard` has an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
    - when `collectionMetadata` is supplied, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
 7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same draft blueprint.
-8. In CLI-first execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nocobase-ctl flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
-9. If you persist the prepared payload to a file for the final CLI write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
-10. Only in MCP fallback should that same prepared business object be wrapped under `requestBody`.
-11. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, use the returned `target` / `pageSchemaUid` for `nocobase-ctl flow-surfaces get` and targeted readback from [verification.md](./verification.md).
+8. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in this route must be `nocobase-ctl flow-surfaces apply-blueprint`.
+9. Before one whole-page `applyBlueprint` succeeds, do not issue `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
+10. In CLI-first execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nocobase-ctl flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
+11. If you persist the prepared payload to a file for the final CLI write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
+12. If the first `applyBlueprint` fails, stop and report the prepared payload / preview / error evidence. Do not continue with low-level writes in that same pre-success phase.
+13. Only in MCP fallback should that same prepared business object be wrapped under `requestBody`.
+14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nocobase-ctl flow-surfaces get` and targeted readback from [verification.md](./verification.md).
 
 ## 4. Localized Existing-surface Edit
 

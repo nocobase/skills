@@ -49,6 +49,7 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setActionLinkageRules',
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
+const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
 const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
@@ -3495,6 +3496,200 @@ function validateBlockFieldsLayout(block, path, state) {
   }
 }
 
+function isDataSurfaceDefaultFilterBlock(block) {
+  return DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES.has(normalizeText(block?.type));
+}
+
+function findDataSurfaceFilterAction(block) {
+  return ensureArray(block?.actions).find((action) =>
+    isPlainObject(action) && normalizeLowerText(action.type) === 'filter',
+  );
+}
+
+function validateFilterableFieldNames(fieldNames, path, state) {
+  if (!Array.isArray(fieldNames) || fieldNames.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'data-surface-default-filter-fields-required',
+      'table/list/gridCard blocks must set filter action settings.filterableFieldNames to a non-empty field name array.',
+    );
+    return [];
+  }
+
+  const normalizedFieldNames = [];
+  for (const [index, fieldName] of fieldNames.entries()) {
+    const normalizedFieldName = normalizeText(fieldName);
+    if (!normalizedFieldName) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'data-surface-default-filter-field-invalid',
+        'filterableFieldNames entries must be non-empty strings.',
+      );
+      continue;
+    }
+    normalizedFieldNames.push(normalizedFieldName);
+  }
+  return unique(normalizedFieldNames);
+}
+
+function validateDataSurfaceDefaultFilterFieldsExist(fieldNames, block, path, state) {
+  if (!fieldNames.length) return;
+  const collection = getCollectionLabel(block);
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!collection || Object.keys(collectionMetadata).length === 0 || !getCollectionMeta(collectionMetadata, collection)) {
+    return;
+  }
+  for (const [index, fieldName] of fieldNames.entries()) {
+    if (resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldName)) {
+      continue;
+    }
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}[${index}]`,
+      'data-surface-default-filter-unknown-field',
+      `filterableFieldNames includes unsupported field path "${fieldName}" for collection ${collection}.`,
+    );
+  }
+}
+
+function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state) {
+  if (!isPlainObject(defaultFilter)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'data-surface-default-filter-required',
+      'table/list/gridCard filter actions must set settings.defaultFilter to one filter group object.',
+    );
+    return;
+  }
+  if (!normalizeText(defaultFilter.logic)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.logic`,
+      'data-surface-default-filter-logic-required',
+      'settings.defaultFilter.logic must be present.',
+    );
+  }
+  if (!Array.isArray(defaultFilter.items) || defaultFilter.items.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.items`,
+      'data-surface-default-filter-items-required',
+      'settings.defaultFilter.items must include at least one field filter item.',
+    );
+    return;
+  }
+
+  const fieldNameSet = new Set(fieldNames);
+  const filterItemPaths = new Set();
+  for (const [index, item] of defaultFilter.items.entries()) {
+    const itemPath = `${path}.items[${index}]`;
+    if (!isPlainObject(item)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        itemPath,
+        'data-surface-default-filter-item-invalid',
+        'Each settings.defaultFilter.items entry must be one object.',
+      );
+      continue;
+    }
+    const filterPath = normalizeText(item.path);
+    if (!filterPath) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${itemPath}.path`,
+        'data-surface-default-filter-item-path-required',
+        'Each settings.defaultFilter.items entry must include path.',
+      );
+    } else {
+      filterItemPaths.add(filterPath);
+      if (fieldNameSet.size > 0 && !fieldNameSet.has(filterPath)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${itemPath}.path`,
+          'data-surface-default-filter-item-not-filterable',
+          `settings.defaultFilter.items path "${filterPath}" must also appear in filterableFieldNames.`,
+        );
+      }
+    }
+    if (!normalizeText(item.operator)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${itemPath}.operator`,
+        'data-surface-default-filter-item-operator-required',
+        'Each settings.defaultFilter.items entry must include operator.',
+      );
+    }
+  }
+
+  const missingFilterItems = fieldNames.filter((fieldName) => !filterItemPaths.has(fieldName));
+  if (missingFilterItems.length > 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.items`,
+      'data-surface-default-filter-items-incomplete',
+      `settings.defaultFilter.items must cover filterableFieldNames: ${missingFilterItems.join(', ')}.`,
+    );
+  }
+}
+
+function validateDataSurfaceDefaultFilter(block, path, state) {
+  if (!isDataSurfaceDefaultFilterBlock(block)) {
+    return;
+  }
+  const filterAction = findDataSurfaceFilterAction(block);
+  if (!filterAction) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.actions`,
+      'data-surface-default-filter-action-required',
+      'table/list/gridCard blocks must include an object filter action with default filter settings before prepare-write.',
+    );
+    return;
+  }
+
+  const filterActionIndex = ensureArray(block.actions).indexOf(filterAction);
+  const actionPath = `${path}.actions[${filterActionIndex}]`;
+  const settingsPath = `${actionPath}.settings`;
+  if (!isPlainObject(filterAction.settings)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      settingsPath,
+      'data-surface-default-filter-settings-required',
+      'table/list/gridCard filter actions must include settings with filterableFieldNames and defaultFilter.',
+    );
+    return;
+  }
+
+  const fieldNames = validateFilterableFieldNames(
+    filterAction.settings.filterableFieldNames,
+    `${settingsPath}.filterableFieldNames`,
+    state,
+  );
+  validateDataSurfaceDefaultFilterFieldsExist(
+    fieldNames,
+    block,
+    `${settingsPath}.filterableFieldNames`,
+    state,
+  );
+  validateDefaultFilterGroup(filterAction.settings.defaultFilter, fieldNames, `${settingsPath}.defaultFilter`, state);
+}
+
 function validateBlock(block, path, state) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
@@ -3541,6 +3736,7 @@ function validateBlock(block, path, state) {
 
   validateFieldPopups(block.fields, `${path}.fields`, state);
   validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state);
+  validateDataSurfaceDefaultFilter(block, path, state);
   validateActions(block.actions, `${path}.actions`, state, { recordActions: false });
   validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true });
 }
@@ -3802,6 +3998,7 @@ function validateBlueprint(blueprint, options = {}) {
     blockKeyPaths: new Map(),
     reactionSlotKeys: new Set(),
     reactionTargetRegistry: buildReactionTargetRegistry(blueprint),
+    collectionMetadata: options.collectionMetadata || {},
   };
 
   for (const key of BLUEPRINT_ILLEGAL_ROOT_KEYS) {
@@ -3937,7 +4134,13 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     };
   }
 
-  errors = [...errors, ...validateBlueprint(blueprint, { expectedOuterTabs })];
+  errors = [
+    ...errors,
+    ...validateBlueprint(blueprint, {
+      expectedOuterTabs,
+      collectionMetadata: collectionMetadataErrors.length === 0 ? { collections: collectionMetadata } : {},
+    }),
+  ];
   let defaultsRequirements;
   const missingCollectionMetadataDefaultsRequirements =
     !hasUsableCollectionMetadata && collectionMetadataErrors.length === 0

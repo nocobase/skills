@@ -289,6 +289,44 @@ function assertDuplicateMenuGroupNeedsRouteId(text, sourceLabel) {
   );
 }
 
+function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
+  assert.match(
+    text,
+    /whole-page[\s\S]{0,180}(?:route-backed tab|complex multi-block|nested-popup|nested popup|multiple reaction families|multi-reaction)/i,
+    `${sourceLabel} should define the whole-page scenarios that stay on the blueprint route`,
+  );
+  assert.match(
+    text,
+    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,120}first mutating write/i,
+    `${sourceLabel} should require applyBlueprint as the first mutating write for whole-page work`,
+  );
+  assert.match(
+    text,
+    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}preview[\s\S]{0,80}prepare-write[\s\S]{0,80}(?:allowed|ok)/i,
+    `${sourceLabel} should allow read-only prep work before the first mutating write`,
+  );
+  assert.match(
+    text,
+    /before[\s\S]{0,80}(?:applyBlueprint`? succeeds|success)[\s\S]{0,220}(?:createMenu|createPage|compose|configure|update-settings|updateSettings|add\*|move\*|remove\*|set\*Rules)/i,
+    `${sourceLabel} should forbid low-level mutating writes before applyBlueprint succeeds`,
+  );
+  assert.match(
+    text,
+    /first[\s\S]{0,40}`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,160}(?:stop|report)/i,
+    `${sourceLabel} should stop and report if the first applyBlueprint fails`,
+  );
+  assert.match(
+    text,
+    /same pre-success phase|do not continue with low-level writes|do not fall back to low-level writes/i,
+    `${sourceLabel} should forbid low-level fallback in the same pre-success phase`,
+  );
+  assert.match(
+    text,
+    /after (?:a |one )?successful[\s\S]{0,80}`?applyBlueprint`?[\s\S]{0,180}(?:localized|narrowly scoped|local\/live gap|explicit local\/live gap)/i,
+    `${sourceLabel} should allow only narrow post-success repair for explicit local/live gaps`,
+  );
+}
+
 function assertOpenAIGuardrails(text) {
   assert.match(
     text,
@@ -306,13 +344,13 @@ function assertOpenAIGuardrails(text) {
     /Duplicate group titles[\s\S]{0,40}routeId|same-title[\s\S]{0,80}routeId/i,
     'openai prompt should require explicit routeId for duplicate same-title groups',
   );
-  assert.match(text, /field popup/i, 'openai prompt should keep field-popup guidance');
+  assert.match(text, /field[ -]popup/i, 'openai prompt should keep field-popup guidance');
   assert.match(
     text,
     /associatedRecords(?:\+| \+ )associationField/i,
     'openai prompt should keep associatedRecords+associationField guidance',
   );
-  assert.match(text, /(?:exactly )?one `?editForm`?/i, 'openai prompt should keep one-editForm guidance');
+  assert.match(text, /(?:exactly )?one `?editForm`?|1 `?editForm`?/i, 'openai prompt should keep one-editForm guidance');
   assert.match(
     text,
     /repeat-eligible[\s\S]{0,80}(?:must|mandatory)[\s\S]{0,80}contextual `?list-templates`?/i,
@@ -329,7 +367,7 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
   assert.match(
     text,
-    /navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,80}(?:semantic )?Ant Design `?icon`?|semantic Ant Design `?icon`?/i,
+    /navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,80}(?:semantic )?Ant ?Design `?icon`?|semantic Ant ?Design `?icon`?/i,
     'openai prompt should require semantic icons for newly created menu groups and items',
   );
   assert.match(
@@ -351,13 +389,39 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /local-only intent|local customization/i, 'openai prompt should mention explicit local-only intent before copy');
   assert.match(
     text,
-    /page-scoped wording[\s\S]{0,80}not local-only intent|page wording[\s\S]{0,80}not local-only intent/i,
+    /page-scoped wording[\s\S]{0,80}(?:not local-only intent|≠local-only intent)|page wording[\s\S]{0,80}(?:not local-only intent|≠local-only intent)/i,
     'openai prompt should block page-scoped wording from implying local-only edits',
   );
   assert.match(
     text,
     /ask, not `?copy`?|unresolved scope[\s\S]{0,80}ask/i,
     'openai prompt should route unresolved existing-reference scope to clarification instead of copy',
+  );
+  assert.match(
+    text,
+    /wholePage[\s\S]{0,80}(?:1 route tab|complex multi-block|nested popup|multi-reaction)/i,
+    'openai prompt should define which requests still count as whole-page',
+  );
+  assert.match(
+    text,
+    /first (?:mutating )?write[\s\S]{0,40}applyBlueprint|applyBlueprint[\s\S]{0,40}first (?:mutating )?write/i,
+    'openai prompt should require applyBlueprint as the first mutating write',
+  );
+  assert.match(
+    text,
+    /reads\/preview\/prepare-write ok|reads[\s\S]{0,32}preview[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
+    'openai prompt should allow read-only prep before the first mutating write',
+  );
+  assert.match(
+    text,
+    /createMenu\/createPage\/compose\/configure\/updateSettings\/add\*\/move\*\/remove\*\/set\*Rules/i,
+    'openai prompt should forbid pre-success low-level writes',
+  );
+  assert.match(text, /fail->stop\+report/i, 'openai prompt should stop and report on applyBlueprint failure');
+  assert.match(
+    text,
+    /after success (?:localized repair only for explicit local\/live gap|only explicit local\/live gap repair)/i,
+    'openai prompt should allow only narrow post-success repair',
   );
 }
 
@@ -673,12 +737,129 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /Canonical front door: `nocobase-ctl flow-surfaces`/);
   assert.match(defaultPrompt, /Intent-first/i);
-  assert.match(defaultPrompt, /Repeat-eligible scenes/i);
+  assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 890, 'openai default_prompt should stay at or below 890 chars');
+  assert.ok(defaultPrompt.length <= 1200, 'openai default_prompt should stay at or below 1200 chars');
+});
+
+test('data-surface default filter requirements stay visible in docs and prompt', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/tool-shapes.md',
+    'references/helper-contracts.md',
+    'references/normative-contract.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /table[\s\S]{0,80}list[\s\S]{0,80}gridCard|table[\s\S]{0,80}gridCard[\s\S]{0,80}list/i,
+      `${relativePath} should name table/list/gridCard data surfaces`,
+    );
+    assert.match(
+      text,
+      /filterableFieldNames[\s\S]{0,120}defaultFilter|defaultFilter[\s\S]{0,120}filterableFieldNames/i,
+      `${relativePath} should require explicit filterableFieldNames and defaultFilter settings`,
+    );
+  }
+
+  const pageBlueprint = read('references/page-blueprint.md');
+  assert.match(pageBlueprint, /3 to 4 common fields/i);
+  assert.match(pageBlueprint, /defaultFilter\.items[\s\S]{0,80}cover every `?filterableFieldNames`?/i);
+  assert.match(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
+
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  assert.match(
+    defaultPrompt,
+    /table\/list\/gridCard[\s\S]{0,80}filterableFieldNames[\s\S]{0,40}defaultFilter[\s\S]{0,40}3-4(?: fields)?/i,
+  );
+});
+
+test('search-vs-filter intent docs keep host-bound action routing and explicit block-only filterForm rules', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/aliases.md',
+    'references/blocks/filter-form.md',
+    'references/local-edit-quick.md',
+    'references/page-blueprint.md',
+    'references/whole-page-quick.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /(?:搜索页[\s\S]{0,120}(?:not filter intent|do not treat|not a filter request|不应|不该|不当作|不视为|不走这条路径|should not take this path)|(?:do not treat|not a filter request|不应|不该|不当作|不视为|不走这条路径|should not take this path)[\s\S]{0,120}搜索页|search page[\s\S]{0,120}(?:not filter|not filter intent|should not|do not treat|not a filter request|should not take this path)|(?:do not treat|not a filter request|should not take this path)[\s\S]{0,120}search page)/i,
+      `${relativePath} should keep page-noun search wording out of filter intent`,
+    );
+    assert.match(
+      text,
+      /搜索区块|search block|filter\/search block|filter\/search block, form, or query area/i,
+      `${relativePath} should keep explicit filter/search block wording as the filterForm trigger`,
+    );
+  }
+
+  const filterForm = read('references/blocks/filter-form.md');
+  assert.match(
+    filterForm,
+    /帮助中心页面[\s\S]{0,80}用列表展示帮助文档入口[\s\S]{0,80}支持搜索/i,
+    'filter-form doc should include a non-search-page negative example for page-level search wording',
+  );
+
+  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  assert.match(defaultPrompt, /hostBound搜索[\s\S]{0,20}filter/i);
+  assert.match(defaultPrompt, /searchPage≠filter/i);
+  assert.match(
+    defaultPrompt,
+    /(?:explicit )?filter\/search block[\s\S]{0,24}filterForm|filterForm[\s\S]{0,36}(?:explicit )?filter\/search block/i,
+    'default prompt should keep explicit filter/search block wording as the only filterForm trigger',
+  );
+});
+
+test('whole-page docs enforce applyBlueprint as the first mutating write', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/execution-checklist.md',
+    'references/normative-contract.md',
+  ]) {
+    assertWholePageFirstWriteGuardrails(read(relativePath), relativePath);
+  }
+});
+
+test('whole-page satellite docs do not preserve pre-success low-level fallback wording', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/blocks/filter-form.md',
+    'references/reaction-quick.md',
+    'references/reaction.md',
+    'references/whole-page-recipes.md',
+  ]) {
+    const text = read(relativePath);
+    assert.doesNotMatch(
+      text,
+      /after the failure proves|failure proves the whole-page contract|verified public whole-page contract gap|prove a public contract gap before falling back/i,
+      `${relativePath} should not keep old failure-driven low-level fallback wording`,
+    );
+    assert.doesNotMatch(
+      text,
+      /只有在已验证的 `?filterForm`? contract gap[\s\S]{0,120}(?:低层|addBlock|addAction|addField)/i,
+      `${relativePath} should not keep the old filterForm contract-gap fallback rule`,
+    );
+    assert.match(
+      text,
+      /(?:first|首次|single-shot)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:stop|report|停止|报告)|(?:fail|失败)[\s\S]{0,180}(?:stop|report|停止|报告)[\s\S]{0,120}(?:blueprint|preview|error)/i,
+      `${relativePath} should stop and report on first applyBlueprint failure`,
+    );
+    assert.match(
+      text,
+      /(?:successful|已成功)[\s\S]{0,100}`?applyBlueprint`?[\s\S]{0,180}(?:local\/live gap|residual|修补|窄范围)|`?applyBlueprint`?[\s\S]{0,100}(?:successful|已成功)[\s\S]{0,180}(?:local\/live gap|residual|修补|窄范围)/i,
+      `${relativePath} should allow low-level repair only after successful applyBlueprint for an explicit local/live gap`,
+    );
+  }
 });
 
 test('duplicate same-title menu-group docs consistently require explicit routeId', () => {
@@ -755,8 +936,8 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /prove[s]? the public whole-page contract cannot satisfy|public whole-page contract cannot satisfy/i,
-    'whole-page-quick should keep low-level fallback behind a verified whole-page contract gap',
+    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|first `?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,160}(?:stop|report)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
+    'whole-page-quick should keep the first-write and post-success repair policy visible',
   );
   assert.match(
     wholePageQuick,
@@ -1196,7 +1377,7 @@ test('large field-grid docs require fieldGroups on create edit and details block
   const defaultPrompt = read('agents/openai.yaml');
   assert.match(
     defaultPrompt,
-    /more than 10[\s\S]{0,120}fieldGroups|fieldGroups[\s\S]{0,120}more than 10/i,
+    /more than 10[\s\S]{0,120}fieldGroups|fieldGroups[\s\S]{0,120}(?:more than 10|>10)/i,
     'default prompt should keep the large-field grouping guardrail visible',
   );
 });
@@ -1220,7 +1401,7 @@ test('defaults collection fieldGroups docs keep the large-popup threshold visibl
   const defaultPrompt = read('agents/openai.yaml');
   assert.match(
     defaultPrompt,
-    /defaults\.collections[\s\S]{0,120}fieldGroups[\s\S]{0,160}(more than 10|effective fields)/i,
+    /defaults\.collections[\s\S]{0,120}fieldGroups[\s\S]{0,160}(more than 10|>10|effective fields)/i,
     'default prompt should keep the defaults collection fieldGroups threshold visible',
   );
 });

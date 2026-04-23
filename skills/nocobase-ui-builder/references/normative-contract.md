@@ -34,6 +34,14 @@ If a lower-priority local document conflicts with a live contract fact, follow t
 
 This file keeps backend action names because they are still the stable payload families and fallback names.
 
+### Whole-page first-write rule
+
+- Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
+- Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in the whole-page route must be `nocobase-ctl flow-surfaces apply-blueprint`.
+- Before one whole-page `applyBlueprint` succeeds, do not use low-level mutating commands such as `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
+- If the first whole-page `applyBlueprint` fails, stop and report the failing blueprint / preview / error evidence. Do not continue with low-level writes in that same pre-success phase.
+- After a successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and must stay narrowly scoped.
+
 ### What the public page blueprint is
 
 The public `applyBlueprint` payload is:
@@ -59,6 +67,7 @@ The public `applyBlueprint` payload is:
 - in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
 - when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
 - explicit `layout` may reference only real block keys, and every keyed block in that tab/popup must be placed by the layout
+- every whole-page `table`, `list`, and `gridCard` block must include an object `filter` action with `settings.filterableFieldNames` and `settings.defaultFilter`; choose 3 to 4 common collection fields when available, and do not use the string shorthand `actions: ["filter"]` for first-write `prepare-write`
 - if a `filterForm` contains 4 or more fields, its actions must include `collapse`
 - generic `form` is not a public applyBlueprint block type; use `editForm` or `createForm`
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
@@ -100,7 +109,23 @@ Correct CLI body:
     {
       "title": "Overview",
       "blocks": [
-        { "type": "table", "collection": "employees", "fields": ["nickname"] }
+        {
+          "type": "table",
+          "collection": "employees",
+          "fields": ["nickname"],
+          "actions": [
+            {
+              "type": "filter",
+              "settings": {
+                "filterableFieldNames": ["nickname"],
+                "defaultFilter": {
+                  "logic": "$and",
+                  "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+                }
+              }
+            }
+          ]
+        }
       ]
     }
   ]
