@@ -13,7 +13,7 @@ This file defines the transport policy for `nocobase-ui-builder`.
 
 1. Check whether `nb` is available in the current environment.
 2. If it is available, use `nb api flow-surfaces`.
-3. If `nb` is available but its env/runtime/auth is not ready, stop and repair the `nb` path.
+3. If `nb` is available but its runtime/auth is not ready, stop and report the blocked command state.
 4. If `nb` itself is unavailable, report that the task is blocked on a usable `nb` command.
 
 ## Required CLI Preparation
@@ -21,25 +21,18 @@ This file defines the transport policy for `nocobase-ui-builder`.
 Before the first runtime command in a task:
 
 1. `nb --help`
-2. `nb env --help`
-3. If the current env is missing or incomplete, repair it first:
-   - `nb env add --name <name> --base-url <http://host:port/api> --token <token>`
-   - `nb env use <name>`
-   - `nb env update`
-4. After the env is ready, run `nb api flow-surfaces --help`
-5. Before first use of a specific subcommand, run `nb api flow-surfaces <subcommand> --help`
+2. `nb api flow-surfaces --help`
+3. Before first use of a specific subcommand, run `nb api flow-surfaces <subcommand> --help`
 
 ## Stop Conditions
 
-Stop and repair the nb path when:
+Stop and report the blocked nb command state when:
 
-- `nb` exists but no env is configured yet
-- the selected env is missing `base-url` or `token`
-- `env update` fails because `swagger:get` is unavailable or the API documentation plugin is disabled
-- `flow-surfaces` or the required generated subcommand is still missing after `env add/use/update`
+- `nb` exists but cannot authenticate to the target app
+- the required `flow-surfaces` family or generated subcommand is missing
 - the chosen nb path returns auth failures such as `401`, `403`, or equivalent token errors
 
-When repair fails, report the `nb` command/output that blocked the task and the exact env step needed next.
+When blocked, report the exact `nb api ...` command/output that failed. Do not switch transports inside this skill.
 
 ## Why the Docs Stay
 

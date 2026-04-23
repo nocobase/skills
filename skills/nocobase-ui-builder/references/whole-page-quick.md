@@ -40,9 +40,9 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - point each filter field `target` at a same-blueprint table key as a plain string block key
    - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
-9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
+9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard/calendar-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
    - use that same host's block-level `filter` action/button; shorthand or object action form is valid
-   - for every direct, non-template public `table` / `list` / `gridCard` block in the blueprint, always add a non-empty block-level `defaultFilter`
+   - for every direct, non-template public `table` / `list` / `gridCard` / `calendar` block in the blueprint, always add a non-empty block-level `defaultFilter`
    - choose 3 to 4 common live fields when available and ensure block-level `defaultFilter.items` covers them
    - the `filter` action is optional; if you also provide action-level `settings.defaultFilter`, that action-level payload takes precedence over the block-level one
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area

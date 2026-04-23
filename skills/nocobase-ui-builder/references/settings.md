@@ -251,7 +251,7 @@ Create `createForm` and give it a title directly:
 }
 ```
 
-When `add-block` creates a direct non-template public `table` / `list` / `gridCard`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
+When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
 
 When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block.
 
@@ -433,7 +433,7 @@ If the goal is a standard details popup on a shown title/name field, prefer fiel
 
 Readback rule for localized creates:
 
-- `table` / `list` / `gridCard` may already come back with merged `filter` + `addNew` + `refresh`.
+- `table` / `list` / `gridCard` / `calendar` may already come back with merged `filter` + `addNew` + `refresh`.
 - `details` may already come back with merged `edit`.
 - After `add-block`, `compose`, `add-action`, or `add-record-action`, inspect the persisted action list and popup/template binding before adding "missing" actions or extra popup writes.
 

@@ -11,7 +11,7 @@ Use it together with:
 
 ## Help-first Rule
 
-After the env is configured and `env update` has loaded runtime commands, before first use of a subcommand in the current task:
+Before first use of a subcommand in the current task:
 
 ```bash
 nb api flow-surfaces --help
@@ -53,9 +53,4 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 
 ## Failure Rule
 
-If a command family is missing after `nb env update`:
-
-1. verify the target env and token
-2. verify `swagger:get` exposure
-3. verify the relevant module/resource is still included in `nb.config.json`
-4. rerun `nb env update <name>` and report the unresolved `nb` command if the family is still missing
+If a command family is missing, report the unresolved `nb api ...` command and the missing family. Do not switch transports or document environment-management steps inside this skill.

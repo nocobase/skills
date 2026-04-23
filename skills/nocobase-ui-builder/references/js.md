@@ -79,7 +79,7 @@ Whenever the current write involves JS `code`, you must run the local validator 
 | `renderer: "js"` | `table/details/list/gridCard` | `JSFieldModel` | `validate` | display-state JS renderer bound to a real field |
 | `renderer: "js"` | `form/createForm/editForm` | `JSEditableFieldModel` | `validate` | editable JS renderer bound to a real field |
 | inline form JS field item | inline JS config inside a form field item | `FormJSFieldItemModel` | `validate` | only use when live capability clearly says this is inline item-level JS |
-| block-level `js` action | block actions on `table/list/gridCard`, etc. | `JSCollectionActionModel` | `validate` | targets the whole dataset |
+| block-level `js` action | block actions on `table/list/gridCard/calendar`, etc. | `JSCollectionActionModel` | `validate` | targets the whole dataset |
 | record-level `js` action | `table/details/list/gridCard` | `JSRecordActionModel` | `validate` | targets the current record |
 | form `js` action | `form/createForm/editForm` | `JSFormActionModel` | `validate` | targets form context |
 | filter-form `js` action | `filterForm` | `FilterFormJSActionModel` | `validate` | targets filter-form context |

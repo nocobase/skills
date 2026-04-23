@@ -5890,7 +5890,7 @@ test('auditPayload blocks public blocks payloads with normalized empty top-level
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-for (const dataSurfaceBlockType of ['list', 'gridCard']) {
+for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar']) {
   test(`auditPayload blocks public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
@@ -5921,6 +5921,39 @@ for (const dataSurfaceBlockType of ['list', 'gridCard']) {
             defaultFilter: makePublicDefaultFilter(),
           },
         ],
+      },
+      metadata,
+      mode: VALIDATION_CASE_MODE,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+  });
+}
+
+for (const dataSurfaceBlockType of ['calendar']) {
+  test(`auditPayload blocks public add-block ${dataSurfaceBlockType} payloads missing block-level defaultFilter`, () => {
+    const result = auditPayload({
+      payload: {
+        target: { uid: 'grid-uid' },
+        type: dataSurfaceBlockType,
+        resourceInit: makeCollectionResourceInit('orders'),
+      },
+      metadata,
+      mode: VALIDATION_CASE_MODE,
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  });
+
+  test(`auditPayload accepts public add-block ${dataSurfaceBlockType} payloads with top-level defaultFilter`, () => {
+    const result = auditPayload({
+      payload: {
+        target: { uid: 'grid-uid' },
+        type: dataSurfaceBlockType,
+        resourceInit: makeCollectionResourceInit('orders'),
+        defaultFilter: makePublicDefaultFilter(),
       },
       metadata,
       mode: VALIDATION_CASE_MODE,

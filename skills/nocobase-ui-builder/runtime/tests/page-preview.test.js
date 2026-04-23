@@ -90,7 +90,7 @@ const calendarCollectionMetadata = {
     },
   },
 };
-const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard']);
+const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar']);
 const defaultFilterCandidateInterfaces = new Set(['input', 'email', 'url', 'phone', 'textarea', 'select', 'radioGroup']);
 const defaultFilterEqInterfaces = new Set(['select', 'radioGroup']);
 
@@ -6835,19 +6835,12 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
   assert.equal(payload.facts.outerTabCount, 2);
 });
 
-test('prepareApplyBlueprintRequest accepts calendar blocks without requiring table defaultFilter', () => {
-  const result = prepareApplyBlueprintRequest(
+test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilter on calendar blocks', () => {
+  const missing = prepareApplyBlueprintRequest(
     {
       version: '1',
       mode: 'create',
       page: { title: 'Calendar page' },
-      defaults: {
-        collections: {
-          users: {
-            popups: buildFixedCollectionPopupDefaults('users'),
-          },
-        },
-      },
       tabs: [
         {
           title: 'Schedule',
@@ -6869,9 +6862,47 @@ test('prepareApplyBlueprintRequest accepts calendar blocks without requiring tab
     },
     { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
+  assert.equal(missing.ok, false);
+  assert.equal(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'), true);
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'status']),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter', 'addNew'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].type, 'calendar');
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status']));
 });
 
 test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions on calendar main blocks', () => {
@@ -6888,6 +6919,7 @@ test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions 
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
               fields: ['nickname'],
               fieldGroups: [
                 {
@@ -6931,6 +6963,7 @@ test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'status']),
               settings: {
                 titleField: 'roles',
                 startField: 'nickname',

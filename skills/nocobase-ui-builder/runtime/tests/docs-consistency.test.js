@@ -564,6 +564,16 @@ test('public ui-builder docs do not expose old ctl or MCP transport contracts', 
   }
 });
 
+test('public ui-builder docs do not document nb environment management commands', () => {
+  for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
+    assertFileDoesNotContain(
+      relativePath,
+      /\bnb env\b|\benv\s+(?:add|update|use|list|--help)\b/i,
+      `${relativePath} should not document nb environment-management commands`,
+    );
+  }
+});
+
 test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   const skill = read('SKILL.md');
   assert.match(skill, /\[js-surfaces\/index\.md\]/i, 'SKILL.md should expose the surface-first JS router');
@@ -830,7 +840,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
 test('data-surface docs require block-level defaultFilter while keeping filter action routing visible', () => {
   const blockDefaultFilterRequiredPattern =
-    /(?:table|list|gridCard)[\s\S]{0,220}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard)[\s\S]{0,220}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,220}(?:table|list|gridCard)/i;
+    /(?:table|list|gridCard|calendar)[\s\S]{0,260}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard|calendar)[\s\S]{0,260}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,260}(?:table|list|gridCard|calendar)/i;
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
@@ -843,8 +853,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     const text = read(relativePath);
     assert.match(
       text,
-      /table[\s\S]{0,80}list[\s\S]{0,80}gridCard|table[\s\S]{0,80}gridCard[\s\S]{0,80}list/i,
-      `${relativePath} should name table/list/gridCard data surfaces`,
+      /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar/i,
+      `${relativePath} should name table/list/gridCard/calendar data surfaces`,
     );
     assert.match(
       text,
@@ -854,7 +864,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     assert.match(
       text,
       blockDefaultFilterRequiredPattern,
-      `${relativePath} should require block-level defaultFilter for table/list/gridCard data surfaces`,
+      `${relativePath} should require block-level defaultFilter for table/list/gridCard/calendar data surfaces`,
     );
   }
 
@@ -881,7 +891,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     pageBlueprint,
-    /direct,?\s+non-template[\s\S]{0,120}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,120}defaultFilter/i,
+    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,120}defaultFilter/i,
     'page-blueprint should scope block-level defaultFilter to direct non-template data surfaces',
   );
   assert.match(
@@ -905,7 +915,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   const toolShapes = read('references/tool-shapes.md');
   assert.match(
     toolShapes,
-    /direct\s+non-template[\s\S]{0,120}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,120}defaultFilter/i,
+    /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,120}defaultFilter/i,
     'tool-shapes should scope block-level defaultFilter to direct non-template data surfaces',
   );
   assert.match(
@@ -924,7 +934,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,120}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,120}defaultFilter/i);
+  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,120}defaultFilter/i);
   assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}defaultActionSettings[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const openaiYaml = read('agents/openai.yaml');

@@ -234,7 +234,7 @@ const CANONICALIZE_FOREIGN_KEY_ASSOCIATION_INPUT_MODEL_USES = new Set([
   'FilterFormItemModel',
   'FormItemModel',
 ]);
-const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
+const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar']);
 const FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE = 'FilterFormRecordSelectFieldModel';
 const FORM_ASSOCIATION_FIELD_MODEL_USE = 'RecordSelectFieldModel';
 const DETAILS_LAYOUT_ONLY_MODEL_USES = new Set(['DetailsGridModel', 'BlockGridModel', 'FormGridModel']);
@@ -1529,7 +1529,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED',
-          message: 'Template-backed table/list/gridCard payloads do not support block-level defaultFilter; only direct blocks may define it.',
+          message: 'Template-backed table/list/gridCard/calendar payloads do not support block-level defaultFilter; only direct blocks may define it.',
           path: `${pathValue}.defaultFilter`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED:${pathValue}`,
@@ -1542,7 +1542,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED',
-          message: 'Template-backed table/list/gridCard payloads do not support defaultActionSettings; only direct blocks may define it.',
+          message: 'Template-backed table/list/gridCard/calendar payloads do not support defaultActionSettings; only direct blocks may define it.',
           path: `${pathValue}.defaultActionSettings`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED:${pathValue}`,
@@ -1556,7 +1556,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
-          message: 'Public table/list/gridCard payloads must include block-level defaultFilter.',
+          message: 'Public table/list/gridCard/calendar payloads must include block-level defaultFilter.',
           path: `${pathValue}.defaultFilter`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED:${pathValue}`,

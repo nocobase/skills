@@ -756,19 +756,20 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
 - in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 
-For collection-action hosts (`table`, `list`, `gridCard`):
+For collection-action hosts (`table`, `list`, `gridCard`, `calendar`):
 
 - when the user only asks to “增加筛选 / filter” on that data block, or explicitly adds “搜索 / search” to that host with wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, prefer the same block-level `filter` action
 - do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
-- every direct, non-template public `table` / `list` / `gridCard` block must include block-level `defaultFilter`
+- every direct, non-template public `table` / `list` / `gridCard` / `calendar` block must include block-level `defaultFilter`
 
 For `calendar` blocks:
 
 - allowed public actions are `today`, `turnPages`, `title`, `selectView`, plus applicable collection actions such as `filter`, `addNew`, `popup`, `refresh`, `js`, and `triggerWorkflow`
 - do not use `bulkDelete`, import/export, print, or record-level actions on the main calendar block
 - `settings.startField` and `settings.endField` must bind date-capable fields; `settings.titleField` and `settings.colorField` must bind non-association display fields
+- direct public calendar blocks use the same non-empty block-level `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a calendar host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
 
 Required block-level `defaultFilter` plus optional filter action settings shape:
 
@@ -805,7 +806,7 @@ Required block-level `defaultFilter` plus optional filter action settings shape:
 
 Planning rules:
 
-- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
+- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` / `calendar` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
 - a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for first-write `prepare-write`
 - if explicit `filterableFieldNames` are provided, validate coverage against action-level `settings.defaultFilter` when present, otherwise against block-level `defaultFilter`
 - if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action

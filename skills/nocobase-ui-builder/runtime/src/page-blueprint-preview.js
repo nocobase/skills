@@ -61,7 +61,7 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setActionLinkageRules',
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
-const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
+const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
@@ -3916,12 +3916,12 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
       {
         key: 'defaultFilter',
         ruleId: 'data-surface-block-default-filter-template-unsupported',
-        message: 'Template-backed table, list, and gridCard blocks do not support block-level defaultFilter; only direct blocks may define it.',
+        message: 'Template-backed table, list, gridCard, and calendar blocks do not support block-level defaultFilter; only direct blocks may define it.',
       },
       {
         key: 'defaultActionSettings',
         ruleId: 'data-surface-block-default-action-settings-template-unsupported',
-        message: 'Template-backed table, list, and gridCard blocks do not support defaultActionSettings; use filter action settings on direct blocks instead.',
+        message: 'Template-backed table, list, gridCard, and calendar blocks do not support defaultActionSettings; use filter action settings on direct blocks instead.',
       },
     ]) {
       if (!hasOwn(block, unsupportedProperty.key)) {
@@ -3944,7 +3944,7 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
       state.seenErrors,
       `${path}.defaultFilter`,
       'data-surface-block-default-filter-required',
-      'Data-surface blocks of type table, list, and gridCard must include block-level defaultFilter.',
+      'Data-surface blocks of type table, list, gridCard, and calendar must include block-level defaultFilter.',
     );
     return;
   }

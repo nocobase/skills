@@ -1,6 +1,6 @@
 # Execution Checklist
 
-Canonical front door is `nb api flow-surfaces`. Use `nb` only; when env/runtime/auth is missing, repair the `nb` path before writing.
+Canonical front door is `nb api flow-surfaces`. Use `nb` only; when runtime/auth is missing, report the blocked `nb api ...` command before writing.
 
 Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
 
@@ -9,9 +9,8 @@ Use this checklist after the matching quick route is already clear. For global r
 - Confirm the task is really about Modern page (v2) UI.
 - Confirm `nb` is available, then run:
   - `nb --help`
-  - `nb env --help`
   - `nb api flow-surfaces --help`
-- If env/runtime/auth is missing, repair it before writing.
+- If runtime/auth is missing, report the blocked `nb api ...` command before writing.
 - Before first use of a specific subcommand, run `nb api flow-surfaces <subcommand> --help`.
 - Decide the route early:
   - whole-page create / replace
@@ -58,7 +57,7 @@ Use this path when the user is describing one entire page.
    - any explicit `layout` references only real keyed blocks, places every keyed block exactly once, and does not duplicate one block across multiple cells
    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
    - every chosen field has a non-empty live `interface`
-   - any requested `table` / `list` / `gridCard` filtering/search action lands on the intended host instead of silently turning into `filterForm`
+   - any requested `table` / `list` / `gridCard` / `calendar` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
    - any data-bound block has caller-supplied `collectionMetadata`; missing or empty metadata fails prepare-write with `missing-collection-metadata`
@@ -106,7 +105,7 @@ Use this path when the user wants to change only part of an existing surface.
 
 Stop instead of guessing when:
 
-- `nb` is unavailable or cannot expose the required command family after env repair and `nb env update`
+- `nb` is unavailable or cannot expose the required command family
 - the target is still ambiguous after readback
 - the task is really ACL, workflow, data-modeling, browser validation, or non-Modern-page navigation
 - the request is about editing template-owned content under an existing template reference but still does not clearly resolve to edit-template-source, edit-host-local-config, switch-template-reference, or detach-to-copy
