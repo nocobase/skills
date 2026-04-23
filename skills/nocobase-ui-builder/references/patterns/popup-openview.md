@@ -61,6 +61,9 @@ builder DSL 边界：
 - `associationName` 不能只复用子表指向父表的 `belongsTo` 字段名；`order` 和 `order_items.order` 这类 child-side 写法都不能算“已完成”
 - 如果弹窗入口来自表格里的关联标题列，不要默认让 `customer.name` 这种 dotted path 列自己承担 click-to-open；优先回到 [clickable-relation-column.md](clickable-relation-column.md) 的原生关系列方案
 - 多层 popup 时，每一层都要能说清楚“输入参数从哪一层来”
+- 当用户用当前 admin URL 指认多层 popup 链路里的“这一层”时，起始 opener uid 默认取 URL 中最后一个 `view/<uid>`，不是外层 popup 的 opener；如果没有 `view/<uid>`，才回退到 `admin/<pageSchemaUid>` 并使用 page-level `get --page-schema-uid` 读取。
+- URL 解析只决定从哪一层开始展开，不推断最终 block / form；从这个起始 opener uid 开始，继续沿用现有 popup `inputArgs`、template、content 展开逻辑。
+- 例：外层 `view` 打开详情 popup，内层 `view` 是详情内的编辑动作；用户给完整深链 URL 时，从内层 `view` 开始继续展开，而不是先停在外层详情块。
 - popup page 下的 block 一律假设自己依赖 `ctx.view.inputArgs`，不要擅自跨层偷用外层上下文
 - popup/openView 相关写入前先按 [../execution-checklist.md](../execution-checklist.md) 与 [../normative-contract.md](../normative-contract.md) 做自检
 - through / 中间表 popup 的 add/edit 动作，只有在用户明确要求打开浏览器或确认运行时动作可用性时，才需要一次最小 smoke；否则保持“模型树已落库，运行时未实测”

@@ -49,6 +49,8 @@ test('preflight_write_gate exits with blocker code for forbidden RunJS globals',
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.audit.blockers.some((item) => item.code === 'RUNJS_FORBIDDEN_GLOBAL'), true);
+  assert.equal(parsed.audit.runjsInspection.repairClassSummary['blocked-global-stop'], 1);
+  assert.equal(parsed.audit.runjsInspection.surfaceSummary['js-model.render'].nodeCount, 1);
 });
 
 test('preflight_write_gate writes canonicalized payload for resource reads', () => {
@@ -87,9 +89,88 @@ test('preflight_write_gate writes canonicalized payload for resource reads', () 
 
   const parsed = JSON.parse(stdout);
   assert.equal(parsed.ok, true);
+  assert.equal(parsed.canonicalize.autoRewriteCount, 1);
+  assert.equal(parsed.canonicalize.hasAutoRewrite, true);
+  assert.equal(parsed.canonicalize.surfaceSummary['js-model.render'].nodeCount, 1);
   assert.equal(fs.existsSync(outFile), true);
 
   const canonicalizedPayload = JSON.parse(fs.readFileSync(outFile, 'utf8'));
   const code = canonicalizedPayload.stepParams.jsSettings.runJs.code;
   assert.equal(code.includes("ctx.makeResource('MultiRecordResource')"), true);
+});
+
+test('preflight_write_gate exits with blocker code for malformed raw set-layout payloads', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'preflight-write-gate-set-layout-'));
+  const payloadFile = path.join(tempDir, 'payload.json');
+  const metadataFile = path.join(tempDir, 'metadata.json');
+
+  writeJson(payloadFile, {
+    target: { uid: 'popup-grid-uid' },
+    rows: {
+      row1: [
+        ['details-uid', 'roles-table-uid'],
+      ],
+    },
+    sizes: {
+      row1: [12, 12],
+    },
+  });
+  writeJson(metadataFile, {});
+
+  const result = spawnSync(process.execPath, [
+    SCRIPT_PATH,
+    'run',
+    '--payload-file',
+    payloadFile,
+    '--metadata-file',
+    metadataFile,
+    '--snapshot-file',
+    SNAPSHOT_PATH,
+  ], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 2);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.audit.blockers.some((item) => item.code === 'SET_LAYOUT_STACKED_CELL_MULTI_SIZE_MISMATCH'), true);
+});
+
+test('preflight_write_gate exits with blocker code for raw set-layout rowOrder mismatch', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'preflight-write-gate-set-layout-row-order-'));
+  const payloadFile = path.join(tempDir, 'payload.json');
+  const metadataFile = path.join(tempDir, 'metadata.json');
+
+  writeJson(payloadFile, {
+    target: { uid: 'popup-grid-uid' },
+    rows: {
+      row1: [
+        ['details-uid'],
+        ['roles-table-uid'],
+      ],
+    },
+    sizes: {
+      row1: [12, 12],
+    },
+    rowOrder: ['row2'],
+  });
+  writeJson(metadataFile, {});
+
+  const result = spawnSync(process.execPath, [
+    SCRIPT_PATH,
+    'run',
+    '--payload-file',
+    payloadFile,
+    '--metadata-file',
+    metadataFile,
+    '--snapshot-file',
+    SNAPSHOT_PATH,
+  ], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 2);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.audit.blockers.some((item) => item.code === 'SET_LAYOUT_ROW_ORDER_KEYS_MISMATCH'), true);
 });

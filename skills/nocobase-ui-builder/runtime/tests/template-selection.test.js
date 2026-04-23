@@ -571,3 +571,29 @@ test('template decision cli select reads --input json file', async () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('template decision cli returns a stable JSON error when --input is missing its value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runTemplateSelectionCli(['select', '--input'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.deepEqual(JSON.parse(stderr.read()), {
+    ok: false,
+    error: 'Missing value for --input.',
+    usage: {
+      commands: {
+        'plan-query':
+          'Plan one contextual list-templates query. Required: --stdin-json or --input <path>. Input must be one scene object.',
+        select:
+          'Select one template decision from contextual candidates. Required: --stdin-json or --input <path>. Input must be { scene, probe, candidates, modePreference?, explicitTemplate? }.',
+      },
+    },
+  });
+});

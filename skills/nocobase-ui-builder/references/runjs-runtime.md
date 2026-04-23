@@ -15,13 +15,14 @@ Read this file when you need to run the local RunJS validator CLI. For JS model 
 The commands below assume that the current cwd is the repository root and that the Node version is `>=18`.
 
 ```bash
-node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode
-node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./skills/nocobase-ui-builder/runtime/fixtures/batch.json --skill-mode
+node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode
+node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./runtime/fixtures/batch.json --skill-mode
 ```
 
 The canonical execution path for this skill always includes `--skill-mode`:
 
 - This is the conservative mode intended for normal skill execution
+- The runtime is self-contained inside this skill; copying `nocobase-ui-builder` is enough, with no `npm install` step and no `runtime/node_modules` requirement
 - public runtime mode is fixed to `validate`
 - only absent/mock network is allowed
 - network reads are only allowed through `ctx.request(...)` / `ctx.api.request(...)`; `fetch` is not part of the public contract
@@ -34,6 +35,7 @@ When using `validate --stdin-json`, the recommended stdin JSON follows this cano
 
 ```json
 {
+  "surface": "js-model.render",
   "model": "JSColumnModel",
   "code": "ctx.render(String(ctx.record?.nickname || ''));",
   "context": {}
@@ -42,13 +44,14 @@ When using `validate --stdin-json`, the recommended stdin JSON follows this cano
 
 Field notes:
 
-- `model`: required; it may also be provided via CLI `--model`, but if both are present they must match
+- `surface`: optional but recommended for skill-mode RunJS; it may also be provided via CLI `--surface`, but if both are present they must match
+- `model`: required for `js-model.render` and `js-model.action`; value/event/linkage surfaces may omit it because the runtime uses a conservative internal validation profile
 - `code`: required string
 - `context`: optional JSON object
 - `network`: optional JSON object; constraints continue to follow "Network-mode constraints" below
-- `skillMode`: optional; if the CLI explicitly passes `--skill-mode`, the CLI wins
-- `version`: optional; if the CLI explicitly passes `--version`, the CLI wins
-- `timeoutMs`: optional; if the CLI explicitly passes `--timeout`, the CLI wins
+- `skillMode`: optional; if nb explicitly passes `--skill-mode`, nb wins
+- `version`: optional; if nb explicitly passes `--version`, nb wins
+- `timeoutMs`: optional; if nb explicitly passes `--timeout`, nb wins
 - `filename`: optional; defaults to `<stdin>`
 
 ## Dev entry points inside the runtime directory
@@ -56,9 +59,10 @@ Field notes:
 If the current cwd is already `skills/nocobase-ui-builder/runtime`, you can use these shorter development commands:
 
 ```bash
-node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js
-node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js --context-file ./fixtures/js-block-context.json
-node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js --network-file ./fixtures/network-mock.json
+node ./bin/nb-runjs.mjs validate --surface js-model.render --model JSBlockModel --code-file ./fixtures/js-block-code.js
+node ./bin/nb-runjs.mjs validate --surface js-model.render --model JSBlockModel --code-file ./fixtures/js-block-code.js --context-file ./fixtures/js-block-context.json
+node ./bin/nb-runjs.mjs validate --surface js-model.render --model JSBlockModel --code-file ./fixtures/js-block-code.js --network-file ./fixtures/network-mock.json
+node ./bin/nb-runjs.mjs validate --surface reaction.value-runjs --stdin-json
 node ./bin/nb-runjs.mjs validate --model ChartOptionModel --stdin-json
 node ./bin/nb-runjs.mjs validate --model ChartEventsModel --stdin-json
 node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
@@ -68,6 +72,7 @@ These commands are mainly for local runtime development or debugging. Normal ski
 
 Additional notes:
 
+- The helper CLIs are shipped as skill-local source plus vendored runtime assets; they must not require installing external npm packages first.
 - Single validation can pass mock network config through `--network-file`
 - Batch tasks support either `network` or `networkFile`
 
@@ -97,6 +102,7 @@ Optional mock-network config example:
 This file only keeps CLI/runtime-layer semantics. For model selection, strict render rules, context contracts, and gate rules, [js.md](./js.md) remains authoritative.
 
 - The public CLI only exposes `validate` / `batch`
+- When `surface` is present, `nb-runjs` first runs the same surface-first static contract as `runjs_guard.mjs`
 - JSX goes through compat lowering before execution
 - The syntax layer uses Node `vm.Script` as a baseline syntax gate
 - The context layer checks the static contract of `ctx.*` / top-level aliases

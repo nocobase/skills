@@ -1,20 +1,6 @@
 {
   "contractVersion": 1,
-  "generatedAt": "2026-03-23T05:59:00.630Z",
-  "nocobaseRoot": "/Users/gchust/auto_works/nocobase",
-  "sourceHashes": {
-    "packages/core/flow-engine/src/flowContext.ts": "4431748d556335c3576b59c9d2b97cf081a34631a389d937b121737399fc2ded",
-    "packages/core/flow-engine/src/utils/safeGlobals.ts": "f6334bd1105872be0741b2cd814794dd3467b5ebca9dcb53148b199c7d12a5fc",
-    "packages/core/flow-engine/src/runjs-context/setup.ts": "e146de8a3ba3eaba2b68b15d1b2e31edc38b484bb271a39bf218424cb7084246",
-    "packages/core/flow-engine/src/runjs-context/contexts/base.ts": "e8a6c12982a4059c2ccb034c56a51122a7c42170bed54aa91c28b8416c1939a1",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSBlockRunJSContext.ts": "122945d3bb6cabad4249518e42625d6e926aacc7534fa64eaff51f2c1560bd06",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSFieldRunJSContext.ts": "caf6aae1ad22a61d6cb98817696c4c0d3c814f86e9cb0b88dd18617c3396c179",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSEditableFieldRunJSContext.ts": "81ce066280f46f1a99bfe0d56e94582fb3221afb487f7d143ccc4656906e0bd0",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSItemRunJSContext.ts": "119d5807d2e71872e18a53a9cb98a87f6809e4075f5db464a79fc705fd15f611",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSColumnRunJSContext.ts": "a2fc33d8309d1c9b030a713026941e6526a7d6e2582e28aea8e7cc903a4af587",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSRecordActionRunJSContext.ts": "c27d914b6dc4a43af807b4b41e22e848e08f12249d67c1ef3f4f42a2208ac577",
-    "packages/core/flow-engine/src/runjs-context/contexts/JSCollectionActionRunJSContext.ts": "24a690520178b0115b264626c095a78f4938f564966d570ea3ddf61fcf7d5e56"
-  },
+  "generatedAt": "2026-04-21T13:25:26.000Z",
   "runtime": {
     "timeoutMs": 5000,
     "jsxCompiler": "sucrase",
@@ -31,6 +17,7 @@
       "JSColumnModel",
       "JSEditableFieldModel",
       "JSFieldModel",
+      "JSItemActionModel",
       "JSItemModel",
       "JSRecordActionModel"
     ]
@@ -161,8 +148,7 @@
         "importAsync",
         "onRefReady",
         "requireAsync"
-      ],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSBlockRunJSContext.ts"
+      ]
     },
     "JSFieldModel": {
       "flowKey": "jsSettings",
@@ -176,8 +162,7 @@
       ],
       "methods": [
         "onRefReady"
-      ],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSFieldRunJSContext.ts"
+      ]
     },
     "JSEditableFieldModel": {
       "flowKey": "jsSettings",
@@ -196,8 +181,7 @@
       "methods": [
         "getValue",
         "setValue"
-      ],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSEditableFieldRunJSContext.ts"
+      ]
     },
     "JSItemModel": {
       "flowKey": "jsSettings",
@@ -211,8 +195,21 @@
       ],
       "methods": [
         "onRefReady"
+      ]
+    },
+    "JSItemActionModel": {
+      "flowKey": "clickSettings",
+      "flowPath": "clickSettings.runJs",
+      "scene": "table",
+      "properties": [
+        "element",
+        "formValues",
+        "record",
+        "resource"
       ],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSItemRunJSContext.ts"
+      "methods": [
+        "onRefReady"
+      ]
     },
     "JSColumnModel": {
       "flowKey": "jsSettings",
@@ -231,16 +228,29 @@
         "importAsync",
         "onRefReady",
         "requireAsync"
+      ]
+    },
+    "FormJSFieldItemModel": {
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
+      "scene": "form",
+      "properties": [
+        "element",
+        "formValues",
+        "record",
+        "value"
       ],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSColumnRunJSContext.ts"
+      "methods": [
+        "onRefReady",
+        "setProps"
+      ]
     },
     "JSActionModel": {
       "flowKey": "clickSettings",
       "flowPath": "clickSettings.runJs",
       "scene": "table",
       "properties": [],
-      "methods": [],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/base.ts"
+      "methods": []
     },
     "JSRecordActionModel": {
       "flowKey": "clickSettings",
@@ -250,8 +260,7 @@
         "filterByTk",
         "record"
       ],
-      "methods": [],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSRecordActionRunJSContext.ts"
+      "methods": []
     },
     "JSCollectionActionModel": {
       "flowKey": "clickSettings",
@@ -260,24 +269,21 @@
       "properties": [
         "resource"
       ],
-      "methods": [],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSCollectionActionRunJSContext.ts"
+      "methods": []
     },
     "JSFormActionModel": {
       "flowKey": "clickSettings",
       "flowPath": "clickSettings.runJs",
       "scene": "form",
       "properties": [],
-      "methods": [],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/base.ts"
+      "methods": []
     },
     "FilterFormJSActionModel": {
       "flowKey": "clickSettings",
       "flowPath": "clickSettings.runJs",
       "scene": "form",
       "properties": [],
-      "methods": [],
-      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/base.ts"
+      "methods": []
     }
   }
 }

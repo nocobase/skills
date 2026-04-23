@@ -2,7 +2,7 @@
 
 This file defines the simplified public page-structure JSON blueprint used by `applyBlueprint`.
 
-Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file owns the inner page document only; for CLI raw body and MCP fallback envelope details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
+Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns the inner page document only; for nb raw body details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
 
 ## 1. Core Rules
 
@@ -45,20 +45,25 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
-- Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
+- In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
+- Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. Prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
+- `calendar` main blocks do not support direct `fields[]`, `fieldGroups[]`, or `recordActions[]`. Bind only calendar settings such as `titleField` / `colorField` / `startField` / `endField` on the main block; event content fields belong in quick-create / event-view popup hosts.
 - For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - For whole-page inline popup specs, when no explicit `popup.template` is present, default to `popup.tryTemplate=true` as the write fallback. Local popup content may remain as the miss fallback. Keep `list-templates` as the planning truth source, and let the backend own the final relation-vs-non-relation popup-template match.
-- When the user explicitly wants the newly created local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on that inline popup instead of planning a separate save step. This requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
+- When the user explicitly wants the newly created local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on that inline popup instead of planning a separate save step. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
+- In this skill's prepare-write flow, explicit local inline popups with `popup.blocks` may auto-receive generated `popup.saveAsTemplate={ name, description }`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
 
 Envelope boundary:
 
 - This file describes the inner page blueprint document only.
-- In CLI-first execution, pass this document itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
-- Only in MCP fallback should that same object be wrapped under `requestBody` as an object.
-- Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
-- Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint and also as the CLI raw body.
+- Before whole-page `prepare-write`, this document is the authoring draft blueprint.
+- For the first real whole-page write, `prepare-write` is mandatory, and the actual nb raw body becomes `result.cliBody`, not the original draft blueprint.
+- Do not wrap that object again. If `prepare-write` already ran, that same object means the prepared `result.cliBody`.
+- Do not stringify this document into nested JSON such as `blueprint: "{\"version\":\"1\"...}"`.
+- Every JSON snippet below should be treated as the inner blueprint draft; for the first real whole-page write, send the returned `cliBody` instead of the raw draft snippet.
 
 ## 2. Top-level Shape
 
@@ -76,6 +81,20 @@ Envelope boundary:
     "enableHeader": true,
     "displayTitle": true
   },
+  "defaults": {
+    "collections": {
+      "employees": {
+        "fieldGroups": [
+          { "key": "basic", "title": "Basic info", "fields": ["nickname", "status", "department"] }
+        ],
+        "popups": {
+          "addNew": { "name": "Create employee", "description": "Create one employee record." },
+          "view": { "name": "Employee details", "description": "View one employee record." },
+          "edit": { "name": "Edit employee", "description": "Edit one employee record." }
+        }
+      }
+    }
+  },
   "assets": {
     "scripts": {},
     "charts": {}
@@ -89,7 +108,13 @@ Envelope boundary:
       "blocks": [
         {
           "type": "table",
-          "collection": "employees"
+          "collection": "employees",
+          "defaultFilter": {
+            "logic": "$and",
+            "items": [
+              { "path": "nickname", "operator": "$includes", "value": "" }
+            ]
+          }
         }
       ]
     }
@@ -104,9 +129,70 @@ Envelope boundary:
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
 - `navigation`: only for `create`; controls menu group/item metadata. Newly created groups must include `icon`, and newly created top-level or second-level items must also include `icon`.
 - `page`: page-level metadata
+- `defaults`: optional collection-level defaults for generated popup names and large grouped popup field candidates
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `reaction`: optional whole-page interaction authoring section
 - `tabs`: non-empty ordered array of route-backed tabs
+
+### `defaults.collections`
+
+- For each whole-page draft, recompute the involved target collections from live metadata and rebuild `defaults.collections` from scratch instead of copying a stale fragment.
+- Every involved direct collection always uses top-level `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}`, and any `table` block always pulls that collection into the `addNew` threshold evaluation even when the blueprint omitted an explicit `addNew` opener.
+- Use top-level `defaults.collections.<collection>.fieldGroups` as collection-level candidate groups for backend-generated `details`, `createForm`, and `editForm` popup content only when one of those fixed popup scenes should still have more than 10 effective fields after scene filtering.
+- Generate these groups from live collection metadata only for large generated popups. For 10 or fewer effective fields, omit `defaults.collections.<collection>.fieldGroups` and let the backend keep a flat popup.
+- Keep `fieldGroups` keyed only by target collection. If multiple relation paths land on the same target collection, reuse one collection entry; do not create per-association or per-popup `fieldGroups` branches.
+- The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted, but a provided small `fieldGroups` payload can still force divider-style generated forms, so do not emit it for small scenes.
+- Use `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}` for the fixed collection record popup descriptor trio.
+- Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.{name,description}` for the fixed relation-field popup descriptor trio. Use `associations`, not `relations`. Key it only by the first relation segment from the field path, not by deeper nested relation chains. These relation popup descriptors stay separate from `fieldGroups`: the grouped fields still come only from the target collection entry when needed.
+- Explicit local `popup.blocks` still count when prepare-write recomputes defaults scope, even if that popup also carries `popup.template` or `popup.tryTemplate`; template reuse only changes popup content sourcing.
+- For compatibility, prepare-write can normalize deeper `popups.associations` keys such as `department.manager` back to that first relation segment in `result.cliBody`; when both a one-level key and a deeper alias exist, the explicit one-level key wins.
+- Popup defaults must be `{ name, description }` only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
+- Do not generate `defaults.blocks`; v1 defaults are collection-level only.
+- If `popup.tryTemplate` resolves an existing template, the backend reuses that template and does not regenerate default popup content from `defaults`.
+
+Example:
+
+```json
+{
+  "defaults": {
+    "collections": {
+      "users": {
+        "fieldGroups": [
+          {
+            "key": "basic",
+            "title": "Basic information",
+            "fields": ["username", "nickname", "email", "phone", "employeeCode", "realName"]
+          },
+          {
+            "key": "profile",
+            "title": "Profile",
+            "fields": ["bio", "personalWebsite", "notificationEnabled", "identityVerified", "city", "country"]
+          }
+        ],
+        "popups": {
+          "view": { "name": "User details", "description": "View one user record." },
+          "addNew": { "name": "Create user", "description": "Create one user record." },
+          "edit": { "name": "Edit user", "description": "Edit one user record." },
+          "associations": {
+            "roles": {
+              "view": { "name": "User role details", "description": "View one related user role." },
+              "addNew": { "name": "Create user role", "description": "Create one related user role." },
+              "edit": { "name": "Edit user role", "description": "Edit one related user role." }
+            }
+          }
+        }
+      },
+      "roles": {
+        "popups": {
+          "view": { "name": "Role details", "description": "View one role record." },
+          "addNew": { "name": "Create role", "description": "Create one role record." },
+          "edit": { "name": "Edit role", "description": "Edit one role record." }
+        }
+      }
+    }
+  }
+}
+```
 
 ### `reaction.items[]`
 
@@ -388,7 +474,29 @@ Right:
   "layout": {
     "rows": [["employeesTable"]]
   },
-  "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }]
+  "blocks": [
+    {
+      "key": "employeesTable",
+      "type": "table",
+      "collection": "employees",
+      "defaultFilter": {
+        "logic": "$and",
+        "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+      },
+      "actions": [
+        {
+          "type": "filter",
+          "settings": {
+            "filterableFieldNames": ["nickname"],
+            "defaultFilter": {
+              "logic": "$and",
+              "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -520,6 +628,7 @@ Supported block `type` values are:
 - `filterForm`
 - `list`
 - `gridCard`
+- `calendar`
 - `markdown`
 - `iframe`
 - `chart`
@@ -647,6 +756,61 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
 - in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 
+For collection-action hosts (`table`, `list`, `gridCard`, `calendar`):
+
+- when the user only asks to “增加筛选 / filter” on that data block, or explicitly adds “搜索 / search” to that host with wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, prefer the same block-level `filter` action
+- do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
+- page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
+- if the user explicitly names the host, keep the `filter` action on that same host type
+- every direct, non-template public `table` / `list` / `gridCard` / `calendar` block must include block-level `defaultFilter`
+
+For `calendar` blocks:
+
+- allowed public actions are `today`, `turnPages`, `title`, `selectView`, plus applicable collection actions such as `filter`, `addNew`, `popup`, `refresh`, `js`, and `triggerWorkflow`
+- do not use `bulkDelete`, import/export, print, or record-level actions on the main calendar block
+- `settings.startField` and `settings.endField` must bind date-capable fields; `settings.titleField` and `settings.colorField` must bind non-association display fields
+- direct public calendar blocks use the same non-empty block-level `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a calendar host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
+
+Required block-level `defaultFilter` plus optional filter action settings shape:
+
+```json
+{
+  "type": "table",
+  "collection": "users",
+  "defaultFilter": {
+    "logic": "$and",
+    "items": [
+      { "path": "username", "operator": "$includes", "value": "" },
+      { "path": "email", "operator": "$includes", "value": "" },
+      { "path": "status", "operator": "$eq", "value": "" }
+    ]
+  },
+  "actions": [
+    {
+      "type": "filter",
+      "settings": {
+        "filterableFieldNames": ["username", "email", "status"],
+        "defaultFilter": {
+          "logic": "$and",
+          "items": [
+            { "path": "username", "operator": "$includes", "value": "" },
+            { "path": "email", "operator": "$includes", "value": "" },
+            { "path": "status", "operator": "$eq", "value": "" }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+Planning rules:
+
+- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` / `calendar` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
+- a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for first-write `prepare-write`
+- if explicit `filterableFieldNames` are provided, validate coverage against action-level `settings.defaultFilter` when present, otherwise against block-level `defaultFilter`
+- if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action
+
 ### Popup
 
 Inline popup is supported beneath a field/action/record action through:
@@ -655,7 +819,7 @@ Inline popup is supported beneath a field/action/record action through:
 {
   "popup": {
     "title": "...",
-    "mode": "replace",
+    "mode": "drawer",
     "template": { "uid": "...", "mode": "reference" },
     "blocks": [],
     "layout": { "rows": [["..."]] }
@@ -664,6 +828,8 @@ Inline popup is supported beneath a field/action/record action through:
 ```
 
 `popup.layout` is valid because popup is a popup document. By contrast, block objects themselves do **not** accept `layout`; use `tab.layout` or `popup.layout`.
+
+`popup.mode` is optional. Common values are `drawer`, `dialog`, and `page`. In whole-page `prepare-write`, when a first-layer inline popup omits `popup.mode` and its local popup content exceeds 3 direct non-filter blocks or 20 direct effective fields, the helper defaults that popup to `page`.
 
 In whole-page `create` / `replace`, do not bind `popup.template` from loose discovery or text search alone. Instead, build the strongest planned opener/resource context you have, run the contextual selection flow from [templates.md](./templates.md), and bind `popup.template` only when one stable best available candidate wins.
 
@@ -708,7 +874,7 @@ Use this file as the **shape reference**, not as a second full contract document
 
 - Send only the structure fields described here.
 - Use the canonical names from Section 8.
-- Keep `requestBody`, `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
+- Keep `blueprint`, `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
 - Keep non-blueprint control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
 
 ## 10. Response Shape
@@ -727,4 +893,4 @@ Use this file as the **shape reference**, not as a second full contract document
 }
 ```
 
-The public response returns the resolved page target plus final `surface` readback.
+The public response carries the resolved page `target` and may also include `surface`. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.

@@ -1,6 +1,8 @@
 import vm from 'node:vm';
 import { getAllowedContextPaths, getFlattenedContract, getRootBehaviors } from './profiles.js';
-import { transformJsx } from './jsx-transform.js';
+import { collectCompiledRunJSSemantics } from './runjs-parser.js';
+import { maskJavaScriptSource } from './source-mask.js';
+import { compileUserCode as compileUserCodeImpl } from './user-code.js';
 import { safeErrorMessage } from './utils.js';
 
 const STATIC_BLOCKED_COMPAT_CALLS = new Set([
@@ -160,125 +162,7 @@ function readIdentifier(source, index) {
 }
 
 function maskSource(source) {
-  const output = [];
-  const stateStack = [{ mode: 'code' }];
-  for (let index = 0; index < source.length; index += 1) {
-    const char = source[index];
-    const next = source[index + 1];
-    const state = stateStack[stateStack.length - 1];
-
-    if (state.mode === 'line-comment') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (char === '\n') stateStack.pop();
-      continue;
-    }
-    if (state.mode === 'block-comment') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (char === '*' && next === '/') {
-        output.push(' ');
-        index += 1;
-        stateStack.pop();
-      }
-      continue;
-    }
-    if (state.mode === 'single-quote') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (state.escape) {
-        state.escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        state.escape = true;
-        continue;
-      }
-      if (char === "'") stateStack.pop();
-      continue;
-    }
-    if (state.mode === 'double-quote') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (state.escape) {
-        state.escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        state.escape = true;
-        continue;
-      }
-      if (char === '"') stateStack.pop();
-      continue;
-    }
-    if (state.mode === 'template') {
-      if (state.escape) {
-        output.push(char === '\n' ? '\n' : ' ');
-        state.escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        output.push(' ');
-        state.escape = true;
-        continue;
-      }
-      if (char === '`') {
-        output.push(' ');
-        stateStack.pop();
-        continue;
-      }
-      if (char === '$' && next === '{') {
-        output.push('$');
-        output.push('{');
-        index += 1;
-        stateStack.push({ mode: 'template-expression', braceDepth: 1 });
-        continue;
-      }
-      output.push(char === '\n' ? '\n' : ' ');
-      continue;
-    }
-
-    if (char === '/' && next === '/') {
-      output.push(' ');
-      output.push(' ');
-      index += 1;
-      stateStack.push({ mode: 'line-comment' });
-      continue;
-    }
-    if (char === '/' && next === '*') {
-      output.push(' ');
-      output.push(' ');
-      index += 1;
-      stateStack.push({ mode: 'block-comment' });
-      continue;
-    }
-    if (char === "'") {
-      output.push(' ');
-      stateStack.push({ mode: 'single-quote', escape: false });
-      continue;
-    }
-    if (char === '"') {
-      output.push(' ');
-      stateStack.push({ mode: 'double-quote', escape: false });
-      continue;
-    }
-    if (char === '`') {
-      output.push(' ');
-      stateStack.push({ mode: 'template', escape: false });
-      continue;
-    }
-    if (state.mode === 'template-expression') {
-      if (char === '{') {
-        state.braceDepth += 1;
-        output.push('{');
-        continue;
-      }
-      if (char === '}') {
-        state.braceDepth -= 1;
-        output.push('}');
-        if (state.braceDepth === 0) stateStack.pop();
-        continue;
-      }
-    }
-    output.push(char);
-  }
-  return output.join('');
+  return maskJavaScriptSource(source);
 }
 
 function parseStringLiteral(source, index) {
@@ -378,17 +262,6 @@ function parseChain(source, index) {
     end: cursor,
     dynamicComputed,
   };
-}
-
-function extractCallArguments(maskedSource, source, openParenIndex) {
-  const closeParenIndex = findMatchingBracket(maskedSource, openParenIndex, '(', ')');
-  if (closeParenIndex < 0) return '';
-  return source.slice(openParenIndex + 1, closeParenIndex);
-}
-
-function extractStaticHttpMethod(argumentSource) {
-  const match = argumentSource.match(/\bmethod\s*:\s*(['"`])([A-Za-z]+)\1/);
-  return match?.[2];
 }
 
 function skipQuotedLiteral(source, index) {
@@ -575,12 +448,54 @@ function isAllowedPrecisePath(ctxPath, flattenedContract) {
   return false;
 }
 
+function getStaticPropertyKeyName(property) {
+  const keyNode = property?.key;
+  if (!keyNode) return null;
+  if (!property.computed && keyNode.type === 'Identifier') return keyNode.name;
+  if (keyNode.type === 'Literal' && (typeof keyNode.value === 'string' || typeof keyNode.value === 'number')) {
+    return String(keyNode.value);
+  }
+  if (keyNode.type === 'TemplateLiteral' && keyNode.expressions.length === 0) {
+    return keyNode.quasis[0]?.value?.cooked ?? '';
+  }
+  return null;
+}
+
+function getStaticStringValue(node) {
+  if (!node) return null;
+  if (node.type === 'Literal' && typeof node.value === 'string') return node.value;
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) {
+    return node.quasis[0]?.value?.cooked ?? '';
+  }
+  return null;
+}
+
+function getObjectPropertyValue(objectNode, keyName) {
+  if (objectNode?.type !== 'ObjectExpression') return null;
+  for (const property of objectNode.properties || []) {
+    if (property?.type !== 'Property') continue;
+    if (getStaticPropertyKeyName(property) === keyName) return property.value;
+  }
+  return null;
+}
+
+function extractStaticHttpMethodFromCallNode(callNode) {
+  const args = Array.isArray(callNode?.arguments) ? callNode.arguments : [];
+  for (const candidate of [args[0], args[1]]) {
+    const methodNode = getObjectPropertyValue(candidate, 'method');
+    const methodValue = getStaticStringValue(methodNode);
+    if (methodValue) return methodValue;
+  }
+  return null;
+}
+
 export function parseCode(code) {
-  const compiled = transformJsx(code);
+  const compiled = compileUserCodeImpl(code);
   const source = compiled.code;
   const masked = maskSource(source);
   if (compiled.compileIssues?.length) {
     return {
+      source,
       masked,
       syntaxIssues: compiled.compileIssues,
     };
@@ -591,11 +506,13 @@ export function parseCode(code) {
       filename: 'nb-runjs.syntax-check.js',
     });
     return {
+      source,
       masked,
       syntaxIssues: [],
     };
   } catch (error) {
     return {
+      source,
       masked,
       syntaxIssues: [
         {
@@ -610,16 +527,12 @@ export function parseCode(code) {
 }
 
 export function compileUserCode(code) {
-  const transformed = transformJsx(code);
-  return {
-    code: transformed.code,
-    compileIssues: transformed.compileIssues || [],
-  };
+  return compileUserCodeImpl(code);
 }
 
 export function analyzeContextUsage(code, profile) {
-  const source = String(code ?? '');
-  const { masked, syntaxIssues } = parseCode(source);
+  const inputSource = String(code ?? '');
+  const { source, masked, syntaxIssues } = parseCode(inputSource);
   if (syntaxIssues.length > 0) {
     return {
       syntaxIssues,
@@ -658,6 +571,60 @@ export function analyzeContextUsage(code, profile) {
     policyIssues.push(createStaticIssue('policy', 'error', ruleId, message, locate(index)));
   };
 
+  const validateCompatPath = ({ compatPath, dynamicComputed = false, index }) => {
+    if (!compatPath) return;
+    usedContextPaths.add(compatPath);
+
+    const rootPath = compatPath.split('.')[0];
+    const rootBehavior = rootBehaviors[rootPath];
+    if (!rootBehavior) {
+      pushContextIssue('unknown-ctx-path', `Unknown context path "ctx.${compatPath}" for profile ${profile.model}.`, index);
+    } else if (dynamicComputed && (rootBehavior === 'precise' || rootBehavior === 'strict')) {
+      pushContextIssue(
+        'dynamic-compat-member-unsupported',
+        `Dynamic compatibility member access is unsupported for "ctx.${compatPath}" in profile ${profile.model}.`,
+        index,
+        'error',
+      );
+    } else if (rootBehavior !== 'opaque') {
+      const isAllowed = rootBehavior === 'precise' ? isAllowedPrecisePath(compatPath, flattenedContract) : allowedPaths.has(compatPath);
+      if (!isAllowed) {
+        pushContextIssue('unknown-compat-member', `Unsupported compatibility member "ctx.${compatPath}" for profile ${profile.model}.`, index, 'error');
+      }
+    }
+  };
+
+  try {
+    const astSemantics = collectCompiledRunJSSemantics(source).semantics;
+    sawExplicitCtxRender = (astSemantics.topLevelCtxRenderCalls || []).length > 0;
+
+    for (const entry of astSemantics.ctxMemberChains || []) {
+      validateCompatPath({
+        compatPath: entry.path,
+        dynamicComputed: entry.dynamicComputed,
+        index: entry.memberStart ?? entry.start ?? 0,
+      });
+    }
+
+    for (const entry of astSemantics.ctxCallSites || []) {
+      const compatPath = entry.path;
+      if (!compatPath) continue;
+      const index = entry.memberStart ?? entry.start ?? 0;
+      if (STATIC_BLOCKED_COMPAT_CALLS.has(compatPath) && !profile.simulatedCompatCalls?.includes(compatPath)) {
+        pushPolicyIssue('blocked-static-side-effect', `Blocked compatibility side effect "${compatPath}()".`, index);
+      }
+      if (compatPath === 'request' || compatPath === 'api.request') {
+        const method = extractStaticHttpMethodFromCallNode(entry.node);
+        if (typeof method === 'string' && !['GET', 'HEAD'].includes(method.trim().toUpperCase())) {
+          pushPolicyIssue('blocked-static-side-effect', `Blocked static HTTP method "${method}" for ${compatPath}().`, index);
+        }
+      }
+    }
+  } catch (_) {
+    // parseCode already performed the syntax gate. If AST enrichment still fails,
+    // keep the legacy scan below as the conservative fallback.
+  }
+
   for (let index = 0; index < masked.length; index += 1) {
     if (!isIdentifierStart(masked[index])) continue;
     const previousChar = masked[index - 1];
@@ -693,44 +660,18 @@ export function analyzeContextUsage(code, profile) {
       continue;
     }
 
+    if (isCtxCompatRoot) continue;
+
     const isCompatRoot = isCtxCompatRoot || isTopLevelCompatAlias;
     if (isCompatRoot) {
-      const compatPath = root === 'ctx' ? rest.join('.') : chain.segments.join('.');
+      const compatPath = chain.segments.join('.');
       if (!compatPath) continue;
-      usedContextPaths.add(compatPath);
-
-      const rootPath = compatPath.split('.')[0];
-      const rootBehavior = rootBehaviors[rootPath];
-      if (!rootBehavior) {
-        pushContextIssue('unknown-ctx-path', `Unknown context path "ctx.${compatPath}" for profile ${profile.model}.`, index);
-      } else if (chain.dynamicComputed && (rootBehavior === 'precise' || rootBehavior === 'strict')) {
-        pushContextIssue(
-          'dynamic-compat-member-unsupported',
-          `Dynamic compatibility member access is unsupported for "ctx.${compatPath}" in profile ${profile.model}.`,
-          index,
-          'error',
-        );
-      } else if (rootBehavior !== 'opaque') {
-        const isAllowed = rootBehavior === 'precise' ? isAllowedPrecisePath(compatPath, flattenedContract) : allowedPaths.has(compatPath);
-        if (!isAllowed) {
-          pushContextIssue('unknown-compat-member', `Unsupported compatibility member "ctx.${compatPath}" for profile ${profile.model}.`, index, 'error');
-        }
-      }
+      validateCompatPath({ compatPath, dynamicComputed: chain.dynamicComputed, index });
 
       const nextIndex = skipWhitespace(masked, chain.end);
-      if (isCtxCompatRoot && compatPath === 'render' && masked[nextIndex] === '(') {
-        sawExplicitCtxRender = true;
-      }
       if (masked[nextIndex] === '(') {
         if (STATIC_BLOCKED_COMPAT_CALLS.has(compatPath) && !profile.simulatedCompatCalls?.includes(compatPath)) {
           pushPolicyIssue('blocked-static-side-effect', `Blocked compatibility side effect "${compatPath}()".`, index);
-        }
-        if (compatPath === 'request' || compatPath === 'api.request') {
-          const argumentSource = extractCallArguments(masked, source, nextIndex);
-          const method = extractStaticHttpMethod(argumentSource);
-          if (typeof method === 'string' && !['GET', 'HEAD'].includes(method.trim().toUpperCase())) {
-            pushPolicyIssue('blocked-static-side-effect', `Blocked static HTTP method "${method}" for ${compatPath}().`, index);
-          }
         }
       }
 

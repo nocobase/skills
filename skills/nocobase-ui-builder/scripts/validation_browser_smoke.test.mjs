@@ -5,7 +5,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ensureSignedIn,
+  isBlockingRuntimeMessage,
   loadChromium,
+  resolveAdminCredentials,
   resolveRequiredAdminBase,
   resolvePlaywrightLoader,
   runCase,
@@ -50,6 +53,44 @@ function createStubPage() {
     async waitForLoadState() {},
     async screenshot({ path: screenshotPath }) {
       this.screenshotPaths.push(screenshotPath);
+    },
+  };
+}
+
+function createSigninPage({ redirectsToSignin = true } = {}) {
+  let currentUrl = redirectsToSignin ? 'http://example.test/admin/signin' : 'http://example.test/admin/dashboard';
+  const fills = [];
+  let signInClicks = 0;
+
+  return {
+    fills,
+    get signInClicks() {
+      return signInClicks;
+    },
+    url() {
+      return currentUrl;
+    },
+    async goto(url) {
+      currentUrl = redirectsToSignin ? url : url.replace(/\/signin$/, '/dashboard');
+    },
+    async waitForLoadState() {},
+    getByPlaceholder(name) {
+      return {
+        fill: async (value) => {
+          fills.push({ name, value });
+        },
+      };
+    },
+    getByRole() {
+      return {
+        click: async () => {
+          signInClicks += 1;
+          currentUrl = 'http://example.test/admin/dashboard';
+        },
+      };
+    },
+    async waitForURL(predicate) {
+      assert.equal(predicate(new URL(currentUrl)), true);
     },
   };
 }
@@ -157,6 +198,57 @@ test('resolveRequiredAdminBase prefers explicit flag, falls back to env, and rej
     'http://env.example.test/admin',
   );
   assert.throws(() => resolveRequiredAdminBase({}, {}), /admin base is required/);
+});
+
+test('resolveAdminCredentials prefers explicit flags, falls back to env, and tracks whether both values are present', () => {
+  assert.deepEqual(
+    resolveAdminCredentials({ 'admin-username': ' admin ', 'admin-password': ' secret ' }, {}),
+    { username: 'admin', password: 'secret', provided: true },
+  );
+  assert.deepEqual(
+    resolveAdminCredentials({}, { NOCOBASE_ADMIN_USERNAME: 'env-admin', NOCOBASE_ADMIN_PASSWORD: 'env-secret' }),
+    { username: 'env-admin', password: 'env-secret', provided: true },
+  );
+  assert.deepEqual(
+    resolveAdminCredentials({ 'admin-username': 'admin' }, {}),
+    { username: 'admin', password: '', provided: false },
+  );
+});
+
+test('isBlockingRuntimeMessage treats 401, 404, and AxiosError as blocking runtime failures', () => {
+  assert.equal(isBlockingRuntimeMessage('Failed to load resource: the server responded with a status of 401 (Unauthorized)'), true);
+  assert.equal(isBlockingRuntimeMessage('Failed to load resource: the server responded with a status of 404 (Not Found)'), true);
+  assert.equal(isBlockingRuntimeMessage('AxiosError'), true);
+  assert.equal(isBlockingRuntimeMessage('AxiosError: Request failed with status code 500'), true);
+  assert.equal(isBlockingRuntimeMessage('Warning: [antd: compatible] harmless warning'), false);
+});
+
+test('ensureSignedIn fails fast when /signin is reached without explicit credentials', async () => {
+  const page = createSigninPage();
+
+  await assert.rejects(
+    () => ensureSignedIn(page, 'http://example.test/admin', {}),
+    /no admin credentials were provided/i,
+  );
+
+  assert.equal(page.fills.length, 0);
+  assert.equal(page.signInClicks, 0);
+});
+
+test('ensureSignedIn uses explicit credentials when /signin is reached', async () => {
+  const page = createSigninPage();
+
+  await ensureSignedIn(page, 'http://example.test/admin', {
+    username: 'admin@nocobase.com',
+    password: 'secret',
+  });
+
+  assert.deepEqual(page.fills, [
+    { name: 'Username/Email', value: 'admin@nocobase.com' },
+    { name: 'Password', value: 'secret' },
+  ]);
+  assert.equal(page.signInClicks, 1);
+  assert.equal(page.url().includes('/signin'), false);
 });
 
 test('runCase short-circuits guardBlocked cases before browser navigation', async () => {

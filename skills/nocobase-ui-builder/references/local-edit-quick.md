@@ -4,24 +4,37 @@ Use this file as the default first stop for normal edits on an existing live Mod
 
 Stay on this route when the request is "change one part of an existing page" rather than "rebuild the whole page".
 
+## URL-derived start uid
+
+When the user gives a NocoBase admin URL for a precise edit on an existing page, popup, or form, derive only the start uid from the URL before the first read:
+
+- if the URL contains one or more `view/<uid>` segments, the last `view/<uid>` wins
+- if the URL has no `view/<uid>`, fallback to the `admin/<pageSchemaUid>` segment and read it with page-level `get --page-schema-uid`
+- this derived uid is only the start uid for the first `flow-surfaces get` or live readback, not the final content uid
+- after choosing the start uid, continue the normal live expansion through popup / template / content routing
+- do not stop early on an outer `details`, `table`, or action host just because that tree is the first one you read
+
 ## Common-case flow
 
-1. Read the current surface first with `nocobase-ctl flow-surfaces get`.
+1. Resolve the start target first from an admin URL or explicit uid, then read that surface with `nb api flow-surfaces get`.
 2. Use `describe-surface` only when the richer public tree really helps.
 3. Use `catalog` only when capability uncertainty is the blocker.
 4. Choose the smallest write family that matches the intent: `compose`, `add-*`, `configure`, `update-settings`, `move-*`, or `remove-*`.
 5. Keep common public keys inline when possible: `title`, `label`, `required`, `displayTitle`, simple button `type`, and similar semantic `settings` do not need a deep settings pass first.
-6. For popup-capable localized writes, split opener-local config from popup-owned content: `clickToOpen`, outer `openView`, title, size, and mode stay on the opener; popup inner blocks/layout/template routing follow [popup.md](./popup.md) and [templates.md](./templates.md).
-7. When no explicit `popup.template` is present on `compose` / `add-field` / `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback. If the first local popup should immediately become reusable, switch to `popup.saveAsTemplate={ name, description }` with explicit local `popup.blocks`.
-8. Do not preemptively duplicate API-completed defaults. For localized writes, `table` / `list` / `gridCard` may auto-merge `filter` + `addNew` + `refresh`, and `details` may auto-merge `edit`; after the write, read back the persisted actions, popup/template binding, and click/open behavior before planning follow-up edits.
-9. When localized work must create a `createForm`, `editForm`, `details`, or `filterForm` with a controlled inner field grid, prefer `compose` plus block-level `fieldsLayout`. It must place every keyed field exactly once, and each object cell `span` must be numeric. `addBlock` does not accept `fieldsLayout`; use it only to create the shell, then continue with lower-level field/layout writes if needed.
-10. Open [tool-shapes.md](./tool-shapes.md) only when you are ready to form the exact CLI body or MCP fallback envelope.
+6. Use `set-layout` only for explicit whole-layout replacement after full live readback. For low-level `set-layout`, `rows` is `Record<string, string[][]>`, each row entry is one column cell of stacked live child `uid`s, `[[uidA], [uidB]]` means two same-row columns, `[[uidA, uidB]]` means one stacked column, and `sizes` is `Record<string, number[]>`. Do not reuse page/popup `{ rows: [[{ key, span }]] }` layout or block `key`s here.
+7. For popup-capable localized writes, split opener-local config from popup-owned content: `clickToOpen`, outer `openView`, title, size, and mode stay on the opener; popup inner blocks/layout/template routing follow [popup.md](./popup.md) and [templates.md](./templates.md).
+8. When no explicit `popup.template` is present on `compose` / `add-field` / `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback. If the first local popup should immediately become reusable, keep `popup.saveAsTemplate={ name, description }` alongside that path: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
+9. For localized creates, after the write, read back the persisted actions, popup/template binding, and click/open behavior before planning follow-up edits.
+10. When the request says “给表格 / 列表 / Grid / gridCard / 日历 / calendar 增加筛选”, or explicitly adds search to a table / list / Grid / gridCard / calendar / card-like host, including “支持搜索 / 带搜索 / 可搜索 / searchable”, and does not explicitly mention a filter/search block or form, default to that existing data block's `filter` action. Do not create a `filterForm` shell unless the user explicitly asks for one. If the localized write creates a new public `table` / `list` / `gridCard` / `calendar` block through `compose`, `add-block`, or `add-blocks`, that block must carry a non-empty top-level `defaultFilter`; do not downgrade it into `settings.defaultFilter`. If both block-level `defaultFilter` and action-level `settings.defaultFilter` exist, the action-level one wins. Page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户” should not take this path by default, even if the same sentence also says “支持搜索”.
+11. When localized work must create a `createForm`, `editForm`, `details`, or `filterForm` with a controlled inner field grid, prefer `compose` plus block-level `fieldsLayout`. It must place every keyed field exactly once, and each object cell `span` must be numeric. `addBlock` does not accept `fieldsLayout`; use it only to create the shell, then continue with lower-level field/layout writes if needed.
+12. Open [tool-shapes.md](./tool-shapes.md) only when you are ready to form the exact nb body or nb helper envelope.
 
 ## Minimal routing table
 
 | Intent | Default path |
 | --- | --- |
 | add/update content under an existing surface | `compose` / `add-*` / `configure` / `update-settings` |
+| replace one existing full grid layout | `set-layout` |
 | replace existing event flow | `set-event-flows` |
 | reorder/remove tabs or popup tabs | `move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
 | reorder/remove nodes | `move-node` / `remove-node` |

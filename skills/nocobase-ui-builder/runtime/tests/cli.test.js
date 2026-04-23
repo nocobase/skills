@@ -53,6 +53,69 @@ test('validate command accepts stdin json payload', async () => {
   assert.equal('preview' in payload, false);
 });
 
+test('validate command accepts stdin json payload with regex quote literals before ctx.render', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      model: 'JSBlockModel',
+      surface: 'js-model.render',
+      code: `
+        const escapeHtml = (value) => String(value)
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+        ctx.render(escapeHtml('Alice'));
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.usedContextPaths.includes('render'));
+  assert.equal(payload.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'), false);
+});
+
+test('validate command does not emit a runtime warning for React render output', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      model: 'JSColumnModel',
+      surface: 'js-model.render',
+      code: `
+        ctx.render(<span>{ctx.record?.nickname}</span>);
+      `,
+      context: {
+        record: { nickname: 'Alice' },
+      },
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.usedContextPaths.includes('record.nickname'));
+  assert.equal(payload.runtimeIssues.some((issue) => issue.ruleId === 'react-unsupported'), false);
+});
+
 test('validate command rejects strict render snippets without explicit ctx.render', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
@@ -76,7 +139,213 @@ test('validate command rejects strict render snippets without explicit ctx.rende
   assert.equal(exitCode, 1);
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
-  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'));
+  assert.ok(
+    payload.policyIssues.some((issue) =>
+      ['missing-required-ctx-render', 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'].includes(issue.ruleId),
+    ),
+  );
+});
+
+test('validate command accepts value-return surface without render-model ctx.render requirement', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'reaction.value-runjs',
+      code: "return String(ctx.formValues?.nickname || '').trim();",
+      context: {
+        formValues: { nickname: 'Alice' },
+      },
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.surface, 'reaction.value-runjs');
+  assert.equal(payload.model, 'JSEditableFieldModel');
+  assert.equal(payload.execution.returnValue, 'Alice');
+});
+
+test('validate command accepts event-flow surface with the shared fallback action model', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'event-flow.execute-javascript',
+      code: `
+        const tempResource = ctx.makeResource('MultiRecordResource');
+        tempResource.setResourceName('tasks');
+        tempResource.setPage(3);
+        await tempResource.refresh();
+        ctx.message.success('ok');
+        return {
+          recordId: ctx.record?.id ?? null,
+          collectionName: tempResource.collectionName,
+          metaPage: tempResource.getMeta?.()?.page ?? null,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.model, 'JSActionModel');
+  assert.equal(payload.execution.returnValue.recordId, 1);
+  assert.equal(payload.execution.returnValue.collectionName, 'tasks');
+  assert.equal(payload.execution.returnValue.metaPage, 3);
+});
+
+test('validate command preserves RunJS guard warnings after canonicalizing resource reads', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'event-flow.execute-javascript',
+      code: `
+        const response = await ctx.request({
+          url: 'tasks:list',
+          params: {
+            pageSize: 7,
+          },
+        });
+        return {
+          rows: Array.isArray(response?.data?.data) ? response.data.data.length : 0,
+          pageSize: response?.data?.meta?.pageSize ?? null,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+  assert.deepEqual(payload.execution.returnValue, {
+    rows: 0,
+    pageSize: 7,
+  });
+  assert.equal(payload.execution.runjsInspection.warningCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.autoRewriteCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.hasAutoRewrite, true);
+});
+
+test('validate command canonicalizes string-form single-record resource reads', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'event-flow.execute-javascript',
+      code: `
+        const target = 'tasks:get';
+        const response = await ctx.request(target, {
+          params: {
+            filterByTk: 12,
+          },
+        });
+        return {
+          id: response?.data?.data?.id ?? null,
+          title: response?.data?.data?.title ?? null,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+  assert.deepEqual(payload.execution.returnValue, {
+    id: 12,
+    title: 'Sample task',
+  });
+  assert.equal(payload.execution.runjsInspection.warningCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.autoRewriteCount > 0, true);
+});
+
+test('validate command blocks value-return surface without top-level return', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'reaction.value-runjs',
+      code: "const value = String(ctx.formValues?.nickname || '').trim();",
+      context: {
+        formValues: { nickname: 'Alice' },
+      },
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 1);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED'));
+  assert.equal(payload.execution.executed, false);
+  assert.equal(payload.execution.runjsInspection.blockerCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.warningCount, 0);
+});
+
+test('validate command blocks js-model action surface when host model is missing', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'js-model.action',
+      code: "ctx.message.success('ok');",
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 1);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_UNKNOWN_MODEL_USE'));
 });
 
 test('validate command blocks live network in skill mode', async () => {
@@ -172,6 +441,61 @@ test('batch command resolves task file paths relative to the input file and keep
   assert.equal(payload.results[0].id, 'block-validate');
   assert.equal(payload.results[0].execution.executed, true);
   assert.equal('preview' in payload.results[0], false);
+});
+
+test('batch command returns a stable JSON error when --input is missing its value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runCli(['batch', '--input'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.deepEqual(JSON.parse(stderr.read()), {
+    ok: false,
+    error: 'Missing value for --input.',
+    usage: {
+      commands: {
+        validate:
+          'Validate one trusted snippet. Required: ((--model <model> | --surface <surface>) --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode --timeout <ms> --version <version>.',
+        batch: 'Run multiple validate tasks from one JSON file. Required: --input <path>. Optional: --skill-mode.',
+      },
+    },
+  });
+});
+
+test('validate command returns a stable JSON error when --model is missing its value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runCli(['validate', '--model', '--code-file', 'snippet.js'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.match(JSON.parse(stderr.read()).error, /Missing value for --model\./);
+});
+
+test('validate command returns a stable JSON error when --code-file is missing its value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runCli(['validate', '--model', 'JSBlockModel', '--code-file'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.match(JSON.parse(stderr.read()).error, /Missing value for --code-file\./);
 });
 
 test('batch command applies --skill-mode to tasks and counts blocked results', async () => {

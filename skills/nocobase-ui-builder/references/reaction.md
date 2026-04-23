@@ -8,9 +8,9 @@ Use this file for interaction logic:
 - block show / hide
 - action visible / enabled / disabled
 
-Canonical front door is `nocobase-ctl flow-surfaces`. Use CLI `--help` to confirm the current subcommand surface, then return here for the payload rules. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
+Canonical front door is `nb api flow-surfaces`. Use `nb --help` to confirm the current subcommand surface, then return here for the payload rules. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
 
-For localized CLI writes, pass the raw business object through `--body` / `--body-file`. Only in MCP fallback should that same object be wrapped under `requestBody`.
+For localized nb writes, pass the raw business object through `--body` / `--body-file`. Do not wrap that object again.
 
 ## 1. Quick Route
 
@@ -18,28 +18,29 @@ For localized CLI writes, pass the raw business object through `--body` / `--bod
 
 If the interaction logic belongs to the page you are building now:
 
-- use `nocobase-ctl flow-surfaces apply-blueprint`
+- use `nb api flow-surfaces apply-blueprint`
 - write reactions in top-level `reaction.items[]`
 - each item accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
 - target blocks/actions by stable same-run keys or public paths
 - keep structure, popup, and reaction in one blueprint when possible
-- do not switch to a separate live reaction phase unless a verified public whole-page contract gap forces it
+- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of switching to a separate live reaction phase during those pre-success retries; after 5 failed rounds, report the latest blueprint / preview / error evidence
+- after one successful whole-page `applyBlueprint`, use a separate live reaction phase only for an explicit residual local/live gap, and keep that repair narrowly scoped
 
 ### Localized edit on an existing live page
 
 If the page already exists:
 
-1. run `nocobase-ctl flow-surfaces get-reaction-meta`
+1. run `nb api flow-surfaces get-reaction-meta`
 2. choose the capability by `kind`
 3. reuse its `fingerprint`
-4. call the matching `nocobase-ctl flow-surfaces set-*`
+4. call the matching `nb api flow-surfaces set-*`
 
 Do not lock the target before step 1. The chosen target must expose the source path needed by the rule in the returned scene/capability. If it does not, move the target or restructure the page/popup first.
 
 ### Discovery priority
 
 - first choice: `get-reaction-meta`
-- second choice: `flow_surfaces_context` only when you still need raw `ctx.*` paths
+- second choice: `flow-surfaces context` only when you still need raw `ctx.*` paths
 
 ## 2. Decision Guide
 
@@ -133,6 +134,8 @@ Localized write:
 
 Use `fieldLinkage` when the intent is “when A/B changes, recompute C/D”.
 
+When the `value` payload uses RunJS, route the example choice first through [js-surfaces/value-return.md](./js-surfaces/value-return.md). When the action itself is `Execute JavaScript`, route first through [js-surfaces/linkage.md](./js-surfaces/linkage.md).
+
 - simple copy -> `source: "path"`
 - formulas or branching -> `source: "runjs"`
 - keep one business intent in one rule
@@ -213,7 +216,7 @@ When a form-value-driven helper/reference area must stay scoped to a create/edit
 Verified CLI shape:
 
 ```bash
-nocobase-ctl flow-surfaces add-field -e <env> -j \
+nb api flow-surfaces add-field -e <env> -j \
   --target '{"uid":"users-create-form-uid"}' \
   --type jsItem \
   --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}'
@@ -255,15 +258,15 @@ Use `actionLinkage` when the target is an action:
 Concrete record-delete guard path:
 
 ```bash
-nocobase-ctl flow-surfaces add-record-action -e <env> -j \
+nb api flow-surfaces add-record-action -e <env> -j \
   --target '{"uid":"roles-table-uid"}' \
   --type delete \
   --settings '{"title":"删除"}'
 
-nocobase-ctl flow-surfaces get-reaction-meta -e <env> -j \
+nb api flow-surfaces get-reaction-meta -e <env> -j \
   --target '{"uid":"delete-action-uid"}'
 
-nocobase-ctl flow-surfaces set-action-linkage-rules -e <env> -j \
+nb api flow-surfaces set-action-linkage-rules -e <env> -j \
   --target '{"uid":"delete-action-uid"}' \
   --expected-fingerprint "<fingerprint>" \
   --rules '[{"key":"disableProtectedRoleDelete","title":"Disable protected roles","when":{"logic":"$or","items":[{"path":"record.name","operator":"$eq","value":"root"},{"path":"record.name","operator":"$eq","value":"admin"},{"path":"record.name","operator":"$eq","value":"administrator"},{"path":"record.name","operator":"$eq","value":"member"}]},"then":[{"type":"setActionState","state":"disabled"}]}]'
@@ -274,15 +277,15 @@ Check `conditionMeta.operatorsByPath` first. Record-scoped delete actions should
 Concrete submit guard path:
 
 ```bash
-nocobase-ctl flow-surfaces add-action -e <env> -j \
+nb api flow-surfaces add-action -e <env> -j \
   --target '{"uid":"users-create-form-uid"}' \
   --type submit \
   --settings '{"title":"提交"}'
 
-nocobase-ctl flow-surfaces get-reaction-meta -e <env> -j \
+nb api flow-surfaces get-reaction-meta -e <env> -j \
   --target '{"uid":"submit-action-uid"}'
 
-nocobase-ctl flow-surfaces set-action-linkage-rules -e <env> -j \
+nb api flow-surfaces set-action-linkage-rules -e <env> -j \
   --target '{"uid":"submit-action-uid"}' \
   --expected-fingerprint "<fingerprint>" \
   --rules '[{"key":"disableSubmitUntilReady","title":"Disable submit until key fields ready","when":{"logic":"$or","items":[{"path":"formValues.username","operator":"$empty"},{"path":"formValues.roles","operator":"$eq","value":null}]},"then":[{"type":"setActionState","state":"disabled"}]}]'
@@ -305,7 +308,7 @@ For details or `subForm` linkage:
 - If a visibility/enabled-state rule depends on form values, prefer a sibling block/action in the same page or popup scene. Do not assume a nested popup-local block can read a form path unless `get-reaction-meta` proves it.
 - If a create/edit form scene does not expose `blocks`, do not force a helper/reference area into a standalone block just because the business wording says "area". Reshape it into a form-scoped helper item first.
 - For action guards, do not guess the action target from wording alone. Confirm the live action target first, then write `setActionLinkageRules` with its returned `fingerprint`.
-- Use `flow_surfaces_context` only when `get-reaction-meta` is insufficient.
+- Use `flow-surfaces context` only when `get-reaction-meta` is insufficient.
 - For RunJS values, validate through the skill's JS path instead of inventing ad-hoc code shapes.
 
 ## 6. When Not To Use Reaction

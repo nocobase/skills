@@ -13,9 +13,6 @@ const BROWSER_EXECUTABLE_CANDIDATES = [
 ];
 const NON_BLOCKING_RUNTIME_PATTERNS = [
   /^Warning: \[antd:/,
-  /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/,
-  /^Failed to load resource: the server responded with a status of 401 \(Unauthorized\)$/,
-  /^AxiosError$/,
   /^Critical dependency:/,
   /^Should not import the named export/,
   /^quill Overwriting/,
@@ -26,6 +23,9 @@ const NON_BLOCKING_RUNTIME_PATTERNS = [
   /^Error calling global variable function for key: \$env /,
 ];
 const BLOCKING_RUNTIME_PATTERNS = [
+  /^Failed to load resource: the server responded with a status of 401 \(Unauthorized\)$/,
+  /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/,
+  /\bAxiosError\b/,
   /ReferenceError:/,
   /TypeError:/,
   /Unhandled Rejection/i,
@@ -37,7 +37,7 @@ const scriptRequire = createRequire(import.meta.url);
 function usage() {
   return [
     'Usage:',
-    '  node scripts/validation_browser_smoke.mjs run-suite --suite-summary-file <path> [--out-dir <dir>] [--admin-base <url>]',
+    '  node scripts/validation_browser_smoke.mjs run-suite --suite-summary-file <path> [--out-dir <dir>] [--admin-base <url>] [--admin-username <value>] [--admin-password <value>]',
   ].join('\n');
 }
 
@@ -82,6 +82,16 @@ function normalizeOptionalText(value) {
 export function resolveRequiredAdminBase(flags = {}, env = process.env) {
   const resolvedAdminBase = normalizeOptionalText(flags?.['admin-base']) || normalizeOptionalText(env?.NOCOBASE_ADMIN_BASE) || undefined;
   return normalizeRequiredText(resolvedAdminBase, 'admin base');
+}
+
+export function resolveAdminCredentials(flags = {}, env = process.env) {
+  const username = normalizeOptionalText(flags?.['admin-username']) || normalizeOptionalText(env?.NOCOBASE_ADMIN_USERNAME);
+  const password = normalizeOptionalText(flags?.['admin-password']) || normalizeOptionalText(env?.NOCOBASE_ADMIN_PASSWORD);
+  return {
+    username,
+    password,
+    provided: Boolean(username && password),
+  };
 }
 
 function buildCwdRequire(cwd) {
@@ -165,7 +175,7 @@ function isNonBlockingRuntimeMessage(message) {
   return NON_BLOCKING_RUNTIME_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-function isBlockingRuntimeMessage(message) {
+export function isBlockingRuntimeMessage(message) {
   const text = typeof message === 'string' ? message.trim() : '';
   if (!text || isNonBlockingRuntimeMessage(text)) {
     return false;
@@ -261,15 +271,22 @@ async function clickByText(page, text) {
   return false;
 }
 
-async function ensureSignedIn(page, adminBase) {
+export async function ensureSignedIn(page, adminBase, credentials = {}) {
   const signinUrl = `${adminBase.replace(/\/+$/, '')}/signin`;
   await page.goto(signinUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
   if (!page.url().includes('/signin')) {
     return;
   }
-  await page.getByPlaceholder('Username/Email').fill('admin@nocobase.com');
-  await page.getByPlaceholder('Password').fill('admin123');
+  const username = normalizeOptionalText(credentials.username);
+  const password = normalizeOptionalText(credentials.password);
+  if (!username || !password) {
+    throw new Error(
+      'Browser smoke reached /signin but no admin credentials were provided. Set NOCOBASE_ADMIN_USERNAME and NOCOBASE_ADMIN_PASSWORD or pass --admin-username/--admin-password.',
+    );
+  }
+  await page.getByPlaceholder('Username/Email').fill(username);
+  await page.getByPlaceholder('Password').fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
   await page.waitForURL((url) => !url.pathname.includes('/signin'), { timeout: 20000 });
   await delay(1000);
@@ -564,6 +581,7 @@ async function runSuite(flags) {
   const suiteSummary = readJson(suiteSummaryFile);
   const outDir = path.resolve(normalizeOptionalText(flags['out-dir']) || path.join(path.dirname(suiteSummaryFile), 'browser-smoke'));
   const adminBase = resolveRequiredAdminBase(flags);
+  const credentials = resolveAdminCredentials(flags);
   ensureDir(outDir);
 
   const executablePath = resolveBrowserExecutablePath();
@@ -576,7 +594,7 @@ async function runSuite(flags) {
   const page = await context.newPage();
 
   try {
-    await ensureSignedIn(page, adminBase);
+    await ensureSignedIn(page, adminBase, credentials);
     const caseResults = [];
     for (const caseEntry of Array.isArray(suiteSummary.cases) ? suiteSummary.cases : []) {
       caseResults.push(await runCase(page, caseEntry, outDir));

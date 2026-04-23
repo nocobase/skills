@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const DEFAULT_SKILL_ROOT = path.resolve(__dirname, '..');
-export const ROOT_INDEX_MIRROR_DIRS = ['blocks', 'js-models'];
+export const ROOT_INDEX_MIRROR_DIRS = ['blocks', 'js-models', 'js-surfaces', 'js-snippets'];
 
 function createContext(skillRootInput = DEFAULT_SKILL_ROOT) {
   const skillRoot = path.resolve(skillRootInput);
@@ -130,10 +130,13 @@ function checkLineBudgets(context, failures) {
     'references/chart-core.md',
     'references/normative-contract.md',
     'references/page-blueprint.md',
+    'references/popup.md',
+    'references/reaction-quick.md',
     'references/reaction.md',
     'references/settings.md',
     'references/templates.md',
     'references/tool-shapes.md',
+    'references/whole-page-recipes.md',
   ]);
 
   for (const filePath of collectMarkdownFiles(context)) {
