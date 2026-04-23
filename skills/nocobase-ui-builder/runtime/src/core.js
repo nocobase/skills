@@ -2,7 +2,7 @@ import vm from 'node:vm';
 import { analyzeContextUsage, compileUserCode, createBareCompatAccessIssue } from './analysis.js';
 import { DEFAULT_TIMEOUT_MS, VALIDATOR_TYPE } from './constants.js';
 import { createRuntimeEnvironment, normalizeRuntimeError } from './context.js';
-import { describeProfile, findProfile } from './profiles.js';
+import { applySurfaceProfile, describeProfile, findProfile } from './profiles.js';
 import { sortIssues, toSerializable } from './utils.js';
 
 function buildWrappedCode(code) {
@@ -70,6 +70,7 @@ function createBaseResult({
     validatorType: VALIDATOR_TYPE,
     compatProfileVersion: described?.compatProfileVersion,
     model: described?.model || String(task.model || ''),
+    ...(task.surface ? { surface: task.surface } : {}),
     version: task.version || 'compat',
     ok: !hasError(syntaxIssues) && !hasError(contextIssues) && !hasError(policyIssues) && !hasError(runtimeIssues),
     syntaxIssues,
@@ -81,6 +82,7 @@ function createBaseResult({
     execution: {
       mode: 'validate',
       model: described?.model || String(task.model || ''),
+      ...(task.surface ? { surface: task.surface } : {}),
       executed: false,
       ...execution,
     },
@@ -91,7 +93,8 @@ function createBaseResult({
 }
 
 export async function executeTaskLocal(task) {
-  const profile = findProfile(task.model);
+  const baseProfile = findProfile(task.model);
+  const profile = baseProfile ? applySurfaceProfile(baseProfile, task.surface) : null;
   const executionMetadata = {
     skillMode: Boolean(task.skillMode),
     networkMode: task?.network?.mode === 'live' ? 'live' : 'mock',

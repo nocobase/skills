@@ -1,33 +1,19 @@
 ---
 name: nocobase-workflow-manage
-description: Use when users need to inspect, create, revise, enable, or diagnose NocoBase workflows through the CLI or MCP, including trigger selection, node-chain changes, version safety checks, execution troubleshooting, and approval-bound workflow UI surfaces.
+description: Use when users need to inspect, create, revise, enable, or diagnose NocoBase workflows through the `nb` CLI, including trigger selection, node-chain changes, version safety checks, and execution troubleshooting.
 argument-hint: "[action: inspect|create|update|enable|diagnose|delete-node|delete-branch|build-approval-ui] [target: workflow|node|execution|approval-surface] [workflow-id|workflow-key|node-id|title] [options]"
-allowed-tools: "shell, Read(local skill references only), MCP(workflows:list|get|create|update|revision|execute, workflows/<workflowId>/nodes:create, flow_nodes:get|update|destroy|destroyBranch|move|duplicate|test, executions:list|get, jobs:get, flowSurfaces:get|catalog|applyApprovalBlueprint|addBlock|addField|addAction|compose|configure|setLayout)"
+allowed-tools: "shell, Read(local skill references only), nb(workflows:list|get|create|update|revision|execute, workflows/<workflowId>/nodes:create, flow_nodes:get|update|destroy|destroyBranch|move|duplicate|test, executions:list|get, jobs:get, flowSurfaces:get|catalog|applyApprovalBlueprint|addBlock|addField|addAction|compose|configure|setLayout)"
 ---
 
 # Goal
 
-Use the available NocoBase workflow management surface to orchestrate workflows end-to-end: design trigger logic, build node chains, manage versions, and inspect execution results.
+Use the `nb api workflow` command surface to orchestrate workflows end-to-end: design trigger logic, build node chains, manage versions, and inspect execution results.
 
-This skill also covers approval initiator, approver, and task-card surfaces that are bound to workflow or approval-node config.
+CLI usage rules:
 
-Prefer the transport in this order:
-
-- the `nocobase-ctl` CLI whenever it is available
-- MCP only when the CLI is unavailable and the current session is already connected through MCP with the needed operation exposed there
-- another equivalent transport only when neither CLI nor MCP is available
-
-Do not make the skill depend on one executable name. Treat CLI command names, MCP tool names, and equivalent wrappers as transport details around the same workflow operations.
-
-Transport-selection rules:
-
-1. Check whether the `nocobase-ctl` CLI is available in the current environment.
-2. If it is available, use the CLI.
-3. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI instead of switching to MCP.
-4. Only fall back to MCP or another transport when the CLI itself is unavailable.
-5. Before using a `nocobase-ctl` CLI command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples.
-6. If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
-7. If MCP tools return authentication errors such as `Auth required`, stop and ask the user to complete MCP authentication or refresh the MCP connection before continuing.
+1. Use `nb api workflow` as the canonical command namespace for workflow operations.
+2. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI before continuing.
+3. Before using an `nb api workflow` subcommand you have not used yet in the current task, run its `-h` once and follow the generated help text for flags and examples.
 
 # Scope
 
@@ -40,11 +26,11 @@ Transport-selection rules:
 
 # Non-Goals
 
-- Do not handle MCP installation, login, or token recovery. Hand off to `nocobase-mcp-setup`.
+- Do not handle `nb` installation or login bootstrap in this skill.
 - Do not design data models, collections, or field schemas from scratch. Hand off to `nocobase-data-modeling`.
 - Do not handle ordinary Modern page, tab, popup, or route-backed surface authoring. Hand off to `nocobase-ui-builder`.
 - Do not invent filter syntax, evaluator functions, node types, trigger types, collection names, field names, or node keys.
-- Do not bypass workflow-specific CLI or MCP interfaces with generic CRUD or local source edits.
+- Do not bypass workflow-specific CLI interfaces with generic CRUD or local source edits.
 - Do not delete whole workflows in this skill. If a user explicitly wants workflow deletion, stop and request a separately reviewed path.
 - Do not treat approval schema wiring as part of this skill's v1 approval UI flow.
 
@@ -52,11 +38,9 @@ Transport-selection rules:
 
 ## Environment and Tooling
 
-1. CLI or MCP must be available and authenticated to perform workflow operations.
-   - If `nocobase-ctl` CLI is available, that should be the chosen transport.
-   - Stop and ask the user to fix auth when the chosen transport returns `401`, `403`, `Auth required`, or equivalent access errors.
-   - If the chosen transport is `nocobase-ctl` CLI, guide the user to restore CLI authentication rather than switching transports.
-2. Before using a `nocobase-ctl` CLI workflow command you have not used yet in the current task, run `nocobase-ctl workflow workflows --help`, `nocobase-ctl workflow flow-nodes --help`, or the matching `nocobase-ctl workflow <topic> <subcommand> --help` once and follow the generated help text.
+1. `nb` CLI must be available and authenticated to perform workflow operations.
+   - Stop and ask the user to fix auth when the CLI returns `401`, `403`, `Auth required`, or equivalent access errors.
+2. Before using an `nb api workflow` command you have not used yet in the current task, run `nb api workflow workflows -h`, `nb api workflow flow-nodes -h`, or the matching `nb api workflow <topic> <subcommand> -h` once and follow the generated help text.
 3. When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md).
 4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`.
    - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](#collection-resolution-gate) whenever a workflow trigger or node configuration depends on `collection`.
@@ -69,7 +53,7 @@ Transport-selection rules:
   - If the intended action path is at least `70%` confident and the remaining uncertainty is in fields that can be safely revised after creation, proceed without asking. For example, nodes in editable (or new) workflow could always be updated (or moved/deleted) later, so if the only uncertainty is about node config details, proceed with the best guess and verify after mutation. Even more, newly created workflow will be in `enabled: false` state by default, so trigger config can be updated and nodes can be added/edited/moved/deleted freely until the user explicitly enables it, which means most uncertainties in a new workflow can be safely resolved after creation without blocking on questions.
   - Ask the user only when the unresolved choice affects a create-time commitment or another field that should not be guessed, or when the action is destructive/high-risk.
 - Mutation preconditions:
-  - CLI or MCP is reachable and authenticated.
+  - CLI is reachable and authenticated.
   - The requested action is confirmed.
   - The target workflow is uniquely resolved for non-create actions.
   - For `create`, the trigger type and initial node chain are confirmed.
@@ -91,46 +75,50 @@ When a requested workflow depends on `collection` and the correct existing colle
 
 # Final Command Surface
 
-Use only this final workflow operation surface. When the transport is CLI-based, discover exact flags from `--help` instead of keeping large command-shape reminders in context:
+Use only this final workflow operation surface. Discover exact flags from `-h` instead of keeping large command-shape reminders in context:
 
-- Inspect workflows: `workflow workflows list`
-- Inspect one workflow (with nodes and version stats): `workflow workflows get`
-- Create a workflow: `workflow workflows create`
-- Update a workflow: `workflow workflows update`
-- Create a new revision: `workflow workflows revision`
-- Execute a workflow manually: `workflow workflows execute`
-- Create a node under a workflow: `workflow workflows nodes create`
-- Inspect one node: `workflow flow-nodes get`
-- Update a node configuration: `workflow flow-nodes update`
-- Delete a node: `workflow flow-nodes destroy`
-- Delete a branch: `workflow flow-nodes destroy-branch`
-- Move a node: `workflow flow-nodes move`
-- Duplicate a node: `workflow flow-nodes duplicate`
-- Test a node: `workflow flow-nodes test`
-- List executions: `workflow executions list`
-- Inspect one execution (with jobs): `workflow executions get`
-- Inspect a node job: `workflow jobs get`
+- Inspect workflows: `nb api workflow workflows list`
+- Inspect one workflow (with nodes and version stats): `nb api workflow workflows get`
+- Create a workflow: `nb api workflow workflows create`
+- Update a workflow: `nb api workflow workflows update`
+- Delete workflows: `nb api workflow workflows destroy`
+- Create a new revision: `nb api workflow workflows revision`
+- Re-register triggers: `nb api workflow workflows sync`
+- Execute a workflow manually: `nb api workflow workflows execute`
+- Create a node under a workflow: `nb api workflow workflows nodes create`
+- Inspect one node: `nb api workflow flow-nodes get`
+- Update a node configuration: `nb api workflow flow-nodes update`
+- Delete a node: `nb api workflow flow-nodes destroy`
+- Delete a branch: `nb api workflow flow-nodes destroy-branch`
+- Move a node: `nb api workflow flow-nodes move`
+- Duplicate a node: `nb api workflow flow-nodes duplicate`
+- Test a node: `nb api workflow flow-nodes test`
+- List executions: `nb api workflow executions list`
+- Inspect one execution (with jobs): `nb api workflow executions get`
+- Inspect a node job: `nb api workflow jobs get`
+- List node jobs: `nb api workflow jobs list`
+- Resume a waiting job: `nb api workflow jobs resume`
 - Inspect an approval surface: `flowSurfaces get`
 - Discover approval capabilities: `flowSurfaces catalog`
 - Bootstrap or replace an approval surface: `flowSurfaces applyApprovalBlueprint`
 - Localized approval edits: `flowSurfaces addBlock`, `flowSurfaces addField`, `flowSurfaces addAction`, `flowSurfaces compose`, `flowSurfaces configure`, `flowSurfaces setLayout`
 
-When the transport is CLI-based, prefer learning exact flags from help:
+Prefer learning exact flags from help:
 
 ```
-nocobase-ctl workflow -h
-nocobase-ctl workflow workflows -h
-nocobase-ctl workflow workflows list -h
-nocobase-ctl workflow workflows create -h
-nocobase-ctl workflow workflows nodes create -h
-nocobase-ctl workflow flow-nodes -h
-nocobase-ctl workflow executions -h
-nocobase-ctl workflow jobs -h
+nb api workflow -h
+nb api workflow workflows -h
+nb api workflow workflows list -h
+nb api workflow workflows create -h
+nb api workflow workflows nodes create -h
+nb api workflow flow-nodes -h
+nb api workflow executions -h
+nb api workflow jobs -h
 ```
 
 Use [Workflow CLI index](references/cli/index.md) as the stable CLI family map and parameter guide.
 
-When the transport is MCP or HTTP API, consult [Workflow HTTP API index](references/http-api/index.md) for the exact endpoint and parameter shapes.
+Consult [Workflow HTTP API index](references/http-api/index.md) only when you need the exact underlying endpoint and parameter shapes.
 
 # Approval UI Entry
 
@@ -146,8 +134,8 @@ When the transport is MCP or HTTP API, consult [Workflow HTTP API index](referen
 # Hard Rules
 
 1. **Never create a workflow with `enabled: true`** — always create with `enabled: false`, complete all trigger and node configuration, then enable.
-2. **Never edit a frozen version directly** — if `versionStats.executed > 0`, create a new revision first via `workflows:revision`. The `filter` parameter **must** include `{"key":"<key>"}` (the workflow's `key`) to ensure the new version belongs to the same workflow; omitting `key` will create an independent copy instead. Use the returned new `id` for all subsequent operations; discard the old `id`.
-3. **Never use an empty `filter`** — update and destroy nodes require `filter` with at least one condition. Confirm the filter is non-empty before calling the API.
+2. **Never edit a frozen version directly** — if `versionStats.executed > 0`, create a new revision first via `nb api workflow workflows revision`. The `filter` parameter **must** include `{"key":"<key>"}` (the workflow's `key`) to ensure the new version belongs to the same workflow; omitting `key` will create an independent copy instead. Use the returned new `id` for all subsequent operations; discard the old `id`.
+3. **Never omit the target identifier on destructive or mutating calls** — pass a concrete `--filter-by-tk` or a reviewed non-empty `--filter` before calling update, destroy, revision, move, duplicate, or branch-deletion APIs.
 4. **Always chain nodes via `upstreamId`** — every node (except the first) must reference its upstream node. Do not skip or leave `upstreamId` unset.
 5. **Never create nodes concurrently** — node creation calls must be executed one at a time, sequentially. Wait for the previous node to be fully created before creating the next one, because the server adjusts internal link relationships during each creation. Batch/parallel node creation is not supported.
 6. **Always wrap filter in `$and` or `$or`** — the root of any filter object must be a condition group. Full operator reference: [nocobase-utils / Filter Condition Format](../nocobase-utils/references/filter/index.md).
@@ -162,7 +150,7 @@ When the transport is MCP or HTTP API, consult [Workflow HTTP API index](referen
 
 ## Planning Phase
 
-Before making any CLI or API calls, clarify with the user:
+Before making any CLI calls, clarify with the user:
 1. **Trigger type** — what event starts the workflow? → see [Trigger Reference](references/triggers/index.md)
 2. **Node chain** — what processing steps are needed? → see [Node Reference](references/nodes/index.md)
 3. **Execution mode** — synchronous or async? See [workflow execution mode](references/modeling/workflows.md#execution-mode)
@@ -170,9 +158,9 @@ Before making any CLI or API calls, clarify with the user:
 
 If the workflow still depends on an unresolved `collection` after this clarification, follow the [Collection Resolution Gate](#collection-resolution-gate) before asking the user to decide.
 
-Summarize the complete plan in natural language and confirm with the user before making any CLI or API calls.
+Summarize the complete plan in natural language and confirm with the user before making any CLI calls.
 
-Then map the requested action to the corresponding operation in the [Final Command Surface](#final-command-surface) to understand which calls will be needed. Consult [Endpoint Reference](references/http-api/index.md) when using MCP or API fallback.
+Then map the requested action to the corresponding operation in the [Final Command Surface](#final-command-surface) to understand which calls will be needed. Consult [Endpoint Reference](references/http-api/index.md) only when the underlying API shape itself matters.
 
 For approval UI requests, first decide whether the task is:
 - first-time setup or whole-surface replacement
@@ -183,45 +171,44 @@ Then follow [Approval UI authoring index](references/ui-config/approval/index.md
 ## Creating a New Workflow
 
 0. **Resolve collection dependencies first** — follow the [Collection Resolution Gate](#collection-resolution-gate) before creating the workflow whenever any trigger or node config still has an unresolved `collection`.
-1. **Create workflow** — `workflow workflows create` with `type`, `title`, `sync`, `enabled: false`
-2. **Configure trigger** — `workflow workflows update` with `config`
-3. **Add nodes in order** — `workflow workflows nodes create` for each node, chaining via `upstreamId`; wait for each node to be fully created before creating the next
-4. **Configure each node** — `workflow flow-nodes update` with `config`
+1. **Create workflow** — `nb api workflow workflows create` with `type`, `title`, `sync`, `enabled: false`
+2. **Configure trigger** — `nb api workflow workflows update` with `config`
+3. **Add nodes in order** — `nb api workflow workflows nodes create` for each node, chaining via `upstreamId`; wait for each node to be fully created before creating the next
+4. **Configure each node** — `nb api workflow flow-nodes update` with `config`
 5. **Verify** — read back the workflow with nodes to confirm trigger config, node count, order, and each node's config are correct
-6. **Enable workflow** — confirm with the user, then `workflow workflows update` with `enabled: true`
-7. **Test / verify** — `workflow workflows execute` with `autoRevision=1`
+6. **Enable workflow** — confirm with the user, then `nb api workflow workflows update` with `enabled: true`
+7. **Test / verify** — `nb api workflow workflows execute` with `autoRevision=1`
 
 ## Editing an Existing Workflow
 
-1. **Fetch workflow with nodes and version stats** — `workflow workflows get` with `appends[]=nodes` and `appends[]=versionStats`
+1. **Fetch workflow with nodes and version stats** — `nb api workflow workflows get` with `appends[]=nodes` and `appends[]=versionStats`
 2. **Check if version is frozen** (`versionStats.executed > 0`)
-   - **Yes → create a new revision first**: `workflow workflows revision`
+   - **Yes → create a new revision first**: `nb api workflow workflows revision`
      The `key` parameter is the workflow's `key` field (obtained from the workflow record in step 1). It **must** be provided to create a revision of the same workflow. Omitting `key` creates an independent copy instead.
      Use the returned new `id` for all subsequent operations. Discard the old `id`.
    - **No → proceed directly**
 3. **Edit as needed**:
-   - Update trigger config → `workflow workflows update` with `config`
-   - Add node → `workflow workflows nodes create`
-   - Update node config → `workflow flow-nodes update`
-   - Delete node → `workflow flow-nodes destroy`
-   - Move node → `workflow flow-nodes move` with `upstreamId` and optional `branchIndex` (`upstreamId: null` moves to the front; `branchIndex: null` for main chain)
-   - Copy node → `workflow flow-nodes duplicate` with `upstreamId` and optional `branchIndex`
+    - Update trigger config → `nb api workflow workflows update` with `config`
+    - Add node → `nb api workflow workflows nodes create`
+    - Update node config → `nb api workflow flow-nodes update`
+    - Delete node → `nb api workflow flow-nodes destroy`
+    - Move node → `nb api workflow flow-nodes move` with `upstreamId` and optional `branchIndex` (`upstreamId: null` moves to the front; `branchIndex: null` for main chain)
+    - Copy node → `nb api workflow flow-nodes duplicate` with `upstreamId` and optional `branchIndex`
 4. **Verify** — read back modified nodes to confirm changes took effect
-5. **Enable (if needed)** — confirm with the user, then `workflow workflows update` with `enabled: true`
+5. **Enable (if needed)** — confirm with the user, then `nb api workflow workflows update` with `enabled: true`
 
 ## Diagnosing a Failed Execution
 
-1. **List executions** to find the failed one: `workflow executions list` filtered by `workflowId`, sorted by `-id`
-2. **Get execution detail** with jobs (exclude result to reduce size): `workflow executions get` with `appends[]=jobs`, `appends[]=workflow.nodes`, `except[]=jobs.result`
+1. **List executions** to find the failed one: `nb api workflow executions list` filtered by `workflowId`, sorted by `-id`
+2. **Get execution detail** with jobs (exclude result to reduce size): `nb api workflow executions get` with `appends[]=jobs`, `appends[]=workflow`, `appends[]=workflow.nodes`, `except[]=jobs.result`
 3. **Find the failed job** — look for `job.status` values of `-1` (FAILED), `-2` (ERROR), or `-3` (ABORTED)
-4. **Get full job detail** to see the error: `workflow jobs get` — inspect `result` for the error message or output that caused the failure
+4. **Get full job detail** to see the error: `nb api workflow jobs get` — inspect `result` for the error message or output that caused the failure
 5. Fix the issue (update node config or create a new revision if version is frozen), then re-execute.
 
 ## Error Handling
 
 - **API returns 400/422**: Read the error message carefully. Common causes: invalid node `type`, missing required config fields, referencing a non-existent `upstreamId`. Fix the parameter and retry.
-- **CLI returns auth error**: Stop all operations. Guide the user to restore CLI authentication. Do not switch to MCP.
-- **MCP returns 401/403**: Stop all operations. Ask the user to re-authenticate or refresh the MCP connection.
+- **CLI returns auth error**: Stop all operations. Guide the user to restore CLI authentication.
 - **Node creation fails**: Do not continue adding downstream nodes. Fix or remove the failed node first, then resume.
 - **Revision creation fails**: The original workflow may be in an inconsistent state. Re-fetch the workflow to verify its current state before retrying.
 
@@ -244,8 +231,8 @@ After completing any workflow operation, verify:
 - [Workflow architecture and data model](references/modeling/index.md): use when understanding the overall model structure, revision rules, status codes, or variable groups.
 - [Workflow data model - workflows](references/modeling/workflows.md): use when deciding sync mode, workflow field semantics, or workflow-level execution constraints.
 - [Workflow conventions](references/conventions/index.md): use when building `collection`, `filter`, `appends`, and variable expressions.
-- [Workflow CLI index](references/cli/index.md): use when running through `nocobase-ctl` — maps workflow tasks to canonical command families, argument placement, and body shapes.
-- [Workflow HTTP API index](references/http-api/index.md): use when using MCP or API fallback — maps operations to endpoints and parameter shapes.
+- [Workflow CLI index](references/cli/index.md): use when running through `nb api workflow` — maps workflow tasks to canonical command families, argument placement, and body shapes.
+- [Workflow HTTP API index](references/http-api/index.md): use when you need the underlying endpoint and parameter shapes.
 - [Workflow triggers](references/triggers/index.md): use when selecting the correct trigger type, then load the single matching trigger file.
 - [Workflow nodes](references/nodes/index.md): use when selecting node types, branching behavior, or node-specific config files.
 - [NocoBase filter condition format](../nocobase-utils/references/filter/index.md): use when writing workflow filters or trigger conditions.

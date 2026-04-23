@@ -5,9 +5,18 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 
 # JS Model 与 RunJS 索引
 
+这是 legacy leaf-doc 目录，不再是 JS / RunJS 的第一入口。
+
 ## 什么时候先读这里
 
-只要当前任务涉及以下任一内容，先读本目录，不要直接套普通 block/pattern 模板：
+只有在 authoring surface 已经明确后，才回到本目录确认精确 model 约束。先走：
+
+1. [../js.md](../js.md)
+2. [../js-surfaces/index.md](../js-surfaces/index.md)
+3. [../js-snippets/index.md](../js-snippets/index.md)
+4. 再按需要打开本目录的 leaf docs
+
+本目录主要覆盖以下精确 model 叶子规则：
 
 - `JSBlockModel`
 - `JSColumnModel`

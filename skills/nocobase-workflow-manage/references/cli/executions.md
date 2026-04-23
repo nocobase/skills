@@ -5,18 +5,18 @@ description: Parameter descriptions and CLI examples for listing, inspecting, ca
 
 # executions Resource CLI
 
-> Canonical front door: `nocobase-ctl workflow executions`.
+> Canonical front door: `nb api workflow executions`.
 >
-> Use live `--help` to confirm the exact generated flag surface in the current env, and use this file for stable parameter meanings and diagnostic patterns.
+> Use live `-h` output to confirm the exact flag surface, and use this file for stable parameter meanings and diagnostic patterns.
 
 ## Help-First Rule
 
 ```bash
-nocobase-ctl workflow executions -h
-nocobase-ctl workflow executions list -h
-nocobase-ctl workflow executions get -h
-nocobase-ctl workflow executions cancel -h
-nocobase-ctl workflow executions destroy -h
+nb api workflow executions -h
+nb api workflow executions list -h
+nb api workflow executions get -h
+nb api workflow executions cancel -h
+nb api workflow executions destroy -h
 ```
 
 ## Common Parameter Mapping
@@ -34,18 +34,20 @@ nocobase-ctl workflow executions destroy -h
 
 ## executions:list
 
-`nocobase-ctl workflow executions list`
+`nb api workflow executions list`
 
 List execution records. Usually filter by `workflowId` and sort by descending ID.
 
 | Parameter | CLI placement | Description |
 |---|---|---|
 | `filter` | `--filter '<json>'` | Filter conditions, for example `{"workflowId":1}` |
+| `appends[]` | `--appends <name>` | Optional associations such as `jobs` or `workflow` |
+| `except[]` | `--except <name>` | Exclude fields to reduce payload |
 | `sort` | `--sort <value>` | Sorting, for example `-id` |
 | `page` / `pageSize` | `--page <n>` / `--page-size <n>` | Pagination |
 
 ```bash
-nocobase-ctl workflow executions list \
+nb api workflow executions list \
   --filter '{"workflowId":1}' \
   --sort -id \
   --page 1 \
@@ -56,22 +58,23 @@ nocobase-ctl workflow executions list \
 
 ## executions:get
 
-`nocobase-ctl workflow executions get`
+`nb api workflow executions get`
 
-Get one execution record. When diagnosing failures, append `jobs` and `workflow.nodes`, and initially exclude `jobs.result` to reduce payload size.
+Get one execution record. When diagnosing failures, append `jobs`, `workflow`, and `workflow.nodes`, and initially exclude `jobs.result` to reduce payload size.
 
 | Parameter | CLI placement | Description |
 |---|---|---|
 | `filterByTk` | `--filter-by-tk <id>` | Execution ID |
-| `appends[]` | `--appends <name>` | Append associations such as `jobs`, `workflow`, or `workflow.nodes` |
+| `appends[]` | `--appends <name>` | Append associations such as `jobs`, `workflow`, `workflow.nodes`, or workflow stats |
 | `except[]` | `--except <name>` | Exclude fields such as `jobs.result` during first pass |
 
 Failure diagnosis read:
 
 ```bash
-nocobase-ctl workflow executions get \
+nb api workflow executions get \
   --filter-by-tk 10 \
   --appends jobs \
+  --appends workflow \
   --appends workflow.nodes \
   --except jobs.result
 ```
@@ -79,9 +82,10 @@ nocobase-ctl workflow executions get \
 Full result read:
 
 ```bash
-nocobase-ctl workflow executions get \
+nb api workflow executions get \
   --filter-by-tk 10 \
   --appends jobs \
+  --appends workflow \
   --appends workflow.nodes
 ```
 
@@ -89,7 +93,7 @@ nocobase-ctl workflow executions get \
 
 ## executions:cancel
 
-`nocobase-ctl workflow executions cancel`
+`nb api workflow executions cancel`
 
 Cancel a running execution record. Typically used only when the execution status is still `0`.
 
@@ -98,7 +102,7 @@ Cancel a running execution record. Typically used only when the execution status
 | `filterByTk` | `--filter-by-tk <id>` | Execution ID |
 
 ```bash
-nocobase-ctl workflow executions cancel --filter-by-tk 10
+nb api workflow executions cancel --filter-by-tk 10
 ```
 
 The execution status and pending jobs usually become `ABORTED (-3)`.
@@ -107,14 +111,24 @@ The execution status and pending jobs usually become `ABORTED (-3)`.
 
 ## executions:destroy
 
-`nocobase-ctl workflow executions destroy`
+`nb api workflow executions destroy`
 
-Delete an execution record. Running executions cannot be deleted before they are cancelled.
+Delete one or more execution records. Running executions cannot be deleted before they are cancelled.
 
 | Parameter | CLI placement | Description |
 |---|---|---|
 | `filterByTk` | `--filter-by-tk <id>` | Execution ID |
+| `filter` | `--filter '<json>'` | Optional batch-deletion filter |
+
+Delete one execution:
 
 ```bash
-nocobase-ctl workflow executions destroy --filter-by-tk 10
+nb api workflow executions destroy --filter-by-tk 10
+```
+
+Delete multiple finished executions:
+
+```bash
+nb api workflow executions destroy \
+  --filter '{"status":{"$ne":0},"workflowId":1}'
 ```

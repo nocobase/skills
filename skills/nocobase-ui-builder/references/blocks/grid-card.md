@@ -66,6 +66,13 @@ skill 至少要知道三件事：
 - `subModels.item.subModels.grid.use` 必须是 `DetailsGridModel`
 - block 与 item 各有一层 `actions`，语义不同
 
+## 默认筛选要求
+
+- 如果用户明确说“给卡片 / Grid / GridCard 增加筛选 / 搜索功能”，默认先落该数据块自己的 `filter` action。
+- 无论是否真的创建 `filter` action，只要是 public `gridCard` authoring（`applyBlueprint` / `compose` / `add-block` / `add-blocks`），区块本身都必须带非空 block-level `defaultFilter`。
+- Whole-page / `compose` authoring 可用 `actions: ["filter"]` 或 `{ "type": "filter" }`。
+- 只有用户显式要求筛选区块 / 搜索区块 / 查询表单时，才升级为 `FilterFormBlockModel`。
+
 ## 两层 actions slot
 
 ### `GridCardBlockModel.subModels.actions`

@@ -2,7 +2,7 @@
 
 Use this file to verify inspect/prewrite output and post-write persistence.
 
-Canonical front door is `nocobase-ctl flow-surfaces`. Treat the readback routes below as CLI-first families; use MCP only as fallback after the CLI path is unavailable.
+Canonical front door is `nb api flow-surfaces`. Treat the readback routes below as nb command families.
 
 For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
 
@@ -13,8 +13,8 @@ For template-mode semantics and localized existing-reference edit routing, keep 
 - `inspect` and page-blueprint drafting are read-only.
 - whole-page `applyBlueprint` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete blueprint draft, whether execution pauses for review or continues immediately.
 - For menu questions, default to the visible menu tree first.
-- For initialized pages/popup trees, default to `nocobase-ctl flow-surfaces get` first.
-- Use `nocobase-ctl flow-surfaces describe-surface` only when its richer public tree is actually needed.
+- For initialized pages/popup trees, default to `nb api flow-surfaces get` first.
+- Use `nb api flow-surfaces describe-surface` only when its richer public tree is actually needed.
 - desktop-route `id` values from the menu tree are not flow-surface `uid` values. When the menu tree gives `{ id, schemaUid }`, carry `id` only as `routeId` context and use `schemaUid` as `pageSchemaUid` for page readback.
 - Do not describe a draft as if a write already succeeded.
 
@@ -27,7 +27,7 @@ A page-blueprint draft is good when:
 - tabs/blocks/popups are structurally explicit
 - any ASCII wireframe shown to the user matches the same tabs / blocks / popup structure as the blueprint draft
 - if execution proceeded immediately, the ASCII wireframe still appeared before the first `applyBlueprint`
-- if duplicate same-title menu groups existed, the preview/readback states which routeId was chosen and no extra same-title group was created unless the user explicitly asked for one
+- if duplicate same-title menu groups existed, the preview/readback states that explicit `routeId` was required before write and no extra same-title group was created unless the user explicitly asked for one
 - canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
 - low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
 - destructive blast radius is explicit for replace/delete scenarios
@@ -44,8 +44,10 @@ A page-blueprint draft is good when:
 ## 2. Write Readback Principles
 
 - Verify only the surfaces affected by the write, unless hierarchy changed.
-- A successful write response is not enough; confirm via readback.
+- For localized/low-level writes, and for any explicit inspection step, a successful write response is not enough; confirm via readback.
+- Whole-page `applyBlueprint` create / replace and whole-page `reaction.items[]` default to successful-response completion. Do not add an extra `get` unless follow-up localized work or explicit inspection needs it.
 - Popup-specific claims require popup-specific readback.
+- Without an extra `get`, describe whole-page popup/template results only as submitted/created from the success response and sent blueprint, not as readback-verified persisted subtree facts.
 - If a popup write relied on `popup.tryTemplate=true` because no explicit `popup.template` was present, verify whether the final persisted popup stayed inline/default, bound a template, or silently missed. When local popup content was also present, confirm whether it became the miss fallback instead of assuming template reuse from the write request alone.
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 - Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
@@ -57,19 +59,19 @@ A page-blueprint draft is good when:
 
 | operation | minimum readback |
 | --- | --- |
-| `apply-blueprint` create | menu tree if menu placement matters + `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
-| `apply-blueprint` replace | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` and affected tab/content checks |
-| `apply-blueprint` with `reaction.items[]` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` plus the affected reaction slot in readback |
-| `create-page` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` create | default: none after successful response; if menu placement matters or follow-up localized work / explicit inspection is needed, read the menu tree and `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` replace | default: none after successful response; `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
+| `apply-blueprint` with `reaction.items[]` | default: none after successful response; `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
+| `create-page` | `nb api flow-surfaces get --page-schema-uid <pageSchemaUid>` |
 | `add-tab` / `update-tab` / `move-tab` / `remove-tab` | page or tab readback |
 | `add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | popup page/tab readback |
 | `compose` / `add-block` / `add-field` / `add-action` / `add-record-action` | direct parent/target readback |
 | `configure` / `update-settings` | modified target readback |
-| `save-template` | `nocobase-ctl flow-surfaces get-template --uid <templateUid>` and, for `saveMode="convert"`, source-target readback |
+| `save-template` | `nb api flow-surfaces get-template --uid <templateUid>` and, for `saveMode="convert"`, source-target readback |
 | `get-reaction-meta` + `set-*` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
 | `move-node` / `remove-node` | parent/target readback |
 | `convert-template-to-copy` | modified target readback |
-| `update-template` | `nocobase-ctl flow-surfaces get-template --uid <uid>` |
+| `update-template` | `nb api flow-surfaces get-template --uid <uid>` |
 | `update-menu` / `create-menu` | menu tree when placement matters |
 
 ### Reaction-specific readback
@@ -82,13 +84,24 @@ After a reaction write, confirm at least:
 - for form `fieldValue` / `fieldLinkage`, rules land on the form-grid slot rather than the outer form step root
 - for clear operations, `rules: []` really leaves the persisted slot empty
 
+### Whole-page success-only reporting
+
+When whole-page `applyBlueprint` succeeds and no extra `get` runs:
+
+- report only the successful write, returned `target` / `pageSchemaUid`, and the blueprint intent you sent
+- use wording such as `submitted`, `created`, `replace succeeded`, or `wrote the page blueprint`
+- do not describe popup subtree, template binding, reaction slot placement, or normalized page structure as persisted/readback-verified facts yet
+- switch to persisted/readback wording only after an explicit live `get` or other target-specific readback
+
 ### Structured verification summary
 
 If you hand-write a readback bundle or a short persisted verification note, start with a stable public summary instead of depending on raw model names or loose full-tree dumps.
 
-- always include page identity under `page` when page-level create / replace happened, especially `page.pageSchemaUid`, `page.title` or `page.pageTitle`, and `page.menuGroupTitle`
+- always include page identity under `page` when page-level create / replace happened, especially `page.pageSchemaUid`, `page.pageTitle`, and `page.menuGroupTitle`
 - use `root`, `tables`, `popups`, `forms`, and `reactions` only when those sections matter to what you changed
 - prefer normalized public type labels such as `table`, `details`, `editForm`, `filterForm`, `createForm`
+- when a scenario spans multiple pages, use the same canonical page identity keys under `pages.*`, especially `pageSchemaUid`, `pageTitle`, and `menuGroupTitle`
+- use `type` for concrete summary nodes such as `tables.*`, `lists.*`, and `forms.*`; reserve `blockTypes` for aggregate summaries such as `root.blockTypes` or `popups.*.blockTypes`
 - if root-level content matters, keep `root.blockTypes`, `root.collections`, `root.fields`, and `root.actionTitles` explicit even when the raw live root only says `type: "page"`
 - for popup same-row layouts, surface a stable `sameRow: true` style proof instead of leaving a free-form layout string as the only evidence
 - when a critical outcome depends on a helper, guard, or computed field, surface one stable boolean or scalar outcome near the summary instead of burying the only proof inside richer nested metadata
@@ -96,15 +109,17 @@ If you hand-write a readback bundle or a short persisted verification note, star
 
 ## 4. Popup-specific Checks
 
-After popup-related writes, confirm:
+For localized popup writes, or when explicit post-write inspection is requested, confirm:
 
 - popup subtree exists
 - required content exists, not just shell
 - if the user explicitly cares about binding semantics, binding still matches live facts
 
+If a whole-page `applyBlueprint` finished without that extra inspection, keep the result phrased as submitted/created popup intent rather than as persisted/readback-verified popup facts.
+
 ## 5. Template-specific Checks
 
-After template-related writes, confirm:
+When template readback was actually requested or needed after a write, confirm:
 
 - for `reference` template writes, the readback still exposes the intended template reference / uid / mode
 - for `copy` or `convert-template-to-copy`, the readback no longer exposes the template reference

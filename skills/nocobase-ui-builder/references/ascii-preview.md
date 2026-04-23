@@ -2,7 +2,7 @@
 
 Use this file for **whole-page `applyBlueprint` authoring before the first write**.
 
-This is a **prewrite review surface**, not the write payload. The write truth is still the inner page blueprint from [page-blueprint.md](./page-blueprint.md).
+This is a **prewrite review surface**, not the write payload. The first whole-page write should use `prepare-write` output `result.cliBody`; the ASCII preview is rendered from the same draft blueprint that produced that prepared body.
 
 ## 1. Scope
 
@@ -17,7 +17,7 @@ Before the first whole-page `applyBlueprint`, default to:
 1. one short summary of the page intent
 2. one ASCII wireframe rendered from the same blueprint
 3. assumptions / open questions outside the payload only when they matter
-4. if duplicate menu-group titles are in play, name the chosen destination routeId outside the wireframe
+4. if duplicate menu-group titles are in play, flag that explicit `navigation.group.routeId` is required outside the wireframe
 5. if review is required, one confirmation question; otherwise one short execution notice and continue
 
 Default to **ASCII-first** prewrite output. Do **not** dump the full JSON blueprint unless:
@@ -30,7 +30,7 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 - render from the same inner page blueprint that would be written later
 - page header should show page title plus `mode`
 - show `MENU` for create runs when it is known
-- when duplicate same-title menu groups exist, show the chosen routeId next to `MENU`
+- when duplicate same-title menu groups exist, do not pretend one was chosen; show that explicit `routeId` is required next to `MENU`
 - show `TARGET` for replace runs when `target.pageSchemaUid` is known
 - every tab should render as its own ASCII box
 - every block should render as its own ASCII box with `type`, optional title, collection, key, and optional `span`
@@ -52,25 +52,27 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 Use the zero-dependency preview helper for deterministic output:
 
 - module: `renderPageBlueprintAsciiPreview(blueprint)`
-- CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json`
+- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json`
 - prepare-write helper: `prepareApplyBlueprintRequest(blueprint)`
-- prepare-write CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
+- prepare-write CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
+- If the current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs`; do not probe the bare `nb-page-preview` command first.
 
-The CLI/helper should prefer the inner page blueprint object. If it receives a legacy outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
+The helper should prefer a bare inner page blueprint object. `--prepare-write` also accepts the public helper envelope described below.
 
-For local helper usage, `prepare-write` may also receive one outer helper envelope like `{ requestBody, templateDecision }`. This helper envelope is official and should not emit the legacy outer-wrapper warning. When `templateDecision` is present and valid, the helper should return the normalized `templateDecision` object only after the blueprint is already recognizable, even if other blueprint gates later fail. If that `templateDecision` contradicts the actual bound template uid/mode in the blueprint, reject it with `inconsistent-template-decision` instead of returning a misleading summary. For `selected-reference` / `selected-copy`, matching one bound uid/mode for the current decision is sufficient even on mixed-template pages. The ASCII wireframe itself still stays reason-free.
+For local helper usage, `prepare-write` may also receive one outer helper envelope like `{ blueprint, templateDecision?, collectionMetadata? }`. This helper envelope is official and should not emit the legacy outer-wrapper warning. When `templateDecision` is present and valid, the helper should return the normalized `templateDecision` object only after the blueprint is already recognizable, even if other blueprint gates later fail. If that `templateDecision` contradicts the actual bound template uid/mode in the blueprint, reject it with `inconsistent-template-decision` instead of returning a misleading summary. When the blueprint contains data-bound blocks, `collectionMetadata` is required and missing or empty metadata fails `prepare-write` with `missing-collection-metadata`; with metadata, the helper validates defaults completeness against the blueprint. The ASCII wireframe itself still stays reason-free.
 
-Preview-only `renderPageBlueprintAsciiPreview(...)` / `nb-page-preview --stdin-json` should not treat `{ requestBody, templateDecision }` as a special success path. If preview-only receives that helper envelope, it may still unwrap `requestBody` for compatibility, but it should ignore `templateDecision` and still emit the legacy outer-wrapper warning so wrong-surface calls remain visible.
+Preview-only `renderPageBlueprintAsciiPreview(...)` / the skill-local preview CLI should render the bare blueprint. Use `--prepare-write` when `templateDecision` or `collectionMetadata` is part of the local helper input.
 
-For the **first real write**, prefer the prepare-write helper/CLI rather than preview-only mode. It should use the same inner blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return the normalized CLI raw body only when the gate passes. If MCP fallback is later required, wrap that same object under `requestBody` according to [tool-shapes.md](./tool-shapes.md).
+For the **first real write**, the prepare-write helper/CLI is mandatory rather than preview-only mode. It should use the same draft blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return a normalized prepare-write result that includes the sendable `result.cliBody` only when the gate passes. That helper stays local/read-only: the later remote write is still a separate `nb api flow-surfaces apply-blueprint` call, and after `prepare-write` the only valid first-write body is `result.cliBody`, not the original draft blueprint. Do not wrap that prepared object again.
 
 The local prepare-write gate should reject at least:
 
-- stringified outer `requestBody`
+- stringified outer `blueprint`
 - extra outer tabs for a normal single-page request
-- illegal tab keys such as `pageSchemaUid` / `requestBody` / `target`
+- illegal tab keys such as `pageSchemaUid` / `blueprint` / `target`
 - block-level `layout`
 - non-object `tab.layout` / `popup.layout`
+- requested `table` / `list` / `gridCard` / `calendar` filter/search actions landing on the wrong host
 - custom `edit` popups that do not contain exactly one `editForm`
 
 If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same blueprint rather than skipping the preview.

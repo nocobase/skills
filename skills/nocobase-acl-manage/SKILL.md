@@ -1,11 +1,11 @@
 ---
 name: nocobase-acl-manage
-description: Task-driven ACL governance through nocobase-ctl CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
+description: Task-driven ACL governance through nb CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.4.2
-last-reviewed: 2026-04-17
+version: 2.5.1
+last-reviewed: 2026-04-23
 risk-level: high
 ---
 
@@ -35,6 +35,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 - Do not bypass CLI by calling direct REST endpoints.
 - Do not mutate ACL through ad-hoc database operations.
 - Do not create temporary script files to execute ACL writes.
+- Do not invoke other skills for env/plugin bootstrap; use direct `nb` commands in this skill.
 - Do not hide high-impact blast radius (global mode, broad snippets, broad strategy actions).
 - Do not claim one-click coverage for workflows that require governance review.
 
@@ -91,7 +92,7 @@ Role creation interaction policy:
 
 - always create with the same default read-only baseline (`role.create-blank`)
 - do not ask users to choose role archetypes (for example, "employee/auditor/manager/custom")
-- if `role_name` exists, execute creation directly
+- if `role_name` is provided, execute creation directly
 - after creation succeeds, move to permission assignment guidance
 - permission follow-up options: system snippets, desktop routes, data-source global strategy, data-source resource strategy
 
@@ -181,30 +182,52 @@ Default behavior when user says `you decide`:
 - normalize create-role wording to `role.create-blank` baseline first, then permission assignment
 
 2. Capability gate (CLI).
-- confirm skill-local wrapper is available (`node ./scripts/run-ctl.mjs -- ...`)
-- command assembly guard (hard rule for wrapper calls):
-- wrapper passthrough form must be `node ./scripts/run-ctl.mjs -- <command> [subcommand ...] [flags ...]`
-- first passthrough token after `--` must be a command (for example `env`/`acl`/`resource`), not a flag such as `-e`/`-t`/`-j`
-- wrong: `node ./scripts/run-ctl.mjs -- -e local`
-- correct: `node ./scripts/run-ctl.mjs -- resource list --resource users -e local -j`
+- confirm direct `nb` CLI is available in PATH
+- command assembly guard:
+- command form must be `nb <command> [subcommand ...] [flags ...]`
+- first token after `nb` must be a command (for example `env` or `api`), not a flag such as `-e`/`-t`/`-j`
+- wrong: `nb -e local`
+- correct: `nb api resource list --resource users -e local -j`
+- raw JSON input guard (PowerShell/runtime):
+- prefer structured body flags (for example `--resources`, `--actions`) over inline `--body` when possible
+- if raw JSON body is required, prefer `--body-file` over inline `--body`
+- `--body-file` content must be valid JSON encoded as UTF-8 without BOM
+- if inline `--body` fails JSON parsing in PowerShell, regenerate payload as `--body-file` and retry once
+- avoid Bash-style escaped JSON in PowerShell (for example `{\"k\":\"v\"}`), it may be parsed as invalid JSON
 - policy payload guard (hard rule for independent resource writes):
-- wrapper preflight must block `acl roles data-source-resources create|update` when `--body` is missing or invalid
-- for those writes, `--body` must include `usingActionsConfig: true` and non-empty `actions[]`
+- preflight must block `api acl roles data-source-resources create|update` when payload is missing or invalid (`--body-file` preferred, `--body` compatible)
+- for those writes, payload must include `usingActionsConfig: true` and non-empty `actions[]`
 - for actions `create/view/update/export/importXlsx`, each action must carry non-empty `fields[]`
-- for actions `view/update/destroy/export/importXlsx`, each action must carry non-null positive `scopeId`
+- for every action item, scope binding must be explicit via one of:
+- `scopeId` (for explicit id binding)
+- `scopeKey` (for key-based resolution, such as `all`/`own`)
+- `scope.{id|key}` (compatibility readback payload)
+- if user intent is scope `all` or `own`, readback must show resolved non-null `scopeId`
 - if guard fails, stop before CLI execution and return a fixable error
+- parameter safety guard:
+- command shape guard for resource permissions:
+- `roles data-source-resources` only has `create|get|update`; do not call `list`
+- for `roles data-source-resources get|update`, locator must be one of:
+- `--filter-by-tk <resource_config_id>`
+- `--data-source-key <data_source_key> --name <collection_name>`
+- for `roles data-sources-collections list`, use `--data-source-key <data_source_key>` as the default locator; use `--filter` only for compatibility
+- for collection/field resolution, prefer `nb api resource list --resource collections --filter '{}' --appends fields -j` as primary metadata source
+- for `roles desktop-routes add`, request body must be JSON array of numeric route ids
+- never execute write commands with uncertain, unresolved, or type-mismatched parameters
 - lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
 - run execution guard sequence before ACL writes:
-- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- env -s project`
-- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl --help`
-- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl roles --help`
+- `nb env list -s project`
+- `nb env update <current_env_name>`
+- `nb api acl --help`
+- `nb api acl roles --help`
 - fail-closed policy:
-- if `acl --help` or `acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
-- confirm current env context through bootstrap skill app-manage (`$nocobase-env-bootstrap task=app-manage app_env_action=current target_dir=<target_dir> app_scope=project`)
-- if no env is configured/current, request env bootstrap through `$nocobase-env-bootstrap task=app-manage` (`app_env_action=add/use`)
-- if runtime command cache is missing/stale, run `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`
+- if `nb api acl --help` or `nb api acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
+- confirm current env context through direct CLI: run `nb env list -s project` and resolve current env from the row marked with `*`
+- if no env is configured/current, stop writes and ask user whether to add/switch env using direct CLI (`nb env add ...` or `nb env use ... -s project`)
+- if runtime command cache is missing/stale or command schema changed, run `nb env update <current_env_name>`
 - if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
-- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- `nb pm enable @nocobase/plugin-api-doc`
+- `nb pm enable @nocobase/plugin-api-keys`
 - restart app before retrying runtime refresh
 - if token is missing/invalid, ensure `@nocobase/plugin-api-keys` is active and refresh token env first
 - resolve runtime command names via [intent-to-tool-map-v1](references/intent-to-tool-map-v1.md) and command help discovery
@@ -238,11 +261,12 @@ Default behavior when user says `you decide`:
 Primary write path:
 
 - ACL-specific CLI runtime commands (swagger-generated)
+- for user-role membership writes, prefer dedicated ACL command path first (`nb api acl roles users add/remove`)
 
 Guarded fallback path (user-role membership only):
 
-- allowed only when `allow_generic_association_write=true`
-- use generic `node ./scripts/run-ctl.mjs -- resource update/list` only for `users.roles` association operations
+- allowed only when dedicated ACL membership command is unavailable and `allow_generic_association_write=true`
+- use generic `nb api resource update/list` only for `users.roles` association operations
 - mandatory readback after write
 
 Hard restrictions:
@@ -250,7 +274,7 @@ Hard restrictions:
 - never use direct HTTP fallback
 - never use direct database mutation
 - never use generic resource commands for ACL policy writes when ACL-specific runtime commands exist
-- never infer "ACL unsupported" without checking `acl --help` and `acl roles --help` in the same locked `base-dir`
+- determine ACL support by checking `nb api acl --help` and `nb api acl roles --help` in the same locked `base-dir` before concluding capability status
 - never create temporary `.js/.ps1/.sh` executor scripts to bypass runtime command discovery
 
 # Safety Gate
@@ -280,17 +304,21 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 
 - task normalized to canonical task
 - required inputs complete before writes
-- CLI capability gate passes (env context available via `$nocobase-env-bootstrap task=app-manage app_env_action=current`, runtime commands resolvable)
+- CLI capability gate passes (env context available via direct `nb env list -s project`, runtime commands resolvable)
 - CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
 - runtime command names resolved from command map/help
-- execution guard evidence includes locked `base-dir` plus `env -s project`, `acl --help`, and `acl roles --help`
+- execution guard evidence includes locked `base-dir` plus `nb env list -s project`, `nb env update <current_env_name>`, `nb api acl --help`, and `nb api acl roles --help`
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
 - for `permission.data-source.resource.set`, readback confirms `usingActionsConfig=true` and action-level scope/fields in the same write cycle
 - for scope=`all|own`, readback shows non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
-- wrapper-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
+- command-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
+- `roles data-source-resources get|update` locator is explicit (`filterByTk` or `data-source-key + name`) before execution
+- collection/field metadata is resolved through `resource collections` read path; `roles data-sources-collections list` is compatibility-only for role-facing view
+- `roles desktop-routes add` uses JSON array body with numeric route ids
+- no write executes with uncertain or type-mismatched parameters
 - global role-mode tasks do not require `role_name`
 - boundary messages are clear and actionable
 
@@ -306,8 +334,8 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 8. `permission.data-source.resource.set` with scope=`all` should write explicit built-in scope binding (non-null `scopeId` for key=`all`).
 9. `permission.data-source.resource.set` should require pre-write confirmation including data source + resolved collections + actions + scope.
 10. `permission.data-source.resource.set` should write independent policy in one complete payload (`usingActionsConfig + actions + scope + fields`), not multi-step patching.
-11. `user.assign-role` in strict mode should block when no dedicated membership command exists.
-12. `user.assign-role` with guarded fallback enabled should succeed with readback.
+11. `user.assign-role` in strict mode should use dedicated membership command when available; if unavailable, block with boundary guidance.
+12. `user.assign-role` guarded fallback should run only when dedicated command is unavailable and guarded mode is explicitly enabled.
 13. `risk.assess-role` should return score + evidence + recommendations.
 14. Full-field default should preserve system fields in readback when metadata includes them.
 15. Wrong base-dir or missing runtime command cache must fail-closed with boundary message, not ad-hoc script fallback.
@@ -322,9 +350,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 | [references/result-format-v1.md](references/result-format-v1.md) | output rendering | includes risk cards and capability path |
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
 | [references/independent-permissions.md](references/independent-permissions.md) | resource-level permission writes | `usingActionsConfig + actions + fields + scope` complete-write policy |
-| [references/capability-test-plan.md](references/capability-test-plan.md) | capability matrix | aligned with v2 domains |
+| [tests/capability-test-plan.md](tests/capability-test-plan.md) | capability matrix | aligned with v2 domains |
+| [tests/test-playbook.md](tests/test-playbook.md) | acceptance regression | prompt-first TC01-TC20 with runtime evidence commands |
 | [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
-| [tests/README.md](tests/README.md) | runtime verification | runner and report usage |
+| [tests/README.md](tests/README.md) | runtime verification | playbook execution flow and reporting notes |
 
 # References
 
@@ -334,7 +363,8 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - [Result Format v1](references/result-format-v1.md)
 - [ACL Configuration Details](references/configuration.md)
 - [Table Independent Permissions](references/independent-permissions.md)
-- [ACL Capability Test Plan](references/capability-test-plan.md)
+- [ACL Capability Test Plan](tests/capability-test-plan.md)
+- [ACL Test Playbook](tests/test-playbook.md)
 - [ACL Refactor Plan v2](references/refactor-plan-v2.md)
 - [ACL Capability Tests](tests/README.md)
 - [NocoBase ACL Handbook](https://docs.nocobase.com/handbook/acl) [verified: 2026-04-11]

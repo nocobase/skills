@@ -4,34 +4,43 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 
 ## 0. Canonical Transport
 
-- Canonical front door: `nocobase-ctl flow-surfaces`
-- Retained `applyBlueprint`, `flowSurfaces:*`, and MCP tool docs in this skill remain the backend contract, payload reference, and fallback map.
-- `nb-page-preview` and `nb-runjs` remain local helper CLIs only.
+- Canonical front door: `nb api flow-surfaces`
+- Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
+- `nb-page-preview` and `nb-runjs` remain local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
+- Whole-page `prepare-write` is local/read-only. For the first real whole-page write, it is mandatory, and the sendable business object becomes `result.cliBody`.
 
 ## 1. Precedence
 
 Rule precedence is always:
 
-1. live `nocobase-ctl flow-surfaces --help` / live generated CLI behavior
-2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level `flow_surfaces_*` write contracts
+1. live `nb api flow-surfaces --help` / live generated CLI behavior
+2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level flow-surfaces write contracts
 3. this `Normative Contract` for global transport, request-shape, and authoring rules
 4. [templates.md](./templates.md) for template-selection semantics
 5. other topic references (`popup`, `verification`, `runtime-playbook`, etc.)
 6. examples and heuristics
 
-If a lower-priority local document conflicts with a live contract fact, follow the live contract. If CLI behavior and backend contract appear to diverge, repair the CLI/runtime generation path first and do not silently author against stale assumptions.
+If a lower-priority local document conflicts with a live contract fact, follow the live contract. If CLI behavior and backend contract appear to diverge, repair nb/runtime generation path first and do not silently author against stale assumptions.
 
 ## 2. Public Structural Write Contract
 
 ### Default split
 
-- **Whole-page create** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="create")` -> readback.
-- **Whole-page replace** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="replace")` -> readback.
-- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `nocobase-ctl flow-surfaces apply-blueprint` -> readback.
-- **Localized edit on an existing surface** -> matching `nocobase-ctl flow-surfaces ...` command -> low-level APIs (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
-- **Localized interaction / reaction edit** -> `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set*Rules` -> readback.
+- **Whole-page create** -> `nb api flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="create")` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+- **Whole-page replace** -> `nb api flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="replace")` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `nb api flow-surfaces apply-blueprint` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+- **Localized edit on an existing surface** -> matching `nb api flow-surfaces ...` command -> low-level APIs (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
+- **Localized interaction / reaction edit** -> `nb api flow-surfaces get-reaction-meta` -> matching `set*Rules` -> readback.
 
-This file keeps backend action names because they are still the stable payload families and fallback names.
+This file keeps backend action names because they are still the stable payload families exposed through `nb api`.
+
+### Whole-page first-write rule
+
+- Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
+- Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in the whole-page route must be `nb api flow-surfaces apply-blueprint`.
+- Before one whole-page `applyBlueprint` succeeds, do not use low-level mutating commands such as `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
+- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / preview / error evidence.
+- After a successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and must stay narrowly scoped.
 
 ### What the public page blueprint is
 
@@ -43,12 +52,18 @@ The public `applyBlueprint` payload is:
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
+- may include top-level `defaults.collections` for collection-level generated-popup defaults: fixed `{ name, description }` `popups.view/addNew/edit` for every involved direct collection, fixed `{ name, description }` `popups.associations.<associationField>.view/addNew/edit` for every involved association scope keyed only by the first relation segment, and optional `defaults.collections.<collection>.fieldGroups` only when one of those generated popup scenes still has more than 10 effective fields; `table` blocks always pull their collection into the `addNew` threshold evaluation
+- collection-level `fieldGroups` stay keyed only by target collection; relation popup names stay under `popups.associations`, and multiple relation paths to the same target collection reuse one defaults collection entry
+- must not include `defaults.blocks`, and must not put `blocks`, `fields`, `fieldGroups`, layout, or other content inside `defaults.collections.*.popups`
 - if `reaction.items[]` is present, every reaction target must be a same-run local key / bind key, not a live uid
 - for form `fieldValue` / form-scene `fieldLinkage`, target the outer form block key/path, not the inner grid uid
 - only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission
 - `rules: []` clears the targeted reaction slot
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
 - `fieldsLayout` is allowed only on `createForm`, `editForm`, `details`, and `filterForm`; it references field keys inside that one block and must place every keyed field exactly once
+- for `createForm`, `editForm`, and `details`, once a block contains more than 10 real fields, `fieldGroups` is mandatory instead of one flat `fields[]`
+- `fieldGroups` is supported only on `createForm`, `editForm`, and `details`; it must not be combined with `fields[]` or `fieldsLayout`, and manual `divider` items do not satisfy the grouping requirement
+- when the user asks to add filtering/search to a `table`, `list`, `gridCard`, or `calendar` host, use that host's block-level `filter` action by default; reserve `filterForm` for explicit block/form/query-area intent. For public `applyBlueprint`, `compose`, `add-block`, and `add-blocks` authoring, every direct non-template `table` / `list` / `gridCard` / `calendar` block must include a non-empty block-level `defaultFilter`; `{}`, `null`, and `{ logic: "$and", items: [] }` are rejected. The `filter` action itself is optional. If `filterableFieldNames` is explicit, check coverage against action-level/defaultActionSettings `defaultFilter` when present, otherwise block-level `defaultFilter`
 - if `layout` is present, it must be an object
 - in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
 - when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
@@ -61,24 +76,23 @@ The public `applyBlueprint` payload is:
 - field entries default to simple string field names; use a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required
 - when the intent is "click the shown record / relation record to open details", the canonical page-blueprint authoring is a field-level inline `popup`; backend / readback may normalize this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the request explicitly asks for a button or action column.
 
-### CLI request-body rule and MCP fallback map
+### nb body rule
 
 For actual execution in this skill:
 
-- `nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body
+- `nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body
 - most other body-based `flow-surfaces` commands expect the raw business object through CLI `--body` / `--body-file`
-- only in MCP fallback should that same business object be wrapped under `requestBody`
+- for a first whole-page write that already ran `prepare-write`, that raw business object is `result.cliBody`, not the original draft blueprint
 - do **not** stringify the JSON document
 - do **not** wrap it again as `{ values: payload }`
-- do **not** leak tool-envelope fields such as `requestBody` into the inner page blueprint
+- do **not** leak helper-envelope fields such as `blueprint`, `templateDecision`, or `collectionMetadata` into the inner page blueprint
 
 Important exception:
 
-- `flow_surfaces_get` uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`)
-- most other `flow_surfaces_*` fallback tools in this skill path use `requestBody`
-- for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `page-blueprint.md` focuses on the inner page document, not the CLI body/fallback envelope mapping
+- `nb api flow-surfaces get` uses top-level locator flags derived from `pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`
+- for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `page-blueprint.md` focuses on the inner page document, not command flags
 
-Correct CLI body:
+Correct nb body:
 
 ```json
 {
@@ -93,18 +107,23 @@ Correct CLI body:
     {
       "title": "Overview",
       "blocks": [
-        { "type": "table", "collection": "employees", "fields": ["nickname"] }
+        {
+          "type": "table",
+          "collection": "employees",
+          "fields": ["nickname"],
+          "actions": ["filter"]
+        }
       ]
     }
   ]
 }
 ```
 
-Correct MCP fallback envelope:
+Correct local helper envelope:
 
 ```json
 {
-  "requestBody": {
+  "blueprint": {
     "version": "1",
     "mode": "create",
     "navigation": {
@@ -116,7 +135,12 @@ Correct MCP fallback envelope:
       {
         "title": "Overview",
         "blocks": [
-          { "type": "table", "collection": "employees", "fields": ["nickname"] }
+          {
+            "type": "table",
+            "collection": "employees",
+            "fields": ["nickname"],
+            "actions": ["filter"]
+          }
         ]
       }
     ]
@@ -124,11 +148,11 @@ Correct MCP fallback envelope:
 }
 ```
 
-Wrong:
+Wrong nb body:
 
 ```json
 {
-  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
+  "blueprint": "{\"version\":\"1\",\"mode\":\"create\"}"
 }
 ```
 
@@ -136,7 +160,7 @@ Also wrong:
 
 ```json
 {
-  "requestBody": {
+  "blueprint": {
     "values": {
       "version": "1",
       "mode": "create"
@@ -145,22 +169,20 @@ Also wrong:
 }
 ```
 
-For fallback requestBody-based tools such as `describeSurface`, `catalog`, `context`, `applyBlueprint`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
-
 ## 2.1 Error-first recovery rules
 
 If a tool returns one of these patterns, fix the tool call shape first:
 
-- `params/requestBody must be object`
-  - usually means `requestBody` was omitted, stringified, or otherwise not sent as an object
-- `params/requestBody must match exactly one schema in oneOf`
-  - when it appears together with the previous error on `applyBlueprint`, first suspect the outer `requestBody` envelope, not the inner blueprint
+- `params/body must be object` or equivalent JSON-body errors
+  - usually means the nb body was omitted, stringified, or wrapped incorrectly
+- `params/body must match exactly one schema in oneOf`
+  - when it appears on `applyBlueprint`, first suspect the nb body shape before changing the inner page design
 - `flowSurfaces uid 'root' not found`
   - usually means the skill invented `"root"` as `target.uid` / `locator.uid`
   - do not use the literal `"root"` as a flow-surfaces uid
   - first read live structure with `get` / `describeSurface` and reuse a real uid, or pick a page-level API that does not require such a uid
 
-Do not start by changing the inner blueprint shape until the CLI request body, or the fallback envelope / targeting shape, is confirmed correct.
+Do not start by changing the inner blueprint shape until the nb request body or targeting shape is confirmed correct.
 
 Canonical resource rule:
 
@@ -196,11 +218,11 @@ For `replace` runs:
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 - skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write
 - in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, applyBlueprint reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
-- at the skill-authoring layer, if one or more visible same-title menu groups already exist, do **not** create another same-title group for disambiguation; prefer the exact known `routeId`, otherwise reuse one existing group deterministically from the live menu tree and disclose that chosen routeId in the prewrite preview
+- at the skill-authoring layer, if visible same-title menu groups already exist and title lookup would hit multiple groups, do **not** create another same-title group for disambiguation and do **not** choose one locally; require explicit `routeId` before write
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
 - same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
 
-The public response returns only the resolved page `target` and final `surface` readback.
+Use the resolved page `target` from the public response as the carry-forward locator. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 
 ### Scope boundary
 
@@ -221,29 +243,25 @@ Those are low-level edit paths.
 The skill may use:
 
 - `desktop_routes_list_accessible(tree=true)` for visible menu discovery
-- `flow_surfaces_get` for normal structural inspection and post-write readback
-- `flow_surfaces_describe_surface` when a richer public tree snapshot helps analyze an existing surface
-- `flow_surfaces_catalog` when current-target capability is the question
-- `flow_surfaces_get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
-- `flow_surfaces_context` when popup/context variables or lower-level raw variable paths are the question
-- CLI-first collection metadata reads:
-  - `nocobase-ctl data-modeling collections list -j` to narrow candidate collections
-  - `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the default field truth
-  - `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j` when the `data-modeling collections` command family is unavailable
-  - `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up when extra detail is still needed
-- MCP fallback collection metadata reads only after the CLI path is unavailable or has been repaired unsuccessfully:
-  - `collections:list`
-  - `collections:get(appends=["fields"])`
-  - `collections.fields:get` when the field name is already known and that MCP surface is available
+- `flow-surfaces get` for normal structural inspection and post-write readback
+- `flow-surfaces describe_surface` when a richer public tree snapshot helps analyze an existing surface
+- `flow-surfaces catalog` when current-target capability is the question
+- `flow-surfaces get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
+- `flow-surfaces context` when popup/context variables or lower-level raw variable paths are the question
+- nb-first collection metadata reads:
+  - `nb api data-modeling collections list -j` to narrow candidate collections
+  - `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the default field truth
+  - `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j` when the `data-modeling collections` command family is unavailable
+  - `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up when extra detail is still needed
 
 ### Field/schema fact priority
 
 When field truth matters:
 
-1. `nocobase-ctl data-modeling collections list -j` narrows candidates only; on MCP fallback, `collections:list` serves the same purpose
-2. `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` is the default truth for scalar fields, relation fields, interface, and association metadata; if that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback should the skill use `collections:get(appends=["fields"])`
-3. Do **not** use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring; treat them as compact browse views, not as authoring truth
-4. Known single-field follow-up may use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j`, or `collections.fields:get` only when the skill is already on MCP fallback
+1. `nb api data-modeling collections list -j` narrows candidates only
+2. `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j` is the default truth for scalar fields, relation fields, interface, and association metadata; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`
+3. Do **not** use `nb api data-modeling collections fields list` / `data-modeling fields list` for page authoring; treat them as compact browse views, not as authoring truth
+4. Known single-field follow-up may use `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j`
 5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
 
 Field addability rule:

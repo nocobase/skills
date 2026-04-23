@@ -1,81 +1,26 @@
-# Intent Routing Contract
+# Intent Routing (v2)
 
-## Purpose
+## Goal
 
-Define deterministic, low-ambiguity routing from user keywords to publish workflow branches.
+Route publish intent to the new CLI-first flows:
 
-## Intent Types
+- backup_restore
+- migration
 
-- `publish`: generic publish request
-- `restore`: restore/rollback by backup artifact
-- `migration`: create and apply a new migration package
+## Routing Rules
 
-## Keyword Dictionary
+1. Explicit `method` in input wins.
+2. If user text includes restore/restore-like keywords (`restore`, `还原`, `恢复`) and excludes migration keywords, route to `backup_restore`.
+3. If user text includes migration keywords (`migration`, `迁移`) and excludes restore keywords, route to `migration`.
+4. If method is still ambiguous, do not execute publish; ask user to choose one method.
 
-`publish` keywords:
+## Action Rules
 
-- Chinese: `发布`, `发版`, `上线`
-- English: `publish`, `deploy`, `release`
+- `publish`: execute direct publish commands with selected method.
+- `restore` and `migration run` require `confirm=confirm` before mutation steps.
 
-`restore` keywords:
+## Unsupported Command Rule
 
-- Chinese: `还原`, `恢复`, `回滚`
-- English: `restore`, `rollback`
+No proactive capability detection.
 
-`migration` keywords:
-
-- Chinese: `迁移`, `升级迁移`
-- English: `migration`, `migrate`
-
-## Deterministic Routing Order
-
-Apply rules in this exact order:
-
-1. Explicit method in command/params wins.
-2. If text includes any `restore` keyword and no `migration` keyword -> intent=`restore`.
-3. If text includes any `migration` keyword and no `restore` keyword -> intent=`migration`.
-4. If text includes any `publish` keyword -> intent=`publish`.
-5. Default fallback -> intent=`publish`.
-
-Conflict rule:
-
-- If both `restore` and `migration` keywords appear in the same request, do not execute publish; ask user to choose one intent.
-
-## Intent -> Method Mapping
-
-- intent=`restore` -> lock method=`backup_restore`
-- intent=`migration` -> lock method=`migration`
-- intent=`publish` -> method not locked; user must choose publish method
-
-## Intent -> Gate Flow
-
-Common first step:
-
-- always run precheck before mutation
-
-Branch rules:
-
-1. intent=`publish`
-   - show `choose_publish_method`
-   - if user chooses `backup_restore`, show `choose_backup_artifact`
-   - if user chooses `migration`, show `choose_migration_template` (4 presets)
-
-2. intent=`restore`
-   - skip `choose_publish_method`
-   - go directly to `choose_backup_artifact`
-
-3. intent=`migration`
-   - skip `choose_publish_method`
-   - go directly to `choose_migration_template` (4 presets)
-
-Mandatory stop rule:
-
-- If runtime returns any `action_required` item, stop and wait for user response.
-- Do not auto-resolve method/template/artifact.
-
-## Migration Template Presets
-
-- `schema_only_all`
-- `user_overwrite_only`
-- `system_overwrite_only`
-- `full_overwrite`
+If direct command execution returns unknown command / not supported, return `feature_status=developing` and block subsequent mutation commands.

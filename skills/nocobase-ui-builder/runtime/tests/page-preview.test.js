@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { prepareApplyBlueprintRequest, renderPageBlueprintAsciiPreview } from '../src/page-blueprint-preview.js';
+import {
+  prepareApplyBlueprintRequest as rawPrepareApplyBlueprintRequest,
+  renderPageBlueprintAsciiPreview,
+} from '../src/page-blueprint-preview.js';
 import { runPagePreviewCli } from '../src/page-preview-cli.js';
 
 function createMemoryStream() {
@@ -22,6 +25,429 @@ function createInputStream(text) {
   const stream = new PassThrough();
   stream.end(text);
   return stream;
+}
+
+const collectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'input' },
+        { name: 'phone', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'bio', type: 'text', interface: 'textarea' },
+        { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments', foreignKey: 'department_id', targetKey: 'id' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+      ],
+    },
+    departments: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'title', type: 'string', interface: 'input' },
+      ],
+    },
+    roles: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'name', type: 'string', interface: 'input' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'description', type: 'string', interface: 'textarea' },
+        { name: 'scope', type: 'string', interface: 'select' },
+        { name: 'priority', type: 'integer', interface: 'number' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'category', type: 'string', interface: 'input' },
+        { name: 'color', type: 'string', interface: 'input' },
+        { name: 'code', type: 'string', interface: 'input' },
+        { name: 'sort', type: 'integer', interface: 'number' },
+        { name: 'notes', type: 'string', interface: 'textarea' },
+      ],
+    },
+  },
+};
+
+const emptyPrepareCollectionMetadata = { collections: {} };
+const defaultPrepareCollectionMetadata = collectionMetadata;
+const calendarCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'createdAt', type: 'date', interface: 'datetime' },
+        { name: 'updatedAt', type: 'date', interface: 'datetime' },
+      ],
+    },
+  },
+};
+const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar']);
+const defaultFilterCandidateInterfaces = new Set(['input', 'email', 'url', 'phone', 'textarea', 'select', 'radioGroup']);
+const defaultFilterEqInterfaces = new Set(['select', 'radioGroup']);
+
+function defaultFilterGroup(fieldNames = ['nickname', 'email', 'status']) {
+  const normalizedFieldNames = fieldNames.filter(Boolean);
+  return {
+    logic: '$and',
+    items: normalizedFieldNames.map((path) => ({
+      path,
+      operator: ['status', 'scope', 'priority', 'sort'].includes(path) ? '$eq' : '$includes',
+      value: '',
+    })),
+  };
+}
+
+function defaultFilterAction(fieldNames = ['nickname', 'email', 'status']) {
+  const normalizedFieldNames = fieldNames.filter(Boolean);
+  return {
+    type: 'filter',
+    settings: {
+      filterableFieldNames: normalizedFieldNames,
+      defaultFilter: defaultFilterGroup(normalizedFieldNames),
+    },
+  };
+}
+
+function assertMissingCollectionMetadata(result, expectedPath) {
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-collection-metadata'
+        && issue.path === 'collectionMetadata'
+        && (!expectedPath || issue.message.includes(expectedPath)),
+    ),
+  );
+}
+
+function resolvePublicBlockCollectionName(block) {
+  if (!isObjectRecord(block)) return '';
+  if (typeof block.collection === 'string' && block.collection.trim()) return block.collection.trim();
+  if (isObjectRecord(block.resource) && typeof block.resource.collectionName === 'string' && block.resource.collectionName.trim()) {
+    return block.resource.collectionName.trim();
+  }
+  if (isObjectRecord(block.resourceInit) && typeof block.resourceInit.collectionName === 'string' && block.resourceInit.collectionName.trim()) {
+    return block.resourceInit.collectionName.trim();
+  }
+  return '';
+}
+
+function buildDefaultBlockDefaultFilter(rawCollectionMetadata, collectionName) {
+  const collectionEntry = getPrepareCollectionEntry(rawCollectionMetadata, collectionName);
+  const candidateFields = Array.isArray(collectionEntry?.fields)
+    ? collectionEntry.fields
+      .filter((field) => isObjectRecord(field))
+      .filter((field) => !['id', 'createdAt', 'updatedAt', 'department', 'roles'].includes(field.name))
+      .filter((field) => typeof field.name === 'string' && field.name.trim())
+      .filter((field) => defaultFilterCandidateInterfaces.has(String(field.interface || '').trim()))
+      .slice(0, 4)
+    : [];
+  const fieldNames = candidateFields.map((field) => field.name.trim());
+  const items = fieldNames.map((path) => {
+    const field = candidateFields.find((entry) => entry.name.trim() === path);
+    return {
+      path,
+      operator: defaultFilterEqInterfaces.has(String(field?.interface || '').trim()) ? '$eq' : '$includes',
+      value: '',
+    };
+  });
+  return {
+    logic: '$and',
+    items: items.length > 0 ? items : [{ path: 'nickname', operator: '$includes', value: '' }],
+  };
+}
+
+function injectDefaultFiltersIntoBlockSpecs(blocks, rawCollectionMetadata) {
+  if (!Array.isArray(blocks)) return;
+  for (const block of blocks) {
+    if (!isObjectRecord(block)) continue;
+    const normalizedType = typeof block.type === 'string' ? block.type.trim() : '';
+    const templateBacked = isObjectRecord(block.template) && typeof block.template.uid === 'string' && block.template.uid.trim();
+    if (dataSurfaceBlockTypes.has(normalizedType) && !templateBacked && !Object.prototype.hasOwnProperty.call(block, 'defaultFilter')) {
+      block.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(block));
+    }
+
+    if (isObjectRecord(block.popup)) {
+      injectDefaultFiltersIntoBlockSpecs(block.popup.blocks, rawCollectionMetadata);
+    }
+
+    for (const actionListKey of ['actions', 'recordActions']) {
+      if (!Array.isArray(block[actionListKey])) continue;
+      for (const action of block[actionListKey]) {
+        if (isObjectRecord(action?.popup)) {
+          injectDefaultFiltersIntoBlockSpecs(action.popup.blocks, rawCollectionMetadata);
+        }
+      }
+    }
+
+    for (const fieldContainerKey of ['fields', 'fieldGroups']) {
+      const container = block[fieldContainerKey];
+      if (!Array.isArray(container)) continue;
+      const fields = fieldContainerKey === 'fieldGroups'
+        ? container.flatMap((group) => Array.isArray(group?.fields) ? group.fields : [])
+        : container;
+      for (const field of fields) {
+        if (isObjectRecord(field?.popup)) {
+          injectDefaultFiltersIntoBlockSpecs(field.popup.blocks, rawCollectionMetadata);
+        }
+      }
+    }
+  }
+}
+
+function prepareApplyBlueprintRequest(input, options = {}) {
+  const { injectDataSurfaceDefaultFilter = true, ...prepareOptions } = options || {};
+  if (!injectDataSurfaceDefaultFilter || !isObjectRecord(input)) {
+    return rawPrepareApplyBlueprintRequest(input, prepareOptions);
+  }
+
+  const nextInput = structuredClone(input);
+  const rawCollectionMetadata = prepareOptions.collectionMetadata
+    || (isObjectRecord(nextInput.collectionMetadata) ? nextInput.collectionMetadata : undefined);
+  const blueprint = isObjectRecord(nextInput.requestBody) ? nextInput.requestBody : nextInput;
+  if (isObjectRecord(blueprint)) {
+    injectDefaultFiltersIntoBlockSpecs(
+      Array.isArray(blueprint.tabs)
+        ? blueprint.tabs.flatMap((tab) => Array.isArray(tab?.blocks) ? tab.blocks : [])
+        : [],
+      rawCollectionMetadata,
+    );
+    injectDefaultFiltersIntoBlockSpecs(Array.isArray(blueprint.blocks) ? blueprint.blocks : [], rawCollectionMetadata);
+    const templateBacked = isObjectRecord(blueprint.template) && typeof blueprint.template.uid === 'string' && blueprint.template.uid.trim();
+    if (dataSurfaceBlockTypes.has(String(blueprint.type || '').trim()) && !templateBacked && !Object.prototype.hasOwnProperty.call(blueprint, 'defaultFilter')) {
+      blueprint.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(blueprint));
+    }
+  }
+
+  return rawPrepareApplyBlueprintRequest(nextInput, prepareOptions);
+}
+
+function isObjectRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function buildFixedCollectionPopupDefaults(collectionName) {
+  return {
+    view: {
+      name: `View ${collectionName}`,
+      description: `View one ${collectionName} record.`,
+    },
+    addNew: {
+      name: `Create ${collectionName}`,
+      description: `Create one ${collectionName} record.`,
+    },
+    edit: {
+      name: `Edit ${collectionName}`,
+      description: `Edit one ${collectionName} record.`,
+    },
+  };
+}
+
+function getPrepareCollectionEntry(rawCollectionMetadata, collectionName) {
+  const rawCollections =
+    isObjectRecord(rawCollectionMetadata) && isObjectRecord(rawCollectionMetadata.collections)
+      ? rawCollectionMetadata.collections
+      : rawCollectionMetadata;
+  if (!isObjectRecord(rawCollections)) return null;
+  return isObjectRecord(rawCollections[collectionName]) ? rawCollections[collectionName] : null;
+}
+
+function buildDefaultCollectionFieldGroups(rawCollectionMetadata, collectionName) {
+  const collectionEntry = getPrepareCollectionEntry(rawCollectionMetadata, collectionName);
+  const fieldNames = Array.from(
+    new Set(
+      (Array.isArray(collectionEntry?.fields) ? collectionEntry.fields : [])
+        .map((field) => (typeof field?.name === 'string' ? field.name.trim() : ''))
+        .filter(Boolean),
+    ),
+  );
+  if (fieldNames.length === 0) return undefined;
+  return [
+    {
+      title: 'Primary fields',
+      fields: fieldNames,
+    },
+  ];
+}
+
+function prepareWithDirectCollectionDefaults(blueprint, options = {}) {
+  const {
+    collections = ['users'],
+    collectionMetadata: providedCollectionMetadata = defaultPrepareCollectionMetadata,
+    injectDataSurfaceDefaultFilter = true,
+    ...prepareOptions
+  } = options;
+  const nextBlueprint = structuredClone(blueprint);
+  if (injectDataSurfaceDefaultFilter) {
+    injectDefaultFiltersIntoBlockSpecs(nextBlueprint.tabs?.flatMap((tab) => Array.isArray(tab?.blocks) ? tab.blocks : []) || [], providedCollectionMetadata);
+  }
+  const existingDefaults = isObjectRecord(nextBlueprint.defaults) ? nextBlueprint.defaults : {};
+  const existingCollections = isObjectRecord(existingDefaults.collections) ? existingDefaults.collections : {};
+  const nextCollections = { ...existingCollections };
+  const probe = prepareApplyBlueprintRequest(nextBlueprint, {
+    collectionMetadata: providedCollectionMetadata,
+    injectDataSurfaceDefaultFilter,
+    ...prepareOptions,
+  });
+  const collectionRequirements = Array.isArray(probe.defaultsRequirements?.collections)
+    ? probe.defaultsRequirements.collections
+    : [];
+  const associationRequirements = Array.isArray(probe.defaultsRequirements?.associations)
+    ? probe.defaultsRequirements.associations
+    : [];
+  const collectionRequirementByName = new Map(collectionRequirements.map((entry) => [entry.collection, entry]));
+  const collectionNames = Array.from(
+    new Set([
+      ...collections,
+      ...collectionRequirements.map((entry) => entry.collection),
+      ...associationRequirements.map((entry) => entry.sourceCollection),
+    ].filter(Boolean)),
+  );
+
+  for (const collectionName of collectionNames) {
+    if (!collectionName) continue;
+    const existingCollectionDefaults = isObjectRecord(nextCollections[collectionName]) ? nextCollections[collectionName] : {};
+    const existingPopups = isObjectRecord(existingCollectionDefaults.popups) ? existingCollectionDefaults.popups : {};
+    const nextCollectionDefaults = {
+      ...existingCollectionDefaults,
+      popups: {
+        ...buildFixedCollectionPopupDefaults(collectionName),
+        ...existingPopups,
+      },
+    };
+    const collectionRequirement = collectionRequirementByName.get(collectionName);
+    if (collectionRequirement?.requiresFieldGroups && !Array.isArray(existingCollectionDefaults.fieldGroups)) {
+      const fieldGroups = buildDefaultCollectionFieldGroups(providedCollectionMetadata, collectionName);
+      if (fieldGroups) {
+        nextCollectionDefaults.fieldGroups = fieldGroups;
+      }
+    }
+    nextCollections[collectionName] = nextCollectionDefaults;
+  }
+
+  for (const associationRequirement of associationRequirements) {
+    const sourceCollection = associationRequirement.sourceCollection;
+    const associationField = associationRequirement.associationField;
+    if (!sourceCollection || !associationField) continue;
+    const existingCollectionDefaults = isObjectRecord(nextCollections[sourceCollection]) ? nextCollections[sourceCollection] : {};
+    const existingPopups = isObjectRecord(existingCollectionDefaults.popups) ? existingCollectionDefaults.popups : {};
+    const existingAssociations = isObjectRecord(existingPopups.associations) ? existingPopups.associations : {};
+    const existingAssociationDefaults = isObjectRecord(existingAssociations[associationField])
+      ? existingAssociations[associationField]
+      : {};
+    nextCollections[sourceCollection] = {
+      ...existingCollectionDefaults,
+      popups: {
+        ...existingPopups,
+        associations: {
+          ...existingAssociations,
+          [associationField]: {
+            ...buildFixedCollectionPopupDefaults(associationRequirement.targetCollection || associationField),
+            ...existingAssociationDefaults,
+          },
+        },
+      },
+    };
+  }
+
+  nextBlueprint.defaults = {
+    ...existingDefaults,
+    collections: nextCollections,
+  };
+
+  return prepareApplyBlueprintRequest(nextBlueprint, {
+    collectionMetadata: providedCollectionMetadata,
+    injectDataSurfaceDefaultFilter,
+    ...prepareOptions,
+  });
+}
+
+function buildFieldNames(prefix, count) {
+  return Array.from({ length: count }, (_, index) => `${prefix}${index + 1}`);
+}
+
+function buildFourBlockPopupBlocks() {
+  return [
+    {
+      key: 'profile',
+      type: 'details',
+      title: 'Profile',
+      collection: 'users',
+      fields: ['nickname'],
+    },
+    {
+      key: 'contact',
+      type: 'details',
+      title: 'Contact',
+      collection: 'users',
+      fields: ['email'],
+    },
+    {
+      key: 'roles',
+      type: 'table',
+      title: 'Roles',
+      collection: 'roles',
+      fields: ['name'],
+      actions: [defaultFilterAction(['name', 'title', 'scope'])],
+    },
+    {
+      key: 'activity',
+      type: 'table',
+      title: 'Activity',
+      collection: 'users',
+      fields: ['status'],
+      actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+    },
+  ];
+}
+
+function buildFourBlockPopupLayout() {
+  return {
+    rows: [
+      [{ key: 'profile', span: 12 }, { key: 'contact', span: 12 }],
+      ['roles'],
+      ['activity'],
+    ],
+  };
+}
+
+function buildPopupModeBlueprint(popup) {
+  return {
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Users table',
+            collection: 'users',
+            fields: ['nickname', 'email'],
+            actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            recordActions: [
+              {
+                type: 'view',
+                title: 'View',
+                popup,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
 }
 
 test('renderPageBlueprintAsciiPreview renders row grouping, block summaries, and one popup layer', () => {
@@ -351,7 +777,9 @@ test('renderPageBlueprintAsciiPreview keeps wrapper warning for prepare-write he
               key: 'usersTable',
               type: 'table',
               collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
           ],
         },
@@ -447,6 +875,28 @@ test('page preview cli returns ok=false for invalid blueprint payload', async ()
   assert.match(payload.error, /recognizable inner page blueprint object/i);
 });
 
+test('page preview cli returns a stable JSON error when --input is missing its value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runPagePreviewCli(['--input'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.deepEqual(JSON.parse(stderr.read()), {
+    ok: false,
+    error: 'Missing value for --input.',
+    usage: {
+      command:
+        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
+    },
+  });
+});
+
 test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normalized cli body', () => {
   const result = prepareApplyBlueprintRequest({
     requestBody: {
@@ -455,6 +905,17 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
       navigation: {
         group: { title: 'Workspace', icon: 'AppstoreOutlined' },
         item: { title: 'Employees', icon: 'TeamOutlined' },
+      },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
       },
       page: { title: 'Employees' },
       tabs: [
@@ -466,17 +927,31 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
               type: 'table',
               collection: 'users',
               fields: ['nickname', 'email'],
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
           ],
         },
       ],
     },
+    collectionMetadata,
   });
 
   assert.equal(result.ok, true);
   assert.match(result.ascii, /^PAGE: Employees \(create\)/m);
-  assert.deepEqual(result.warnings, ['Received outer requestBody wrapper; preview unwrapped the inner page blueprint.']);
+  assert.deepEqual(result.warnings, []);
   assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
   assert.deepEqual(result.facts, {
     mode: 'create',
     pageTitle: 'Employees',
@@ -492,6 +967,17 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
       group: { title: 'Workspace', icon: 'AppstoreOutlined' },
       item: { title: 'Employees', icon: 'TeamOutlined' },
     },
+    defaults: {
+      collections: {
+        users: {
+          popups: {
+            view: { name: 'User details', description: 'View one user record.' },
+            addNew: { name: 'Create user', description: 'Create one user record.' },
+            edit: { name: 'Edit user', description: 'Edit one user record.' },
+          },
+        },
+      },
+    },
     page: { title: 'Employees' },
     tabs: [
       {
@@ -502,6 +988,8 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
             type: 'table',
             collection: 'users',
             fields: ['nickname', 'email'],
+            defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+            actions: [defaultFilterAction(['nickname', 'email', 'status'])],
           },
         ],
       },
@@ -509,8 +997,2216 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
-test('prepareApplyBlueprintRequest returns normalized templateDecision when provided through options', () => {
+test('prepareApplyBlueprintRequest accepts public blueprint envelope with metadata', () => {
+  const result = prepareApplyBlueprintRequest({
+    blueprint: {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Employees', icon: 'TeamOutlined' },
+      },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      page: { title: 'Employees' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.warnings, []);
+  assert.equal(result.cliBody.page.title, 'Employees');
+});
+
+test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-surface blocks while keeping filter actions optional', () => {
+  const missing = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(missing.ok, false);
+  assert.ok(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
+
+  const shorthand = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'list',
+              title: 'Users list',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: ['filter'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(shorthand.ok, true);
+
+  const objectWithoutSettings = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [{ type: 'filter' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(objectWithoutSettings.ok, true);
+
+  const actionLevelOnly = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionLevelOnly.ok, false);
+  assert.ok(actionLevelOnly.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
+
+  const templateBackedWithoutDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              template: { uid: 'users-table-template', mode: 'reference' },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithoutDefaultFilter.ok, true);
+
+  const templateBackedWithDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              template: { uid: 'users-table-template', mode: 'reference' },
+              defaultFilter: {},
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithDefaultFilter.ok, false);
+  assert.ok(templateBackedWithDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-template-unsupported'));
+
+  const templateBackedWithDefaultActionSettings = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              template: { uid: 'users-table-template', mode: 'reference' },
+              defaultActionSettings: {
+                filter: {
+                  filterableFieldNames: ['nickname', 'status'],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithDefaultActionSettings.ok, false);
+  assert.ok(
+    templateBackedWithDefaultActionSettings.errors.some(
+      (issue) => issue.ruleId === 'data-surface-block-default-action-settings-template-unsupported',
+    ),
+  );
+
+  const invalidSecondFilterAction = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: ['filter', { type: 'filter', settings: 'invalid' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalidSecondFilterAction.ok, false);
+  assert.ok(invalidSecondFilterAction.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
+
+  const defaultFilterOnly = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(defaultFilterOnly.ok, true);
+
+  const emptyObjectDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: {},
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyObjectDefaultFilter.ok, false);
+  assert.ok(emptyObjectDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
+
+  const nullDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: null,
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(nullDefaultFilter.ok, false);
+  assert.ok(nullDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
+
+  const emptyGroupDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: { logic: '$and', items: [] },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyGroupDefaultFilter.ok, false);
+  assert.ok(emptyGroupDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
+
+  const defaultFilterOnlyUnknownPath = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['missingField']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(defaultFilterOnlyUnknownPath.ok, false);
+  assert.ok(defaultFilterOnlyUnknownPath.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
+
+  const incomplete = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [{ path: 'nickname', operator: '$includes', value: '' }],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(incomplete.ok, false);
+  assert.ok(incomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+
+  const blockLevelIncomplete = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(blockLevelIncomplete.ok, false);
+  assert.ok(blockLevelIncomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+
+  const actionDefaultFilterOverridesBlockLevelCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: defaultFilterGroup(['nickname', 'email']),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(actionDefaultFilterOverridesBlockLevelCoverage.ok, true);
+
+  const invalidSettingsShape = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [{ type: 'filter', settings: 'invalid' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalidSettingsShape.ok, false);
+  assert.ok(invalidSettingsShape.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
+
+  const invalidLogic = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: {
+                logic: '$bad',
+                items: [{ path: 'nickname', operator: '$includes', value: '' }],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalidLogic.ok, false);
+  assert.ok(invalidLogic.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-logic-invalid'));
+
+  const emptyNestedGroup = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: {
+                logic: '$and',
+                items: [{ logic: '$or', items: [] }],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyNestedGroup.ok, false);
+  assert.ok(emptyNestedGroup.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
+});
+
+test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {
+  const valid = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(valid.ok, true);
+
+  const nested = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [
+                        {
+                          logic: '$or',
+                          items: [
+                            { path: 'nickname', operator: '$includes', value: '' },
+                            { path: 'email', operator: '$includes', value: '' },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(nested.ok, true);
+
+  const emptyActionDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname'],
+                    defaultFilter: {},
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(emptyActionDefaultFilter.ok, false);
+  assert.ok(emptyActionDefaultFilter.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
+
+  const unknown = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'missingField'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(unknown.ok, false);
+  assert.ok(unknown.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
+
+  const nestedMissingCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['nickname', 'email'],
+                    defaultFilter: {
+                      logic: '$and',
+                      items: [
+                        {
+                          logic: '$or',
+                          items: [{ path: 'nickname', operator: '$includes', value: '' }],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(nestedMissingCoverage.ok, false);
+  assert.ok(nestedMissingCoverage.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+});
+
+test('prepareApplyBlueprintRequest accepts collection defaults and summarizes them', () => {
   const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            fieldGroups: [
+              {
+                key: 'basic',
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                key: 'assignments',
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                roles: {
+                  view: { name: 'User role details', description: 'View one related user role.' },
+                  addNew: { name: 'Add user role', description: 'Create one related user role.' },
+                  edit: { name: 'Edit user role', description: 'Edit one related user role.' },
+                },
+              },
+            },
+          },
+          roles: {
+            fieldGroups: [
+              {
+                key: 'basic',
+                title: 'Basic info',
+                fields: ['name', 'title', 'description', 'scope', 'priority', 'status', 'category', 'color', 'code', 'sort', 'createdAt'],
+              },
+            ],
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['username'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.match(result.ascii, /^DEFAULTS: users\(fieldGroups,popups\), roles\(fieldGroups\)$/m);
+  assert.equal(result.cliBody.defaults.collections.users.popups.associations.roles.edit.name, 'Edit user role');
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
+  assert.deepEqual(result.warnings, []);
+});
+
+test('prepareApplyBlueprintRequest rejects collection default fieldGroups when they cover ten or fewer fields', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          fieldGroups: [
+            {
+              key: 'basic',
+              title: 'Basic info',
+              fields: ['username', 'nickname', 'email', 'phone', 'status'],
+            },
+          ],
+          popups: {
+            view: { name: 'User details', description: 'View one user record.' },
+          },
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'default-field-groups-only-for-large-generated-popups'
+        && issue.path === 'defaults.collections.users.fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects invalid collection defaults shapes', () => {
+  const buildBlueprint = (defaults) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults,
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  const cases = [
+    {
+      label: 'defaults.blocks',
+      defaults: { blocks: [] },
+      ruleId: 'unsupported-defaults-key',
+      path: 'defaults.blocks',
+    },
+    {
+      label: 'popups.view.blocks',
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: {
+                name: 'User details',
+                blocks: [],
+              },
+            },
+          },
+        },
+      },
+      ruleId: 'unsupported-default-popup-key',
+      path: 'defaults.collections.users.popups.view.blocks',
+    },
+    {
+      label: 'popups.associations.roles.view.fieldGroups',
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              associations: {
+                roles: {
+                  view: {
+                    name: 'User role details',
+                    fieldGroups: [],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      ruleId: 'unsupported-default-popup-key',
+      path: 'defaults.collections.users.popups.associations.roles.view.fieldGroups',
+    },
+    {
+      label: 'popups.relations',
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              relations: {
+                roles: {
+                  view: { name: 'User role details' },
+                },
+              },
+            },
+          },
+        },
+      },
+      ruleId: 'unsupported-default-popup-action-key',
+      path: 'defaults.collections.users.popups.relations',
+    },
+  ];
+
+  for (const item of cases) {
+    const result = prepareApplyBlueprintRequest(buildBlueprint(item.defaults));
+    assert.equal(result.ok, false, item.label);
+    assert.ok(
+      result.errors.some((issue) => issue.ruleId === item.ruleId && issue.path === item.path),
+      `${item.label} should fail with ${item.ruleId} at ${item.path}`,
+    );
+  }
+});
+
+test('prepareApplyBlueprintRequest requires description on defaults popup values', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          popups: {
+            view: { name: 'User details' },
+          },
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'default-popup-description-required' && issue.path === 'defaults.collections.users.popups.view.description',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest requires collectionMetadata when field popups contain data-bound blocks', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname']),
+            fields: [
+              {
+                field: 'nickname',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.ok(result.errors[0].message.includes('tabs[0].blocks[0].fields[0].popup.blocks[0]'));
+  assert.equal(result.defaultsRequirements, undefined);
+});
+
+test('prepareApplyBlueprintRequest requires collectionMetadata when table defaults completeness is needed', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname']),
+            fields: ['nickname'],
+            recordActions: ['view'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.equal(result.defaultsRequirements, undefined);
+});
+
+test('prepareApplyBlueprintRequest treats empty collectionMetadata like missing metadata for data-bound blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: emptyPrepareCollectionMetadata },
+  );
+
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.equal(result.defaultsRequirements, undefined);
+});
+
+test('prepareApplyBlueprintRequest requires collectionMetadata before resolving associated-record blocks', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname']),
+            fields: ['nickname'],
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'Roles',
+                  blocks: [
+                    {
+                      key: 'userRoles',
+                      type: 'table',
+                      title: 'Roles table',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'roles',
+                      },
+                      fields: ['name'],
+                      recordActions: ['view'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assertMissingCollectionMetadata(result, 'tabs[0].blocks[0]');
+  assert.ok(result.errors[0].message.includes('tabs[0].blocks[0].recordActions[0].popup.blocks[0]'));
+  assert.equal(result.defaultsRequirements, undefined);
+});
+
+test('prepareApplyBlueprintRequest accepts non-data-bound pages without collectionMetadata', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Info' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'intro',
+            type: 'markdown',
+            content: 'Static launch notes',
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.notEqual(result.cliBody, undefined);
+  assert.equal(result.defaultsRequirements, undefined);
+});
+
+test('prepareApplyBlueprintRequest validates current-record field popup defaults completeness against collectionMetadata', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'nickname',
+                  popup: {
+                    title: 'User details',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup-description' && issue.path === 'defaults.collections.users.popups.view.description',
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup' && issue.path === 'defaults.collections.users.popups.addNew',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest validates defaults completeness against collectionMetadata', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                roles: {
+                  view: { name: 'Role details', description: 'View one related role.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: [
+                'nickname',
+                {
+                  field: 'roles.name',
+                  popup: {
+                    title: 'Role details',
+                  },
+                },
+              ],
+              recordActions: ['view', 'edit'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: [],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'roles',
+        targetCollection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup' && issue.path === 'defaults.collections.users.popups.addNew',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest reports each missing default collection path only once when direct and association scopes overlap', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: ['roles.name'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(
+    result.errors.filter(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.users',
+    ).length,
+    1,
+  );
+});
+
+test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors once collectionMetadata is supplied', () => {
+  const largeUsersCollectionMetadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'email', type: 'string', interface: 'input' },
+          { name: 'phone', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'bio', type: 'text', interface: 'textarea' },
+          { name: 'employeeCode', type: 'string', interface: 'input' },
+          { name: 'realName', type: 'string', interface: 'input' },
+          { name: 'city', type: 'string', interface: 'input' },
+          { name: 'country', type: 'string', interface: 'input' },
+          { name: 'postalCode', type: 'string', interface: 'input' },
+          { name: 'timezone', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: largeUsersCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+    associations: [],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-field-groups' && issue.path === 'defaults.collections.users.fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest reports missing popup values for the fixed defaults trio', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              edit: { name: 'Edit user' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: ['view', 'edit'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup-description' && issue.path === 'defaults.collections.users.popups.edit.description',
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup' && issue.path === 'defaults.collections.users.popups.addNew',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps fixed association defaults when popup.blocks is explicit and still recurses nested popup blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'nickname',
+                  popup: {
+                    title: 'User details',
+                    blocks: [
+                      {
+                        key: 'nestedUserDetails',
+                        type: 'details',
+                        collection: 'users',
+                        fields: [
+                          'nickname',
+                          {
+                            field: 'department.title',
+                            popup: {
+                              title: 'Department details',
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'department',
+        targetCollection: 'departments',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-association-popup'
+        && issue.path === 'defaults.collections.users.popups.associations.department.addNew',
+    ),
+  );
+  assert.equal(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.departments',
+    ),
+    false,
+  );
+});
+
+test('prepareApplyBlueprintRequest does not upgrade relation popup child blocks without collection into direct collection defaults', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                department: {
+                  view: { name: 'Department details', description: 'View one related department.' },
+                  addNew: { name: 'Create department', description: 'Create one related department.' },
+                  edit: { name: 'Edit department', description: 'Edit one related department.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'department.title',
+                  popup: {
+                    title: 'Department details',
+                    blocks: [
+                      {
+                        key: 'departmentNote',
+                        type: 'markdown',
+                        content: 'Department note',
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'department',
+        targetCollection: 'departments',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+});
+
+test('prepareApplyBlueprintRequest normalizes deep associatedRecords defaults keys to the first relation segment', () => {
+  const deepAssociationCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      departments: {
+        ...collectionMetadata.collections.departments,
+        fields: [
+          ...collectionMetadata.collections.departments.fields,
+          { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'users' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                'department.manager': {
+                  view: { name: 'Department manager details', description: 'View one related department manager.' },
+                  addNew: { name: 'Create department manager', description: 'Create one related department manager.' },
+                  edit: { name: 'Edit department manager', description: 'Edit one related department manager.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    title: 'Department manager users',
+                    blocks: [
+                      {
+                        key: 'managerUsers',
+                        type: 'table',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'department.manager',
+                        },
+                        fields: ['nickname'],
+                        recordActions: ['view'],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: deepAssociationCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'department',
+        targetCollection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+  assert.equal(
+    result.cliBody.defaults.collections.users.popups.associations.department.view.name,
+    'Department manager details',
+  );
+  assert.equal(
+    Object.hasOwn(result.cliBody.defaults.collections.users.popups.associations, 'department.manager'),
+    false,
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps the canonical first-segment association defaults when deep aliases also exist', () => {
+  const deepAssociationCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      departments: {
+        ...collectionMetadata.collections.departments,
+        fields: [
+          ...collectionMetadata.collections.departments.fields,
+          { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'users' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                'department.manager': {
+                  view: { name: 'Alias manager details', description: 'View one related alias manager.' },
+                  addNew: { name: 'Alias create manager', description: 'Create one related alias manager.' },
+                  edit: { name: 'Alias edit manager', description: 'Edit one related alias manager.' },
+                },
+                department: {
+                  view: { name: 'Canonical department details', description: 'View one related canonical department.' },
+                  addNew: { name: 'Canonical create department', description: 'Create one related canonical department.' },
+                  edit: { name: 'Canonical edit department', description: 'Edit one related canonical department.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    title: 'Department manager users',
+                    blocks: [
+                      {
+                        key: 'managerUsers',
+                        type: 'table',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'department.manager',
+                        },
+                        fields: ['nickname'],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: deepAssociationCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.equal(
+    result.cliBody.defaults.collections.users.popups.associations.department.view.name,
+    'Canonical department details',
+  );
+  assert.equal(
+    result.cliBody.defaults.collections.users.popups.associations.department.addNew.name,
+    'Canonical create department',
+  );
+  assert.equal(
+    Object.hasOwn(result.cliBody.defaults.collections.users.popups.associations, 'department.manager'),
+    false,
+  );
+});
+
+test('prepareApplyBlueprintRequest does not invent self-associations when nested popup blocks contain associatedRecords tables', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'roles',
+                  popup: {
+                    title: 'Roles popup',
+                    blocks: [
+                      {
+                        key: 'rolesTable',
+                        type: 'table',
+                        collection: 'roles',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'roles',
+                        },
+                        fields: ['name'],
+                        recordActions: ['view'],
+                      },
+                    ],
+                  },
+                },
+              ],
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'roles',
+        targetCollection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+});
+
+test('prepareApplyBlueprintRequest keeps fixed association defaults when popup.template is explicit', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'roles.name',
+                  popup: {
+                    title: 'Role details',
+                    template: {
+                      uid: 'role-details-template',
+                      mode: 'reference',
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: [],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'roles',
+        targetCollection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps fixed association defaults when popup.tryTemplate is explicit', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'roles.name',
+                  popup: {
+                    title: 'Role details',
+                    tryTemplate: true,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: [],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'roles',
+        targetCollection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest does not require fieldGroups for small table collections without explicit addNew', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
+});
+
+test('prepareApplyBlueprintRequest requires fieldGroups for large table collections without explicit addNew', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      defaults: {
+        collections: {
+          roles: {
+            popups: {
+              view: { name: 'Role details', description: 'View one role record.' },
+              addNew: { name: 'Create role', description: 'Create one role record.' },
+              edit: { name: 'Edit role', description: 'Edit one role record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              fields: ['name'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+    associations: [],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-field-groups' && issue.path === 'defaults.collections.roles.fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects dotted collection default fieldGroups paths', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      defaults: {
+        collections: {
+          roles: {
+            fieldGroups: [
+              {
+                key: 'basic',
+                title: 'Basic info',
+                fields: ['id', 'name', 'name.title', 'title', 'description', 'scope', 'priority', 'status', 'category', 'color', 'code', 'sort', 'notes'],
+              },
+            ],
+            popups: {
+              view: { name: 'Role details', description: 'View one role record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              fields: ['name'],
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'default-field-group-unknown-field'
+        && issue.path === 'defaults.collections.roles.fieldGroups[0].fields[2]',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest returns normalized templateDecision when provided through options', () => {
+  const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -542,6 +3238,7 @@ test('prepareApplyBlueprintRequest returns normalized templateDecision when prov
       ],
     },
     {
+      collections: ['users'],
       templateDecision: {
         kind: 'selected-reference',
         template: {
@@ -616,7 +3313,7 @@ test('prepareApplyBlueprintRequest rejects selected templateDecision values that
 });
 
 test('prepareApplyBlueprintRequest accepts selected templateDecision values on mixed-template pages when the current decision binding exists', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -659,6 +3356,7 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values on m
       ],
     },
     {
+      collections: ['users'],
       templateDecision: {
         kind: 'selected-reference',
         template: {
@@ -684,7 +3382,7 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values on m
 });
 
 test('prepareApplyBlueprintRequest accepts selected templateDecision values when every binding matches the same template uid/mode', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -727,6 +3425,7 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values when
       ],
     },
     {
+      collections: ['users'],
       templateDecision: {
         kind: 'selected-reference',
         template: {
@@ -752,7 +3451,7 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values when
 });
 
 test('prepareApplyBlueprintRequest accepts discovery-only templateDecision on mixed pages with other bound templates', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -785,6 +3484,7 @@ test('prepareApplyBlueprintRequest accepts discovery-only templateDecision on mi
       ],
     },
     {
+      collections: ['users'],
       templateDecision: {
         kind: 'discovery-only',
         template: {
@@ -809,7 +3509,7 @@ test('prepareApplyBlueprintRequest accepts discovery-only templateDecision on mi
 });
 
 test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision on mixed pages with other bound templates', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -857,6 +3557,7 @@ test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision 
       ],
     },
     {
+      collections: ['users'],
       templateDecision: {
         kind: 'inline-non-template',
         reasonCode: 'single-occurrence',
@@ -875,7 +3576,7 @@ test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision 
 });
 
 test('prepareApplyBlueprintRequest accepts not-repeat-eligible templateDecision on mixed pages with other bound templates', () => {
-  const result = prepareApplyBlueprintRequest(
+  const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -923,6 +3624,7 @@ test('prepareApplyBlueprintRequest accepts not-repeat-eligible templateDecision 
       ],
     },
     {
+      collections: ['users'],
       templateDecision: {
         kind: 'inline-non-template',
         reasonCode: 'not-repeat-eligible',
@@ -1393,7 +4095,7 @@ test('prepareApplyBlueprintRequest rejects menu icons that are not valid Ant Des
 });
 
 test('prepareApplyBlueprintRequest tolerates missing item icon when attaching under one existing menu group route', () => {
-  const result = prepareApplyBlueprintRequest({
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     navigation: {
@@ -1638,7 +4340,7 @@ test('prepareApplyBlueprintRequest rejects unsupported layout cells and requires
 });
 
 test('prepareApplyBlueprintRequest accepts fieldsLayout on field-grid blocks and keeps it in the normalized cli body', () => {
-  const result = prepareApplyBlueprintRequest({
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -1669,6 +4371,76 @@ test('prepareApplyBlueprintRequest accepts fieldsLayout on field-grid blocks and
   assert.equal(result.ok, true);
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
     rows: [['nicknameField'], [{ key: 'statusField', span: 12 }, { key: 'phoneField', span: 12 }]],
+  });
+});
+
+test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for createForm when omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fields: [
+              { key: 'nicknameField', field: 'nickname' },
+              { key: 'statusField', field: 'status' },
+              { key: 'phoneField', field: 'phone' },
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [
+      [{ key: 'nicknameField', span: 12 }, { key: 'statusField', span: 12 }],
+      [{ key: 'phoneField', span: 24 }],
+    ],
+  });
+});
+
+test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for filterForm when omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname', 'email', 'phone'],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [[{ key: 'nickname', span: 8 }, { key: 'email', span: 8 }, { key: 'phone', span: 8 }]],
   });
 });
 
@@ -1855,8 +4627,49 @@ test('prepareApplyBlueprintRequest rejects empty fieldsLayout rows', () => {
   );
 });
 
-test('prepareApplyBlueprintRequest allows filter plus one business block without explicit layout', () => {
+test('prepareApplyBlueprintRequest rejects explicit single-column fieldsLayout on multi-field grids', () => {
   const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname', 'email', 'phone'],
+            fieldsLayout: {
+              rows: [['nickname'], ['email'], ['phone']],
+            },
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'fields-layout-single-column' && issue.path === 'tabs[0].blocks[0].fieldsLayout.rows',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest allows filter plus one business block without explicit layout', () => {
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -1886,6 +4699,9 @@ test('prepareApplyBlueprintRequest allows filter plus one business block without
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [[{ key: 'nickname', span: 8 }, { key: 'email', span: 8 }, { key: 'phone', span: 8 }]],
+  });
 });
 
 test('prepareApplyBlueprintRequest requires filter blocks to occupy the first explicit layout row alone', () => {
@@ -1933,7 +4749,7 @@ test('prepareApplyBlueprintRequest requires filter blocks to occupy the first ex
 });
 
 test('prepareApplyBlueprintRequest accepts multiple filter blocks in the first explicit layout row when each targets its own same-run table', () => {
-  const result = prepareApplyBlueprintRequest({
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     navigation: {
@@ -2006,7 +4822,7 @@ test('prepareApplyBlueprintRequest accepts multiple filter blocks in the first e
         ],
       },
     ],
-  });
+  }, { collections: ['users', 'roles'] });
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
@@ -2038,8 +4854,335 @@ test('prepareApplyBlueprintRequest requires collapse action on filter blocks wit
   assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-collapse-required' && issue.path === 'tabs[0].blocks[0].actions'));
 });
 
-test('prepareApplyBlueprintRequest accepts whole-page submit guards when the form submit action has an explicit key', () => {
+test('renderPageBlueprintAsciiPreview shows field group summaries on large field-grid blocks', () => {
+  const result = renderPageBlueprintAsciiPreview({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /Field groups: Basic info \(6\), Assignments \(5\)/);
+  assert.match(result.ascii, /Fields: username, nickname, email, phone, \+7 more/);
+});
+
+test('prepareApplyBlueprintRequest rejects large createForm blocks that skip fieldGroups', () => {
   const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: [
+              'username',
+              'nickname',
+              'email',
+              'phone',
+              'status',
+              'bio',
+              'department.title',
+              'role.name',
+              'manager.nickname',
+              'owner.nickname',
+              'createdBy.nickname',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'large-field-grid-requires-field-groups' && issue.path === 'tabs[0].blocks[0].fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps flat fields valid when createForm has exactly ten real fields', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: [
+              'username',
+              'nickname',
+              'email',
+              'phone',
+              'status',
+              'bio',
+              'department.title',
+              'role.name',
+              'manager.nickname',
+              'owner.nickname',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields.length, 10);
+  assert.ok(result.cliBody.tabs[0].blocks[0].fieldsLayout);
+});
+
+test('prepareApplyBlueprintRequest accepts fieldGroups on large details blocks and keeps them in cliBody', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups.length, 2);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].title, 'Basic info');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
+});
+
+test('prepareApplyBlueprintRequest accepts fieldGroups on large editForm blocks and keeps grouped write shape', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups.length, 2);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[1].title, 'Assignments');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
+});
+
+test('prepareApplyBlueprintRequest preserves grouped field popups in preview and cliBody', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: [
+                  'username',
+                  {
+                    field: 'manager.nickname',
+                    popup: {
+                      title: 'Manager details',
+                      blocks: [
+                        {
+                          key: 'managerDetails',
+                          type: 'details',
+                          collection: 'users',
+                          fields: ['nickname', 'email'],
+                        },
+                      ],
+                    },
+                  },
+                  'email',
+                  'phone',
+                  'status',
+                  'bio',
+                ],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'owner.nickname', 'createdBy.nickname', 'updatedBy.nickname'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /Popup from field "manager\.nickname":/);
+  assert.match(result.ascii, /Popup: Manager details/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].fields[1].popup.title, 'Manager details');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].fields[1].popup.blocks[0].key, 'managerDetails');
+});
+
+test('prepareApplyBlueprintRequest does not treat manual divider fields as a valid grouping substitute', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            collection: 'users',
+            fields: [
+              { type: 'divider', title: 'Basic info' },
+              'username',
+              'nickname',
+              'email',
+              'phone',
+              'status',
+              'bio',
+              { type: 'divider', title: 'Assignments' },
+              'department.title',
+              'role.name',
+              'manager.nickname',
+              'owner.nickname',
+              'createdBy.nickname',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'large-field-grid-requires-field-groups' && issue.path === 'tabs[0].blocks[0].fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects fieldGroups when fieldsLayout is also present on the same block', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            fieldsLayout: {
+              rows: [['username', 'nickname']],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'field-groups-conflicts-with-fields-layout' && issue.path === 'tabs[0].blocks[0].fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest accepts whole-page submit guards when the form submit action has an explicit key', () => {
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2099,6 +5242,286 @@ test('prepareApplyBlueprintRequest accepts whole-page submit guards when the for
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
+});
+
+test('prepareApplyBlueprintRequest keys string submit actions targeted by whole-page submit guards', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [
+            {
+              key: 'disableSubmitUntilReady',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$empty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].actions, [
+    {
+      key: 'submitAction',
+      type: 'submit',
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest inserts missing submit actions targeted by whole-page submit guards', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [
+            {
+              key: 'disableSubmitUntilReady',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$empty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].actions, [
+    {
+      key: 'submitAction',
+      type: 'submit',
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest still rejects unknown custom action targets on form guards', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.customSubmitAction',
+          rules: [],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'unknown-reaction-target'));
+});
+
+test('prepareApplyBlueprintRequest does not rewrite explicitly keyed submit actions for submitAction guards', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+            actions: [
+              {
+                key: 'saveAction',
+                type: 'submit',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'unknown-reaction-target'));
+});
+
+test('prepareApplyBlueprintRequest normalizes field-state shorthand and adds referenced form fields', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setFieldLinkageRules',
+          target: 'main.usersCreateForm',
+          rules: [
+            {
+              key: 'requirePrivilegedContact',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.roles.name',
+                    operator: '$includes',
+                    value: 'admin',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setFieldState',
+                  targetPath: 'phone',
+                  state: { required: true },
+                },
+                {
+                  key: 'showPassword',
+                  type: 'setFieldState',
+                  targetPath: 'password',
+                  state: { visible: true, required: true },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username', 'roles'],
+            actions: [
+              {
+                key: 'submitAction',
+                type: 'submit',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['username', 'roles', 'phone', 'password']);
+  assert.deepEqual(result.cliBody.reaction.items[0].rules[0].then, [
+    {
+      type: 'setFieldState',
+      fieldPaths: ['phone'],
+      state: 'required',
+    },
+    {
+      key: 'showPassword-visible',
+      type: 'setFieldState',
+      fieldPaths: ['password'],
+      state: 'visible',
+    },
+    {
+      key: 'showPassword-required',
+      type: 'setFieldState',
+      fieldPaths: ['password'],
+      state: 'required',
+    },
+  ]);
 });
 
 test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', () => {
@@ -2163,6 +5586,213 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
 });
 
+test('prepareApplyBlueprintRequest rejects one-level relation shorthand fields on table display blocks without popup', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'roles'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fields[1]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects one-level relation field objects on details blocks when popup is omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fields[0]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects inherited currentRecord relation fields when popup is omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      resource: { binding: 'currentRecord' },
+                      fields: ['roles'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.blocks[0].fields[0]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects one-level relation fieldGroups entries on details blocks when popup is omitted', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Assignments',
+                fields: [
+                  {
+                    field: 'roles',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fieldGroups[0].fields[0]'
+        && issue.message.includes('"roles"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest allows one-level relation fields on editForm blocks without popup', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            collection: 'users',
+            fields: ['username', 'roles'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['username', 'roles']);
+});
+
+test('prepareApplyBlueprintRequest allows dotted relation display fields without popup', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'department.title'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['nickname', 'department.title']);
+});
+
 test('prepareApplyBlueprintRequest requires explicit layout when multiple non-filter blocks share one popup', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -2221,7 +5851,7 @@ test('prepareApplyBlueprintRequest requires explicit layout when multiple non-fi
 });
 
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {
-  const result = prepareApplyBlueprintRequest({
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2254,8 +5884,249 @@ test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the
   assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.tryTemplate, true);
 });
 
+test('prepareApplyBlueprintRequest defaults inline create-time popups to popup.tryTemplate=true when no explicit template decision is present', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userPopupDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
+  assert.match(result.ascii, /Template: save as "User details popup template" \[description provided\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].key, 'userPopupDetails');
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name,
+    'User details popup template',
+  );
+  assert.match(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
+    /Reusable popup template for record action "view" on users/i,
+  );
+});
+
+test('prepareApplyBlueprintRequest defaults first-layer popups with more than three direct blocks to page mode', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: buildFourBlockPopupBlocks(),
+      layout: buildFourBlockPopupLayout(),
+    }),
+    { collections: ['users', 'roles'] },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, 'page');
+  assert.match(result.ascii, /Popup: User details[\s\S]*Mode: page/);
+});
+
+test('prepareApplyBlueprintRequest defaults first-layer popups with more than twenty direct effective fields to page mode', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User data explorer',
+      blocks: [
+        {
+          key: 'userDataExplorer',
+          type: 'table',
+          title: 'User data explorer',
+          collection: 'users',
+          fields: buildFieldNames('field_', 21),
+        },
+      ],
+    }),
+    { collections: ['users', 'roles'] },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, 'page');
+  assert.match(result.ascii, /Popup: User data explorer[\s\S]*Mode: page/);
+});
+
+test('prepareApplyBlueprintRequest keeps popup mode unset at the auto-page thresholds', () => {
+  const exactBlockThreshold = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: buildFourBlockPopupBlocks().slice(0, 3),
+      layout: {
+        rows: [
+          [{ key: 'profile', span: 12 }, { key: 'contact', span: 12 }],
+          ['roles'],
+        ],
+      },
+    }),
+    { collections: ['users', 'roles'] },
+  );
+  assert.equal(exactBlockThreshold.ok, true);
+  assert.equal(exactBlockThreshold.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+
+  const exactFieldThreshold = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User data explorer',
+      blocks: [
+        {
+          key: 'userDataExplorer',
+          type: 'table',
+          title: 'User data explorer',
+          collection: 'users',
+          fields: buildFieldNames('field_', 20),
+        },
+      ],
+    }),
+    { collections: ['users', 'roles'] },
+  );
+  assert.equal(exactFieldThreshold.ok, true);
+  assert.equal(exactFieldThreshold.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+});
+
+test('prepareApplyBlueprintRequest does not auto-upgrade nested popups to page mode', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: [
+        {
+          key: 'userDetails',
+          type: 'details',
+          title: 'User profile',
+          collection: 'users',
+          fields: [
+            'nickname',
+            {
+              field: 'email',
+              popup: {
+                title: 'Email details',
+                blocks: buildFourBlockPopupBlocks(),
+                layout: buildFourBlockPopupLayout(),
+              },
+            },
+          ],
+        },
+      ],
+    }),
+    { collections: ['users', 'roles'] },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].fields[1].popup.mode,
+    undefined,
+  );
+});
+
+test('prepareApplyBlueprintRequest preserves explicit popup modes on complex first-layer popups', () => {
+  for (const explicitMode of ['drawer', 'dialog', 'page']) {
+    const result = prepareWithDirectCollectionDefaults(
+      buildPopupModeBlueprint({
+        title: `User details ${explicitMode}`,
+        mode: explicitMode,
+        blocks: buildFourBlockPopupBlocks(),
+        layout: buildFourBlockPopupLayout(),
+      }),
+      { collections: ['users', 'roles'] },
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, explicitMode);
+  }
+});
+
+test('prepareApplyBlueprintRequest does not auto-add page mode when a popup template is already bound', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      template: {
+        uid: 'user-details-template',
+        mode: 'reference',
+      },
+      blocks: buildFourBlockPopupBlocks(),
+      layout: buildFourBlockPopupLayout(),
+    }),
+    { collections: ['users', 'roles'] },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+  assert.deepEqual(result.warnings, ['Popup "User details" will ignore local popup keys: blocks, layout.']);
+});
+
+test('prepareApplyBlueprintRequest preserves an explicit popup.tryTemplate=false override on create-time inline popups', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  tryTemplate: false,
+                  blocks: [
+                    {
+                      key: 'userPopupDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.doesNotMatch(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, false);
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name,
+    'User details popup template',
+  );
+});
+
 test('prepareApplyBlueprintRequest accepts popup.saveAsTemplate and keeps it in the normalized cli body', () => {
-  const result = prepareApplyBlueprintRequest({
+  const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2295,11 +6166,59 @@ test('prepareApplyBlueprintRequest accepts popup.saveAsTemplate and keeps it in 
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
+  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
   assert.match(result.ascii, /Template: save as "user-popup-template" \[description provided\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name, 'user-popup-template');
   assert.equal(
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
     'Save this popup as a reusable template.',
+  );
+});
+
+test('prepareApplyBlueprintRequest auto-generates popup.saveAsTemplate metadata for Chinese explicit local popups', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: '用户页' },
+    tabs: [
+      {
+        title: '概览',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                title: '详情',
+                type: 'view',
+                popup: {
+                  title: '用户详情',
+                  blocks: [
+                    {
+                      key: 'userPopupDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name, '用户详情弹窗模板');
+  assert.match(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
+    /复用弹窗模板。宿主：users；触发器：记录操作“详情”；内容：/u,
   );
 });
 
@@ -2342,7 +6261,7 @@ test('prepareApplyBlueprintRequest rejects non-boolean popup.tryTemplate values'
 });
 
 test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads and conflicts', () => {
-  const invalidShape = prepareApplyBlueprintRequest({
+  const invalidShape = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2384,7 +6303,7 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
     ),
   );
 
-  const missingBlocks = prepareApplyBlueprintRequest({
+  const missingBlocks = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2400,6 +6319,7 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
               {
                 type: 'view',
                 popup: {
+                  tryTemplate: false,
                   saveAsTemplate: {
                     name: 'user-popup-template',
                     description: 'Save this popup as a reusable template.',
@@ -2421,7 +6341,7 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
     ),
   );
 
-  const conflict = prepareApplyBlueprintRequest({
+  const combined = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2438,14 +6358,42 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
                 type: 'view',
                 popup: {
                   tryTemplate: true,
-                  blocks: [
-                    {
-                      key: 'userPopupDetails',
-                      type: 'details',
-                      collection: 'users',
-                      fields: ['nickname'],
-                    },
-                  ],
+                  saveAsTemplate: {
+                    name: 'user-popup-template',
+                    description: 'Save this popup as a reusable template.',
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(combined.ok, true);
+  assert.equal(combined.errors.length, 0);
+  assert.equal(combined.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
+
+  const conflict = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  template: {
+                    uid: 'popup-template-uid',
+                    mode: 'reference',
+                  },
                   saveAsTemplate: {
                     name: 'user-popup-template',
                     description: 'Save this popup as a reusable template.',
@@ -2468,12 +6416,23 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
   );
 });
 
-test('prepareApplyBlueprintRequest accepts popup template payloads that also carry ignored local popup keys', () => {
+test('prepareApplyBlueprintRequest ignores local popup blocks for write shape when a popup template is bound but still collects their defaults scope', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
       mode: 'create',
       page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
       tabs: [
         {
           title: 'Overview',
@@ -2495,9 +6454,15 @@ test('prepareApplyBlueprintRequest accepts popup template payloads that also car
                     },
                     mode: 'drawer',
                     layout: 'side-by-side',
-                    blocks: {
-                      ignored: true,
-                    },
+                    blocks: [
+                      {
+                        key: 'rolesTable',
+                        type: 'table',
+                        collection: 'roles',
+                        fields: ['name'],
+                        recordActions: ['view'],
+                      },
+                    ],
                   },
                 },
               ],
@@ -2507,6 +6472,7 @@ test('prepareApplyBlueprintRequest accepts popup template payloads that also car
       ],
     },
     {
+      collectionMetadata,
       templateDecision: {
         kind: 'selected-reference',
         template: {
@@ -2517,8 +6483,29 @@ test('prepareApplyBlueprintRequest accepts popup template payloads that also car
     },
   );
 
-  assert.equal(result.ok, true);
-  assert.equal(result.errors.length, 0);
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+  );
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
   assert.match(result.ascii, /Template: user-edit-popup-template \[mode=reference\]/);
   assert.match(result.ascii, /Ignored local popup keys: mode, blocks, layout/);
   assert.deepEqual(result.templateDecision, {
@@ -2534,14 +6521,14 @@ test('prepareApplyBlueprintRequest accepts popup template payloads that also car
   assert.deepEqual(result.warnings, ['Popup "Edit user" will ignore local popup keys: mode, blocks, layout.']);
 });
 
-test('page preview cli prepare-write returns normalized cli body json', async () => {
+test('page preview cli prepare-write fails when data-bound blocks are missing collectionMetadata', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
     JSON.stringify({
       version: '1',
-      mode: 'replace',
-      target: { pageSchemaUid: 'users-page-schema' },
+      mode: 'create',
+      page: { title: 'Users' },
       tabs: [
         {
           title: 'Overview',
@@ -2550,7 +6537,9 @@ test('page preview cli prepare-write returns normalized cli body json', async ()
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              fields: ['nickname', 'email'],
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
           ],
         },
@@ -2565,10 +6554,74 @@ test('page preview cli prepare-write returns normalized cli body json', async ()
     stderr: stderr.stream,
   });
 
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.deepEqual(payload.warnings, []);
+  assert.equal(payload.defaultsRequirements, undefined);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(
+    payload.errors.some(
+      (issue) => issue.ruleId === 'missing-collection-metadata'
+        && issue.path === 'collectionMetadata'
+        && issue.message.includes('tabs[0].blocks[0]'),
+    ),
+  );
+});
+
+test('page preview cli prepare-write returns normalized cli body json', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'replace',
+        target: { pageSchemaUid: 'users-page-schema' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+                fields: ['nickname', 'email'],
+                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
   assert.equal(exitCode, 0);
   assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, true);
+  assert.deepEqual(payload.warnings, []);
   assert.equal(payload.facts.expectedOuterTabs, 1);
   assert.equal(payload.cliBody.target.pageSchemaUid, 'users-page-schema');
 });
@@ -2582,6 +6635,17 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
         version: '1',
         mode: 'create',
         page: { title: 'Employees' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
         tabs: [
           {
             title: 'Overview',
@@ -2590,12 +6654,15 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
                 fields: ['nickname'],
+                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
               },
             ],
           },
         ],
       },
+      collectionMetadata,
       templateDecision: {
         kind: 'discovery-only',
         template: {
@@ -2639,6 +6706,17 @@ test('page preview cli prepare-write accepts bootstrap-before-bind templateDecis
         version: '1',
         mode: 'create',
         page: { title: 'Employees' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
         tabs: [
           {
             title: 'Overview',
@@ -2647,12 +6725,15 @@ test('page preview cli prepare-write accepts bootstrap-before-bind templateDecis
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
                 fields: ['nickname'],
+                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
               },
             ],
           },
         ],
       },
+      collectionMetadata,
       templateDecision: {
         kind: 'discovery-only',
         template: {
@@ -2693,33 +6774,49 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
   const stderr = createMemoryStream();
   const stdin = createInputStream(
     JSON.stringify({
-      version: '1',
-      mode: 'create',
-      page: { title: 'Users' },
-      tabs: [
-        {
-          title: 'List',
-          blocks: [
-            {
-              key: 'usersTable',
-              type: 'table',
-              collection: 'users',
-              fields: ['nickname'],
+      requestBody: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
             },
-          ],
+          },
         },
-        {
-          title: 'Detail',
-          blocks: [
-            {
-              key: 'usersDetail',
-              type: 'details',
-              collection: 'users',
-              fields: ['nickname'],
-            },
-          ],
-        },
-      ],
+        tabs: [
+          {
+            title: 'List',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+                fields: ['nickname'],
+                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              },
+            ],
+          },
+          {
+            title: 'Detail',
+            blocks: [
+              {
+                key: 'usersDetail',
+                type: 'details',
+                collection: 'users',
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
     }),
   );
 
@@ -2736,4 +6833,154 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
   assert.equal(payload.ok, true);
   assert.equal(payload.facts.expectedOuterTabs, 2);
   assert.equal(payload.facts.outerTabCount, 2);
+});
+
+test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilter on calendar blocks', () => {
+  const missing = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter', 'addNew'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(missing.ok, false);
+  assert.equal(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'), true);
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'status']),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter', 'addNew'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].type, 'calendar');
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status']));
+});
+
+test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions on calendar main blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+              fieldGroups: [
+                {
+                  title: 'Main',
+                  fields: ['email'],
+                },
+              ],
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-fields-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-field-groups-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-main-record-actions-unsupported'), true);
+});
+
+test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field bindings on calendar blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'status']),
+              settings: {
+                titleField: 'roles',
+                startField: 'nickname',
+                endField: 'missingField',
+              },
+              actions: ['bulkDelete'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-action-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.titleField')), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.startField')), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.endField')), true);
 });

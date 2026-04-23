@@ -1,26 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { parseCliArgs } from './cli-args.js';
 import { planTemplateQuery, selectTemplateDecision } from './template-selection.js';
-
-function parseArgs(argv) {
-  const args = { _: [] };
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (!token.startsWith('--')) {
-      args._.push(token);
-      continue;
-    }
-    const key = token.slice(2);
-    const next = argv[index + 1];
-    if (!next || next.startsWith('--')) {
-      args[key] = true;
-      continue;
-    }
-    args[key] = next;
-    index += 1;
-  }
-  return args;
-}
 
 async function readStreamText(stream) {
   let output = '';
@@ -71,10 +52,13 @@ export async function runTemplateSelectionCli(argv, io = {}) {
   const stdout = io.stdout || process.stdout;
   const stderr = io.stderr || process.stderr;
   const stdin = io.stdin || process.stdin;
-  const args = parseArgs(argv);
-  const command = args._[0];
 
   try {
+    const args = parseCliArgs(argv, {
+      valueFlags: ['input'],
+      booleanFlags: ['help', 'stdin-json'],
+    });
+    const command = args._[0];
     if (args.help || command === 'help' || !command) {
       writeJson(stdout, { ok: true, usage: usage() });
       return 0;

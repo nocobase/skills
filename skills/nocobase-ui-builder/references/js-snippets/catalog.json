@@ -1,0 +1,2011 @@
+{
+  "version": 1,
+  "snippets": [
+    {
+      "id": "global/message-success",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "intentTags": [
+        "notify"
+      ],
+      "ctxRoots": [
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/message-success.md",
+      "relatedIds": [
+        "global/message-error",
+        "global/notification-open"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSRecordActionModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSRecordActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "notify"
+      ]
+    },
+    {
+      "id": "global/message-error",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "intentTags": [
+        "notify"
+      ],
+      "ctxRoots": [
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/message-error.md",
+      "relatedIds": [
+        "global/message-success",
+        "global/notification-open"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSRecordActionModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSRecordActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "notify"
+      ]
+    },
+    {
+      "id": "global/notification-open",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "intentTags": [
+        "notify"
+      ],
+      "ctxRoots": [
+        "notification",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/notification-open.md",
+      "relatedIds": [
+        "global/message-success",
+        "global/message-error"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "notify"
+      ]
+    },
+    {
+      "id": "global/http-request",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action"
+      ],
+      "intentTags": [
+        "request-data"
+      ],
+      "ctxRoots": [
+        "request",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/http-request.md",
+      "relatedIds": [
+        "global/resource-list",
+        "global/resource-get"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "request-data"
+      ]
+    },
+    {
+      "id": "global/resource-list",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action",
+        "table"
+      ],
+      "intentTags": [
+        "request-data"
+      ],
+      "ctxRoots": [
+        "makeResource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render",
+        "ctx.request"
+      ],
+      "doc": "js-snippets/safe/global/resource-list.md",
+      "relatedIds": [
+        "global/resource-get",
+        "global/http-request"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action",
+        "table"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "request-data"
+      ]
+    },
+    {
+      "id": "global/resource-get",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action",
+        "table"
+      ],
+      "intentTags": [
+        "request-data"
+      ],
+      "ctxRoots": [
+        "makeResource",
+        "record",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render",
+        "ctx.request"
+      ],
+      "doc": "js-snippets/safe/global/resource-get.md",
+      "relatedIds": [
+        "global/resource-list",
+        "global/http-request"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action",
+        "table"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "JSRecordActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "request-data"
+      ]
+    },
+    {
+      "id": "global/import-esm",
+      "tier": "guarded",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action"
+      ],
+      "intentTags": [
+        "request-data"
+      ],
+      "ctxRoots": [
+        "importAsync",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/guarded/global/import-esm.md",
+      "relatedIds": [
+        "global/require-amd"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action",
+        "block"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "request-data"
+      ]
+    },
+    {
+      "id": "global/require-amd",
+      "tier": "guarded",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action"
+      ],
+      "intentTags": [
+        "request-data"
+      ],
+      "ctxRoots": [
+        "requireAsync",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/guarded/global/require-amd.md",
+      "relatedIds": [
+        "global/import-esm"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action",
+        "block"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "request-data"
+      ]
+    },
+    {
+      "id": "global/clipboard-copy-text",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "intentTags": [
+        "copy-field-values"
+      ],
+      "ctxRoots": [
+        "record",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/clipboard-copy-text.md",
+      "relatedIds": [
+        "scene/table/export-selected-json",
+        "scene/table/concat-fields"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "linkage",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSRecordActionModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSRecordActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "copy-field-values"
+      ]
+    },
+    {
+      "id": "scene/form/set-field-value",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "set-field-value"
+      ],
+      "ctxRoots": [
+        "form",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/set-field-value.md",
+      "relatedIds": [
+        "scene/form/copy-field-values",
+        "scene/form/fill-from-record"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "set-field-value"
+      ]
+    },
+    {
+      "id": "scene/form/copy-field-values",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "copy-field-values"
+      ],
+      "ctxRoots": [
+        "form",
+        "formValues"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/copy-field-values.md",
+      "relatedIds": [
+        "scene/form/set-field-value",
+        "value-return/copy-single-field"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "copy-field-values"
+      ]
+    },
+    {
+      "id": "scene/form/toggle-required",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "toggle-state"
+      ],
+      "ctxRoots": [
+        "model",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/toggle-required.md",
+      "relatedIds": [
+        "scene/form/conditional-required",
+        "scene/form/toggle-disabled"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "toggle-state"
+      ]
+    },
+    {
+      "id": "scene/form/toggle-disabled",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "toggle-state"
+      ],
+      "ctxRoots": [
+        "model",
+        "formValues"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/toggle-disabled.md",
+      "relatedIds": [
+        "scene/form/toggle-required",
+        "scene/form/conditional-required"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "toggle-state"
+      ]
+    },
+    {
+      "id": "scene/form/conditional-required",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "toggle-state"
+      ],
+      "ctxRoots": [
+        "model",
+        "formValues"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/conditional-required.md",
+      "relatedIds": [
+        "scene/form/toggle-required",
+        "scene/form/toggle-disabled"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel",
+          "FormJSFieldItemModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "toggle-state"
+      ]
+    },
+    {
+      "id": "scene/form/calculate-subtotal",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "calculate",
+        "set-field-value"
+      ],
+      "ctxRoots": [
+        "form",
+        "formValues"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/calculate-subtotal.md",
+      "relatedIds": [
+        "value-return/subtotal",
+        "scene/form/calculate-total-with-tax"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "calculate"
+      ]
+    },
+    {
+      "id": "scene/form/calculate-total-with-tax",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "calculate",
+        "set-field-value"
+      ],
+      "ctxRoots": [
+        "form",
+        "formValues"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/calculate-total-with-tax.md",
+      "relatedIds": [
+        "value-return/total-with-tax",
+        "scene/form/calculate-subtotal"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "calculate"
+      ]
+    },
+    {
+      "id": "scene/form/cascade-select-value",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "set-field-value",
+        "toggle-state"
+      ],
+      "ctxRoots": [
+        "form",
+        "formValues"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/cascade-select-value.md",
+      "relatedIds": [
+        "scene/form/set-field-value",
+        "scene/form/copy-field-values"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "set-field-value"
+      ]
+    },
+    {
+      "id": "scene/form/fill-from-record",
+      "tier": "safe",
+      "family": "scene/form",
+      "surfaces": [
+        "linkage.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "linkage",
+        "form"
+      ],
+      "intentTags": [
+        "set-field-value",
+        "copy-field-values"
+      ],
+      "ctxRoots": [
+        "form",
+        "record"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/form/fill-from-record.md",
+      "relatedIds": [
+        "scene/form/set-field-value",
+        "scene/form/copy-field-values"
+      ],
+      "sceneHints": [
+        "linkage",
+        "form"
+      ],
+      "modelUses": {
+        "linkage.execute-javascript": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "JSItemActionModel"
+        ],
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "copy-field-values"
+      ]
+    },
+    {
+      "id": "scene/table/selected-rows-count",
+      "tier": "safe",
+      "family": "scene/table",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "table",
+        "action"
+      ],
+      "intentTags": [
+        "iterate-selected-rows"
+      ],
+      "ctxRoots": [
+        "resource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/table/selected-rows-count.md",
+      "relatedIds": [
+        "scene/table/iterate-selected-rows"
+      ],
+      "sceneHints": [
+        "table",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "iterate-selected-rows"
+      ]
+    },
+    {
+      "id": "scene/table/iterate-selected-rows",
+      "tier": "safe",
+      "family": "scene/table",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "table",
+        "action"
+      ],
+      "intentTags": [
+        "iterate-selected-rows"
+      ],
+      "ctxRoots": [
+        "resource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/table/iterate-selected-rows.md",
+      "relatedIds": [
+        "scene/table/selected-rows-count",
+        "scene/table/export-selected-json"
+      ],
+      "sceneHints": [
+        "table",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "iterate-selected-rows"
+      ]
+    },
+    {
+      "id": "scene/table/concat-fields",
+      "tier": "safe",
+      "family": "scene/table",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "table",
+        "action"
+      ],
+      "intentTags": [
+        "iterate-selected-rows",
+        "copy-field-values"
+      ],
+      "ctxRoots": [
+        "resource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/table/concat-fields.md",
+      "relatedIds": [
+        "scene/table/export-selected-json",
+        "global/clipboard-copy-text"
+      ],
+      "sceneHints": [
+        "table",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "copy-field-values"
+      ]
+    },
+    {
+      "id": "scene/table/export-selected-json",
+      "tier": "safe",
+      "family": "scene/table",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "table",
+        "action"
+      ],
+      "intentTags": [
+        "iterate-selected-rows",
+        "copy-field-values"
+      ],
+      "ctxRoots": [
+        "resource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/table/export-selected-json.md",
+      "relatedIds": [
+        "scene/table/concat-fields",
+        "global/clipboard-copy-text"
+      ],
+      "sceneHints": [
+        "table",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "copy-field-values"
+      ]
+    },
+    {
+      "id": "scene/table/destroy-selected-rows",
+      "tier": "safe",
+      "family": "scene/table",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "table",
+        "action"
+      ],
+      "intentTags": [
+        "iterate-selected-rows"
+      ],
+      "ctxRoots": [
+        "resource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/scene/table/destroy-selected-rows.md",
+      "relatedIds": [
+        "scene/table/iterate-selected-rows",
+        "scene/table/selected-rows-count"
+      ],
+      "sceneHints": [
+        "table",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "iterate-selected-rows"
+      ]
+    },
+    {
+      "id": "value-return/subtotal",
+      "tier": "safe",
+      "family": "value-return",
+      "surfaces": [
+        "reaction.value-runjs",
+        "custom-variable.runjs"
+      ],
+      "hostScenes": [
+        "formValue",
+        "customVariable"
+      ],
+      "intentTags": [
+        "calculate"
+      ],
+      "ctxRoots": [
+        "formValues"
+      ],
+      "effectStyle": "value",
+      "requiresTopLevelReturn": true,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/value-return/subtotal.md",
+      "relatedIds": [
+        "value-return/total-with-tax",
+        "scene/form/calculate-subtotal"
+      ],
+      "sceneHints": [
+        "formValue",
+        "customVariable"
+      ],
+      "modelUses": {
+        "reaction.value-runjs": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "FormJSFieldItemModel"
+        ],
+        "custom-variable.runjs": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "FormJSFieldItemModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "calculate"
+      ]
+    },
+    {
+      "id": "value-return/total-with-tax",
+      "tier": "safe",
+      "family": "value-return",
+      "surfaces": [
+        "reaction.value-runjs",
+        "custom-variable.runjs"
+      ],
+      "hostScenes": [
+        "formValue",
+        "customVariable"
+      ],
+      "intentTags": [
+        "calculate"
+      ],
+      "ctxRoots": [
+        "formValues"
+      ],
+      "effectStyle": "value",
+      "requiresTopLevelReturn": true,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/value-return/total-with-tax.md",
+      "relatedIds": [
+        "value-return/subtotal",
+        "scene/form/calculate-total-with-tax"
+      ],
+      "sceneHints": [
+        "formValue",
+        "customVariable"
+      ],
+      "modelUses": {
+        "reaction.value-runjs": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "FormJSFieldItemModel"
+        ],
+        "custom-variable.runjs": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "FormJSFieldItemModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "calculate"
+      ]
+    },
+    {
+      "id": "value-return/copy-single-field",
+      "tier": "safe",
+      "family": "value-return",
+      "surfaces": [
+        "reaction.value-runjs",
+        "custom-variable.runjs"
+      ],
+      "hostScenes": [
+        "formValue",
+        "customVariable"
+      ],
+      "intentTags": [
+        "copy-field-values"
+      ],
+      "ctxRoots": [
+        "formValues"
+      ],
+      "effectStyle": "value",
+      "requiresTopLevelReturn": true,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/value-return/copy-single-field.md",
+      "relatedIds": [
+        "scene/form/copy-field-values",
+        "value-return/subtotal"
+      ],
+      "sceneHints": [
+        "formValue",
+        "customVariable"
+      ],
+      "modelUses": {
+        "reaction.value-runjs": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "FormJSFieldItemModel"
+        ],
+        "custom-variable.runjs": [
+          "JSEditableFieldModel",
+          "JSItemModel",
+          "FormJSFieldItemModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "copy-field-values"
+      ]
+    },
+    {
+      "id": "render/text-from-record",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block",
+        "detail",
+        "table"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "ctxRoots": [
+        "record",
+        "render"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/render/text-from-record.md",
+      "relatedIds": [
+        "render/status-tag",
+        "render/null-when-empty"
+      ],
+      "sceneHints": [
+        "block",
+        "detail",
+        "table"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel",
+          "JSFieldModel",
+          "JSColumnModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ]
+    },
+    {
+      "id": "render/status-tag",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "table",
+        "detail"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "ctxRoots": [
+        "record",
+        "render"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/render/status-tag.md",
+      "relatedIds": [
+        "render/text-from-record",
+        "render/null-when-empty"
+      ],
+      "sceneHints": [
+        "detail",
+        "table"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSFieldModel",
+          "JSColumnModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ]
+    },
+    {
+      "id": "render/null-when-empty",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "field",
+        "detail",
+        "table"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "ctxRoots": [
+        "value",
+        "record",
+        "render"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/render/null-when-empty.md",
+      "relatedIds": [
+        "render/text-from-record",
+        "render/helper-from-form-value"
+      ],
+      "sceneHints": [
+        "detail",
+        "form"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSFieldModel",
+          "JSEditableFieldModel",
+          "FormJSFieldItemModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ]
+    },
+    {
+      "id": "render/helper-from-form-value",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "form"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "ctxRoots": [
+        "formValues",
+        "form",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/render/helper-from-form-value.md",
+      "relatedIds": [
+        "render/null-when-empty",
+        "scene/form/conditional-required"
+      ],
+      "sceneHints": [
+        "form"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSItemModel",
+          "JSEditableFieldModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ]
+    },
+    {
+      "id": "render/list-from-resource",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block"
+      ],
+      "intentTags": [
+        "render-list",
+        "request-data"
+      ],
+      "ctxRoots": [
+        "initResource",
+        "resource",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [
+        "ctx.request"
+      ],
+      "doc": "js-snippets/safe/render/list-from-resource.md",
+      "relatedIds": [
+        "global/resource-list",
+        "render/text-from-record"
+      ],
+      "sceneHints": [
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-list"
+      ]
+    },
+    {
+      "id": "action/message-success",
+      "tier": "safe",
+      "family": "action",
+      "surfaces": [
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "action"
+      ],
+      "intentTags": [
+        "notify"
+      ],
+      "ctxRoots": [
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/action/message-success.md",
+      "relatedIds": [
+        "global/message-success",
+        "action/resource-refresh"
+      ],
+      "sceneHints": [
+        "action"
+      ],
+      "modelUses": {
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "notify"
+      ]
+    },
+    {
+      "id": "action/resource-refresh",
+      "tier": "safe",
+      "family": "action",
+      "surfaces": [
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "action",
+        "table"
+      ],
+      "intentTags": [
+        "request-data"
+      ],
+      "ctxRoots": [
+        "resource",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/action/resource-refresh.md",
+      "relatedIds": [
+        "action/message-success",
+        "scene/table/selected-rows-count"
+      ],
+      "sceneHints": [
+        "table",
+        "action"
+      ],
+      "modelUses": {
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "request-data"
+      ]
+    },
+    {
+      "id": "action/form-submit-guard",
+      "tier": "safe",
+      "family": "action",
+      "surfaces": [
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "action",
+        "form"
+      ],
+      "intentTags": [
+        "submit-guard"
+      ],
+      "ctxRoots": [
+        "form",
+        "formValues",
+        "message",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/action/form-submit-guard.md",
+      "relatedIds": [
+        "scene/form/conditional-required",
+        "action/message-success"
+      ],
+      "sceneHints": [
+        "form",
+        "action"
+      ],
+      "modelUses": {
+        "js-model.action": [
+          "JSFormActionModel",
+          "JSItemActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "submit-guard"
+      ]
+    },
+    {
+      "id": "global/query-selector",
+      "tier": "guarded",
+      "family": "global",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "ctxRoots": [],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/guarded/global/query-selector.md",
+      "relatedIds": [],
+      "sceneHints": [
+        "block",
+        "detail"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel",
+          "JSFieldModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "render-helper"
+      ]
+    },
+    {
+      "id": "global/window-open",
+      "tier": "guarded",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action"
+      ],
+      "intentTags": [
+        "notify"
+      ],
+      "ctxRoots": [
+        "record"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/guarded/global/window-open.md",
+      "relatedIds": [],
+      "sceneHints": [
+        "eventFlow",
+        "action"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSItemActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": false,
+      "preferredForIntents": [
+        "notify"
+      ]
+    },
+    {
+      "id": "scene/block/text-summary",
+      "tier": "safe",
+      "family": "scene/block",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "sceneHints": [
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "ctxRoots": [
+        "record",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/block/text-summary.md",
+      "relatedIds": [
+        "scene/block/list-summary",
+        "render/text-from-record"
+      ]
+    },
+    {
+      "id": "scene/block/list-summary",
+      "tier": "safe",
+      "family": "scene/block",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block"
+      ],
+      "intentTags": [
+        "render-list",
+        "request-data"
+      ],
+      "sceneHints": [
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "ctxRoots": [
+        "initResource",
+        "resource",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-list"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/block/list-summary.md",
+      "relatedIds": [
+        "scene/block/text-summary",
+        "render/list-from-resource"
+      ]
+    },
+    {
+      "id": "scene/detail/status-tag",
+      "tier": "safe",
+      "family": "scene/detail",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "detail"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "sceneHints": [
+        "detail"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSFieldModel"
+        ]
+      },
+      "ctxRoots": [
+        "value",
+        "record",
+        "render"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/detail/status-tag.md",
+      "relatedIds": [
+        "scene/detail/value-with-fallback",
+        "render/status-tag"
+      ]
+    },
+    {
+      "id": "scene/detail/value-with-fallback",
+      "tier": "safe",
+      "family": "scene/detail",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "detail"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "sceneHints": [
+        "detail"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSFieldModel"
+        ]
+      },
+      "ctxRoots": [
+        "value",
+        "record",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/detail/value-with-fallback.md",
+      "relatedIds": [
+        "scene/detail/status-tag",
+        "render/null-when-empty"
+      ]
+    }
+  ]
+}

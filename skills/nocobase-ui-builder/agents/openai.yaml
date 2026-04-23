@@ -1,13 +1,13 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "Route Modern page work by intent: whole-page blueprint, localized flow-surfaces edit, or reaction authoring"
-  default_prompt: "Canonical front door: `nocobase-ctl flow-surfaces`. Intent-first: whole-page `apply-blueprint`; localized edits `flow-surfaces`; reactions `get-reaction-meta`. New `navigation.group` / `navigation.item` need Ant Design `icon`. Repeat-eligible scenes must use contextual `list-templates`; keyword-only search discovery-only; backend order wins ties. Existing refs -> template source; page-scoped wording not local-only intent; unresolved scope -> ask, not `copy`; local customization -> `copy`. No explicit template: `popup.tryTemplate=true`; `popup.saveAsTemplate` and `openView.tryTemplate` stay valid. Multi-non-filter tab/popup scopes need explicit keyed `layout`; keep filter alone in row 1; `filterForm` 4+ fields -> `collapse`. Use `routeId`; `pageSchemaUid`; never pass desktop route ids as `target.uid`. Prefer field popup, `associatedRecords+associationField`, one `editForm`."
+  default_prompt: "Canonical front door: `nb api flow-surfaces`Intent-first:apply-blueprint wholePage=1 tab|complex multi-block|nested popup|multi-reaction localized edits `flow-surfaces` get-reaction-meta first write=applyBlueprint reads/metadata/preview/prepare-write ok helpers:`node .../runtime/bin/*.mjs` no PATH probes no createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rules fail->repair+prepare/preview+retry<=5 report after success only explicit local/live gap repair Repeat-eligible must contextual list-templates keyword-only search=discovery-only first result=template source page wording≠local-only intent local customization ask, not copy same-title routeId/pageSchemaUid navigation.group+navigation.item AntDesign icon multi-non-filter explicit keyed layout setLayout string[][]number[] [[a],[b]]=2col [[a,b]]=stack uid not key hostBound搜索/filter sameHost filterAction optional searchPage≠filter explicit filter/search block>filterForm calendar defaultFilter must filter row 1 filterForm 4+ fields collapse rebuild defaults.collections from scratch fieldGroups>10 fixed view/addNew/edit table addNew threshold associations popups{name,description} first-segment associatedRecords+associationField 1 editForm popup.tryTemplate,popup.saveAsTemplate,openView.tryTemplate"
 
 dependencies:
   tools:
-    - type: "mcp"
-      value: "nocobase"
-      description: "NocoBase MCP server remains the backend contract source and fallback path for Modern-page UI operations"
+    - type: "cli"
+      value: "nb"
+      description: "Use nb api flow-surfaces for Modern-page UI operations"
 
 policy:
   allow_implicit_invocation: true
