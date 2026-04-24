@@ -49,9 +49,19 @@ nb env list -s project
 
 Fix:
 
-- rerun `nb init --ui`
+- if the agent is sandboxed, ask to elevate/open outside the sandbox first
+- if the user does not allow elevation, provide the URL emitted by `nb init --ui` and ask the user to open it manually
+- if needed, rerun `nb init --ui`
 
-## 5) Token mode env add fails
+## 5) `nb init --ui` appears slow or long-running
+
+Fix:
+
+- treat `nb init --ui` as a long-running interactive command
+- allow up to 30 minutes for the CLI to complete
+- once the command starts, do not interrupt it before it exits
+
+## 6) Token mode env add fails
 
 Symptom:
 
@@ -66,7 +76,7 @@ Fix:
 nb env list -s project
 ```
 
-## 6) Wrong env targeted for runtime command
+## 7) Wrong env targeted for runtime command
 
 Fix:
 

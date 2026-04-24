@@ -13,6 +13,9 @@
 
 Do not run local scripts from this skill (`scripts/*.mjs`, `*.ps1`, `*.sh`).
 - for install intent, always use `nb init --ui` as entrypoint
+- for `nb init --ui`, allow up to 30 minutes and do not interrupt the CLI before it exits
+- if a URL cannot be opened because the agent is sandboxed, ask to elevate/open outside sandbox first; if refused, give the URL to the user
+- never proactively fill install/setup forms for the user
 - run requested `nb` command directly and follow CLI output
 - for `env add`, `app_base_url` may be provided with or without `/api`; execution command normalizes to `/api`
 - for env query (`list/current`), run fast path first; use `nb env --help` / `nb env list --help` when command discovery is needed
@@ -62,6 +65,13 @@ For `upgrade/start/stop` when env is not explicitly provided:
 nb init --ui
 nb env list -s project
 ```
+
+Install notes:
+
+- `nb init --ui` is the only install entrypoint
+- keep waiting for completion; do not abort the CLI during its 30 minute timeout window
+- if browser open fails in sandbox, prompt for elevation first, otherwise share the URL with the user
+- the user, not the agent, completes the install/setup form in the browser
 
 ### Add env then use
 
