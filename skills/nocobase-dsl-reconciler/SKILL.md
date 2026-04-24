@@ -3,10 +3,10 @@ name: nocobase-dsl-reconciler
 description: >-
   **Opt-in DSL path** for NocoBase app building. Use ONLY when the user
   explicitly asks for YAML / DSL / committed-to-git / `cli push` / spec
-  files â€?e.g. "use the DSL reconciler", "I want YAML I can commit",
+  files â€” e.g. "use the DSL reconciler", "I want YAML I can commit",
   "build this as a workspaces/ project". For any other UI authoring
   request (new page, new block, tweak an existing screen), default to
-  `nocobase-ui-builder` instead â€?this reconciler is still in active
+  `nocobase-ui-builder` instead â€” this reconciler is still in active
   development and has rough edges that the live-UI path avoids.
 
   When the user opts in: produces/changes files under `workspaces/<project>/`,
@@ -26,7 +26,7 @@ This is the **opt-in DSL path**. Default is `nocobase-ui-builder`.
 Stay on this skill only when the user explicitly wants YAML files they
 can commit + `cli push`. If you arrived here from a generic "build me a
 NocoBase app" request without the user naming DSL/YAML/git, switch to
-`nocobase-ui-builder` instead â€?it's the default entry point.
+`nocobase-ui-builder` instead â€” it's the default entry point.
 
 ## Golden rule
 
@@ -39,20 +39,20 @@ your workspace. Per-scenario pointers live in the workflow sections below.
 `cp -r templates/crm/...` to get started, do not duplicate
 `collections/nb_crm_*.yaml`, do not base your `routes.yaml` on CRM's.
 Bulk-copying drags unrelated leads/opportunities/orders state and
-workflows into your project â€?you then spend the whole session fighting
+workflows into your project â€” you then spend the whole session fighting
 hundreds of irrelevant validator errors instead of building your module.
 
 The pre-deploy spec validator catches most structural mistakes with a
 clear error message. **Trust the validator**: when it errors, fix what
-it says rather than guessing â€?don't grep through `src/deploy/*.ts`.
+it says rather than guessing â€” don't grep through `src/deploy/*.ts`.
 
 ## When NOT to use this skill
 
 Hand off to the matching skill when the user's request is orthogonal:
 
-| User asks forâ€?| Skill |
+| User asks forâ€¦ | Skill |
 |---|---|
-| One-off live-UI tweak on an already-running page (move / reorder / reconfigure a single block, field, action) â€?**no DSL commit wanted** | `nocobase-ui-builder` |
+| One-off live-UI tweak on an already-running page (move / reorder / reconfigure a single block, field, action) â€” **no DSL commit wanted** | `nocobase-ui-builder` |
 | ACL / role permissions / route permissions | `nocobase-acl-manage` |
 | Workflow create / update / revision / execution | `nocobase-workflow-manage` (this skill only wires the trigger button; authoring the graph goes there) |
 | Collection / field / relation authoring outside a DSL project | `nocobase-data-modeling` |
@@ -61,7 +61,7 @@ Hand off to the matching skill when the user's request is orthogonal:
 | Environment setup / app install / upgrade | `nocobase-env-manage` |
 
 Any change that should live as a committed YAML file under
-`workspaces/<project>/` â€?stays here.
+`workspaces/<project>/` â€” stays here.
 
 ## Environment
 
@@ -70,7 +70,7 @@ cd <skill-dir>/src
 export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
 ```
 
-## Quick start â€?new build
+## Quick start â€” new build
 
 **Default path for "build me a NocoBase app"**: copy the starter and
 modify it. Do not hand-write the skeleton; do not study CRM first.
@@ -82,21 +82,21 @@ cp -r ../templates/starter ../workspaces/<name>
 # First push: --copy bypasses validation rules that only matter once
 # popups exist (m2o popup binding, clickToOpen file presence). The
 # starter ships with its own popups so the first push is actually fully
-# valid â€?--copy is for your *extensions* before popups are wired.
+# valid â€” --copy is for your *extensions* before popups are wired.
 npx tsx cli/cli.ts push <name> --force
 ```
 
-The starter is a complete minimal CRUD â€?1 collection (Projects),
+The starter is a complete minimal CRUD â€” 1 collection (Projects),
 1 Dashboard page (4 KPI tiles + 2 charts), 1 list page with
 filterForm / table / addNew popup / detail popup / 2 updateRecord
-recordActions. Push as-is â†?visible in NB â†?then edit.
+recordActions. Push as-is â†’ visible in NB â†’ then edit.
 
 ### Customizing the starter (the agile loop)
 
 Iterate one concern at a time, push between each:
 
 1. **Rename identifiers** to match the user's domain.
-   - `collections/nb_starter_projects.yaml` â†?your collection name
+   - `collections/nb_starter_projects.yaml` â†’ your collection name
      (match the `nb_<module>_<entity>` convention)
    - `routes.yaml`: change "Starter" / "Projects" titles
    - `pages/starter/` directory name if you want (match `routes.yaml`
@@ -113,24 +113,24 @@ Iterate one concern at a time, push between each:
    CRM file matches which pattern.
 
 **Never write the whole module in one shot.** For customer-facing
-builds â€?land the skeleton, show the user, gather feedback, iterate.
+builds â€” land the skeleton, show the user, gather feedback, iterate.
 The starter push takes minutes; a hand-built module takes hours.
 
 ### Fast-track: when `--copy` helps
 
 Pass `--copy` when the workspace has **no popup files yet** (early
-stage â€?validator would fire errors about "m2o field X has no popup
+stage â€” validator would fire errors about "m2o field X has no popup
 binding" that the user will fix in the next push). The reconciler
 auto-bypasses spec errors in this state. Once any `popups/*.yaml`
 exists, drop `--copy` and let validation run.
 
-## Incremental edits â€?existing workspace
+## Incremental edits â€” existing workspace
 
-- **Add** a block / field / action / popup â†?write the DSL â†?push.
-- **Remove** from DSL â†?push. The reconciler destroys the matching
+- **Add** a block / field / action / popup â†’ write the DSL â†’ push.
+- **Remove** from DSL â†’ push. The reconciler destroys the matching
   live model on the NB side and cleans `state.yaml`. Manual NB-UI
   authored elements (not tracked in `state.yaml`) are left alone.
-- **Rename** â†?not supported automatically. Delete + re-add.
+- **Rename** â†’ not supported automatically. Delete + re-add.
 
 Targeted pushes:
 - `--group <key>` scopes to one menu subtree
@@ -140,7 +140,7 @@ Targeted pushes:
 **For pure live-UI tweaks without a DSL commit, hand off to
 `nocobase-ui-builder` instead** (see the routing table above).
 
-## Advanced workflow â€?when the starter isn't enough
+## Advanced workflow â€” when the starter isn't enough
 
 Triggers for going beyond the agile starter loop:
 
@@ -150,17 +150,17 @@ Triggers for going beyond the agile starter loop:
 - Multi-tab pages, sub-tables, or cross-module navigation
 - Dashboard with bespoke KPIs mapped to the user's domain language
 
-Progression: Round 0 design â†?Round 1 scaffold â†?Round 2 fill â†?
-Round 2' seed â†?Round 3 JS. Each round is a deployable state.
+Progression: Round 0 design â†’ Round 1 scaffold â†’ Round 2 fill â†’
+Round 2' seed â†’ Round 3 JS. Each round is a deployable state.
 
-### Round 0: System architecture â€?confirm with user
+### Round 0: System architecture â€” confirm with user
 
 Write a `DESIGN.md` (markdown, not YAML) covering:
 
-1. **Collections** â€?every table, its fields, and its relations.
+1. **Collections** â€” every table, its fields, and its relations.
    See `nocobase-data-modeling` skill for field-interface reference.
-2. **Page list** â€?every page, one-line purpose each, grouped by menu.
-3. **Navigation wiring** â€?which m2o fields open which popup
+2. **Page list** â€” every page, one-line purpose each, grouped by menu.
+3. **Navigation wiring** â€” which m2o fields open which popup
    templates; which pages link to each other.
 
 Wait for user confirmation before writing YAML. A single design pass
@@ -173,20 +173,20 @@ Example:
 
 ```markdown
 ## Collections
-- nb_lib_books (title, author, isbn, category, status, loans: o2m â†?nb_lib_loans)
-- nb_lib_members (name, email, phone, join_date, loans: o2m â†?nb_lib_loans)
+- nb_lib_books (title, author, isbn, category, status, loans: o2m â†’ nb_lib_loans)
+- nb_lib_members (name, email, phone, join_date, loans: o2m â†’ nb_lib_loans)
 - nb_lib_loans (loan_no, book: m2o, member: m2o, borrowed_at, due_date, returned_at, status)
 
 ## Pages (under menu "Library")
-- Books list â€?browse + search books, add new
-- Members list â€?browse members, their loan history
-- Loans list â€?active/overdue loans, return action
-- Dashboard â€?KPIs + charts
+- Books list â€” browse + search books, add new
+- Members list â€” browse members, their loan history
+- Loans list â€” active/overdue loans, return action
+- Dashboard â€” KPIs + charts
 
 ## Navigation
-- books.table.title â†?books detail popup (shared template)
-- loans.table.book â†?books detail popup (shared via defaults.yaml)
-- loans.table.member â†?members detail popup (shared via defaults.yaml)
+- books.table.title â†’ books detail popup (shared template)
+- loans.table.book â†’ books detail popup (shared via defaults.yaml)
+- loans.table.member â†’ members detail popup (shared via defaults.yaml)
 ```
 
 ### Round 0.5: Sub-agent CWD (only when spawning)
@@ -202,24 +202,24 @@ kimi --yolo       # or claude, codex
 
 Skip the `cd` and the agent writes to the parent project root.
 
-### Round 1: Scaffold â€?still start from the starter
+### Round 1: Scaffold â€” still start from the starter
 
 Even in the advanced path, don't hand-write `routes.yaml` +
 `collections/*.yaml` from scratch. Copy the starter, then grow:
 
 | Step | What to do |
 |---|---|
-| Base | `cp -r templates/starter workspaces/<name>` â€?push once |
+| Base | `cp -r templates/starter workspaces/<name>` â€” push once |
 | Add collection | Write `collections/<next_coll>.yaml` (format matches starter's). Match `nb_<module>_<entity>` convention. |
 | Add page | `mkdir pages/<module>/<page>/` + `layout.yaml`; mirror starter's projects layout. |
 | Update routes | Add entry under the existing group in `routes.yaml`. |
 | Deploy | `cli push <name> --force` after each collection/page addition |
 
 CRM references (consult only when stuck on structure):
-- `templates/crm/collections/nb_crm_leads.yaml` â€?collection format
-- `templates/crm/routes.yaml` â€?multi-group routes (shape only)
+- `templates/crm/collections/nb_crm_leads.yaml` â€” collection format
+- `templates/crm/routes.yaml` â€” multi-group routes (shape only)
 
-### Round 2: Fill content â€?blocks, popups, templates
+### Round 2: Fill content â€” blocks, popups, templates
 
 For each page beyond the starter basics:
 
@@ -227,22 +227,22 @@ For each page beyond the starter basics:
 |---|---|
 | Main list table + filter | `templates/crm/pages/main/leads/layout.yaml` |
 | Multi-tab page | `templates/crm/pages/main/customers/` (`page.yaml` + `tab_*/layout.yaml`) |
-| Create-form with inline sub-table for o2m children | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` â€?`items` is an o2m field listed in `fields:` and rendered as an inline editable sub-table. Also `templates/crm/pages/main/products/` for master/child UX. |
+| Create-form with inline sub-table for o2m children | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` â€” `items` is an o2m field listed in `fields:` and rendered as an inline editable sub-table. Also `templates/crm/pages/main/products/` for master/child UX. |
 | Detail-popup template | `templates/crm/templates/popup/activity_view.yaml` |
 | m2o auto-popup bindings | `templates/crm/defaults.yaml` |
 | Parent-detail + child-list popup | `templates/crm/pages/main/customers/tab_customers/popups/` |
 | addNew + field click-popup pattern | `templates/crm/pages/main/leads/popups/` |
 
 Rules for copying from CRM:
-- Copy 10â€?0 lines, adapt names. **Never copy whole files.**
-- Don't copy `uid:` / `targetUid:` / `route_id:` â€?deployer assigns fresh.
+- Copy 10â€“30 lines, adapt names. **Never copy whole files.**
+- Don't copy `uid:` / `targetUid:` / `route_id:` â€” deployer assigns fresh.
 - For every m2o field displayed in a table, either set
   `clickToOpen: templates/popup/popup_detail_<target>.yaml` OR add
   `popups.<target>: ...` in `defaults.yaml`. Validator errors otherwise.
 
 #### Per-row actions (`recordActions`)
 
-By default a table's row-action column is empty â€?NB won't render
+By default a table's row-action column is empty â€” NB won't render
 any action buttons unless `recordActions:` lists them. "Just edit
 and delete" is a common but weak default: for most list tables the
 user actually wants a **one-click state change** (Mark Done,
@@ -250,17 +250,17 @@ Approve, Archive) sitting next to edit.
 
 Decision order:
 
-1. **Is there a boolean / enum status field?** â†?add `updateRecord`
+1. **Is there a boolean / enum status field?** â†’ add `updateRecord`
    with `linkageRules` to show the matching button only when the
    record is in the right state. One button per state transition
    (Mark Done hidden when already done; Reopen hidden when not done).
 2. **Does the record need a second detail/form view different from
-   the default edit popup?** â†?`popup` with `templateRef`.
-3. **Tree/hierarchy collection?** â†?add `addChild`.
-4. **Need to navigate elsewhere with this record's id/filter?** â†?
+   the default edit popup?** â†’ `popup` with `templateRef`.
+3. **Tree/hierarchy collection?** â†’ add `addChild`.
+4. **Need to navigate elsewhere with this record's id/filter?** â†’
    `link` with `url: /admin/...?filter={{ctx.record.id}}`.
-5. **Want to let the user clone a complex record?** â†?`duplicate`.
-6. **Need to start a workflow manually?** â†?`workflowTrigger`.
+5. **Want to let the user clone a complex record?** â†’ `duplicate`.
+6. **Need to start a workflow manually?** â†’ `workflowTrigger`.
 
 **Prefer `updateRecord + linkageRules` over custom JS buttons** for
 state changes. linkageRules covers 80% of row-level UX (conditional
@@ -276,22 +276,22 @@ Full per-row action palette (declared in `recordActions:`):
 | `edit` | Edit popup (default shape) | many |
 | `view` | Read-only detail popup | `templates/crm/templates/popup/opportunity_view.yaml` |
 | `delete` | Single-row delete with confirm | many |
-| `updateRecord` | Assign fields + optional linkageRules â€?the state-change workhorse | `templates/crm/pages/main/overview/layout.yaml` (Done / Undone pair) |
+| `updateRecord` | Assign fields + optional linkageRules â€” the state-change workhorse | `templates/crm/pages/main/overview/layout.yaml` (Done / Undone pair) |
 | `popup` | Open a custom popup with `templateRef` (form/detail different from edit) | `templates/crm/pages/main/leads/popups/table.name.yaml` |
 | `link` | Navigate to another admin page, carrying record context in URL | `templates/crm/pages/lookup/layout.yaml` |
 | `addChild` | Tree collection: add a child node under this row | `templates/crm/pages/main/products/tab_categories/layout.yaml` |
-| `duplicate` | Clone the record into a new form | â€?|
-| `workflowTrigger` | Manually trigger a workflow on this record | (toolbar in `templates/crm/pages/main/customers/tab_customers/layout.yaml` â€?same shape works per-row) |
-| `historyExpand` / `historyCollapse` | Record-history plugin inline expand | â€?|
-| `ai` | AI employee button (tasks_file + employee) | `templates/crm/pages/main/leads/layout.yaml` (toolbar â€?same shape per-row) |
+| `duplicate` | Clone the record into a new form | â€” |
+| `workflowTrigger` | Manually trigger a workflow on this record | (toolbar in `templates/crm/pages/main/customers/tab_customers/layout.yaml` â€” same shape works per-row) |
+| `historyExpand` / `historyCollapse` | Record-history plugin inline expand | â€” |
+| `ai` | AI employee button (tasks_file + employee) | `templates/crm/pages/main/leads/layout.yaml` (toolbar â€” same shape per-row) |
 
 Toolbar actions (declared in block-level `actions:`) use the same
 type names plus `filter`, `refresh`, `addNew`, `bulkDelete`,
-`export`, `import`. Not every type makes sense in both contexts â€?
+`export`, `import`. Not every type makes sense in both contexts â€”
 `updateRecord` as a toolbar action would apply to *no* specific row,
 so put it in `recordActions`.
 
-**Goal of Round 2**: all pages have working CRUD â€?add / edit / view
+**Goal of Round 2**: all pages have working CRUD â€” add / edit / view
 popups wired correctly, row-action columns reflect real per-record
 operations (not just edit+delete). Validator clean, NB UI shows no
 "Collection may have been deleted" banners.
@@ -306,7 +306,7 @@ TOKEN=$(curl -sS -X POST $NB_URL/api/auth:signIn \
   -d '{"account":"'$NB_USER'","password":"'$NB_PASSWORD'"}' \
   | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["token"])')
 
-# Always GET existing record IDs first â€?they're snowflake integers
+# Always GET existing record IDs first â€” they're snowflake integers
 # (e.g. 359571523764224), NEVER 1/2/3.
 curl -sS -X POST $NB_URL/api/<collection>:create -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{...fields..., "owner":{"id": <real-user-id>}}'
@@ -323,7 +323,7 @@ Why parallel: Round 3 JS (charts, KPIs) needs data to render
 anything. Start the seed once you have collections (end of Round 1);
 by the time Round 2 finishes pages, you have records to test against.
 
-### Round 3: JS â€?where CRM uses it, you probably need it
+### Round 3: JS â€” where CRM uses it, you probably need it
 
 Now that CRUD + data work, audit where JavaScript adds value. **Walk the
 CRM template and ask "does the CRM have JS here?" for each spot in your
@@ -331,15 +331,15 @@ project.** Three typical JS opportunities:
 
 | Spot | CRM has JS? | Your project likely needs JS if... |
 |---|---|---|
-| **Field renderer / column** (e.g. color-coded status tag, days-until-due badge) | âœ?in most list tables | Any field whose display depends on a derived value (date math, status-to-color, multi-field composite) |
-| **Block** (KPI card, custom widget inside a form) | âœ?overview, analytics, per-form tips | A summary widget, inline chart, or "helper panel" that reads from multiple collections |
-| **Dashboard page** (whole page of charts + KPIs) | âœ?analytics page | Module has â‰? measurable metrics users care about; validator **requires** â‰? charts on pages titled "Dashboard" / "Analytics" |
+| **Field renderer / column** (e.g. color-coded status tag, days-until-due badge) | âœ… in most list tables | Any field whose display depends on a derived value (date math, status-to-color, multi-field composite) |
+| **Block** (KPI card, custom widget inside a form) | âœ… overview, analytics, per-form tips | A summary widget, inline chart, or "helper panel" that reads from multiple collections |
+| **Dashboard page** (whole page of charts + KPIs) | âœ… analytics page | Module has â‰¥3 measurable metrics users care about; validator **requires** â‰¥5 charts on pages titled "Dashboard" / "Analytics" |
 
 Start by grepping the matching CRM page and its `js/` + `charts/`
 folders to confirm where the CRM adds JS. Then write YOUR JS file
 adapted from the single-file table below.
 
-**Dashboards specifically look bad when designed freehand â€?mirror the
+**Dashboards specifically look bad when designed freehand â€” mirror the
 CRM shape.** Open the reference layout first, copy its **block count,
 ordering, and grid widths** into your own `layout.yaml`; then fill in
 leaf files with your content.
@@ -347,12 +347,12 @@ leaf files with your content.
 | Reference layout | What to mirror |
 |---|---|
 | `templates/crm/pages/main/overview/layout.yaml` | Overview: 1 jsBlock hero row, 2 small tables underneath. Use for a landing page with a few KPIs. |
-| `templates/crm/pages/main/analytics/layout.yaml` | Full dashboard: filterForm row â†?4 KPI jsBlocks in one row â†?5 charts in a `16/8 âˆ?full âˆ?14/10` grid. Use when you want â‰? charts (validator requires this when the page title contains `dashboard` or `analytics`). |
+| `templates/crm/pages/main/analytics/layout.yaml` | Full dashboard: filterForm row â†’ 4 KPI jsBlocks in one row â†’ 5 charts in a `16/8 âˆ£ full âˆ£ 14/10` grid. Use when you want â‰¥5 charts (validator requires this when the page title contains `dashboard` or `analytics`). |
 
 Procedure:
 1. Open the reference `layout.yaml`. Note the block keys / types / widths.
-2. Write YOUR `layout.yaml` with the SAME shape â€?same number of blocks,
-   same grid widths in the `layout:` section â€?but your own block
+2. Write YOUR `layout.yaml` with the SAME shape â€” same number of blocks,
+   same grid widths in the `layout:` section â€” but your own block
    keys and your own collection names.
 3. For each block's leaf JS/SQL file, copy from the single-file table
    below. **Copy files individually**; do not `cp -r` the folder.
@@ -364,7 +364,7 @@ Procedure:
 | Chart SQL (grouped counts) | `templates/crm/pages/main/analytics/charts/analytics_chart_2.sql` |
 | Chart render (echarts bar/pie) | `templates/crm/pages/main/analytics/charts/analytics_chart_2_render.js` |
 | Filter stat buttons on filterForm | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_customer_stats_filter_block.js` |
-| Full-page custom UI (wizard / multi-step / custom flow) | `templates/crm/pages/main/customers/tab_merge/js/customers_merge_jsBlock.js` â€?whole page is one `type: jsBlock`, ~580 lines React |
+| Full-page custom UI (wizard / multi-step / custom flow) | `templates/crm/pages/main/customers/tab_merge/js/customers_merge_jsBlock.js` â€” whole page is one `type: jsBlock`, ~580 lines React |
 
 After copying each leaf file:
 - Rename in place and retarget SQL/collection/field names.
@@ -372,14 +372,14 @@ After copying each leaf file:
 - Simplify `ctx.var_form1.*` filter var references if your page's
   filterForm uses different field keys.
 
-SQL charts: save + run as a two-step pattern â€?
+SQL charts: save + run as a two-step pattern â€”
 `ctx.sql.save({uid, sql})` then `ctx.sql.runById(uid)`.
 
 ## Core concepts
 
 ### Two identifiers: `key` and `title`
 
-`key` = lower_snake_ascii identity â€?drives directory names under `pages/`
+`key` = lower_snake_ascii identity â€” drives directory names under `pages/`
 and entries in `state.yaml`. Always write it explicitly when the title
 isn't pure ASCII (Chinese/spaces slugify to gibberish).
 
@@ -396,7 +396,7 @@ isn't pure ASCII (Chinese/spaces slugify to gibberish).
 
 ### Two popup modes: `key: reference` vs bare `ref:`
 
-**`key: reference`** â€?popup block is a *reference* to the template.
+**`key: reference`** â€” popup block is a *reference* to the template.
 Editing the template updates every popup that references it. Use for any
 shared Add/Edit form.
 
@@ -406,35 +406,35 @@ blocks:
     key: reference           # REQUIRED for shared refs
 ```
 
-**Bare `ref:`** (no `key: reference`) â€?template content is *inlined*
+**Bare `ref:`** (no `key: reference`) â€” template content is *inlined*
 per popup; each copy is independent. Use only to factor a bulky block
 out of the page file.
 
-After deploy, a shared template's `usageCount` should be â‰?1. If it
+After deploy, a shared template's `usageCount` should be â‰¥ 1. If it
 stays at 0, `key: reference` was forgotten.
 
-### Auto-created columns â€?do NOT declare them
+### Auto-created columns â€” do NOT declare them
 
 NocoBase auto-creates these; declaring them causes silent filtering or
 type conflicts:
 
 - System columns: `id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`
-- m2o / o2m FK columns: declaring `owner: m2o â†?users` auto-creates
+- m2o / o2m FK columns: declaring `owner: m2o â†’ users` auto-creates
   `owner_id`; don't add a second `owner_id: integer` row
 - m2m join tables: `through: nb_x_y` is auto-created; don't write a
   collection YAML for it
 
-### Table vs sub-table â€?two different things, don't confuse
+### Table vs sub-table â€” two different things, don't confuse
 
 | | **Table** | **Sub-table** |
 |---|---|---|
 | What it is | Full CRUD block (filter + list + add/edit popups) for child records of a parent | Inline editable grid for child rows, lives INSIDE a parent form |
 | DSL | `type: table` + `resource_binding.sourceId + associationName` | `{ field: tasks, type: subTable, columns: [...] }` inside a createForm/editForm's `fields:` |
 | Where used | Detail popup, tab page, standalone-list popup | Inside createForm / editForm |
-| Use when | Children browsed separately (customer detail â†?orders list) | Children entered alongside parent (invoice + line items) |
+| Use when | Children browsed separately (customer detail â†’ orders list) | Children entered alongside parent (invoice + line items) |
 
 Bare `- tasks` in a form is the third option: a **RecordSelect picker**
-("pick existing record"). Rarely what you want â€?validator warns.
+("pick existing record"). Rarely what you want â€” validator warns.
 
 Canonical CRM examples:
 - Table (standalone CRUD block): `templates/crm/pages/main/customers/tab_customers/popups/table.name.yaml`
@@ -443,10 +443,10 @@ Canonical CRM examples:
 ### `foreignKey` flips meaning
 
 On **m2o**, `foreignKey` names the FK column on the *current* table
-(`owner: m2o, foreignKey: owner_id` â†?`owner_id` on SELF).
+(`owner: m2o, foreignKey: owner_id` â†’ `owner_id` on SELF).
 
 On **o2m**, `foreignKey` names the FK column on the *target* table
-(`tasks: o2m â†?nb_pm_tasks, foreignKey: project_id` â†?`project_id` on
+(`tasks: o2m â†’ nb_pm_tasks, foreignKey: project_id` â†’ `project_id` on
 `nb_pm_tasks`).
 
 ## Command reference
@@ -455,11 +455,11 @@ On **o2m**, `foreignKey` names the FK column on the *target* table
 cd <skill-dir>/src
 export NB_USER=... NB_PASSWORD=... NB_URL=...
 
-npx tsx cli/cli.ts push <name> --force          # deploy DSL â†?NocoBase
+npx tsx cli/cli.ts push <name> --force          # deploy DSL â†’ NocoBase
 npx tsx cli/cli.ts push <name> --group <key>    # only one subtree
 npx tsx cli/cli.ts push <name> --incremental    # skip unchanged (git diff)
 
-npx tsx cli/cli.ts pull <name>                  # NocoBase â†?DSL (full round-trip)
+npx tsx cli/cli.ts pull <name>                  # NocoBase â†’ DSL (full round-trip)
 npx tsx cli/cli.ts diff <left> <right>          # compare two DSL trees
 npx tsx cli/cli.ts duplicate-project <src> <dst> --key-suffix _v2
 
@@ -475,13 +475,13 @@ push and pull are both one-way. Round-tripping = push + pull + git diff.
 | `fields not in collection` | Field names don't match the collection YAML |
 | `titleField is missing` | Set `titleField: <field>` or add a `name`/`title` field |
 | Only some pages deployed | `key` mismatch with a `pages/<key>/` directory |
-| `string violation` on create | `createdAt`/`updatedAt` declared in YAML â€?remove |
+| `string violation` on create | `createdAt`/`updatedAt` declared in YAML â€” remove |
 | Chart SQL failed | Seed data first; quote field names like `"createdAt"` |
 | m2o link 400 in UI | Missing `defaults.yaml` `popups:` binding for target collection |
-| `Collection X not found in data source main` | `associationName` used a short name â€?use the full collection name (`nb_pm_projects.tasks`, not `project.tasks`). See `templates/crm/pages/main/customers/tab_customers/popups/` |
-| Per-row column shows only edit+delete | `recordActions` missing â€?see "Per-row actions" below for what to add. Removing an action/field/column from the DSL now *does* destroy it on the NB side on next push. |
+| `Collection X not found in data source main` | `associationName` used a short name â€” use the full collection name (`nb_pm_projects.tasks`, not `project.tasks`). See `templates/crm/pages/main/customers/tab_customers/popups/` |
+| Per-row column shows only edit+delete | `recordActions` missing â€” see "Per-row actions" below for what to add. Removing an action/field/column from the DSL now *does* destroy it on the NB side on next push. |
 
 ---
 
 If any of the above contradicts what you observe at runtime, the manual
-is stale â€?note what was missing and tell the user.
+is stale â€” note what was missing and tell the user.
