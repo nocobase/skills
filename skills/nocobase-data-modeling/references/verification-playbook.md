@@ -100,6 +100,7 @@ For each business field, verify:
 - validator props when needed
 - `defaultValue` when needed
 - `uiSchema.enum` for local choice fields
+- `uiSchema.enum[*].color` for local choice fields, and ensure each color stays in the supported palette
 
 Examples:
 
@@ -111,6 +112,7 @@ Failure patterns:
 
 - field exists but drifted to a weaker interface
 - enum field exists without enum options
+- enum option exists without color or with an unsupported color
 - multi-valued field exists without a stable empty-state default
 
 ## Relation checks

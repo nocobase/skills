@@ -73,6 +73,8 @@ Do not prefer older low-level collection or nested field commands when the final
 - For `file`, do not manually send built-in fields such as `title`, `filename`, `extname`, `size`, `mimetype`, `path`, `url`, `preview`, `storage`, or `meta` unless the task is explicitly customizing one of those existing fields on an already-created collection.
 - For `tree`, do not manually include `parentId`, `parent`, or `children` in the compact create payload unless you are intentionally overriding an existing schema with a fully expanded raw shape.
 - Every custom field supplied to `collections apply` or `fields apply` still needs an explicit `interface`. The compact API reduces derived options, but it does not infer business field interfaces from the field name alone.
+- For local choice fields passed through `collections apply` or `fields apply` (`select`, `multipleSelect`, `radioGroup`, `checkboxGroup`), every enum item must be an object with explicit `value`, `label`, and `color`. Do not use string shorthand such as `["draft", "paid"]`.
+- Allowed choice colors are `red`, `magenta`, `volcano`, `orange`, `gold`, `lime`, `green`, `cyan`, `blue`, `geekblue`, `purple`, and `default`.
 - Usually do not pass `type`. Let the server derive it from `interface`. Only pass `type` when the current command help or a reference explicitly requires it.
 - Unknown `interface` values now fail fast. If the correct interface is unclear, stop and inspect references or command help instead of guessing.
 - If you choose a plugin-backed interface such as `vditor`, `formula`, map geometry fields, or special relation fields, confirm the plugin-backed capability first.
@@ -186,7 +188,7 @@ Explicit override rule:
 
 # Error Handling
 
-- `400` or `422`: inspect the payload, then correct collection type, field interface, missing required options, enum shape, or relation keys before retrying.
+- `400` or `422`: inspect the payload, then correct collection type, field interface, missing required options, enum shape, missing/invalid enum colors, or relation keys before retrying.
 - Auth errors: stop and ask the user to restore access for the chosen transport.
 - Missing plugin or view prerequisite: stop and tell the user exactly what is missing.
 

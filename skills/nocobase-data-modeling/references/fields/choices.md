@@ -24,12 +24,27 @@ Preferred enum item shape:
 
 ```json
 [
-  { "value": "draft", "label": "Draft" },
-  { "value": "active", "label": "Active" }
+  { "value": "draft", "label": "Draft", "color": "gold" },
+  { "value": "active", "label": "Active", "color": "green" }
 ]
 ```
 
-Color is optional, for example `{ "value": "active", "label": "Active", "color": "green" }`.
+Color is required for each local choice option.
+
+Allowed colors:
+
+- `red`
+- `magenta`
+- `volcano`
+- `orange`
+- `gold`
+- `lime`
+- `green`
+- `cyan`
+- `blue`
+- `geekblue`
+- `purple`
+- `default`
 
 ## Preferred compact snippets
 
@@ -41,8 +56,8 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
   "interface": "select",
   "title": "Status",
   "enum": [
-    { "value": "draft", "label": "Draft" },
-    { "value": "active", "label": "Active" }
+    { "value": "draft", "label": "Draft", "color": "gold" },
+    { "value": "active", "label": "Active", "color": "green" }
   ]
 }
 ```
@@ -55,8 +70,8 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
   "interface": "multipleSelect",
   "title": "Tags",
   "enum": [
-    { "value": "vip", "label": "VIP" },
-    { "value": "new", "label": "New" }
+    { "value": "vip", "label": "VIP", "color": "geekblue" },
+    { "value": "new", "label": "New", "color": "cyan" }
   ]
 }
 ```
@@ -69,8 +84,8 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
   "interface": "radioGroup",
   "title": "Priority",
   "enum": [
-    { "value": "low", "label": "Low" },
-    { "value": "high", "label": "High" }
+    { "value": "low", "label": "Low", "color": "default" },
+    { "value": "high", "label": "High", "color": "red" }
   ]
 }
 ```
@@ -83,8 +98,8 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
   "interface": "checkboxGroup",
   "title": "Features",
   "enum": [
-    { "value": "a", "label": "A" },
-    { "value": "b", "label": "B" }
+    { "value": "a", "label": "A", "color": "purple" },
+    { "value": "b", "label": "B", "color": "blue" }
   ]
 }
 ```
@@ -137,6 +152,8 @@ Plugin gate:
 
 - do not omit `uiSchema.enum` for local choice fields
 - do not forget the option set for local choice fields
+- do not omit `color` on any local choice option
+- do not use colors outside the supported palette
 - when working with advanced raw payloads or read-back comparison, remember `multipleSelect` and `checkboxGroup` normally store an empty-array default
 - do not reduce `chinaRegion` to plain text or generic `json`
 - do not create `chinaRegion` when the plugin interface exists only partially and the backing `chinaRegions` resource is absent
