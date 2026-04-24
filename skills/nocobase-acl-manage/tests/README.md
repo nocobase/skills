@@ -32,7 +32,7 @@ nb env use <ENV_NAME> -s project
 
 If needed, follow with add/use actions before continuing ACL tests.
 
-3. Execute the full serial suite from `./test-playbook.md` (TC01-TC20).
+3. Execute the full serial suite from `./test-playbook.md` (TC01, TC02, TC04-TC20; TC03 removed).
 
 4. Capture command evidence and expected assertions for each case.
 

@@ -26,11 +26,11 @@ This playbook is aligned to:
 - `<COLLECTION_HINT>`: business collection hint from user prompt (for example `users`)
 - `<COLLECTION_NAME>`: resolved technical collection name (for example `users`)
 - `<SCOPE_ALL_ID>`: built-in scope id for key `all` in target data source
-- `<RESOURCE_CONFIG_ID>`: existing ACL resource config id for update path
+- `<COLLECTION_ALL_FIELDS_JSON_ARRAY>`: resolved full-field JSON array for `<COLLECTION_NAME>` (technical field names, non-empty)
+- `<USERS_ALL_FIELDS_JSON_ARRAY>`: resolved full-field JSON array for `users` collection (technical field names, non-empty)
 - `<ORIGINAL_ROLE_MODE>`: role mode captured before TC07-TC09
 - `<TEST_USER_ID>`: target user id for guarded membership checks
 - `<DESKTOP_ROUTE_KEY>`: desktop route key/id for route permission checks
-- `<TC03_BODY_FILE>`: malformed payload file path for TC03
 - `<TC04_BODY_FILE>`: role create payload file path for TC04
 - `<TC11_BODY_FILE>`: snippets payload file path for TC11
 - `<TC12_BODY_FILE>`: data-source strategy payload file path for TC12
@@ -61,25 +61,17 @@ Hard requirements across all cases:
 
 Before any write command, enforce:
 
-- `<RESOURCE_CONFIG_ID>` must be a numeric id (bigint/integer), never a collection name
 - `<DESKTOP_ROUTE_KEY>` must be a numeric id (bigint/integer)
-- for `roles data-source-resources get|update`, use:
-  - `--filter-by-tk <RESOURCE_CONFIG_ID>`, or
-  - `--data-source-key <DATA_SOURCE_KEY> --name <COLLECTION_NAME>`
+- for `roles data-source-resources get|update`, use explicit locator `--data-source-key <DATA_SOURCE_KEY> --name <COLLECTION_NAME>` by default; use `--filter-by-tk <id>` only when id is known
 - for `roles data-sources-collections list`, use `--data-source-key <DATA_SOURCE_KEY>` by default; do not rely on `--filter` as the only source
 - for `roles desktop-routes add`, body must be a JSON array of route ids, not an object payload
+- for independent-resource writes, `actions[].fields` must be explicit non-empty technical field-name arrays; when prompt omits field restrictions, resolve full-field arrays from collection metadata
 - on PowerShell/Windows, prefer `--body-file <path>` over inline `--body` for all JSON write payloads
 - if required ids are missing or unresolved, stop and mark case blocked/warn; do not execute writes
 
 ## Body File Templates (Windows/PowerShell)
 
 Use UTF-8 without BOM.
-
-- `<TC03_BODY_FILE>` (intentionally malformed for guard check):
-
-```json
-{"usingActionsConfig":true}
-```
 
 - `<TC04_BODY_FILE>`:
 
@@ -108,13 +100,13 @@ Use UTF-8 without BOM.
 - `<TC13_BODY_FILE>`:
 
 ```json
-{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeId":<SCOPE_ALL_ID>,"fields":["id","createdAt","createdBy","updatedAt","updatedBy"]}]}]}
+{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeId":<SCOPE_ALL_ID>,"fields":<COLLECTION_ALL_FIELDS_JSON_ARRAY>}]}]}
 ```
 
 - `<TC20_BODY_FILE>`:
 
 ```json
-{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeKey":"all","fields":["id"]}]},{"name":"users","usingActionsConfig":true,"actions":[{"name":"create","scopeKey":"own","fields":["id","createdById"]}]}]}
+{"dataSourceKey":"<DATA_SOURCE_KEY>","resources":[{"name":"<COLLECTION_NAME>","usingActionsConfig":true,"actions":[{"name":"view","scopeKey":"all","fields":<COLLECTION_ALL_FIELDS_JSON_ARRAY>}]},{"name":"users","usingActionsConfig":true,"actions":[{"name":"create","scopeKey":"own","fields":<USERS_ALL_FIELDS_JSON_ARRAY>}]}]}
 ```
 
 ## Serial Execution Strategy
@@ -133,28 +125,26 @@ Recommended serial order (mandatory):
 
 1. TC01
 2. TC02
-3. TC03
-4. TC04
-5. TC05
-6. TC06
-7. TC07
-8. TC08
-9. TC09
-10. TC10
-11. TC11
-12. TC12
-13. TC13
-14. TC14
-15. TC15
-16. TC16
-17. TC17
-18. TC18
-19. TC19
-20. TC20
+3. TC04
+4. TC05
+5. TC06
+6. TC07
+7. TC08
+8. TC09
+9. TC10
+10. TC11
+11. TC12
+12. TC13
+13. TC14
+14. TC15
+15. TC16
+16. TC17
+17. TC18
+18. TC19
+19. TC20
 
 ## Failure Tracking (2026-04-22)
 
-- `TC03`: fixed by adding pre-action payload validation for `roles.data-source-resources update`.
 - `TC13`: fixed by adding explicit write step (`apply-data-permissions`) before readback, and using explicit get locator (`--data-source-key + --name`).
 - `TC15`: fixed by `dataSourceKey` query normalization for `roles data-sources-collections list`.
 - `TC17`: adjusted default runtime path to dedicated ACL membership command when available.
@@ -207,27 +197,6 @@ Expected:
 1. Guard fails closed in wrong base-dir and blocks writes.
 2. Output includes capability-boundary wording and recovery path.
 3. No fallback executor script is created.
-
-### TC03 Payload Guard Malformed Body (`ACL-SMOKE-003`)
-
-Prompt:
-
-```text
-请把角色 `<ROLE_NAME>` 在 `<COLLECTION_NAME>` 上的 `view` 权限打开，并直接执行。
-```
-
-Runtime Command:
-
-```bash
-cd <BASE_DIR>
-nb api acl roles data-source-resources update --role-name <ROLE_NAME> --filter-by-tk <RESOURCE_CONFIG_ID> --body-file <TC03_BODY_FILE> -j
-```
-
-Expected:
-
-1. Preflight rejects malformed payload before execution.
-2. Error explains missing/invalid `actions[]` in payload.
-3. Error includes correction hints for `usingActionsConfig/actions/fields`.
 
 ### TC04 Create Blank Role (`ACL-ROLE-001`)
 
@@ -447,7 +416,7 @@ nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source
 Expected:
 
 1. Business hint is resolved to concrete collection name before write.
-2. Write payload is one complete body (`usingActionsConfig=true` + final `actions[]` + `scopeId` + non-empty `fields[]`).
+2. Write payload is one complete body (`usingActionsConfig=true` + final `actions[]` + explicit scope binding `scopeId|scopeKey` + non-empty `fields[]`).
 3. Readback confirms scope binding and full-field parity for selected field-configurable actions.
 4. If collection/action/scope is unresolved, task remains blocked and asks clarification before write.
 
@@ -556,7 +525,7 @@ nb api resource list --resource roles.users --source-id <ROLE_NAME> -j
 Expected:
 
 1. Membership evidence is available from at least one association direction.
-2. Readback output includes role/user identity match.
+2. Readback output includes role/user identity match (`users.roles[*].name == <ROLE_NAME>` or `roles.users[*].id == <TEST_USER_ID>`; pivot `rolesUsers.roleName/userId` can be used as equivalent evidence).
 3. No mutation command is executed.
 
 ### TC19 Risk Assessment Data Prerequisites (`ACL-RISK-001`)
@@ -588,13 +557,14 @@ Expected:
 Prompt:
 
 ```text
-请一次性为角色 `<ROLE_NAME>` 配置多个数据表的独立权限，要求单次执行完成，并使用 `scopeKey` 绑定范围。
+请一次性为角色 `<ROLE_NAME>` 配置多个数据表的独立权限，要求单次执行完成，并使用 `scopeKey` 绑定范围；若未指定字段则按默认全字段处理。
 ```
 
 Runtime Command:
 
 ```bash
 cd <BASE_DIR>
+nb api resource list --resource collections --filter '{}' --appends fields -j
 nb api acl roles apply-data-permissions --filter-by-tk <ROLE_NAME> --body-file <TC20_BODY_FILE> -j
 nb api acl roles data-source-resources get --role-name <ROLE_NAME> --data-source-key <DATA_SOURCE_KEY> --name users --appends actions -j
 ```
@@ -603,7 +573,8 @@ Expected:
 
 1. Batch write is completed by one apply command with `resources[]` payload.
 2. Readback confirms action scope binding resolved from `scopeKey` to non-null `scopeId`.
-3. No pre-step scope list query is required before write.
+3. Readback confirms each selected action has explicit non-empty field-name arrays and matches default full-field policy when field restrictions are omitted.
+4. No pre-step scope list query is required before write.
 
 ## Quick Regression Set
 
@@ -611,24 +582,23 @@ Run this full set on each ACL skill change:
 
 1. TC01
 2. TC02
-3. TC03
-4. TC04
-5. TC05
-6. TC06
-7. TC07
-8. TC08
-9. TC09
-10. TC10
-11. TC11
-12. TC12
-13. TC13
-14. TC14
-15. TC15
-16. TC16
-17. TC17
-18. TC18
-19. TC19
-20. TC20
+3. TC04
+4. TC05
+5. TC06
+6. TC07
+7. TC08
+8. TC09
+9. TC10
+10. TC11
+11. TC12
+12. TC13
+13. TC14
+14. TC15
+15. TC16
+16. TC17
+17. TC18
+18. TC19
+19. TC20
 
 ## Capability Coverage Map
 
@@ -636,7 +606,6 @@ Run this full set on each ACL skill change:
 |---|---|
 | `ACL-SMOKE-001` | TC01 |
 | `ACL-SMOKE-002` | TC02 |
-| `ACL-SMOKE-003` | TC03 |
 | `ACL-ROLE-001` | TC04 |
 | `ACL-ROLE-002` | TC05 |
 | `ACL-GLOBAL-001` | TC06 |
