@@ -8,12 +8,16 @@ interface:
     - Run direct `nb` commands only.
     - Never run local scripts (`*.mjs`, `*.ps1`, `*.sh`).
     - For install task, always execute `nb init --ui` first.
+    - When running `nb init --ui`, use a 30 minute timeout budget and do not interrupt the command before it exits.
+    - If install prints a URL that cannot be opened in a sandbox, ask to elevate/open outside the sandbox first; if the user refuses, provide the URL directly.
+    - Never proactively fill or submit install/setup forms for the user.
     - Do not add extra precheck gates before executing requested `nb` commands.
     - Prefer executing requested runtime commands first; use `nb --help` when user asks diagnostics/help output or command discovery is needed.
     - Relay CLI outputs and hints directly.
 
     Execution policy:
     - execute target command directly
+    - for `nb init --ui`, treat it as a long-running interactive command; wait for completion instead of interrupting it mid-run
     - if command fails, report key CLI error/hint lines as-is and provide next action
     - for env query (`list/current`), use fast path:
       - first run: `nb env list -s project`

@@ -19,6 +19,9 @@ Use `nb` CLI only to complete NocoBase bootstrap and lifecycle actions.
 - Never run local scripts (`*.mjs`, `*.ps1`, `*.sh`).
 - Never use template-driven install flows.
 - For `task=install`, only execute `nb init --ui`.
+- When executing `nb init --ui`, use a CLI timeout of 30 minutes and do not interrupt the command before it exits.
+- If install flow exposes a URL that cannot be opened because the agent is running in a sandboxed environment, explicitly ask to elevate/open outside the sandbox; if the user refuses, provide the URL directly to the user.
+- Never proactively fill install/setup forms on the user's behalf; only surface the URL, explain the next step, and let the user complete the form.
 - Do not add extra precheck gates before executing user-requested `nb` commands.
 - Prefer executing user-requested runtime commands first; use `nb --help` when user asks for diagnostics/help output or command discovery is needed.
 - Surface CLI outputs and hints directly to users.
@@ -49,6 +52,11 @@ Use `nb` CLI only to complete NocoBase bootstrap and lifecycle actions.
 - Execute the target `nb` command directly.
 - Install routing is fixed:
   - `task=install` -> `nb init --ui` only
+- For `task=install`, treat `nb init --ui` as a long-running interactive command:
+  - set command timeout to 30 minutes
+  - do not interrupt/wait-short/poll in a way that aborts the CLI before completion
+- If `nb init --ui` prints a local URL and browser open fails in sandbox, first ask to elevate/open outside sandbox; if that is declined, surface the URL so the user can open it manually.
+- During install/setup flows, never submit or fill web forms for the user; provide instructions only.
 - Do not run separate preflight checks unless the user explicitly asks for diagnostics.
 - If command fails, return key CLI output lines and suggested next commands from CLI output.
 - For environment query intents (`list/current`), use fast path:

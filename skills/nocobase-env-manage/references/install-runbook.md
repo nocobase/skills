@@ -16,10 +16,23 @@ nb init --ui
 ```
 
 This command launches the setup wizard and completes installation/bootstrap interactively.
+Treat it as a long-running CLI task.
 
 Skill routing rule:
 
 - treat `nb init --ui` as the only install entrypoint
+- run it with a 30 minute timeout budget
+- once started, do not interrupt it before the command exits
+- do not fill, submit, or complete install/setup forms on behalf of the user
+
+## Browser/Open URL Handling
+
+When `nb init --ui` prints a URL or attempts to open a browser:
+
+- if the agent is sandboxed and cannot open the URL/browser, explicitly prompt to elevate/open outside the sandbox
+- if the user refuses elevation, provide the URL directly and tell the user to open it manually
+- even when the URL is reachable, let the user complete the browser form themselves
+- do not replace `nb init --ui` with any local script or alternate install path
 
 ## Post-Install Readback
 
