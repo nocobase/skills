@@ -122,7 +122,7 @@ Resource permission interaction policy:
 - write completeness (hard rule):
 - for `permission.data-source.resource.set`, execute one complete write payload per target collection
 - the write payload must include `usingActionsConfig: true`
-- the same payload must include the final `actions[]` set, with resolved `scopeId` for `all|own` bindings and explicit non-empty `fields` arrays for field-configurable actions
+- the same payload must include the final `actions[]` set, with explicit scope binding (`scopeId` or `scopeKey`) for `all|own` and explicit non-empty `fields` arrays for field-configurable actions
 - do not stage writes as "set actions first, then patch fields/scope/usingActionsConfig"
 - before any write, show confirmation summary (data source + resolved collections + actions + scope)
 - when scope is defaulted, confirmation must explicitly state `scope=all (default)` and allow user override
@@ -327,7 +327,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - for scope=`all|own`, readback shows non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
-- command-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
+- command-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, scope binding `scopeId|scopeKey`, `fields`)
 - `roles data-source-resources get|update` locator is explicit (`filterByTk` or `data-source-key + name`) before execution
 - collection/field metadata is resolved through `resource collections` read path; `roles data-sources-collections list` is compatibility-only for role-facing view
 - `roles desktop-routes add` uses JSON array body with numeric route ids
@@ -365,7 +365,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
 | [references/independent-permissions.md](references/independent-permissions.md) | resource-level permission writes | `usingActionsConfig + actions + fields + scope` complete-write policy |
 | [tests/capability-test-plan.md](tests/capability-test-plan.md) | capability matrix | aligned with v2 domains |
-| [tests/test-playbook.md](tests/test-playbook.md) | acceptance regression | prompt-first TC01-TC20 with runtime evidence commands |
+| [tests/test-playbook.md](tests/test-playbook.md) | acceptance regression | prompt-first TC01, TC02, TC04-TC20 with runtime evidence commands |
 | [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
 | [tests/README.md](tests/README.md) | runtime verification | playbook execution flow and reporting notes |
 

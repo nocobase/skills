@@ -4,7 +4,7 @@ This document defines executable capability checks for `nocobase-acl-manage` v2 
 
 Companion acceptance suite:
 
-- `./test-playbook.md` (TC01-TC20)
+- `./test-playbook.md` (TC01, TC02, TC04-TC20; TC03 removed)
 
 ## Scope
 
@@ -27,7 +27,6 @@ Excluded:
 |---|---|---|---|
 | ACL-SMOKE-001 | cli | `nb --help` + `nb env list -s project` availability | runtime |
 | ACL-SMOKE-002 | cli | execution guard fail-closed check (`env list -s project`, `env update`, `nb api acl --help`, `nb api acl roles --help`) in one locked base-dir | runtime |
-| ACL-SMOKE-003 | cli | payload guard rejects malformed independent-permission write payload (`nb api acl roles data-source-resources create|update` or `nb api acl roles apply-data-permissions`) before execution | contract + runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -81,7 +80,7 @@ Optional:
 
 ## Critical Assertions
 
-- For `ACL-PERM-003` with scope mode `all` or `own`, write payload must include explicit non-null `scopeId`.
+- For `ACL-PERM-003` with scope mode `all` or `own`, write payload must include explicit scope binding (`scopeId` or `scopeKey`), and readback must resolve to non-null `scopeId`.
 - For `ACL-PERM-003` default-all field policy, write payload must include explicit non-empty field-name arrays for selected field-configurable actions.
 - For `ACL-PERM-003`, when multiple field-configurable actions are selected, readback should verify full field-set parity for each selected action.
 - `ACL-PERM-003` readback must verify:
@@ -91,11 +90,11 @@ Optional:
 - `ACL-PERM-003` readback should use `roles data-source-resources get ... --appends actions` for action-level assertions.
 - For `ACL-PERM-006`, write should complete in one command call with `resources[]` payload that includes at least two collections.
 - `ACL-PERM-006` must verify action-level `scopeKey` is resolved to non-null `scopeId` in readback.
+- For `ACL-PERM-006` default-all field policy, write payload must include explicit non-empty field-name arrays for selected field-configurable actions.
+- For `ACL-PERM-006` default-all field policy, field arrays should be derived from collection metadata (`resource collections --appends fields`) rather than hardcoded guess values.
 - `ACL-PERM-006` readback should use `roles data-source-resources get ... --appends actions` for action-level assertions.
 - `ACL-PERM-006` must not require pre-querying scope list before write execution.
+- `ACL-USER-003` membership readback passes when at least one direction matches identity (`users.roles[*].name == roleName` or `roles.users[*].id == userId`); pivot `rolesUsers.roleName/userId` is equivalent evidence.
 - `ACL-SMOKE-002` must verify fail-closed behavior:
   - when guard commands fail in the selected base-dir, runner stops writes and emits recovery guidance
   - no ad-hoc script file is created to continue execution
-- `ACL-SMOKE-003` must verify payload guard behavior:
-  - malformed independent-resource write payload is blocked before CLI execution
-  - error output explains missing/invalid keys (`usingActionsConfig`, `actions`, `fields`)

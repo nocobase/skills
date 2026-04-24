@@ -15,7 +15,7 @@ Execute ACL commands through direct nb CLI:
   - prefer `--body-file <json_path>` over inline `--body` in PowerShell/Windows
   - require payload JSON with `usingActionsConfig=true` and non-empty `actions[]`
   - require non-empty `fields[]` for `create/view/update/export/importXlsx`
-  - require non-null positive `scopeId` for `view/update/destroy/export/importXlsx`
+  - require explicit scope binding (`scopeId` or `scopeKey`) for scoped actions (`view/update/destroy/export/importXlsx`)
   - fail fast before CLI execution when payload is malformed
 
 Resolve current env context through direct CLI:
@@ -226,7 +226,7 @@ Execution chain:
 5. resolve full-field defaults from collection metadata when user did not provide field restrictions
 6. show pre-write confirmation summary
 7. optional `roles_data_source_resources_get` (for each resolved collection) to check current record existence
-8. preferred write: `roles_apply_data_permissions` with one complete `resources[]` payload (single or batch collections), each item including `usingActionsConfig=true` + final `actions[]` with resolved `scopeId` and explicit `fields[]` where applicable; compatibility path: `roles_data_source_resources_create` or `roles_data_source_resources_update`
+8. preferred write: `roles_apply_data_permissions` with one complete `resources[]` payload (single or batch collections), each item including `usingActionsConfig=true` + final `actions[]` with explicit scope binding (`scopeId` or `scopeKey`) and explicit `fields[]` where applicable; compatibility path: `roles_data_source_resources_create` or `roles_data_source_resources_update`
 9. `roles_data_source_resources_get` readback with `--appends actions`
 
 ## D) User Domain
@@ -277,12 +277,12 @@ Risk tasks are computed by combining read commands:
 - `roles apply-data-permissions` is the preferred unified write path for independent resource permissions (single or batch collections)
 - prefer `roles data-source-resources` locator as `--filter-by-tk` or `--data-source-key + --name`; do not rely on `--filter` as the primary path
 - for collection metadata resolution, do not rely solely on `roles data-sources-collections list`; use `resource collections` metadata path as the authoritative source
-- for scope=`all|own`, require non-null scope binding in write payload (`scopeId`)
-- when scope input is omitted, apply `all` by default and resolve non-null `scopeId` in payload
+- for scope=`all|own`, require explicit scope binding in write payload (`scopeId` or `scopeKey`)
+- when scope input is omitted, apply `all` by default; payload may bind scope by `scopeId` or `scopeKey`, and readback must resolve to non-null `scopeId`
 - for field-configurable actions with default-all behavior, require explicit non-empty `fields` arrays in write payload
 - for `permission.data-source.resource.set`, require `usingActionsConfig=true` in the same write payload that carries `actions[]`
 - do not split resource writes into staged patches (for example, first write `actions`, then patch `usingActionsConfig` or `fields` later)
-- preflight must reject malformed independent-resource payloads (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, or `fields`) before execution
+- preflight must reject malformed independent-resource payloads (missing/invalid `usingActionsConfig`, `actions`, scope binding `scopeId|scopeKey`, or `fields`) before execution
 - if user asks for `all permissions`, expanded runtime action set must be shown and confirmed before write
 - do not execute `permission.data-source.resource.set` writes until resolved collections are confirmed by user
 - never execute guarded fallback path unless explicitly enabled
