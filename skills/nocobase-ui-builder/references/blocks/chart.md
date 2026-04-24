@@ -15,8 +15,11 @@ description: Chart 区块的稳定配置路径、mode 组合、最小可用 reci
 - `统计` / `analytics`
 - `占比` / `pie`
 - `报表` / `dashboard`
+- `分析看板`（不是 kanban/pipeline/泳道 类看板）
 
 如果请求只是几个 KPI 数字摘要，没有明显图形语义，优先看 [grid-card.md](grid-card.md)。
+
+如果请求带 `kanban / pipeline / 状态列 / 拖拽 / 泳道 / backlog / 看板区块` 这类明确 kanban cue，不要继续走 chart，改看 [kanban.md](kanban.md)。
 
 ## 真正的配置路径
 
@@ -179,7 +182,7 @@ Chart 的查询和 option 不走 `resourceSettings`，而是走：
 
 ## skill 默认策略
 
-1. 命中 `总览 / 趋势 / 分布 / 统计 / 占比 / dashboard` 时，把 `ChartBlockModel` 视为 `insight` 区首选块。
+1. 命中 `总览 / 趋势 / 分布 / 统计 / 占比 / dashboard / 分析看板` 时，把 `ChartBlockModel` 视为 `insight` 区首选块。
 2. 如果请求同时带 `交互 / 联动 / 说明 / 引导 / 叙事 / 自定义`，允许 `ChartBlockModel + JSBlockModel` 直接成为主表达组合，不必自动补 `Table/Details`。
 3. 优先生成 `builder + basic`。
 4. 用户明确说 `sql` 时，再生成 `sql + basic` 或 `sql + custom`。

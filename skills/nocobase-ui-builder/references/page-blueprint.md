@@ -50,6 +50,7 @@ Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns t
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
 - `calendar` main blocks do not support direct `fields[]`, `fieldGroups[]`, or `recordActions[]`. Bind only calendar settings such as `titleField` / `colorField` / `startField` / `endField` on the main block; event content fields belong in quick-create / event-view popup hosts.
+- `kanban` main blocks may use `fields[]`, but do not support `fieldGroups`, `fieldsLayout`, or `recordActions`. Card content stays on the main card field list; quick-create and card-view content belongs in hidden popup hosts.
 - For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - For whole-page inline popup specs, when no explicit `popup.template` is present, default to `popup.tryTemplate=true` as the write fallback. Local popup content may remain as the miss fallback. Keep `list-templates` as the planning truth source, and let the backend own the final relation-vs-non-relation popup-template match.
 - When the user explicitly wants the newly created local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on that inline popup instead of planning a separate save step. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
@@ -639,6 +640,7 @@ Supported block `type` values are:
 - `list`
 - `gridCard`
 - `calendar`
+- `kanban`
 - `markdown`
 - `iframe`
 - `chart`
@@ -766,13 +768,13 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
 - in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 
-For collection-action hosts (`table`, `list`, `gridCard`, `calendar`):
+For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 
 - when the user only asks to “增加筛选 / filter” on that data block, or explicitly adds “搜索 / search” to that host with wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, prefer the same block-level `filter` action
 - do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
-- every direct, non-template public `table` / `list` / `gridCard` / `calendar` block must include block-level `defaultFilter`
+- every direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` block must include block-level `defaultFilter`
 - when collection metadata exposes 3 or more suitable business fields, block-level `defaultFilter.items` must cover at least 3 of those common fields; if fewer than 3 suitable candidates exist, cover every available candidate instead
 
 For `calendar` blocks:
@@ -781,6 +783,13 @@ For `calendar` blocks:
 - do not use `bulkDelete`, import/export, print, or record-level actions on the main calendar block
 - `settings.startField` and `settings.endField` must bind date-capable fields; `settings.titleField` and `settings.colorField` must bind non-association display fields
 - direct public calendar blocks use the same non-empty block-level `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a calendar host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
+
+For `kanban` blocks:
+
+- allowed public main-block actions are `filter`, `addNew`, `popup`, `refresh`, and `js`
+- do not use `today`, `turnPages`, `bulkDelete`, `triggerWorkflow`, import/export, print, or record-level actions on the main kanban block
+- public main kanban blocks may keep `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`
+- direct public kanban blocks use the same non-empty block-level `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a kanban host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
 
 Required block-level `defaultFilter` plus optional filter action settings shape:
 
@@ -817,7 +826,7 @@ Required block-level `defaultFilter` plus optional filter action settings shape:
 
 Planning rules:
 
-- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` / `calendar` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
+- block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
 - prefer 3 to 4 common live business fields in that block-level `defaultFilter` when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate
 - a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for first-write `prepare-write`
 - if explicit `filterableFieldNames` are provided, validate coverage against action-level `settings.defaultFilter` when present, otherwise against block-level `defaultFilter`
