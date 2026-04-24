@@ -6004,7 +6004,7 @@ test('auditPayload blocks public blocks payloads with normalized empty top-level
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar']) {
+for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
   test(`auditPayload blocks public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
@@ -6045,7 +6045,7 @@ for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar']) {
   });
 }
 
-for (const dataSurfaceBlockType of ['calendar']) {
+for (const dataSurfaceBlockType of ['calendar', 'kanban']) {
   test(`auditPayload blocks public add-block ${dataSurfaceBlockType} payloads missing block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
@@ -6077,6 +6077,46 @@ for (const dataSurfaceBlockType of ['calendar']) {
     assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
   });
 }
+
+test('auditPayload blocks template-backed public add-block kanban payloads with block-level defaultFilter or defaultActionSettings', () => {
+  const defaultFilterResult = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'kanban',
+      template: { uid: 'orders-kanban-template', mode: 'reference' },
+      defaultFilter: makePublicDefaultFilter(),
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(defaultFilterResult.ok, false);
+  assert.equal(
+    defaultFilterResult.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED'),
+    true,
+  );
+
+  const defaultActionSettingsResult = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'kanban',
+      template: { uid: 'orders-kanban-template', mode: 'reference' },
+      defaultActionSettings: {
+        filter: {
+          filterableFieldNames: ['order_no', 'status'],
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(defaultActionSettingsResult.ok, false);
+  assert.equal(
+    defaultActionSettingsResult.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED'),
+    true,
+  );
+});
 
 test('auditPayload accepts CalendarBlockModel as a collection resource block with calendar toolbar actions', () => {
   const result = auditPayload({
@@ -6161,4 +6201,63 @@ test('auditPayload blocks CalendarBlockModel invalid date and display field bind
   assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_FIELD_BINDING_INVALID' && item.details?.key === 'titleField'), true);
   assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_FIELD_BINDING_INVALID' && item.details?.key === 'startField'), true);
   assert.equal(result.blockers.some((item) => item.code === 'CALENDAR_FIELD_BINDING_INVALID' && item.details?.key === 'endField'), true);
+});
+
+test('auditPayload accepts KanbanBlockModel as a collection resource block with supported collection actions', () => {
+  const result = auditPayload({
+    payload: {
+      uid: 'orders-kanban',
+      use: 'KanbanBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        fields: [{ use: 'FieldModel' }],
+        actions: [
+          { use: 'FilterActionModel' },
+          { use: 'AddNewActionModel' },
+          { use: 'PopupCollectionActionModel' },
+          { use: 'RefreshActionModel' },
+          { use: 'JSCollectionActionModel' },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('KANBAN_')), false);
+});
+
+test('auditPayload blocks KanbanBlockModel main fieldGroups fieldsLayout-style grids recordActions and unsupported actions', () => {
+  const result = auditPayload({
+    payload: {
+      uid: 'orders-kanban',
+      use: 'KanbanBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        fieldGroups: [{ use: 'FieldGroupModel' }],
+        grid: { use: 'DetailsGridModel' },
+        recordActions: [{ use: 'ViewActionModel' }],
+        actions: [
+          { use: 'CalendarTodayActionModel' },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'KANBAN_MAIN_FIELD_GROUPS_UNSUPPORTED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'KANBAN_MAIN_FIELDS_LAYOUT_UNSUPPORTED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'KANBAN_MAIN_RECORD_ACTIONS_UNSUPPORTED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'KANBAN_ACTION_SLOT_USE_INVALID'), true);
 });

@@ -50,6 +50,7 @@ function makeInstanceInventory() {
         'EditFormModel',
         'GridCardBlockModel',
         'CalendarBlockModel',
+        'KanbanBlockModel',
         'ChartBlockModel',
         'JSBlockModel',
         'MarkdownBlockModel',
@@ -67,6 +68,13 @@ function makeInstanceInventory() {
           use: 'CalendarBlockModel',
           title: 'Calendar',
           semanticTags: ['calendar'],
+          contextRequirements: [],
+          unresolvedReasons: [],
+        },
+        {
+          use: 'KanbanBlockModel',
+          title: 'Kanban',
+          semanticTags: ['kanban', 'pipeline'],
           contextRequirements: [],
           unresolvedReasons: [],
         },
@@ -419,6 +427,22 @@ test('dynamic scenario planner recognizes calendar pages as collection-bound pri
   assert.ok(selectedCandidate);
   assert.equal(result.scenario.eligibleUses.includes('CalendarBlockModel'), true);
   assert.equal(selectedCandidate.primaryBlockType, 'CalendarBlockModel');
+});
+
+test('dynamic scenario planner routes kanban cues to KanbanBlockModel and keeps host-bound filter actions on kanban', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个审批流水线看板区块，按状态列展示并支持拖拽，同时给 kanban 增加搜索功能',
+    sessionId: 'sess-kanban',
+    baseSlug: 'approvals-kanban',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-kanban',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.eligibleUses.includes('KanbanBlockModel'), true);
+  assert.equal(selectedCandidate.primaryBlockType, 'KanbanBlockModel');
+  assertFilterAction(result, ['KanbanBlockModel'], true);
 });
 
 test('dynamic scenario planner keeps chart eligible when runtime hints are covered by visualization contracts', () => {
