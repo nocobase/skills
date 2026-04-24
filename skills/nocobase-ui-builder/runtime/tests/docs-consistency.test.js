@@ -1314,8 +1314,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /prepare-write/i);
   assert.match(helperContracts, /prepareApplyBlueprintRequest/i);
   assert.match(helperContracts, /nb-runjs/i);
+  assert.match(helperContracts, /nb-localized-write-preflight/i);
+  assert.match(helperContracts, /does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
+  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-page-preview\b/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
 
@@ -1334,6 +1337,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
 
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+
+  const localEditQuickHelper = read('references/local-edit-quick.md');
+  assert.match(localEditQuickHelper, /nb-localized-write-preflight/i);
+  assert.match(localEditQuickHelper, /runLocalizedWritePreflight/i);
+  assert.match(localEditQuickHelper, /does not wrap or execute the nb transport|explicit `?nb api flow-surfaces/i);
 
 });
 
@@ -1758,6 +1766,28 @@ test('helper contracts require caller-supplied collectionMetadata for data-bound
   assert.match(helperContracts, /caller-supplied/i);
   assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
+});
+
+test('localized preflight docs keep explicit helper-vs-transport boundary', () => {
+  const skill = read('SKILL.md');
+  assert.match(skill, /explicit local validator|not as a transport wrapper/i);
+  assert.match(skill, /later explicit `?nb api flow-surfaces/i);
+  assert.match(skill, /backend runtime remains compatibility-tolerant|compatibility-tolerant/i);
+
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /local\/read-only/i);
+  assert.match(helperContracts, /does not execute `?nb`?/i);
+  assert.match(helperContracts, /does not wrap the transport/i);
+  assert.match(helperContracts, /later explicit `?nb api flow-surfaces/i);
+
+  const localEditQuick = read('references/local-edit-quick.md');
+  assert.match(localEditQuick, /later explicit `?nb api flow-surfaces/i);
+  assert.match(localEditQuick, /does not wrap or execute the nb transport/i);
+
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  assert.match(defaultPrompt, /local preflight/i);
+  assert.match(defaultPrompt, /explicit nb write remains direct/i);
 });
 
 test('prepare-write helper-envelope docs explain collectionMetadata requirements', () => {

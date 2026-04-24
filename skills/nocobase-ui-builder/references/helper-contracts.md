@@ -24,6 +24,23 @@ Use this before the first real whole-page write.
 - explicit local `popup.blocks` still participate in defaults scope collection even when `popup.template` or `popup.tryTemplate` is present; template binding only changes popup content sourcing, not defaults scope registration
 - rejects: common high-risk write-shape mistakes before the remote write
 
+## `nb-localized-write-preflight`
+
+Use this when you want a local validation pass for one localized `compose`, `add-block`, or `add-blocks` body before the later explicit `nb api flow-surfaces ...` write.
+
+- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs --operation <compose|add-block|add-blocks> --stdin-json`
+- If your current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs`; do not probe the bare `nb-localized-write-preflight` command first.
+- input: one localized write body object, or helper envelope `{ body, collectionMetadata? }`
+- returns: stable localized preflight result with `ok`, `errors`, `warnings`, `facts`, and normalized `cliBody`
+- use it for: local validation of localized public low-level `compose` / `add-block` / `add-blocks` bodies before the later explicit `nb api flow-surfaces ...` call
+- this helper is local/read-only: it validates and canonicalizes one payload, but does not execute `nb` and does not wrap the transport for you
+- `collectionMetadata` stays caller-supplied; this helper does not fetch it for you
+- for any data-bound localized payload, missing or empty metadata fails with stable helper rule id `missing-collection-metadata`
+- direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks still fail closed here when block-level `defaultFilter` is missing or empty; this stricter requirement belongs to the skill preflight layer, not the backend runtime compatibility contract
+- metadata-aware `defaultFilter` checks still run here: unknown paths, incomplete common-field coverage, and explicit action-level `settings.defaultFilter` or `defaultActionSettings.filter.defaultFilter` mismatches fail locally
+- localized `kanban` main blocks reject `fieldGroups`, `fieldsLayout`, and `recordActions`; localized `calendar` main blocks reject `fields`, `fieldGroups`, and `recordActions`
+- once this helper succeeds, keep the later write explicit; send only `result.cliBody` as the real low-level nb body if the canonicalizer changed anything
+
 ## `prepareApplyBlueprintRequest(...)`
 
 Use this helper in local JS code when you need the same prepare-write behavior without shelling out.
