@@ -46,7 +46,7 @@ Use this matrix when you need a fast payload check before sending a create call.
 | --- | --- |
 | Basic scalar | `name`, `interface`, optional `title` |
 | Specialized scalar such as `email` or `phone` | basic scalar parts |
-| Local choice field | `name`, `interface`, optional `title`, `enum` |
+| Local choice field | `name`, `interface`, optional `title`, `enum` with one object per option, each carrying `value`, `label`, and valid `color` |
 | Empty multi-valued choice field | local choice parts; compact flow can derive the empty default |
 | Rich text or markdown | `name`, `interface`, optional `title` |
 | Attachment-like field | `name`, `interface`, optional `title`, target or other relation options when required |
