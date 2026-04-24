@@ -43,6 +43,13 @@ const CALENDAR_ACTION_TYPE_MAP = new Map([
   ['js', 'js'],
   ['triggerworkflow', 'triggerWorkflow'],
 ]);
+const KANBAN_ACTION_TYPE_MAP = new Map([
+  ['filter', 'filter'],
+  ['addnew', 'addNew'],
+  ['popup', 'popup'],
+  ['refresh', 'refresh'],
+  ['js', 'js'],
+]);
 const EDIT_ACTION_TYPES = new Set(['edit']);
 const REAL_TEMPLATE_MODES = new Set(['reference', 'copy']);
 const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
@@ -62,9 +69,10 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setActionLinkageRules',
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
-const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar']);
+const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
+const KANBAN_BLOCK_TYPES = new Set(['kanban']);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
   'today',
   'turnPages',
@@ -76,6 +84,13 @@ const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
   'refresh',
   'js',
   'triggerWorkflow',
+]);
+const KANBAN_ALLOWED_ACTION_TYPES = new Set([
+  'filter',
+  'addNew',
+  'popup',
+  'refresh',
+  'js',
 ]);
 const CALENDAR_DATE_FIELD_INTERFACES = new Set(['datetime', 'datetimeNoTz', 'dateOnly', 'date']);
 const CALENDAR_DATE_FIELD_TYPES = new Set(['date', 'datetime', 'datetimeNoTz', 'dateOnly']);
@@ -1212,6 +1227,10 @@ function normalizePopupActionType(value) {
 
 function normalizeCalendarActionType(value) {
   return CALENDAR_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
+}
+
+function normalizeKanbanActionType(value) {
+  return KANBAN_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
 }
 
 function popupHasExplicitTemplate(popup) {
@@ -3432,9 +3451,12 @@ function validateActions(items, path, state, { recordActions = false, blockConte
   for (const [index, item] of ensureArray(items).entries()) {
     const rawActionType =
       typeof item === 'string' ? item : isPlainObject(item) ? item.type : '';
+    const hostBlockType = normalizeText(blockContext.hostBlockType);
     const actionType =
-      normalizeText(blockContext.hostBlockType) === 'calendar'
+      hostBlockType === 'calendar'
         ? normalizeCalendarActionType(rawActionType)
+        : hostBlockType === 'kanban'
+          ? normalizeKanbanActionType(rawActionType)
         : normalizeLowerText(rawActionType);
     if (!recordActions && actionType === 'addchild') {
       pushValidationError(
@@ -3447,7 +3469,7 @@ function validateActions(items, path, state, { recordActions = false, blockConte
     }
     if (
       !recordActions
-      && normalizeText(blockContext.hostBlockType) === 'calendar'
+      && hostBlockType === 'calendar'
       && !CALENDAR_ALLOWED_ACTION_TYPES.has(actionType)
     ) {
       pushValidationError(
@@ -3456,6 +3478,19 @@ function validateActions(items, path, state, { recordActions = false, blockConte
         `${path}[${index}]`,
         'calendar-action-unsupported',
         `calendar blocks only support actions: ${[...CALENDAR_ALLOWED_ACTION_TYPES].join(', ')}.`,
+      );
+    }
+    if (
+      !recordActions
+      && hostBlockType === 'kanban'
+      && !KANBAN_ALLOWED_ACTION_TYPES.has(actionType)
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'kanban-action-unsupported',
+        `kanban blocks only support actions: ${[...KANBAN_ALLOWED_ACTION_TYPES].join(', ')}.`,
       );
     }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
@@ -3951,12 +3986,12 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
       {
         key: 'defaultFilter',
         ruleId: 'data-surface-block-default-filter-template-unsupported',
-        message: 'Template-backed table, list, gridCard, and calendar blocks do not support block-level defaultFilter; only direct blocks may define it.',
+        message: 'Template-backed table, list, gridCard, calendar, and kanban blocks do not support block-level defaultFilter; only direct blocks may define it.',
       },
       {
         key: 'defaultActionSettings',
         ruleId: 'data-surface-block-default-action-settings-template-unsupported',
-        message: 'Template-backed table, list, gridCard, and calendar blocks do not support defaultActionSettings; use filter action settings on direct blocks instead.',
+        message: 'Template-backed table, list, gridCard, calendar, and kanban blocks do not support defaultActionSettings; use filter action settings on direct blocks instead.',
       },
     ]) {
       if (!hasOwn(block, unsupportedProperty.key)) {
@@ -3979,7 +4014,7 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
       state.seenErrors,
       `${path}.defaultFilter`,
       'data-surface-block-default-filter-required',
-      'Data-surface blocks of type table, list, gridCard, and calendar must include block-level defaultFilter.',
+      'Data-surface blocks of type table, list, gridCard, calendar, and kanban must include block-level defaultFilter.',
     );
     return;
   }
@@ -4172,6 +4207,42 @@ function validateCalendarMainBlockShape(block, path, state) {
   }
 }
 
+function validateKanbanMainBlockShape(block, path, state) {
+  if (!KANBAN_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return;
+  }
+
+  if (hasOwn(block, 'fieldGroups')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldGroups`,
+      'kanban-main-field-groups-unsupported',
+      'kanban blocks do not support fieldGroups[] on the main block; keep card content in fields[] and move grouped forms/details into quick-create or card-view popup hosts.',
+    );
+  }
+
+  if (hasOwn(block, 'fieldsLayout')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout`,
+      'kanban-main-fields-layout-unsupported',
+      'kanban blocks do not support fieldsLayout on the main block; quick-create or card-view popup hosts may use their own form/details layout instead.',
+    );
+  }
+
+  if (hasOwn(block, 'recordActions')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.recordActions`,
+      'kanban-main-record-actions-unsupported',
+      'kanban blocks do not support recordActions[] on the main block; card view/edit content should be configured through hidden card-view or quick-create popup hosts.',
+    );
+  }
+}
+
 function validateBlock(block, path, state, parentContext = {}) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
@@ -4193,6 +4264,7 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
   validateDataSurfaceFilterActionSettings(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
+  validateKanbanMainBlockShape(block, path, state);
   validateBlockFieldGroups(block, path, state);
   validateBlockFieldsLayout(block, path, state);
 
