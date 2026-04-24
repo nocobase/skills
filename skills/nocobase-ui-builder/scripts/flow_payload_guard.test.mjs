@@ -36,6 +36,19 @@ const metadata = {
         { name: 'name', type: 'string', interface: 'input' },
       ],
     },
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'phone', type: 'string', interface: 'input' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+      ],
+    },
     order_items: {
       titleField: 'id',
       filterTargetKey: 'id',
@@ -268,6 +281,16 @@ function makePublicDefaultFilter(items = [
     logic: '$and',
     items: cloneJson(items),
   };
+}
+
+function makePublicDefaultFilterFromFieldNames(fieldNames) {
+  return makePublicDefaultFilter(
+    fieldNames.map((path) => ({
+      path,
+      operator: ['status', 'scope', 'priority', 'sort'].includes(path) ? '$eq' : '$includes',
+      value: '',
+    })),
+  );
 }
 
 const metadataWithAssociationFormMissingTargetFields = {
@@ -5638,6 +5661,28 @@ test('auditPayload accepts public add-block table payloads with top-level defaul
   assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
+test('auditPayload blocks public add-block table payloads whose top-level defaultFilter misses common business fields', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname']),
+      settings: {
+        title: 'Users',
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
+    true,
+  );
+});
+
 test('auditPayload blocks public add-block table payloads with empty top-level defaultFilter', () => {
   const result = auditPayload({
     payload: {
@@ -5655,6 +5700,25 @@ test('auditPayload blocks public add-block table payloads with empty top-level d
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
+});
+
+test('auditPayload accepts public add-block table payloads with any non-empty defaultFilter when no common candidate fields exist', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('order_items'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['quantity']),
+      settings: {
+        title: 'Order items',
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
 test('auditPayload accepts template-backed public add-block table payloads without block-level defaultFilter', () => {
@@ -5717,7 +5781,7 @@ test('auditPayload validates add-block defaultActionSettings filterable fields a
       target: { uid: 'grid-uid' },
       type: 'table',
       resourceInit: makeCollectionResourceInit('orders'),
-      defaultFilter: makePublicDefaultFilter([{ path: 'status', operator: '$eq', value: '' }]),
+      defaultFilter: makePublicDefaultFilter(),
       defaultActionSettings: {
         filter: {
           filterableFieldNames: ['status', 'customer'],
@@ -5732,13 +5796,63 @@ test('auditPayload validates add-block defaultActionSettings filterable fields a
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE'), true);
 });
 
+test('auditPayload blocks add-block defaultActionSettings.defaultFilter without explicit filterableFieldNames when common business fields are incomplete', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email']),
+      defaultActionSettings: {
+        filter: {
+          defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname']),
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
+    true,
+  );
+});
+
+test('auditPayload does not apply common business field coverage when defaultActionSettings.filterableFieldNames is explicit but empty', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email']),
+      defaultActionSettings: {
+        filter: {
+          filterableFieldNames: [],
+          defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname']),
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_FILTERABLE_FIELDS_REQUIRED'), true);
+  assert.equal(
+    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
+    false,
+  );
+});
+
 test('auditPayload lets add-block defaultActionSettings.defaultFilter override block-level coverage', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
       resourceInit: makeCollectionResourceInit('orders'),
-      defaultFilter: makePublicDefaultFilter([{ path: 'status', operator: '$eq', value: '' }]),
+      defaultFilter: makePublicDefaultFilter(),
       defaultActionSettings: {
         filter: {
           filterableFieldNames: ['status', 'customer'],

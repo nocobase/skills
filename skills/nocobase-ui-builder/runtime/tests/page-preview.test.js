@@ -5,6 +5,7 @@ import {
   prepareApplyBlueprintRequest as rawPrepareApplyBlueprintRequest,
   renderPageBlueprintAsciiPreview,
 } from '../src/page-blueprint-preview.js';
+import { buildSuggestedDefaultFilterGroup } from '../src/default-filter-candidates.js';
 import { runPagePreviewCli } from '../src/page-preview-cli.js';
 
 function createMemoryStream() {
@@ -90,11 +91,41 @@ const calendarCollectionMetadata = {
     },
   },
 };
-const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar']);
-const defaultFilterCandidateInterfaces = new Set(['input', 'email', 'url', 'phone', 'textarea', 'select', 'radioGroup']);
-const defaultFilterEqInterfaces = new Set(['select', 'radioGroup']);
 
-function defaultFilterGroup(fieldNames = ['nickname', 'email', 'status']) {
+const oneCandidateCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'createdAt', type: 'date', interface: 'datetime' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+      ],
+    },
+  },
+};
+
+const zeroCandidateCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'id',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'createdAt', type: 'date', interface: 'datetime' },
+        { name: 'updatedAt', type: 'date', interface: 'datetime' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+      ],
+    },
+  },
+};
+const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar']);
+const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email'];
+const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
+
+function defaultFilterGroup(fieldNames = commonUserDefaultFilterFieldNames) {
   const normalizedFieldNames = fieldNames.filter(Boolean);
   return {
     logic: '$and',
@@ -106,7 +137,7 @@ function defaultFilterGroup(fieldNames = ['nickname', 'email', 'status']) {
   };
 }
 
-function defaultFilterAction(fieldNames = ['nickname', 'email', 'status']) {
+function defaultFilterAction(fieldNames = commonUserDefaultFilterFieldNames) {
   const normalizedFieldNames = fieldNames.filter(Boolean);
   return {
     type: 'filter',
@@ -143,26 +174,10 @@ function resolvePublicBlockCollectionName(block) {
 
 function buildDefaultBlockDefaultFilter(rawCollectionMetadata, collectionName) {
   const collectionEntry = getPrepareCollectionEntry(rawCollectionMetadata, collectionName);
-  const candidateFields = Array.isArray(collectionEntry?.fields)
-    ? collectionEntry.fields
-      .filter((field) => isObjectRecord(field))
-      .filter((field) => !['id', 'createdAt', 'updatedAt', 'department', 'roles'].includes(field.name))
-      .filter((field) => typeof field.name === 'string' && field.name.trim())
-      .filter((field) => defaultFilterCandidateInterfaces.has(String(field.interface || '').trim()))
-      .slice(0, 4)
-    : [];
-  const fieldNames = candidateFields.map((field) => field.name.trim());
-  const items = fieldNames.map((path) => {
-    const field = candidateFields.find((entry) => entry.name.trim() === path);
-    return {
-      path,
-      operator: defaultFilterEqInterfaces.has(String(field?.interface || '').trim()) ? '$eq' : '$includes',
-      value: '',
-    };
-  });
+  const suggestedGroup = buildSuggestedDefaultFilterGroup(collectionEntry);
   return {
     logic: '$and',
-    items: items.length > 0 ? items : [{ path: 'nickname', operator: '$includes', value: '' }],
+    items: suggestedGroup.items.length > 0 ? suggestedGroup.items : [{ path: 'nickname', operator: '$includes', value: '' }],
   };
 }
 
@@ -777,9 +792,9 @@ test('renderPageBlueprintAsciiPreview keeps wrapper warning for prepare-write he
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             },
           ],
         },
@@ -927,8 +942,8 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
               type: 'table',
               collection: 'users',
               fields: ['nickname', 'email'],
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             },
           ],
         },
@@ -988,8 +1003,8 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
             type: 'table',
             collection: 'users',
             fields: ['nickname', 'email'],
-            defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
-            actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+            actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
           },
         ],
       },
@@ -1027,8 +1042,8 @@ test('prepareApplyBlueprintRequest accepts public blueprint envelope with metada
               type: 'table',
               collection: 'users',
               fields: ['nickname', 'email'],
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             },
           ],
         },
@@ -1246,7 +1261,7 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
   assert.equal(invalidSecondFilterAction.ok, false);
   assert.ok(invalidSecondFilterAction.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
 
-  const defaultFilterOnly = prepareWithDirectCollectionDefaults(
+  const missingCommonFields = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -1266,9 +1281,12 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
         },
       ],
     },
-    { collectionMetadata },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(defaultFilterOnly.ok, true);
+  assert.equal(missingCommonFields.ok, false);
+  assert.ok(
+    missingCommonFields.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-common-fields-incomplete'),
+  );
 
   const emptyObjectDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -1370,6 +1388,78 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
   assert.equal(defaultFilterOnlyUnknownPath.ok, false);
   assert.ok(defaultFilterOnlyUnknownPath.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
 
+  const exactTwoCandidateCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(exactTwoCandidateCoverage.ok, true);
+
+  const exactOneCandidateCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: oneCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(exactOneCandidateCoverage.ok, true);
+
+  const zeroCandidateStillAllowsNonEmptyDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['id'],
+              defaultFilter: defaultFilterGroup(['createdAt']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: zeroCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(zeroCandidateStillAllowsNonEmptyDefaultFilter.ok, true);
+
   const incomplete = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -1453,7 +1543,7 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
               title: 'Users grid',
               collection: 'users',
               fields: ['nickname'],
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               actions: [
                 {
                   type: 'filter',
@@ -1720,6 +1810,119 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   );
   assert.equal(nestedMissingCoverage.ok, false);
   assert.ok(nestedMissingCoverage.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+
+  const actionDefaultFilterMissingCommonFields = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    defaultFilter: defaultFilterGroup(['nickname']),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionDefaultFilterMissingCommonFields.ok, false);
+  assert.ok(
+    actionDefaultFilterMissingCommonFields.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-common-fields-incomplete',
+    ),
+  );
+
+  const actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: [],
+                    defaultFilter: defaultFilterGroup(['nickname']),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty.ok, false);
+  assert.ok(
+    actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-fields-required',
+    ),
+  );
+  assert.equal(
+    actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-common-fields-incomplete',
+    ),
+    false,
+  );
+
+  const actionDefaultFilterExactTwoCandidateCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionDefaultFilterExactTwoCandidateCoverage.ok, true);
 });
 
 test('prepareApplyBlueprintRequest accepts collection defaults and summarizes them', () => {
@@ -2386,9 +2589,9 @@ test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors on
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             },
           ],
         },
@@ -3076,9 +3279,9 @@ test('prepareApplyBlueprintRequest does not require fieldGroups for small table 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             },
           ],
         },
@@ -4123,6 +4326,65 @@ test('prepareApplyBlueprintRequest tolerates missing item icon when attaching un
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
+});
+
+test('prepareApplyBlueprintRequest does not require a title when one tab has only one non-filter block', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
+});
+
+test('prepareApplyBlueprintRequest does not require block titles when filterForm is the only companion block', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            collection: 'users',
+            fields: ['nickname', 'email'],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
 });
 
 test('prepareApplyBlueprintRequest rejects explicit single-column multi-block layouts and missing data titles', () => {
@@ -6537,9 +6799,9 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             },
           ],
         },
@@ -6598,9 +6860,9 @@ test('page preview cli prepare-write returns normalized cli body json', async ()
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname', 'email'],
-                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
               },
             ],
           },
@@ -6654,9 +6916,9 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
-                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
               },
             ],
           },
@@ -6725,9 +6987,9 @@ test('page preview cli prepare-write accepts bootstrap-before-bind templateDecis
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
-                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
               },
             ],
           },
@@ -6797,9 +7059,9 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
-                actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
               },
             ],
           },
@@ -6919,7 +7181,7 @@ test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions 
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
               fields: ['nickname'],
               fieldGroups: [
                 {

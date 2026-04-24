@@ -27,7 +27,7 @@ Canonical front door is `nb api flow-surfaces`. Use this file for the nb request
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit keyed layout is required.
 - Public page/popup/fields layout `{ rows: [[{ key, span }]] }` is different from low-level `set-layout` runtime `rows` / `sizes`. Do not mix those grammars.
-- When authoring direct non-template public `table` / `list` / `gridCard` / `calendar` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, always include a non-empty block-level `defaultFilter` on that block/create envelope. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional.
+- When authoring direct non-template public `table` / `list` / `gridCard` / `calendar` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, always include a non-empty block-level `defaultFilter` on that block/create envelope. Prefer 3 to 4 common business fields when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate instead. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
@@ -361,10 +361,12 @@ nb request body:
           "defaultFilter": {
             "logic": "$and",
             "items": [
-              { "path": "nickname", "operator": "$includes", "value": "" }
+              { "path": "nickname", "operator": "$includes", "value": "" },
+              { "path": "email", "operator": "$includes", "value": "" },
+              { "path": "status", "operator": "$eq", "value": "" }
             ]
           },
-          "fields": ["nickname"],
+          "fields": ["nickname", "email", "status"],
           "actions": ["filter"]
         }
       ]
@@ -592,10 +594,12 @@ nb request body:
       "defaultFilter": {
         "logic": "$and",
         "items": [
-          { "path": "nickname", "operator": "$includes", "value": "" }
+          { "path": "nickname", "operator": "$includes", "value": "" },
+          { "path": "email", "operator": "$includes", "value": "" },
+          { "path": "status", "operator": "$eq", "value": "" }
         ]
       },
-      "fields": ["nickname", "status"],
+      "fields": ["nickname", "email", "status"],
       "actions": ["filter"]
     }
   ]
