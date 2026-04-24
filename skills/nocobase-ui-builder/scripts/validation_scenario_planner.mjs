@@ -73,7 +73,7 @@ function hasNegatedKeyword(text, keywords) {
 }
 
 function requestAvoidsCharts(requestText) {
-  return hasNegatedKeyword(requestText, ['chart', '图表', 'dashboard', '看板']) || hasKanbanIntent(requestText);
+  return hasNegatedKeyword(requestText, ['chart', '图表']);
 }
 
 function makePlanningBlocker(code, message, details = {}) {
