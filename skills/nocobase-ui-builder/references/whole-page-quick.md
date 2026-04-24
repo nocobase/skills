@@ -43,12 +43,12 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
 9. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard/calendar-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
    - use that same host's block-level `filter` action/button; shorthand or object action form is valid
    - for every direct, non-template public `table` / `list` / `gridCard` / `calendar` block in the blueprint, always add a non-empty block-level `defaultFilter`
-   - choose 3 to 4 common live fields when available and ensure block-level `defaultFilter.items` covers them
+   - choose 3 to 4 common live fields when available and ensure block-level `defaultFilter.items` covers them; if fewer than 3 suitable business fields exist, cover every available candidate instead
    - the `filter` action is optional; if you also provide action-level `settings.defaultFilter`, that action-level payload takes precedence over the block-level one
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
    - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block
-10. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
+10. If one tab or popup contains multiple non-filter blocks, give it explicit `layout`, avoid one-row-one-block stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
    - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
@@ -149,10 +149,12 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
           "defaultFilter": {
             "logic": "$and",
             "items": [
-              { "path": "subject", "operator": "$includes", "value": "" }
+              { "path": "subject", "operator": "$includes", "value": "" },
+              { "path": "status", "operator": "$eq", "value": "" },
+              { "path": "priority", "operator": "$eq", "value": "" }
             ]
           },
-          "fields": ["subject", "status", "assignee"],
+          "fields": ["subject", "status", "priority", "assignee"],
           "actions": ["filter", "addNew"],
           "recordActions": ["view", "edit"]
         }

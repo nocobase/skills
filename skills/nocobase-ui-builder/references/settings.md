@@ -251,7 +251,7 @@ Create `createForm` and give it a title directly:
 }
 ```
 
-When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
+When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Prefer 3 to 4 common business fields when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate instead. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
 
 When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block.
 
