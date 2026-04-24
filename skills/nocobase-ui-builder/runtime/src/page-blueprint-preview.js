@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
+import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
@@ -2419,12 +2420,12 @@ function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
 
 function validateMultiBlockDataTitles(blocks, path, state) {
   const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
-  if (normalizedBlocks.length <= 1) {
+  if (countNonFilterBlocks(normalizedBlocks) <= 1) {
     return;
   }
 
   normalizedBlocks.forEach((block, index) => {
-    if (!isDataBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
+    if (!isDataBlock(block) || isFilterBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
       return;
     }
     pushValidationError(
@@ -2432,7 +2433,7 @@ function validateMultiBlockDataTitles(blocks, path, state) {
       state.seenErrors,
       `${path}[${index}].title`,
       'multi-block-data-title-required',
-      'When one tab or popup contains multiple blocks, every data block with a resource must include a title unless it is template-backed.',
+      'When one tab or popup contains multiple non-filter blocks, every non-filter data block with a resource must include a title unless it is template-backed.',
     );
   });
 }
@@ -3769,8 +3770,25 @@ function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, stat
   );
 }
 
+function resolveDefaultFilterMinimumCandidateFieldNamesForBlock(block, state) {
+  const collection = getCollectionLabel(block);
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!collection || Object.keys(collectionMetadata).length === 0) {
+    return [];
+  }
+  const collectionMeta = getCollectionMeta(collectionMetadata, collection);
+  if (!collectionMeta) {
+    return [];
+  }
+  return resolveDefaultFilterMinimumCandidateFieldNames(collectionMeta);
+}
+
 function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, block, options = {}) {
   const messagePrefix = normalizeText(options.messagePrefix, 'defaultFilter');
+  const allowImplicitCommonFieldCoverage = options.allowImplicitCommonFieldCoverage === true;
+  const minimumCandidateFieldNames = Array.isArray(options.minimumCandidateFieldNames)
+    ? unique(options.minimumCandidateFieldNames.map((value) => normalizeText(value)).filter(Boolean))
+    : [];
   const pushEmptyDefaultFilterError = (emptyPath = path) => {
     pushValidationError(
       state.errors,
@@ -3904,6 +3922,23 @@ function validateDefaultFilterGroup(defaultFilter, fieldNames, path, state, bloc
       `${messagePrefix}.items must cover filterableFieldNames: ${missingFilterItems.join(', ')}.`,
     );
   }
+
+  const coveredCandidateFieldCount = minimumCandidateFieldNames.filter((fieldName) => filterItemPaths.has(fieldName)).length;
+  if (
+    allowImplicitCommonFieldCoverage
+    && minimumCandidateFieldNames.length > 0
+    && coveredCandidateFieldCount < minimumCandidateFieldNames.length
+  ) {
+    const collection = getCollectionLabel(block);
+    const collectionText = collection ? ` for collection ${collection}` : '';
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.items`,
+      'data-surface-default-filter-common-fields-incomplete',
+      `${messagePrefix}.items must cover at least ${minimumCandidateFieldNames.length} common business fields when available${collectionText}: ${minimumCandidateFieldNames.join(', ')}.`,
+    );
+  }
 }
 
 function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
@@ -3955,7 +3990,11 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
     `${path}.defaultFilter`,
     state,
     block,
-    { messagePrefix: 'defaultFilter' },
+    {
+      messagePrefix: 'defaultFilter',
+      allowImplicitCommonFieldCoverage: true,
+      minimumCandidateFieldNames: resolveDefaultFilterMinimumCandidateFieldNamesForBlock(block, state),
+    },
   );
 }
 
@@ -4010,7 +4049,14 @@ function validateDataSurfaceFilterActionSettings(block, path, state) {
         `${settingsPath}.defaultFilter`,
         state,
         block,
-        { messagePrefix: 'settings.defaultFilter' },
+        {
+          messagePrefix: 'settings.defaultFilter',
+          allowImplicitCommonFieldCoverage: !hasFieldNames,
+          minimumCandidateFieldNames:
+            !hasFieldNames
+              ? resolveDefaultFilterMinimumCandidateFieldNamesForBlock(block, state)
+              : [],
+        },
       );
     } else if (hasFieldNames && hasOwn(block, 'defaultFilter')) {
       validateDefaultFilterGroup(

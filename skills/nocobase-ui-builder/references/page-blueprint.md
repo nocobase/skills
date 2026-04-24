@@ -18,7 +18,7 @@ Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns t
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking.
+- Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - `fieldsLayout` is available only on `createForm`, `editForm`, `details`, and `filterForm` blocks. It uses the same `{ rows: [[...]] }` shape as page/popup layout, but references field keys inside that block.
 - For `createForm`, `editForm`, and `details`, once the block contains more than 10 real fields, switch to explicit `fieldGroups` instead of one flat `fields[]` list.
@@ -112,7 +112,9 @@ Envelope boundary:
           "defaultFilter": {
             "logic": "$and",
             "items": [
-              { "path": "nickname", "operator": "$includes", "value": "" }
+              { "path": "nickname", "operator": "$includes", "value": "" },
+              { "path": "email", "operator": "$includes", "value": "" },
+              { "path": "status", "operator": "$eq", "value": "" }
             ]
           }
         }
@@ -481,16 +483,24 @@ Right:
       "collection": "employees",
       "defaultFilter": {
         "logic": "$and",
-        "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+        "items": [
+          { "path": "nickname", "operator": "$includes", "value": "" },
+          { "path": "email", "operator": "$includes", "value": "" },
+          { "path": "status", "operator": "$eq", "value": "" }
+        ]
       },
       "actions": [
         {
           "type": "filter",
           "settings": {
-            "filterableFieldNames": ["nickname"],
+            "filterableFieldNames": ["nickname", "email", "status"],
             "defaultFilter": {
               "logic": "$and",
-              "items": [{ "path": "nickname", "operator": "$includes", "value": "" }]
+              "items": [
+                { "path": "nickname", "operator": "$includes", "value": "" },
+                { "path": "email", "operator": "$includes", "value": "" },
+                { "path": "status", "operator": "$eq", "value": "" }
+              ]
             }
           }
         }
@@ -763,6 +773,7 @@ For collection-action hosts (`table`, `list`, `gridCard`, `calendar`):
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
 - every direct, non-template public `table` / `list` / `gridCard` / `calendar` block must include block-level `defaultFilter`
+- when collection metadata exposes 3 or more suitable business fields, block-level `defaultFilter.items` must cover at least 3 of those common fields; if fewer than 3 suitable candidates exist, cover every available candidate instead
 
 For `calendar` blocks:
 
@@ -807,6 +818,7 @@ Required block-level `defaultFilter` plus optional filter action settings shape:
 Planning rules:
 
 - block-level `defaultFilter` is required for every direct, non-template public `table` / `list` / `gridCard` / `calendar` block, and it must contain at least one concrete filter item; `{}`, `null`, and `{ "logic": "$and", "items": [] }` are rejected
+- prefer 3 to 4 common live business fields in that block-level `defaultFilter` when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate
 - a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for first-write `prepare-write`
 - if explicit `filterableFieldNames` are provided, validate coverage against action-level `settings.defaultFilter` when present, otherwise against block-level `defaultFilter`
 - if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action
