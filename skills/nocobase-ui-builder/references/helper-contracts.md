@@ -18,11 +18,28 @@ Use this before the first real whole-page write.
 - does not fetch live collection metadata by itself
 - `collectionMetadata` stays caller-supplied; prepare-write does not fetch it for you
 - for any data-bound block (a block with `collection`, `resource`, `binding`, `dataSourceKey`, `associationPathName`, or `associationField`), missing or empty `collectionMetadata` fails with `missing-collection-metadata`
-- accepts omitted `table` / `list` / `gridCard` / `calendar` `filter` actions, but every direct non-template public `table` / `list` / `gridCard` / `calendar` block must still include a non-empty block-level `defaultFilter`; `{}`, `null`, and `{ logic: "$and", items: [] }` are rejected; when metadata exposes 3 or more suitable business fields, that block-level `defaultFilter` must cover at least 3 common fields, otherwise it must cover every available candidate; explicit `filterableFieldNames` are checked against action-level `settings.defaultFilter` when present, otherwise block-level `defaultFilter`
+- accepts omitted `table` / `list` / `gridCard` / `calendar` / `kanban` `filter` actions, but every direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` block must still include a non-empty block-level `defaultFilter`; `{}`, `null`, and `{ logic: "$and", items: [] }` are rejected; when metadata exposes 3 or more suitable business fields, that block-level `defaultFilter` must cover at least 3 common fields, otherwise it must cover every available candidate; explicit `filterableFieldNames` are checked against action-level `settings.defaultFilter` when present, otherwise block-level `defaultFilter`
 - with `collectionMetadata`, validates fixed defaults completeness for every involved scope: missing `defaults.collections.<collection>`, required popup `{ name, description }` entries for the fixed `view` / `addNew` / `edit` trio, and required `fieldGroups` when any fixed generated popup scene still has more than 10 effective fields; any `table` block also pulls its collection into the `addNew` threshold check
 - relation popup defaults stay keyed by the first relation segment; when callers pass deeper `popups.associations` keys such as `department.manager`, prepare-write normalizes them to that first segment in `result.cliBody`, and the explicit one-level key wins if both forms are present
 - explicit local `popup.blocks` still participate in defaults scope collection even when `popup.template` or `popup.tryTemplate` is present; template binding only changes popup content sourcing, not defaults scope registration
 - rejects: common high-risk write-shape mistakes before the remote write
+
+## `nb-localized-write-preflight`
+
+Use this when you want a local validation pass for one localized `compose`, `add-block`, or `add-blocks` body before the later explicit `nb api flow-surfaces ...` write.
+
+- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs --operation <compose|add-block|add-blocks> --stdin-json`
+- If your current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs`; do not probe the bare `nb-localized-write-preflight` command first.
+- input: one localized write body object, or helper envelope `{ body, collectionMetadata? }`
+- returns: stable localized preflight result with `ok`, `errors`, `warnings`, `facts`, and normalized `cliBody`
+- use it for: local validation of localized public low-level `compose` / `add-block` / `add-blocks` bodies before the later explicit `nb api flow-surfaces ...` call
+- this helper is local/read-only: it validates and canonicalizes one payload, but does not execute `nb` and does not wrap the transport for you
+- `collectionMetadata` stays caller-supplied; this helper does not fetch it for you
+- for any data-bound localized payload, missing or empty metadata fails with stable helper rule id `missing-collection-metadata`
+- direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks still fail closed here when block-level `defaultFilter` is missing or empty; this stricter requirement belongs to the skill preflight layer, not the backend runtime compatibility contract
+- metadata-aware `defaultFilter` checks still run here: unknown paths, incomplete common-field coverage, and explicit action-level `settings.defaultFilter` or `defaultActionSettings.filter.defaultFilter` mismatches fail locally
+- localized `kanban` main blocks reject `fieldGroups`, `fieldsLayout`, and `recordActions`; localized `calendar` main blocks reject `fields`, `fieldGroups`, and `recordActions`
+- once this helper succeeds, keep the later write explicit; send only `result.cliBody` as the real low-level nb body if the canonicalizer changed anything
 
 ## `prepareApplyBlueprintRequest(...)`
 

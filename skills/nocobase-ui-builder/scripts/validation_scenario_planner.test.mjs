@@ -50,6 +50,7 @@ function makeInstanceInventory() {
         'EditFormModel',
         'GridCardBlockModel',
         'CalendarBlockModel',
+        'KanbanBlockModel',
         'ChartBlockModel',
         'JSBlockModel',
         'MarkdownBlockModel',
@@ -67,6 +68,13 @@ function makeInstanceInventory() {
           use: 'CalendarBlockModel',
           title: 'Calendar',
           semanticTags: ['calendar'],
+          contextRequirements: [],
+          unresolvedReasons: [],
+        },
+        {
+          use: 'KanbanBlockModel',
+          title: 'Kanban',
+          semanticTags: ['kanban', 'pipeline'],
           contextRequirements: [],
           unresolvedReasons: [],
         },
@@ -421,6 +429,39 @@ test('dynamic scenario planner recognizes calendar pages as collection-bound pri
   assert.equal(selectedCandidate.primaryBlockType, 'CalendarBlockModel');
 });
 
+test('dynamic scenario planner routes kanban cues to KanbanBlockModel and keeps host-bound filter actions on kanban', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个审批流水线看板区块，按状态列展示并支持拖拽，同时给 kanban 增加搜索功能',
+    sessionId: 'sess-kanban',
+    baseSlug: 'approvals-kanban',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-kanban',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.eligibleUses.includes('KanbanBlockModel'), true);
+  assert.equal(selectedCandidate.primaryBlockType, 'KanbanBlockModel');
+  assertFilterAction(result, ['KanbanBlockModel'], true);
+});
+
+test('dynamic scenario planner keeps chart eligible for mixed kanban and analytics intent while preserving kanban priority', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个审批分析流水线 kanban 看板，按状态列展示，并增加趋势图表和搜索功能',
+    sessionId: 'sess-kanban-analytics-mixed',
+    baseSlug: 'approvals-kanban-analytics-mixed',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-kanban-analytics-mixed',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.eligibleUses.includes('KanbanBlockModel'), true);
+  assert.equal(result.scenario.eligibleUses.includes('ChartBlockModel'), true);
+  assert.equal(result.scenario.discardedUses.some((item) => item.use === 'ChartBlockModel'), false);
+  assert.equal(selectedCandidate.primaryBlockType, 'KanbanBlockModel');
+});
+
 test('dynamic scenario planner keeps chart eligible when runtime hints are covered by visualization contracts', () => {
   const inventory = makeInstanceInventory();
   inventory.flowSchema.publicUseCatalog = inventory.flowSchema.publicUseCatalog.map((entry) => {
@@ -512,6 +553,44 @@ test('dynamic scenario planner uses JS blocks for numeric aggregation dashboards
   assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
   assert.equal(selectedUses.includes('JSBlockModel'), true);
   assert.equal(selectedUses.includes('ChartBlockModel'), false);
+});
+
+test('dynamic scenario planner filters chart when the request explicitly says no chart', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: 'build an approvals analytics page with summary metrics and no chart',
+    sessionId: 'sess-no-chart',
+    baseSlug: 'approvals-no-chart',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-no-chart',
+    instanceInventory: makeInstanceInventory(),
+  });
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.notEqual(selectedCandidate.primaryBlockType, 'ChartBlockModel');
+  assert.equal(selectedUses.includes('ChartBlockModel'), false);
+});
+
+test('dynamic scenario planner does not treat dashboard or kanban negation as an explicit chart ban', () => {
+  const dashboardResult = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个分析页，展示趋势和分布，不要 dashboard',
+    sessionId: 'sess-no-dashboard',
+    baseSlug: 'approvals-no-dashboard',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-no-dashboard',
+    instanceInventory: makeInstanceInventory(),
+  });
+  const kanbanResult = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个分析页，展示趋势和分布，不要看板',
+    sessionId: 'sess-no-kanban',
+    baseSlug: 'approvals-no-kanban',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-no-kanban',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  assert.equal(dashboardResult.scenario.eligibleUses.includes('ChartBlockModel'), true);
+  assert.equal(dashboardResult.scenario.discardedUses.some((item) => item.use === 'ChartBlockModel'), false);
+  assert.equal(kanbanResult.scenario.eligibleUses.includes('ChartBlockModel'), true);
+  assert.equal(kanbanResult.scenario.discardedUses.some((item) => item.use === 'ChartBlockModel'), false);
 });
 
 test('dynamic scenario planner discards runtime-sensitive public uses instead of putting them into final candidates', () => {

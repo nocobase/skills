@@ -96,6 +96,10 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'CALENDAR_MAIN_FIELD_GROUPS_UNSUPPORTED',
   'CALENDAR_MAIN_RECORD_ACTIONS_UNSUPPORTED',
   'CALENDAR_ACTION_SLOT_USE_INVALID',
+  'KANBAN_MAIN_FIELD_GROUPS_UNSUPPORTED',
+  'KANBAN_MAIN_FIELDS_LAYOUT_UNSUPPORTED',
+  'KANBAN_MAIN_RECORD_ACTIONS_UNSUPPORTED',
+  'KANBAN_ACTION_SLOT_USE_INVALID',
 ]);
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
@@ -110,6 +114,12 @@ const LAYOUT_GRID_MODEL_USES = new Set([
   'FilterFormGridModel',
   'FormGridModel',
 ]);
+const KANBAN_FIELD_GRID_MODEL_USES = new Set([
+  'AssignFormGridModel',
+  'DetailsGridModel',
+  'FilterFormGridModel',
+  'FormGridModel',
+]);
 const BUSINESS_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
   'TableBlockModel',
@@ -120,6 +130,7 @@ const BUSINESS_BLOCK_MODEL_USES = new Set([
   // the live instance schema inventory; this is a lightweight fallback only.
   'ActionPanelBlockModel',
   'CalendarBlockModel',
+  'KanbanBlockModel',
   'ChartBlockModel',
   'CommentsBlockModel',
   'GridCardBlockModel',
@@ -151,6 +162,7 @@ function resolveBusinessBlockUses(requirements) {
     'DetailsBlockModel',
     'CreateFormModel',
     'EditFormModel',
+    'KanbanBlockModel',
   ].forEach((use) => set.add(use));
   return set;
 }
@@ -180,6 +192,13 @@ const CALENDAR_ACTION_MODEL_USES = new Set([
   'RefreshActionModel',
   'TriggerWorkflowActionModel',
 ]);
+const KANBAN_ACTION_MODEL_USES = new Set([
+  'AddNewActionModel',
+  'FilterActionModel',
+  'JSCollectionActionModel',
+  'PopupCollectionActionModel',
+  'RefreshActionModel',
+]);
 const CALENDAR_DATE_FIELD_INTERFACES = new Set(['datetime', 'datetimeNoTz', 'dateOnly', 'date']);
 const CALENDAR_DATE_FIELD_TYPES = new Set(['date', 'datetime', 'datetimeNoTz', 'dateOnly']);
 const RECORD_ACTION_MODEL_USES = new Set([
@@ -199,10 +218,24 @@ const FILTER_FORM_ACTION_MODEL_USES = new Set([
   'FilterFormJSActionModel',
 ]);
 const GRID_CARD_ITEM_MODEL_USES = new Set(['GridCardItemModel']);
-const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'GridCardBlockModel', 'GridCardItemModel', 'CalendarBlockModel']);
+const ACTION_HOST_MODEL_USES = new Set([
+  'TableBlockModel',
+  'DetailsBlockModel',
+  'GridCardBlockModel',
+  'GridCardItemModel',
+  'CalendarBlockModel',
+  'KanbanBlockModel',
+]);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const CREATE_FORM_MODEL_USES = new Set(['CreateFormModel']);
-const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel', 'CalendarBlockModel']);
+const FILTER_CONTAINER_MODEL_USES = new Set([
+  'TableBlockModel',
+  'DetailsBlockModel',
+  'CreateFormModel',
+  'EditFormModel',
+  'CalendarBlockModel',
+  'KanbanBlockModel',
+]);
 const COLLECTION_RESOURCE_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
   'TableBlockModel',
@@ -214,6 +247,7 @@ const COLLECTION_RESOURCE_BLOCK_MODEL_USES = new Set([
   'MapBlockModel',
   'CommentsBlockModel',
   'CalendarBlockModel',
+  'KanbanBlockModel',
 ]);
 const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'TableColumnModel',
@@ -235,7 +269,7 @@ const CANONICALIZE_FOREIGN_KEY_ASSOCIATION_INPUT_MODEL_USES = new Set([
   'FilterFormItemModel',
   'FormItemModel',
 ]);
-const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar']);
+const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE = 'FilterFormRecordSelectFieldModel';
 const FORM_ASSOCIATION_FIELD_MODEL_USE = 'RecordSelectFieldModel';
 const DETAILS_LAYOUT_ONLY_MODEL_USES = new Set(['DetailsGridModel', 'BlockGridModel', 'FormGridModel']);
@@ -1553,7 +1587,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED',
-          message: 'Template-backed table/list/gridCard/calendar payloads do not support block-level defaultFilter; only direct blocks may define it.',
+          message: 'Template-backed table/list/gridCard/calendar/kanban payloads do not support block-level defaultFilter; only direct blocks may define it.',
           path: `${pathValue}.defaultFilter`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_FILTER_UNSUPPORTED:${pathValue}`,
@@ -1566,7 +1600,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED',
-          message: 'Template-backed table/list/gridCard/calendar payloads do not support defaultActionSettings; only direct blocks may define it.',
+          message: 'Template-backed table/list/gridCard/calendar/kanban payloads do not support defaultActionSettings; only direct blocks may define it.',
           path: `${pathValue}.defaultActionSettings`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_TEMPLATE_DEFAULT_ACTION_SETTINGS_UNSUPPORTED:${pathValue}`,
@@ -1580,7 +1614,7 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
-          message: 'Public table/list/gridCard/calendar payloads must include block-level defaultFilter.',
+          message: 'Public table/list/gridCard/calendar/kanban payloads must include block-level defaultFilter.',
           path: `${pathValue}.defaultFilter`,
           mode,
           dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED:${pathValue}`,
@@ -3079,6 +3113,15 @@ function listActionSlotsForNode(node, pathValue) {
     return slots;
   }
 
+  if (node.use === 'KanbanBlockModel') {
+    slots.push({
+      scope: 'block-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
+    return slots;
+  }
+
   if (node.use === 'GridCardItemModel') {
     slots.push({
       scope: 'row-actions',
@@ -3103,7 +3146,13 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen, busin
     if (requirement.scope === 'details-actions' && node.use !== 'DetailsBlockModel') {
       return;
     }
-    if (requirement.scope === 'block-actions' && node.use !== 'TableBlockModel' && node.use !== 'GridCardBlockModel' && node.use !== 'CalendarBlockModel') {
+    if (
+      requirement.scope === 'block-actions'
+      && node.use !== 'TableBlockModel'
+      && node.use !== 'GridCardBlockModel'
+      && node.use !== 'CalendarBlockModel'
+      && node.use !== 'KanbanBlockModel'
+    ) {
       return;
     }
 
@@ -4839,6 +4888,20 @@ function inspectActionSlots(payload, mode, blockers, seen) {
       return;
     }
 
+    if (node.use === 'KanbanBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: KANBAN_ACTION_MODEL_USES,
+        code: 'KANBAN_ACTION_SLOT_USE_INVALID',
+        message: `KanbanBlockModel 的 actions 槽位只能放 kanban 主块支持的 collection actions：${[...KANBAN_ACTION_MODEL_USES].join(' / ')}；不要放 today/turnPages/triggerWorkflow/bulk/table-only/record actions。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
     if (node.use === 'GridCardBlockModel') {
       inspectActionSlotUses({
         hostNode: node,
@@ -4955,6 +5018,51 @@ function inspectCalendarBlocks(payload, metadata, mode, blockers, seen) {
     validateFieldBinding('colorField', isCalendarBindableField, '可展示的非关联字段');
     validateFieldBinding('startField', isCalendarDateField, '日期类字段');
     validateFieldBinding('endField', isCalendarDateField, '日期类字段');
+  });
+}
+
+function inspectKanbanBlocks(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'KanbanBlockModel') {
+      return;
+    }
+
+    if (Array.isArray(node.subModels?.fieldGroups) && node.subModels.fieldGroups.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'KANBAN_MAIN_FIELD_GROUPS_UNSUPPORTED',
+        message: 'KanbanBlockModel 主块不支持直接 subModels.fieldGroups；卡片主内容保持字段列表，分组表单/详情应放到 quick-create / card-view 隐藏 popup host。',
+        path: `${pathValue}.subModels.fieldGroups`,
+        mode,
+        dedupeKey: `KANBAN_MAIN_FIELD_GROUPS_UNSUPPORTED:${pathValue}`,
+      }));
+    }
+
+    const gridUse = normalizeOptionalText(node.subModels?.grid?.use);
+    if (gridUse && KANBAN_FIELD_GRID_MODEL_USES.has(gridUse)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'KANBAN_MAIN_FIELDS_LAYOUT_UNSUPPORTED',
+        message: 'KanbanBlockModel 主块不支持 fieldsLayout 风格的 field-grid 子树；需要表单/详情布局时请改到 quick-create / card-view 隐藏 popup host。',
+        path: `${pathValue}.subModels.grid`,
+        mode,
+        dedupeKey: `KANBAN_MAIN_FIELDS_LAYOUT_UNSUPPORTED:${pathValue}:${gridUse}`,
+        details: {
+          gridUse,
+        },
+      }));
+    }
+
+    if (Array.isArray(node.subModels?.recordActions) && node.subModels.recordActions.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'KANBAN_MAIN_RECORD_ACTIONS_UNSUPPORTED',
+        message: 'KanbanBlockModel 主块不支持 recordActions；卡片查看/编辑内容应通过 hidden card-view / quick-create popup host 构建。',
+        path: `${pathValue}.subModels.recordActions`,
+        mode,
+        dedupeKey: `KANBAN_MAIN_RECORD_ACTIONS_UNSUPPORTED:${pathValue}`,
+      }));
+    }
   });
 }
 
@@ -6968,6 +7076,7 @@ export function auditPayload({
   inspectChartBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
   inspectCalendarBlocks(payload, normalizedMetadata, mode, blockers, blockerSeen);
+  inspectKanbanBlocks(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectTableBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);

@@ -121,7 +121,7 @@ const zeroCandidateCollectionMetadata = {
     },
   },
 };
-const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar']);
+const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email'];
 const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
 
@@ -7245,4 +7245,208 @@ test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.titleField')), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.startField')), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.endField')), true);
+});
+
+test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilter on kanban blocks', () => {
+  const missing = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              actions: ['filter', 'addNew', 'popup', 'refresh', 'js'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(missing.ok, false);
+  assert.equal(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'), true);
+
+  const valid = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: ['filter', 'addNew', 'popup', 'refresh', 'js'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(valid.ok, true);
+  assert.equal(valid.errors.length, 0);
+  assert.equal(valid.cliBody.tabs[0].blocks[0].type, 'kanban');
+  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].fields, ['nickname', 'status']);
+  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(commonUserDefaultFilterFieldNames));
+
+  const templateBackedWithDefaultFilter = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              template: { uid: 'users-kanban-template', mode: 'reference' },
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithDefaultFilter.ok, false);
+  assert.equal(
+    templateBackedWithDefaultFilter.errors.some(
+      (issue) => issue.ruleId === 'data-surface-block-default-filter-template-unsupported',
+    ),
+    true,
+  );
+
+  const templateBackedWithDefaultActionSettings = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              template: { uid: 'users-kanban-template', mode: 'reference' },
+              defaultActionSettings: {
+                filter: {
+                  filterableFieldNames: ['nickname', 'status'],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(templateBackedWithDefaultActionSettings.ok, false);
+  assert.equal(
+    templateBackedWithDefaultActionSettings.errors.some(
+      (issue) => issue.ruleId === 'data-surface-block-default-action-settings-template-unsupported',
+    ),
+    true,
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects fieldGroups fieldsLayout and recordActions on kanban main blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              fields: ['nickname', 'status'],
+              fieldGroups: [
+                {
+                  title: 'Main',
+                  fields: ['nickname'],
+                },
+              ],
+              fieldsLayout: {
+                rows: [['nickname']],
+              },
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-field-groups-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-fields-layout-unsupported'), true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-record-actions-unsupported'), true);
+});
+
+test('prepareApplyBlueprintRequest rejects unsupported actions on kanban blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              fields: ['nickname', 'status'],
+              actions: ['today', 'turnPages', 'triggerWorkflow', 'view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-action-unsupported'), true);
 });
