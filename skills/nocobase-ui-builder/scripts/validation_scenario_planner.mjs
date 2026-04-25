@@ -73,7 +73,7 @@ function hasNegatedKeyword(text, keywords) {
 }
 
 function requestAvoidsCharts(requestText) {
-  return hasNegatedKeyword(requestText, ['chart', '图表', 'dashboard', '看板']);
+  return hasNegatedKeyword(requestText, ['chart', '图表']);
 }
 
 function makePlanningBlocker(code, message, details = {}) {
@@ -690,6 +690,7 @@ const STABLE_BUSINESS_BLOCK_USES = [
   'FilterFormBlockModel',
   'TableBlockModel',
   'CalendarBlockModel',
+  'KanbanBlockModel',
   'DetailsBlockModel',
   'CreateFormModel',
   'EditFormModel',
@@ -706,6 +707,7 @@ const STRUCTURAL_OR_META_USES = new Set([
 
 const COLLECTION_BOUND_PUBLIC_USES = new Set([
   'CalendarBlockModel',
+  'KanbanBlockModel',
   'GridCardBlockModel',
   'ListBlockModel',
   'MapBlockModel',
@@ -714,6 +716,7 @@ const COLLECTION_BOUND_PUBLIC_USES = new Set([
 
 const FILTER_ACTION_HOST_USES = new Set([
   'CalendarBlockModel',
+  'KanbanBlockModel',
   'TableBlockModel',
   'ListBlockModel',
   'GridCardBlockModel',
@@ -769,6 +772,29 @@ const TREND_OR_DASHBOARD_KEYWORDS = [
   'summary',
 ];
 
+const KANBAN_INTENT_KEYWORDS = [
+  'kanban',
+  '看板区块',
+  '看板块',
+  '看板视图',
+  '流水线',
+  'pipeline',
+  'backlog',
+  'swimlane',
+  '泳道',
+  '状态列',
+  'status column',
+  'status columns',
+];
+
+const KANBAN_INTENT_PATTERNS = [
+  /看板[\s\S]{0,16}(?:区块|块|视图|阶段|状态列|泳道|拖拽|拖动|pipeline|backlog|swimlane)/i,
+  /(?:流水线|pipeline|backlog|swimlane|泳道)(?:[\s\S]{0,16}(?:看板|board|view|page))?/i,
+  /(?:按|按着)?状态分列/i,
+  /(?:stage|status)[\s\S]{0,8}(?:columns?|列)/i,
+  /(?:列间|跨列)?(?:拖拽|拖动)/i,
+];
+
 const JS_INSIGHT_KEYWORDS = [
   '交互',
   '联动',
@@ -807,8 +833,8 @@ const GENERIC_FILTER_ACTION_INTENT_KEYWORDS = [
   'screening',
 ];
 
-const SEARCH_DATA_HOST_CN_SOURCE = '(?:表格|数据表|列表|grid(?:\\s*card)?|gridcard|卡片|指标卡)';
-const SEARCH_DATA_HOST_EN_SOURCE = '(?:table|list|grid(?:\\s+card)?|card)';
+const SEARCH_DATA_HOST_CN_SOURCE = '(?:表格|数据表|列表|grid(?:\\s*card)?|gridcard|卡片|指标卡|看板(?:区块|块|视图)?|流水线|泳道)';
+const SEARCH_DATA_HOST_EN_SOURCE = '(?:table|list|grid(?:\\s+card)?|card|kanban|pipeline|swimlane)';
 const SEARCH_DATA_HOST_SURFACE_SOURCE = `(?:${SEARCH_DATA_HOST_CN_SOURCE}(?:页|页面|区块|块|视图)?|${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+(?:page|view))?)`;
 const SEARCH_PAGE_NOUN_PATTERNS = [
   /搜索(?:结果)?(?:列表)?页(?:面)?/giu,
@@ -845,6 +871,14 @@ const SEARCH_HOST_USE_PATTERNS = [
       /\bcalendar(?:\s+(?:page|view))?\b/i,
       /\bschedule(?:\s+(?:page|view))?\b/i,
       /\bevent\s+calendar\b/i,
+    ],
+  },
+  {
+    use: 'KanbanBlockModel',
+    patterns: [
+      /(?:看板区块|看板视图|流水线|泳道|状态列)/i,
+      /\b(?:kanban|pipeline|swimlane)\b/i,
+      /\bstatus\s+columns?\b/i,
     ],
   },
   {
@@ -889,7 +923,27 @@ const SEARCH_HOST_DECLARATION_PATTERNS = [
   new RegExp(`\\b(?:build|create|make)\\s+(?:(?:an?|the)\\s+)?(?:(?:[a-z0-9_-]+)\\s+){0,6}${SEARCH_DATA_HOST_EN_SOURCE}(?:\\s+view)?\\b`, 'i'),
 ];
 
+function hasKanbanIntent(requestText = '') {
+  return hasAnyKeyword(requestText, KANBAN_INTENT_KEYWORDS)
+    || KANBAN_INTENT_PATTERNS.some((pattern) => pattern.test(normalizeText(requestText)));
+}
+
 function getCreativePriorityUses(requestText = '') {
+  if (hasKanbanIntent(requestText)) {
+    return [
+      'KanbanBlockModel',
+      'TableBlockModel',
+      'DetailsBlockModel',
+      'CreateFormModel',
+      'EditFormModel',
+      'CalendarBlockModel',
+      'GridCardBlockModel',
+      'ListBlockModel',
+      'JSBlockModel',
+      'MapBlockModel',
+      'MarkdownBlockModel',
+    ];
+  }
   if (hasAnyKeyword(requestText, ['calendar', '日历', '排期', '排班', '日程', 'schedule', 'event calendar'])) {
     return [
       'CalendarBlockModel',
@@ -944,6 +998,15 @@ const PRIMARY_BLOCK_DEFINITIONS = [
     keywords: ['jsblock', 'js block', 'custom js', '自定义 js', '脚本区块', 'js 区块'],
     collectionRequired: false,
     titleSuffix: '自定义面板',
+    kind: 'public-use',
+  },
+  {
+    use: 'KanbanBlockModel',
+    archetypeId: 'kanban-main',
+    archetypeLabel: '看板主块页',
+    keywords: ['kanban', '看板区块', '看板视图', '流水线', 'pipeline', 'backlog', 'swimlane', '泳道', '状态列', 'status columns', '拖拽'],
+    collectionRequired: true,
+    titleSuffix: '流程看板',
     kind: 'public-use',
   },
   {
@@ -1951,6 +2014,8 @@ function collectUseFamilies(use, catalogEntry = null) {
     base.push('collection', 'table');
   } else if (normalizedUse === 'CalendarBlockModel') {
     base.push('collection', 'calendar');
+  } else if (normalizedUse === 'KanbanBlockModel') {
+    base.push('collection', 'kanban');
   } else if (normalizedUse === 'DetailsBlockModel') {
     base.push('collection', 'details');
   } else if (normalizedUse === 'CreateFormModel' || normalizedUse === 'EditFormModel') {
@@ -3159,8 +3224,8 @@ function createCreativeRootLayout({
 
 function deriveCreativeIntent(requestText = '', anchorUse = '') {
   if (
-    INSIGHT_PRIORITY_USES.has(normalizeText(anchorUse))
-    || hasAnyKeyword(requestText, TREND_OR_DASHBOARD_KEYWORDS)
+    (INSIGHT_PRIORITY_USES.has(normalizeText(anchorUse)) && !hasKanbanIntent(requestText))
+    || (!hasKanbanIntent(requestText) && hasAnyKeyword(requestText, TREND_OR_DASHBOARD_KEYWORDS))
     || hasAnyKeyword(requestText, JS_INSIGHT_KEYWORDS)
   ) {
     return 'insight-first';

@@ -7,6 +7,7 @@ import { getRunJSFallbackRuntimeModel, RUNJS_MODEL_USES } from './surface-policy
 import { sortIssues } from './utils.js';
 export { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 export { prepareApplyBlueprintRequest } from './page-blueprint-preview.js';
+export { runLocalizedWritePreflight } from './localized-write-preflight.js';
 export { summarizeTemplateDecision } from './template-decision-summary.js';
 export { planTemplateQuery, selectTemplateDecision } from './template-selection.js';
 

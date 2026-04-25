@@ -57,7 +57,7 @@ Use this path when the user is describing one entire page.
    - any explicit `layout` references only real keyed blocks, places every keyed block exactly once, and does not duplicate one block across multiple cells
    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
    - every chosen field has a non-empty live `interface`
-   - any requested `table` / `list` / `gridCard` / `calendar` filtering/search action lands on the intended host instead of silently turning into `filterForm`
+   - any requested `table` / `list` / `gridCard` / `calendar` / `kanban` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
    - any data-bound block has caller-supplied `collectionMetadata`; missing or empty metadata fails prepare-write with `missing-collection-metadata`

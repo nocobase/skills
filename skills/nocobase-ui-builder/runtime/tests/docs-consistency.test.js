@@ -458,8 +458,13 @@ test('required docs and relative links stay valid', () => {
   const docs = [
     'SKILL.md',
     'agents/openai.yaml',
+    'references/aliases.md',
     'references/ascii-preview.md',
     'references/boundary-quick.md',
+    'references/blocks/chart.md',
+    'references/blocks/index.md',
+    'references/blocks/kanban.md',
+    'references/capabilities.md',
     'references/chart-core.md',
     'references/cli-command-surface.md',
     'references/cli-transport.md',
@@ -482,6 +487,7 @@ test('required docs and relative links stay valid', () => {
     'references/page-archetypes.md',
     'references/page-blueprint.md',
     'references/page-intent.md',
+    'references/page-first-planning.md',
     'references/popup.md',
     'references/reaction.md',
     'references/reaction-quick.md',
@@ -840,7 +846,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
 test('data-surface docs require block-level defaultFilter while keeping filter action routing visible', () => {
   const blockDefaultFilterRequiredPattern =
-    /(?:table|list|gridCard|calendar)[\s\S]{0,260}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard|calendar)[\s\S]{0,260}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,260}(?:table|list|gridCard|calendar)/i;
+    /(?:table|list|gridCard|calendar|kanban)[\s\S]{0,260}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard|calendar|kanban)[\s\S]{0,260}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,260}(?:table|list|gridCard|calendar|kanban)/i;
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
@@ -853,8 +859,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     const text = read(relativePath);
     assert.match(
       text,
-      /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar/i,
-      `${relativePath} should name table/list/gridCard/calendar data surfaces`,
+      /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar[\s\S]{0,100}kanban|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar[\s\S]{0,100}kanban/i,
+      `${relativePath} should name table/list/gridCard/calendar/kanban data surfaces`,
     );
     assert.match(
       text,
@@ -864,7 +870,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     assert.match(
       text,
       blockDefaultFilterRequiredPattern,
-      `${relativePath} should require block-level defaultFilter for table/list/gridCard/calendar data surfaces`,
+      `${relativePath} should require block-level defaultFilter for table/list/gridCard/calendar/kanban data surfaces`,
     );
   }
 
@@ -891,8 +897,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     pageBlueprint,
-    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,120}defaultFilter/i,
-    'page-blueprint should scope block-level defaultFilter to direct non-template data surfaces',
+    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i,
+    'page-blueprint should scope block-level defaultFilter to direct non-template table/list/gridCard/calendar/kanban data surfaces',
   );
   assert.match(
     pageBlueprint,
@@ -915,8 +921,8 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   const toolShapes = read('references/tool-shapes.md');
   assert.match(
     toolShapes,
-    /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,120}defaultFilter/i,
-    'tool-shapes should scope block-level defaultFilter to direct non-template data surfaces',
+    /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i,
+    'tool-shapes should scope block-level defaultFilter to direct non-template table/list/gridCard/calendar/kanban data surfaces',
   );
   assert.match(
     toolShapes,
@@ -934,7 +940,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,120}defaultFilter/i);
+  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i);
   assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}defaultActionSettings[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const openaiYaml = read('agents/openai.yaml');
@@ -942,6 +948,46 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
   assert.match(defaultPrompt, /defaultFilter[\s\S]{0,24}(?:required|must)|(?:required|must)[\s\S]{0,24}defaultFilter/i);
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
+});
+
+test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel cues', () => {
+  for (const relativePath of [
+    'references/aliases.md',
+    'references/page-first-planning.md',
+    'references/blocks/chart.md',
+    'references/blocks/index.md',
+    'references/blocks/kanban.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /分析看板|dashboard|KPI|概览/i,
+      `${relativePath} should keep analytics dashboard wording visible`,
+    );
+    assert.match(
+      text,
+      /kanban|pipeline|status columns|拖拽|泳道|backlog/i,
+      `${relativePath} should keep kanban routing cues visible`,
+    );
+  }
+
+  const aliases = read('references/aliases.md');
+  assert.match(
+    aliases,
+    /plain `?看板`?[\s\S]{0,120}analytics|do not globally remap/i,
+    'aliases should keep plain 看板 on the analytics path unless kanban cues are present',
+  );
+
+  const kanbanBlock = read('references/blocks/kanban.md');
+  assert.match(
+    kanbanBlock,
+    /defaultFilter[\s\S]{0,120}filter action|filter action[\s\S]{0,120}defaultFilter/i,
+    'kanban block doc should keep defaultFilter and host-level filter action guidance together',
+  );
+
+  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  assert.match(defaultPrompt, /分析看板[\s\S]{0,24}chart\/grid-card/i);
+  assert.match(defaultPrompt, /kanban\/pipeline\/status columns[\s\S]{0,24}Kanban/i);
 });
 
 test('search-vs-filter intent docs keep host-bound action routing and explicit block-only filterForm rules', () => {
@@ -1268,8 +1314,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /prepare-write/i);
   assert.match(helperContracts, /prepareApplyBlueprintRequest/i);
   assert.match(helperContracts, /nb-runjs/i);
+  assert.match(helperContracts, /nb-localized-write-preflight/i);
+  assert.match(helperContracts, /does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
+  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-page-preview\b/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
 
@@ -1289,9 +1338,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
 
-  const agentMetadata = read('agents/openai.yaml');
-  assert.match(agentMetadata, /helpers:?\s*`node .*runtime\/bin\/\*\.mjs`/i);
-  assert.match(agentMetadata, /no PATH probes/i);
+  const localEditQuickHelper = read('references/local-edit-quick.md');
+  assert.match(localEditQuickHelper, /nb-localized-write-preflight/i);
+  assert.match(localEditQuickHelper, /runLocalizedWritePreflight/i);
+  assert.match(localEditQuickHelper, /does not wrap or execute the nb transport|explicit `?nb api flow-surfaces/i);
+
 });
 
 test('whole-page applyBlueprint docs default to success-only completion while localized and chart readback stays explicit', () => {
@@ -1715,6 +1766,28 @@ test('helper contracts require caller-supplied collectionMetadata for data-bound
   assert.match(helperContracts, /caller-supplied/i);
   assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
+});
+
+test('localized preflight docs keep explicit helper-vs-transport boundary', () => {
+  const skill = read('SKILL.md');
+  assert.match(skill, /explicit local validator|not as a transport wrapper/i);
+  assert.match(skill, /later explicit `?nb api flow-surfaces/i);
+  assert.match(skill, /backend runtime remains compatibility-tolerant|compatibility-tolerant/i);
+
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /local\/read-only/i);
+  assert.match(helperContracts, /does not execute `?nb`?/i);
+  assert.match(helperContracts, /does not wrap the transport/i);
+  assert.match(helperContracts, /later explicit `?nb api flow-surfaces/i);
+
+  const localEditQuick = read('references/local-edit-quick.md');
+  assert.match(localEditQuick, /later explicit `?nb api flow-surfaces/i);
+  assert.match(localEditQuick, /does not wrap or execute the nb transport/i);
+
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  assert.match(defaultPrompt, /local preflight/i);
+  assert.match(defaultPrompt, /explicit nb write remains direct/i);
 });
 
 test('prepare-write helper-envelope docs explain collectionMetadata requirements', () => {

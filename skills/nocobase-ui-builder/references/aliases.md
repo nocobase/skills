@@ -28,7 +28,15 @@ Use this file when natural-language wording is ambiguous and you still need to n
 
 `筛选 / filter` is ambiguous by itself. Unless the user explicitly asks for a block/form, default it to a button/action on the existing data block. `搜索 / search` should follow that rule only when the request explicitly adds search to a table / list / Grid / card-like host, including “支持搜索 / 带搜索 / 可搜索 / searchable”; page-noun wording such as `搜索页`, `搜索结果页`, or `搜索门户` should not. 像“帮助中心页面，用列表展示帮助文档入口，并支持搜索”这种页面级搜索诉求，也不应仅因为同句出现了 `列表` 就自动收窄成 data-block `filter` action。
 
-## 4. Conservative Moves
+## 4. Dashboard / Kanban
+
+| user expression | default narrowing path | when to stop and confirm |
+| --- | --- | --- |
+| 分析看板 / dashboard / trend / KPI / 概览 | default to chart / grid-card insight routing | when the user also adds explicit kanban cues in the same request |
+| 看板区块 / kanban / pipeline / status columns / 拖拽 / 泳道 / backlog | narrow to `KanbanBlockModel` | when neither a collection-bound kanban block nor an analytics page remains clearly supported |
+| plain `看板` with no kanban cues | keep the analytics/dashboard path by default; do not globally remap it to kanban | when the surrounding sentence gives neither analytics nor kanban cues |
+
+## 5. Conservative Moves
 
 - Aliases only choose semantics; they do not choose the final API by themselves.
 - If the input still describes a whole page, route it to page-blueprint authoring instead of low-level APIs.
