@@ -250,6 +250,74 @@ function isObjectRecord(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+test('prepareApplyBlueprintRequest accepts flat relation fieldType objects and rejects internal field keys', () => {
+  const collectionMetadata = {
+    collections: {
+      users: {
+        name: 'users',
+        fields: [{ name: 'roles', interface: 'm2m', target: 'roles' }],
+      },
+      roles: {
+        name: 'roles',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'name', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const valid = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation fieldType page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'subTable',
+                fields: ['title', 'name'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.cliBody.tabs[0].blocks[0].fields[0].fieldType, 'subTable');
+
+  const invalid = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Invalid relation fieldType page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [{ field: 'roles', fieldComponent: 'PopupSubTableFieldModel' }],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.errors.some((item) => item.ruleId === 'internal-field-keys-not-public'), true);
+});
+
 function buildFixedCollectionPopupDefaults(collectionName) {
   return {
     view: {

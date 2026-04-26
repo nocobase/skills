@@ -199,6 +199,16 @@ const KANBAN_ACTION_MODEL_USES = new Set([
   'PopupCollectionActionModel',
   'RefreshActionModel',
 ]);
+const PUBLIC_INTERNAL_FIELD_KEYS = new Set([
+  'fieldComponent',
+  'fieldModel',
+  'componentFields',
+  'use',
+  'fieldUse',
+  'subModels',
+  'props',
+  'stepParams',
+]);
 const CALENDAR_DATE_FIELD_INTERFACES = new Set(['datetime', 'datetimeNoTz', 'dateOnly', 'date']);
 const CALENDAR_DATE_FIELD_TYPES = new Set(['date', 'datetime', 'datetimeNoTz', 'dateOnly']);
 const RECORD_ACTION_MODEL_USES = new Set([
@@ -5089,6 +5099,40 @@ function inspectUnsupportedFieldSlots(payload, mode, blockers, seen) {
   });
 }
 
+function inspectPublicFieldObjectKeys(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (
+      !isPlainObject(node) ||
+      !/\.(?:fields|fieldGroups\[\d+\]\.fields)\[\d+\]$/.test(pathValue) ||
+      (!Object.hasOwn(node, 'field') && !Object.hasOwn(node, 'fieldPath'))
+    ) {
+      return;
+    }
+    const forbidden = Object.keys(node).filter((key) => PUBLIC_INTERNAL_FIELD_KEYS.has(key));
+    if (forbidden.length) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'INTERNAL_FIELD_KEYS_NOT_PUBLIC',
+        message: `Public field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
+        path: pathValue,
+        mode,
+        dedupeKey: `INTERNAL_FIELD_KEYS_NOT_PUBLIC:${pathValue}`,
+        details: { keys: forbidden },
+      }));
+    }
+    if (Object.hasOwn(node, 'fields') && Object.hasOwn(node, 'selectorFields')) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'RELATION_FIELDS_SELECTOR_FIELDS_CONFLICT',
+        message: 'Public relation field objects must not mix fields and selectorFields.',
+        path: pathValue,
+        mode,
+        dedupeKey: `RELATION_FIELDS_SELECTOR_FIELDS_CONFLICT:${pathValue}`,
+      }));
+    }
+  });
+}
+
 function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'DetailsBlockModel') {
@@ -7082,6 +7126,7 @@ export function auditPayload({
   inspectTableBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectFilterManagerBindings(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectActionSlots(payload, mode, blockers, blockerSeen);
+  inspectPublicFieldObjectKeys(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectExistingUidReparenting(payload, normalizedMetadata, mode, blockers, blockerSeen);

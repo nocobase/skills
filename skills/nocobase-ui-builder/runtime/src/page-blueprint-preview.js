@@ -178,6 +178,16 @@ const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
   'associationPathName',
   'associationField',
 ]);
+const INTERNAL_FIELD_OBJECT_KEYS = new Set([
+  'fieldComponent',
+  'fieldModel',
+  'componentFields',
+  'use',
+  'fieldUse',
+  'subModels',
+  'props',
+  'stepParams',
+]);
 const ADD_CHILD_RECORD_ACTION_MESSAGE =
   '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
 const ANT_DESIGN_ICON_NAMES = loadAntDesignIconNames();
@@ -1581,7 +1591,8 @@ function collectDefaultsRequirementsFromFields(items, blockContext, requirements
       fieldPath,
     );
 
-    if (associationRequirement) {
+    const hasExplicitRelationFieldType = isPlainObject(item) && hasOwn(item, 'fieldType');
+    if (associationRequirement && !hasExplicitRelationFieldType) {
       addFixedAssociationPopupRequirements(
         requirements,
         associationRequirement.sourceCollection,
@@ -3397,6 +3408,37 @@ function validateFieldGroupPopups(fieldGroups, path, state, blockContext) {
   });
 }
 
+function validatePublicFieldObjects(items, path, state) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item)) continue;
+    const forbidden = Object.keys(item).filter((key) => INTERNAL_FIELD_OBJECT_KEYS.has(key));
+    if (forbidden.length) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'internal-field-keys-not-public',
+        `Field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
+      );
+    }
+    if (hasOwn(item, 'fields') && hasOwn(item, 'selectorFields')) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'relation-fields-selector-fields-conflict',
+        'Do not mix fields and selectorFields on the same relation field object.',
+      );
+    }
+  }
+}
+
+function validatePublicFieldGroupObjects(fieldGroups, path, state) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    validatePublicFieldObjects(group.fields, `${path}[${groupIndex}].fields`, state);
+  });
+}
+
 function resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath) {
   const normalizedFieldPath = normalizeText(fieldPath);
   if (!normalizedFieldPath || normalizedFieldPath.includes('.')) return null;
@@ -3428,7 +3470,7 @@ function validateDisplayAssociationFieldPopupRequirement(items, block, blockCont
     if (!resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath)) {
       continue;
     }
-    if (isPlainObject(item) && hasOwn(item, 'popup')) {
+    if (isPlainObject(item) && (hasOwn(item, 'popup') || hasOwn(item, 'fieldType'))) {
       continue;
     }
     pushValidationError(
@@ -4295,6 +4337,8 @@ function validateBlock(block, path, state, parentContext = {}) {
 
   validateDisplayAssociationFieldPopupRequirement(block.fields, block, blockContext, `${path}.fields`, state);
   validateDisplayAssociationFieldGroupPopupRequirement(block.fieldGroups, block, blockContext, `${path}.fieldGroups`, state);
+  validatePublicFieldObjects(block.fields, `${path}.fields`, state);
+  validatePublicFieldGroupObjects(block.fieldGroups, `${path}.fieldGroups`, state);
   validateFieldPopups(block.fields, `${path}.fields`, state, blockContext);
   validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state, blockContext);
   validateActions(block.actions, `${path}.actions`, state, { recordActions: false, blockContext });
