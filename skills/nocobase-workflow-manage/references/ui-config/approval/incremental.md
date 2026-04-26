@@ -9,7 +9,7 @@ Use this route only after the approval root already exists. If you do not know t
 
 This is a transport-neutral route. Fix this route first, then execute it through CLI, MCP, or direct HTTP.
 
-Read [primitives.md](primitives.md) first before choosing payload shapes.
+Read [primitives.md](primitives.md) first before choosing payload shapes. Then read [surfaces.md](surfaces.md) for every per-action `configure` payload (especially `approvalReturn` and `assigneesScope`), the singleton-action map, the auto-derived owner-config side effects, and the user-intent → operation scenario map.
 
 ## Allowed Operations
 

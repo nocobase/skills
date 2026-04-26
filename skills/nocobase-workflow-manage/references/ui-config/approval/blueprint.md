@@ -11,7 +11,7 @@ This is a transport-neutral route. Fix this route first, then execute it through
 
 For page-like approval surfaces, block legality is finalized by the downstream `compose(..., mode="replace")` path. `applyApprovalBlueprint` keeps structural validation, owner binding, and `template` rejection; it is not a second static approval-only block whitelist.
 
-Read [primitives.md](primitives.md) first before building the payload.
+Read [primitives.md](primitives.md) first before building the payload, then [surfaces.md](surfaces.md) for the exact block / action / field / configure shapes that this blueprint payload accepts per surface.
 
 ## Binding Rules
 

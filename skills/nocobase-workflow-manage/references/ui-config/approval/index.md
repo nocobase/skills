@@ -18,11 +18,12 @@ This folder is the canonical source for approval UI route selection. Keep transp
 ## Read Order
 
 1. Read [primitives.md](primitives.md) for root resolution, allowed containers, singleton action behavior, and payload authoring rules.
-2. Read [recipes.md](recipes.md) when you need a concrete end-to-end authoring recipe from `workflowId`, `nodeId`, or an existing root `uid`.
-3. Then choose exactly one write route:
+2. Read [surfaces.md](surfaces.md) for the per-surface FlowModel tree, owner config knobs, complete block / action / field constraints, per-action `configure` payload shapes, and the scenario → operation map (initiator submit / save-draft / withdraw, approver approve / reject / return / delegate / add-assignee, task cards).
+3. Read [recipes.md](recipes.md) when you need a concrete end-to-end authoring recipe from `workflowId`, `nodeId`, or an existing root `uid`.
+4. Then choose exactly one write route:
    - whole-surface bootstrap / replace -> [blueprint.md](blueprint.md)
    - existing approval root incremental edit -> [incremental.md](incremental.md)
-4. Finish with [verification.md](verification.md).
+5. Finish with [verification.md](verification.md).
 
 ## Decision Flow
 
@@ -72,6 +73,7 @@ This folder is the canonical source for approval UI route selection. Keep transp
 ## Truth Layers
 
 - Approval route selection and recipes: this folder.
+- Per-surface FlowModel tree, owner config knobs, allowed blocks / actions / fields, configure payload shapes, scenario map: [surfaces.md](surfaces.md).
 - API request/response shape and examples: FlowSurfaces Swagger / OpenAPI.
 - User-facing operation guide: `docs/docs/cn/plugins/@nocobase/plugin-workflow-approval/custom-ui.md`.
 - Server design truth: `plugin-flow-engine/src/server/flow-surfaces/approval/README.md`.

@@ -5,7 +5,7 @@ description: Approval surface root resolution, allowed containers, and payload a
 
 # Approval UI Authoring Primitives
 
-Read this file before either the blueprint route or the incremental route.
+Read this file before either the blueprint route or the incremental route. For the full per-surface tree, owner config knobs, complete block / action / field constraints, every per-action `configure` payload shape, and the user-intent → operation scenario map (submit / save-draft / withdraw on initiator; approve / reject / return / delegate / add-assignee on approver; task cards), read [surfaces.md](surfaces.md) immediately after this file.
 
 Approval authoring starts owner-first. The caller may know only `workflowId` or `nodeId`; that is enough to begin. Root `uid` is an optimization, not a prerequisite.
 

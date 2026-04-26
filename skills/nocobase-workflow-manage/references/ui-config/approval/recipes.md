@@ -7,7 +7,7 @@ description: Concrete approval-surface authoring recipes starting from workflowI
 
 Use these recipes when the user describes approval UI work in business language and does not provide the final `approvalUid` / `taskCardUid`.
 
-Read [primitives.md](primitives.md) first. Then choose the closest recipe and keep the same route even if the transport changes.
+Read [primitives.md](primitives.md) first, then [surfaces.md](surfaces.md) for the full block / action / field / configure constraints these recipes rely on. Choose the closest recipe and keep the same route even if the transport changes.
 
 ## Recipe 1: Build an initiator surface from `workflowId`
 

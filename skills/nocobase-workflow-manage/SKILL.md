@@ -41,9 +41,9 @@ CLI usage rules:
 1. `nb` CLI must be available and authenticated to perform workflow operations.
    - Stop and ask the user to fix auth when the CLI returns `401`, `403`, `Auth required`, or equivalent access errors.
 2. Before using an `nb api workflow` command you have not used yet in the current task, run `nb api workflow workflows -h`, `nb api workflow flow-nodes -h`, or the matching `nb api workflow <topic> <subcommand> -h` once and follow the generated help text.
-3. When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md).
+3. When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](../nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../nocobase-utils/references/evaluators/mathjs.md).
 4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`.
-   - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](#collection-resolution-gate) whenever a workflow trigger or node configuration depends on `collection`.
+   - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](./convertions/index.md#the-collection-field-in-trigger-and-node-configuration) whenever a workflow trigger or node configuration depends on `collection`.
 
 ## Clarification and Mutation Preconditions
 
@@ -122,14 +122,17 @@ Consult [Workflow HTTP API index](references/http-api/index.md) only when you ne
 
 # Approval UI Entry
 
-- Approval initiator, approver, and task-card surfaces are not ordinary route-backed pages. They are bound to workflow or approval-node config.
-- Page-like approval grids may host approval blocks plus the fixed generic blocks currently exposed by the approval runtime catalog: `markdown` and `jsBlock`.
-- Task-card remains `fields + layout` on the blueprint route and still has no standalone block-authoring path.
+- Approval initiator, approver, and task-card surfaces are not ordinary route-backed pages. They are bound to workflow or approval-node config (`workflow.config.approvalUid` / `taskCardUid` for the trigger side; `node.config.approvalUid` / `taskCardUid` for the approval-node side).
+- Initiator surface lives under `TriggerChildPageModel`; its `ApplyFormModel` block exposes exactly three singleton actions — `approvalSubmit` (发起，自动创建), `approvalSaveDraft` (草稿), `approvalWithdraw` (撤回，存在时自动把 `workflow.config.withdrawable` 置为 `true`).
+- Approver surface lives under `ApprovalChildPageModel`; its `ProcessFormModel` block exposes exactly five singleton actions — `approvalApprove` (通过), `approvalReject` (拒绝), `approvalReturn` (退回), `approvalDelegate` (转签), `approvalAddAssignee` (加签). The server reconciles `node.config.actions`, `returnTo`, `returnToNodeVariable`, `toDelegateReassignees(Options)`, and `toAddReassignees(Options)` from these actions; never patch them by hand.
+- Page-like approval grids (`TriggerBlockGridModel`, `ApprovalBlockGridModel`) host approval blocks plus the fixed generic blocks currently exposed by the approval runtime catalog: `markdown` and `jsBlock`. No other generic block types in this phase.
+- `approvalReturn.type` accepts only `start` (default), `any`, `count` (with positive `count`), or `specific` (with upstream node `target`). `assigneesScope.assignees` accepts user ids and `{ filter: … }` objects only; bare objects without `filter` are auto-wrapped.
+- Task-card remains `fields + layout` on the blueprint route and still has no standalone block-authoring path. Layout-only edits to an existing task card use `setLayout` on the existing grid uid.
 - When switching an approval association field component, read the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum` instead of guessing from ordinary page semantics.
 - First-time setup or whole-surface replacement uses `flowSurfaces applyApprovalBlueprint`.
 - Localized approval edits require resolving the bound `approvalUid` or `taskCardUid` first, then using the localized `flowSurfaces` operations.
 - Ordinary Modern page, tab, popup, and route-backed surface work still belongs to `nocobase-ui-builder`.
-- Full route selection, payload, and verification guidance lives in [Approval UI authoring index](references/ui-config/approval/index.md).
+- Full route selection, payload, and verification guidance lives in [Approval UI authoring index](references/ui-config/approval/index.md). The per-surface FlowModel tree, owner config knobs, full block / action / field / configure constraint matrix, and the user-intent → operation scenario map (initiator submit / save-draft / withdraw, approver approve / reject / return / delegate / add-assignee, task cards) live in [Approval surfaces reference](references/ui-config/approval/surfaces.md).
 
 # Hard Rules
 
@@ -228,6 +231,7 @@ After completing any workflow operation, verify:
 # References
 
 - [Approval UI authoring index](references/ui-config/approval/index.md): use when the task is about approval initiator, approver, or task-card surfaces bound to workflow or approval-node config.
+- [Approval surfaces reference](references/ui-config/approval/surfaces.md): use when authoring or editing any approval block, action, or field — covers the per-surface FlowModel tree, every owner config knob, the singleton action map, the full `configure` payload schemas (`approvalReturn`, `assigneesScope`, `confirm`, `assignValues`, `fieldComponent`), and the scenario → operation table.
 - [Workflow architecture and data model](references/modeling/index.md): use when understanding the overall model structure, revision rules, status codes, or variable groups.
 - [Workflow data model - workflows](references/modeling/workflows.md): use when deciding sync mode, workflow field semantics, or workflow-level execution constraints.
 - [Workflow conventions](references/conventions/index.md): use when building `collection`, `filter`, `appends`, and variable expressions.
