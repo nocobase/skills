@@ -274,6 +274,44 @@ test('runLocalizedWritePreflight maps missing collection metadata to stable help
   assert.equal(result.facts.requiredCollections.includes('users'), true);
 });
 
+test('runLocalizedWritePreflight collects nested field popup collection metadata refs', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'host',
+          type: 'markdown',
+          fields: [
+            {
+              fieldPath: 'user',
+              popup: {
+                blocks: [
+                  {
+                    key: 'fieldPopupUsersTable',
+                    type: 'table',
+                    resource: {
+                      dataSourceKey: 'main',
+                      collectionName: 'users',
+                    },
+                    defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: {},
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'missing-collection-metadata', '$.blocks[0].fields[0].popup.blocks[0].resource.collectionName');
+  assert.equal(result.facts.requiredCollections.includes('users'), true);
+});
+
 test('runLocalizedWritePreflight accepts flat relation fieldType and rejects internal field keys', () => {
   const metadata = {
     collections: {
@@ -427,6 +465,23 @@ test('runLocalizedWritePreflight defaults nested popup block heightMode to speci
           key: 'hostChart',
           type: 'chart',
           settings: { height: 420 },
+          blocks: [
+            {
+              key: 'childChart',
+              type: 'chart',
+              settings: { height: 390 },
+            },
+            {
+              key: 'defaultHeightChildChart',
+              type: 'chart',
+              settings: { height: 380, heightMode: 'defaultHeight' },
+            },
+            {
+              key: 'specifiedHeightChildChart',
+              type: 'chart',
+              settings: { height: 370, heightMode: 'specifyValue' },
+            },
+          ],
           popup: {
             blocks: [
               {
@@ -445,6 +500,20 @@ test('runLocalizedWritePreflight defaults nested popup block heightMode to speci
                     key: 'actionPopupChart',
                     type: 'chart',
                     settings: { height: 320 },
+                  },
+                ],
+              },
+            },
+          ],
+          recordActions: [
+            {
+              type: 'popup',
+              popup: {
+                blocks: [
+                  {
+                    key: 'recordActionPopupChart',
+                    type: 'chart',
+                    settings: { height: 310 },
                   },
                 ],
               },
@@ -492,8 +561,12 @@ test('runLocalizedWritePreflight defaults nested popup block heightMode to speci
   const host = result.cliBody.blocks[0];
   assert.equal(result.ok, true);
   assert.equal(host.settings.heightMode, 'specifyValue');
+  assert.equal(host.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(host.blocks[1].settings.heightMode, 'defaultHeight');
+  assert.equal(host.blocks[2].settings.heightMode, 'specifyValue');
   assert.equal(host.popup.blocks[0].settings.heightMode, 'specifyValue');
   assert.equal(host.actions[0].popup.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(host.recordActions[0].popup.blocks[0].settings.heightMode, 'specifyValue');
   assert.equal(host.fields[0].popup.blocks[0].settings.heightMode, 'specifyValue');
   assert.equal(host.fieldGroups[0].fields[0].popup.blocks[0].settings.heightMode, 'fullHeight');
 });
@@ -773,6 +846,47 @@ test('runLocalizedWritePreflight resolves tree connectFields same-run targets wi
 
   assert.equal(rootTargetOutOfScope.ok, false);
   assertHasRule(rootTargetOutOfScope, 'tree-connect-target-unknown', '$.blocks[1].popup.blocks[0].settings.connectFields.targets[0].target');
+});
+
+test('runLocalizedWritePreflight validates tree connectFields inside action popup blocks', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'host',
+          type: 'markdown',
+          actions: [
+            {
+              type: 'popup',
+              popup: {
+                blocks: [
+                  {
+                    key: 'usersTree',
+                    type: 'tree',
+                    resource: {
+                      dataSourceKey: 'main',
+                      collectionName: 'users',
+                    },
+                    settings: {
+                      connectFields: {
+                        targets: [{ target: 'missingTable' }],
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'tree-connect-target-unknown', '$.blocks[0].actions[0].popup.blocks[0].settings.connectFields.targets[0].target');
 });
 
 test('runLocalizedWritePreflight fails closed when localized tree live context or metadata is incomplete', () => {

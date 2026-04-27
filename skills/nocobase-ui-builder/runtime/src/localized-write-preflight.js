@@ -428,6 +428,37 @@ function collectBlocksByKey(blocks) {
   return map;
 }
 
+function forEachLocalizedChildBlockContainer(block, path, visitContainer) {
+  if (!isObjectRecord(block)) return;
+
+  if (Array.isArray(block.blocks)) {
+    visitContainer(block.blocks, `${path}.blocks`);
+  }
+  if (Array.isArray(block.popup?.blocks)) {
+    visitContainer(block.popup.blocks, `${path}.popup.blocks`);
+  }
+
+  for (const slot of ['actions', 'recordActions', 'fields']) {
+    if (!Array.isArray(block[slot])) continue;
+    block[slot].forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        visitContainer(item.popup.blocks, `${path}.${slot}[${index}].popup.blocks`);
+      }
+    });
+  }
+
+  if (Array.isArray(block.fieldGroups)) {
+    block.fieldGroups.forEach((group, groupIndex) => {
+      if (!Array.isArray(group?.fields)) return;
+      group.fields.forEach((field, fieldIndex) => {
+        if (Array.isArray(field?.popup?.blocks)) {
+          visitContainer(field.popup.blocks, `${path}.fieldGroups[${groupIndex}].fields[${fieldIndex}].popup.blocks`);
+        }
+      });
+    });
+  }
+}
+
 function pushUniqueRef(refs, seen, { collectionName, path, reason }) {
   const normalizedName = normalizeText(collectionName);
   if (!normalizedName) return;
@@ -472,14 +503,10 @@ function collectLocalizedTreeConnectCollectionRefs(payload, operation, metadata)
         });
       }
     }
-    if (Array.isArray(block.blocks)) {
-      const childBlocksByKey = collectBlocksByKey(block.blocks);
-      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, childBlocksByKey));
-    }
-    if (Array.isArray(block.popup?.blocks)) {
-      const popupBlocksByKey = collectBlocksByKey(block.popup.blocks);
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, popupBlocksByKey));
-    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      const childBlocksByKey = collectBlocksByKey(blocks);
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`, childBlocksByKey));
+    });
   };
 
   if (Array.isArray(payload?.blocks)) {
@@ -552,12 +579,9 @@ function collectLocalizedCollectionRefs(payload) {
     }
     push(block?.resource?.collectionName, `${path}.resource.collectionName`);
     push(block?.resourceInit?.collectionName, `${path}.resourceInit.collectionName`);
-    if (Array.isArray(block.blocks)) {
-      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`));
-    }
-    if (Array.isArray(block.popup?.blocks)) {
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`));
-    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
   };
 
   if (Array.isArray(payload?.blocks)) {
@@ -1014,14 +1038,10 @@ function collectLocalizedTreeConnectFieldsErrors(payload, operation, metadata) {
       });
     }
 
-    if (Array.isArray(block.blocks)) {
-      const childBlocksByKey = collectBlocksByKey(block.blocks);
-      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, childBlocksByKey));
-    }
-    if (Array.isArray(block.popup?.blocks)) {
-      const popupBlocksByKey = collectBlocksByKey(block.popup.blocks);
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, popupBlocksByKey));
-    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      const childBlocksByKey = collectBlocksByKey(blocks);
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`, childBlocksByKey));
+    });
   };
 
   if (Array.isArray(payload?.blocks)) {
