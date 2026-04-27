@@ -232,7 +232,7 @@ test('runLocalizedWritePreflight accepts flat relation fieldType and rejects int
           fields: [
             {
               fieldPath: 'roles',
-              fieldType: 'subTable',
+              fieldType: 'popupSubTable',
               fields: ['title', 'name'],
             },
           ],

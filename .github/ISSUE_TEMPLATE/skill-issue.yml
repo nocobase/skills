@@ -1,0 +1,180 @@
+name: Skill Issue Report
+description: Report a problem when using a NocoBase Skill with your coding agent CLI.
+title: "[Skill] <short summary>"
+labels: ["skill-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue with NocoBase Skills!
+
+        Please fill in as much of the form below as possible — clear environment
+        info and a faithful transcript of the agent's behavior make issues much
+        easier to triage. Redact any secrets (API keys, tokens, customer data)
+        before submitting.
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Which skill?
+      description: The skill that misbehaved. Pick "Multiple / unclear" if you can't tell.
+      options:
+        - nocobase-install-start
+        - nocobase-mcp-setup
+        - nocobase-data-modeling
+        - nocobase-workflow-manage
+        - nocobase-ui-builder
+        - nocobase-dsl-reconciler
+        - nocobase-acl-manage
+        - nocobase-data-analysis
+        - nocobase-env-manage
+        - nocobase-plugin-development
+        - nocobase-plugin-manage
+        - nocobase-publish-manage
+        - nocobase-utils
+        - Multiple / unclear
+    validations:
+      required: true
+
+  - type: input
+    id: skills-version
+    attributes:
+      label: Skills version / commit
+      description: Commit SHA or release tag of this repo that you installed (e.g. via `npx skills add nocobase/skills`).
+      placeholder: e.g. main@a4fb537 or v0.1.0
+    validations:
+      required: false
+
+  - type: input
+    id: agent
+    attributes:
+      label: Coding agent CLI (and version)
+      description: Which agent CLI did you run the skill in?
+      placeholder: e.g. Claude Code 2.5.0 / Codex CLI 0.18.1 / OpenCode 0.4.2
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model (and version)
+      description: The model the agent was using when the issue happened.
+      placeholder: e.g. claude-opus-4-7 / claude-sonnet-4-6 / gpt-5
+    validations:
+      required: true
+
+  - type: input
+    id: nocobase-version
+    attributes:
+      label: NocoBase server version
+      description: Version of the NocoBase app the skill was operating against (Settings → System info, or root `package.json`).
+      placeholder: e.g. v2.1.0-beta.19
+    validations:
+      required: true
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: NocoBase CLI (`nb`) version
+      description: Output of `nb --version`. Required if the issue involves a `nb` command.
+      placeholder: e.g. 2.1.0-beta.19
+    validations:
+      required: false
+
+  - type: dropdown
+    id: mcp-auth
+    attributes:
+      label: MCP connection mode
+      options:
+        - API Key
+        - OAuth
+        - Not using MCP
+        - Other / unsure
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. macOS 14.5 / Ubuntu 22.04 / Windows 11 (WSL2)
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Tick everything that applies. Skills assume these are in place.
+      options:
+        - label: NocoBase is installed, running, and I can log in to the UI.
+        - label: The MCP connection is configured and verified working.
+        - label: Plugins required by this skill are enabled.
+        - label: I have read the skill's `SKILL.md` / README.
+        - label: I have searched existing issues and didn't find a duplicate.
+    validations:
+      required: false
+
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Prompt sent to the agent
+      description: The exact prompt(s) you used. Paste verbatim. Redact secrets.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What you expected the agent / skill to produce.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What actually happened — describe the resulting state of the app, the file produced, the workflow created, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: agent-output
+    attributes:
+      label: Agent output / transcript
+      description: Relevant portion of the agent's response, including tool calls if visible. Trim to the failing section if the transcript is long.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: Errors and logs
+      description: Error messages from the agent, NocoBase server logs, browser console, or `nb` output.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Reproducibility
+      options:
+        - Always (100%)
+        - Often (>50%)
+        - Sometimes (<50%)
+        - Happened once
+        - Unsure
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, related issues, workarounds you tried, or anything else that might help.
+    validations:
+      required: false
