@@ -2619,6 +2619,19 @@ function materializePopupForWrite(popup, options = {}) {
   return nextPopup;
 }
 
+function materializeSettingsHeightForWrite(settings) {
+  if (!isPlainObject(settings)) {
+    return settings;
+  }
+  if (!hasOwn(settings, 'height') || hasOwn(settings, 'heightMode')) {
+    return settings;
+  }
+  return {
+    ...settings,
+    heightMode: 'specifyValue',
+  };
+}
+
 function materializeFieldForWrite(field, options = {}) {
   if (!isPlainObject(field)) {
     return field;
@@ -2667,6 +2680,9 @@ function materializeBlockForWrite(block, options = {}) {
     return block;
   }
   const nextBlock = cloneSerializable(block);
+  if (hasOwn(nextBlock, 'settings')) {
+    nextBlock.settings = materializeSettingsHeightForWrite(nextBlock.settings);
+  }
   if (hasOwn(nextBlock, 'fields')) {
     nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
       materializeFieldForWrite(field, {

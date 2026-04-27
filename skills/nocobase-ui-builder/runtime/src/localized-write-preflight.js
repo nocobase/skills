@@ -87,6 +87,50 @@ function normalizeBody(value) {
   return value;
 }
 
+function isObjectRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function addSpecifiedHeightMode(settings) {
+  if (!isObjectRecord(settings) || !Object.hasOwn(settings, 'height') || Object.hasOwn(settings, 'heightMode')) {
+    return settings;
+  }
+  return {
+    ...settings,
+    heightMode: 'specifyValue',
+  };
+}
+
+function normalizeHeightSettingsForWrite(operation, payload) {
+  if (!isObjectRecord(payload)) return payload;
+  if (operation === 'configure') {
+    if (!isObjectRecord(payload.changes)) return payload;
+    const changes = addSpecifiedHeightMode(payload.changes);
+    return changes === payload.changes ? payload : { ...payload, changes };
+  }
+
+  if (operation === 'add-block') {
+    if (!isObjectRecord(payload.settings)) return payload;
+    const settings = addSpecifiedHeightMode(payload.settings);
+    return settings === payload.settings ? payload : { ...payload, settings };
+  }
+
+  if (operation === 'add-blocks' || operation === 'compose') {
+    if (!Array.isArray(payload.blocks)) return payload;
+    let changed = false;
+    const blocks = payload.blocks.map((block) => {
+      if (!isObjectRecord(block) || !isObjectRecord(block.settings)) return block;
+      const settings = addSpecifiedHeightMode(block.settings);
+      if (settings === block.settings) return block;
+      changed = true;
+      return { ...block, settings };
+    });
+    return changed ? { ...payload, blocks } : payload;
+  }
+
+  return payload;
+}
+
 function normalizeMetadata(value) {
   if (typeof value === 'undefined' || value === null) {
     return {};
@@ -973,7 +1017,7 @@ export function runLocalizedWritePreflight({
     mode,
     snapshotPath,
   });
-  const cliBody = canonicalize.payload;
+  const cliBody = normalizeHeightSettingsForWrite(normalizedOperation, canonicalize.payload);
   const audit = auditPayload({
     payload: cliBody,
     metadata: normalizedMetadata,

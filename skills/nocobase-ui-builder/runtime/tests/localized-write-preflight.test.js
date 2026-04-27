@@ -354,6 +354,59 @@ test('runLocalizedWritePreflight preserves canonicalized cliBody and localized f
   assert.equal(result.facts.directBlockTypes.includes('calendar'), true);
 });
 
+test('runLocalizedWritePreflight defaults configure heightMode to specifyValue when changes include height', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'chart-block-uid' },
+      changes: { height: 500 },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.changes.heightMode, 'specifyValue');
+});
+
+test('runLocalizedWritePreflight defaults block settings heightMode to specifyValue when height is set', () => {
+  const addBlock = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'chart',
+      settings: { height: 500 },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(addBlock.ok, true);
+  assert.equal(addBlock.cliBody.settings.heightMode, 'specifyValue');
+
+  const addBlocks = runLocalizedWritePreflight({
+    operation: 'add-blocks',
+    body: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          key: 'specifiedChart',
+          type: 'chart',
+          settings: { height: 420 },
+        },
+        {
+          key: 'fullHeightChart',
+          type: 'chart',
+          settings: { height: 500, heightMode: 'fullHeight' },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(addBlocks.ok, true);
+  assert.equal(addBlocks.cliBody.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(addBlocks.cliBody.blocks[1].settings.heightMode, 'fullHeight');
+});
+
 test('runLocalizedWritePreflight accepts localized tree connectFields public shapes', () => {
   const addBlock = runLocalizedWritePreflight({
     operation: 'add-block',

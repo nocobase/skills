@@ -2419,6 +2419,61 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
   assert.deepEqual(result.warnings, []);
 });
 
+test('prepareApplyBlueprintRequest defaults heightMode to specifyValue when block settings include height', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Dashboard' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'mainChart',
+              type: 'chart',
+              title: 'Main chart',
+              settings: { height: 500 },
+              actions: [
+                {
+                  type: 'popup',
+                  title: 'Details',
+                  popup: {
+                    title: 'Chart details',
+                    blocks: [
+                      {
+                        key: 'popupChart',
+                        type: 'chart',
+                        title: 'Popup chart',
+                        settings: { height: 360 },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+            {
+              key: 'fullHeightChart',
+              type: 'chart',
+              title: 'Full height chart',
+              settings: { height: 500, heightMode: 'fullHeight' },
+            },
+          ],
+          layout: {
+            rows: [['mainChart', 'fullHeightChart']],
+          },
+        },
+      ],
+    },
+    { injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(result.cliBody.tabs[0].blocks[0].actions[0].popup.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(result.cliBody.tabs[0].blocks[1].settings.heightMode, 'fullHeight');
+});
+
 test('prepareApplyBlueprintRequest rejects collection default fieldGroups when they cover ten or fewer fields', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
