@@ -23,6 +23,7 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
@@ -173,6 +174,7 @@ jobs:
           NODE
 
       - name: Create and push tag
+        id: release
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
@@ -189,3 +191,22 @@ jobs:
           git push origin "HEAD:$RELEASE_REF"
           git tag -a "$tag" -m "Release $tag"
           git push origin "$tag"
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch npm publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REF: ${{ inputs.ref }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          curl -fsSL \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/npm-publish.yml/dispatches" \
+            -d "{\"ref\":\"$RELEASE_REF\",\"inputs\":{\"tag\":\"$RELEASE_TAG\"}}"
