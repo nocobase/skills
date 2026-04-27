@@ -1,10 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
 import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
+import { ANT_DESIGN_ICON_NAMES } from './ant-design-icon-names.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
@@ -130,48 +127,6 @@ const AUDIT_FIELD_NAMES = new Set([
   'updated_at',
   'deleted_at',
 ]);
-const COMMON_ANT_DESIGN_ICON_NAMES = new Set([
-  'AppstoreOutlined',
-  'BankOutlined',
-  'BellOutlined',
-  'BookOutlined',
-  'BuildOutlined',
-  'CalendarOutlined',
-  'CloudOutlined',
-  'CodeOutlined',
-  'CompassOutlined',
-  'ContactsOutlined',
-  'ControlOutlined',
-  'CreditCardOutlined',
-  'CustomerServiceOutlined',
-  'DashboardOutlined',
-  'DatabaseOutlined',
-  'EditOutlined',
-  'FileOutlined',
-  'FilterOutlined',
-  'FormOutlined',
-  'GlobalOutlined',
-  'HomeOutlined',
-  'InboxOutlined',
-  'MailOutlined',
-  'NotificationOutlined',
-  'PieChartOutlined',
-  'ProjectOutlined',
-  'ReadOutlined',
-  'SafetyOutlined',
-  'ScheduleOutlined',
-  'SearchOutlined',
-  'SettingOutlined',
-  'ShopOutlined',
-  'SolutionOutlined',
-  'StockOutlined',
-  'SyncOutlined',
-  'TableOutlined',
-  'TagOutlined',
-  'TeamOutlined',
-  'ToolOutlined',
-  'UserOutlined',
-]);
 const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
   'collection',
   'binding',
@@ -191,7 +146,6 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
 ]);
 const ADD_CHILD_RECORD_ACTION_MESSAGE =
   '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
-const ANT_DESIGN_ICON_NAMES = loadAntDesignIconNames();
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -218,49 +172,6 @@ function normalizeApplyBlueprintToken(value, fallback = 'item') {
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
   return normalized || fallback;
-}
-
-function loadAntDesignIconNames() {
-  const iconDir = resolveAntDesignIconDirectory();
-  if (!iconDir) {
-    return COMMON_ANT_DESIGN_ICON_NAMES;
-  }
-  try {
-    const names = fs
-      .readdirSync(iconDir)
-      .filter((entry) => entry.endsWith('.js'))
-      .map((entry) => entry.replace(/\.js$/, ''))
-      .filter(Boolean);
-    return names.length ? new Set(names) : COMMON_ANT_DESIGN_ICON_NAMES;
-  } catch {
-    return COMMON_ANT_DESIGN_ICON_NAMES;
-  }
-}
-
-function resolveAntDesignIconDirectory() {
-  const startDir = path.dirname(fileURLToPath(import.meta.url));
-  const visited = new Set();
-  let currentDir = startDir;
-
-  while (currentDir && !visited.has(currentDir)) {
-    visited.add(currentDir);
-    const candidates = [
-      path.join(currentDir, 'node_modules', '@ant-design', 'icons-svg', 'lib', 'asn'),
-      path.join(currentDir, 'nocobase', 'node_modules', '@ant-design', 'icons-svg', 'lib', 'asn'),
-    ];
-    for (const candidate of candidates) {
-      if (fs.existsSync(candidate)) {
-        return candidate;
-      }
-    }
-    const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) {
-      break;
-    }
-    currentDir = parentDir;
-  }
-
-  return '';
 }
 
 function isValidAntDesignIconName(value) {
