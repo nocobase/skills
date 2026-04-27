@@ -92,6 +92,12 @@ test('resolveRequiredUrlBase requires an explicit flag or NOCOBASE_URL_BASE', ()
   assert.throws(() => resolveRequiredUrlBase('', {}), /url base is required/i);
 });
 
+test('runner does not expose a direct flowModels save escape hatch', () => {
+  const source = fs.readFileSync(new URL('./rest_template_clone_runner.mjs', import.meta.url), 'utf8');
+  assert.equal(source.includes('allow-direct-flow-models-save'), false);
+  assert.equal(source.includes('/api/flowModels:save'), false);
+});
+
 test('validateReadbackContract checks visible tabs and filterManager entry count', () => {
   const model = {
     use: 'RootPageModel',

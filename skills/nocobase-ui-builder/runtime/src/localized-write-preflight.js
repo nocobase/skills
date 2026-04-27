@@ -6,6 +6,16 @@ import {
 } from '../../scripts/flow_payload_guard.mjs';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose']);
+const INTERNAL_FIELD_OBJECT_KEYS = new Set([
+  'fieldComponent',
+  'fieldModel',
+  'componentFields',
+  'use',
+  'fieldUse',
+  'subModels',
+  'props',
+  'stepParams',
+]);
 const PUBLIC_MAIN_BLOCK_SECTION_RULES = {
   calendar: [
     {
@@ -239,6 +249,59 @@ function collectLocalizedMainBlockSectionErrors(payload) {
   return errors;
 }
 
+function collectLocalizedPublicFieldObjectErrors(payload) {
+  const errors = [];
+
+  const visitFields = (fields, path) => {
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field, index) => {
+      if (!field || typeof field !== 'object' || Array.isArray(field)) return;
+      const forbidden = Object.keys(field).filter((key) => INTERNAL_FIELD_OBJECT_KEYS.has(key));
+      if (forbidden.length) {
+        errors.push({
+          path: `${path}[${index}]`,
+          ruleId: 'internal-field-keys-not-public',
+          message: `Field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
+          code: 'INTERNAL_FIELD_KEYS_NOT_PUBLIC',
+          details: { keys: forbidden },
+        });
+      }
+      if (Object.hasOwn(field, 'fields') && Object.hasOwn(field, 'selectorFields')) {
+        errors.push({
+          path: `${path}[${index}]`,
+          ruleId: 'relation-fields-selector-fields-conflict',
+          message: 'Do not mix fields and selectorFields on the same relation field object.',
+          code: 'RELATION_FIELDS_SELECTOR_FIELDS_CONFLICT',
+        });
+      }
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!block || typeof block !== 'object' || Array.isArray(block)) return;
+    visitFields(block.fields, `${path}.fields`);
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        if (!group || typeof group !== 'object' || Array.isArray(group)) return;
+        visitFields(group.fields, `${path}.fieldGroups[${groupIndex}].fields`);
+      });
+    }
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`));
+    }
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+  return errors;
+}
+
 export function runLocalizedWritePreflight({
   operation,
   body,
@@ -296,6 +359,7 @@ export function runLocalizedWritePreflight({
       });
     });
   collectLocalizedMainBlockSectionErrors(cliBody).forEach(pushError);
+  collectLocalizedPublicFieldObjectErrors(cliBody).forEach(pushError);
   audit.blockers.map(normalizeFinding).forEach(pushError);
 
   return {

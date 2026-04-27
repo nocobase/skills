@@ -203,6 +203,69 @@ test('runLocalizedWritePreflight maps missing collection metadata to stable help
   assert.equal(result.facts.requiredCollections.includes('users'), true);
 });
 
+test('runLocalizedWritePreflight accepts flat relation fieldType and rejects internal field keys', () => {
+  const metadata = {
+    collections: {
+      users: {
+        name: 'users',
+        fields: [{ name: 'roles', interface: 'm2m', target: 'roles' }],
+      },
+      roles: {
+        name: 'roles',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'name', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const valid = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fields: [
+            {
+              fieldPath: 'roles',
+              fieldType: 'subTable',
+              fields: ['title', 'name'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(valid.ok, true);
+
+  const invalid = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fields: [
+            {
+              fieldPath: 'roles',
+              fieldComponent: 'PopupSubTableFieldModel',
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.errors.some((item) => item.ruleId === 'internal-field-keys-not-public'), true);
+});
+
 test('runLocalizedWritePreflight preserves canonicalized cliBody and localized facts', () => {
   const result = runLocalizedWritePreflight({
     operation: 'add-blocks',

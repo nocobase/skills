@@ -602,20 +602,6 @@ async function fetchAnchorModel({ apiBase, token, parentId, subKey }) {
   return requestJson({ method: 'GET', url, token });
 }
 
-async function saveFlowModel({ apiBase, token, payload }) {
-  const params = new URLSearchParams({
-    return: 'model',
-    includeAsyncNode: 'true',
-  });
-  const url = `${apiBase}/api/flowModels:save?${params.toString()}`;
-  return requestJson({
-    method: 'POST',
-    url,
-    token,
-    body: payload,
-  });
-}
-
 async function fetchCollectionsMeta({ apiBase, token }) {
   const url = `${apiBase}/api/collections:listMeta?pageSize=2000`;
   return requestJson({ method: 'GET', url, token });
@@ -2259,7 +2245,7 @@ async function runBuild(flags) {
   if (remapHardStopIssues.length > 0 || auditHardStops.length > 0 || !auditResult.ok) {
     summary.status = 'failed';
     summary.guardBlocked = true;
-    summary.notes.push('guard 命中 blocker，本轮保留 page shell 与 artifact，但不执行 flowModels:save。');
+    summary.notes.push('guard 命中 blocker，本轮保留 page shell 与 artifact，但不执行 direct model write。');
     if (liveMetadataStep2.missingCollections.length > 0) {
       summary.notes.push(`live metadata 缺失 collection: ${liveMetadataStep2.missingCollections.join(', ')}`);
     }
@@ -2267,25 +2253,13 @@ async function runBuild(flags) {
     return summary;
   }
 
-  let saveResult = null;
-  let saveError = null;
-  try {
-    saveResult = await saveFlowModel({
-      apiBase,
-      token,
-      payload: canonicalizeResult.payload,
-    });
-    writeJson(path.join(outDir, 'save-result.json'), saveResult.raw);
-    summary.artifactPaths.saveResult = path.join(outDir, 'save-result.json');
-  } catch (error) {
-    saveError = {
-      message: error instanceof Error ? error.message : String(error),
-      status: Number.isInteger(error?.status) ? error.status : null,
-      response: error?.response ?? null,
-    };
-    writeJson(path.join(outDir, 'save-error.json'), saveError);
-    summary.artifactPaths.saveError = path.join(outDir, 'save-error.json');
-  }
+  const saveError = {
+    message: 'Direct model writes are unsupported in nocobase-ui-builder; use flowSurfaces write APIs.',
+    status: null,
+    response: null,
+  };
+  writeJson(path.join(outDir, 'save-error.json'), saveError);
+  summary.artifactPaths.saveError = path.join(outDir, 'save-error.json');
 
   let readbackResult = null;
   let readbackContractResult = {
@@ -2293,7 +2267,7 @@ async function runBuild(flags) {
     findings: [{
       severity: 'blocker',
       code: 'READBACK_SKIPPED',
-      message: 'save 失败，readback 已跳过',
+      message: 'direct model write is unsupported，readback 已跳过',
     }],
     summary: {
       topLevelUses: [],
@@ -2338,7 +2312,7 @@ async function runBuild(flags) {
     summary.notes.push('save/readback 已完成，但 build gate 尚未全部满足。');
   }
   if (saveError) {
-    summary.notes.push(`flowModels:save 失败: ${saveError.message}`);
+    summary.notes.push(`direct model write blocked: ${saveError.message}`);
   }
   if (!readbackContractResult.ok) {
     summary.notes.push('readback contract 未全部通过。');

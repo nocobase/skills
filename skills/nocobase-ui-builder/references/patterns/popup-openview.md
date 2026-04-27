@@ -38,7 +38,7 @@ builder DSL 边界：
 
 - 当前 build spec 支持 `popup.pageUse + blocks`
 - 当前不支持 `popup.tabs` / `popup.layout.tabs`
-- 如果目标真的是多 tab popup，要么直接按 flowModels tree 落库，要么明确说明“当前 builder DSL 还不能表达”
+- 如果目标真的是多 tab popup，明确说明“当前 builder DSL 还不能表达”，不要直接写 `flowModels` 作为兜底。
 
 ## 上下文来源
 
