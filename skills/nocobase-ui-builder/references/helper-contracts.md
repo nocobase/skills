@@ -42,7 +42,7 @@ Use this when you want a local validation pass for one localized `compose`, `add
 - when a localized write sets `changes.height` or block `settings.height` without an explicit `heightMode`, this helper adds `heightMode: "specifyValue"` to `result.cliBody`; explicit modes are preserved
 - tree `connectFields` checks run here too: `titleField` is display-only, selected values come from the tree key / `filterTargetKey`, incompatible target `filterPaths` fail with `tree-connect-filter-path-type-mismatch`, and live `targetId` / `targetBlockUid` writes require caller-supplied `liveTopology` plus collection metadata for the source tree and every target
 - localized `kanban` main blocks reject `fieldGroups`, `fieldsLayout`, and `recordActions`; localized `calendar` main blocks reject `fields`, `fieldGroups`, and `recordActions`
-- once this helper succeeds, keep the later write explicit; send only `result.cliBody` as the real low-level nb body if the canonicalizer changed anything
+- once this helper succeeds, keep the later write explicit; send only `result.cliBody` as the real low-level nb body
 
 ## `prepareApplyBlueprintRequest(...)`
 

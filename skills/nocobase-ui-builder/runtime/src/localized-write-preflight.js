@@ -17,7 +17,7 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'stepParams',
 ]);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
-const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel', 'TreeCollectionBlockModel']);
+const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
 const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'TableBlockModel',
   'ListBlockModel',
@@ -29,7 +29,6 @@ const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'MapBlockModel',
   'CommentsBlockModel',
   'TreeBlockModel',
-  'TreeCollectionBlockModel',
 ]);
 const PUBLIC_MAIN_BLOCK_SECTION_RULES = {
   calendar: [
@@ -101,6 +100,90 @@ function addSpecifiedHeightMode(settings) {
   };
 }
 
+function normalizeHeightSettingsInPopup(popup) {
+  if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
+    return popup;
+  }
+  let changed = false;
+  const blocks = popup.blocks.map((block) => {
+    const normalizedBlock = normalizeHeightSettingsInBlock(block);
+    if (normalizedBlock !== block) changed = true;
+    return normalizedBlock;
+  });
+  return changed ? { ...popup, blocks } : popup;
+}
+
+function normalizeHeightSettingsInPopupItem(item) {
+  if (!isObjectRecord(item) || !isObjectRecord(item.popup)) {
+    return item;
+  }
+  const popup = normalizeHeightSettingsInPopup(item.popup);
+  return popup === item.popup ? item : { ...item, popup };
+}
+
+function normalizeHeightSettingsInFieldGroup(group) {
+  if (!isObjectRecord(group) || !Array.isArray(group.fields)) {
+    return group;
+  }
+  let changed = false;
+  const fields = group.fields.map((field) => {
+    const normalizedField = normalizeHeightSettingsInPopupItem(field);
+    if (normalizedField !== field) changed = true;
+    return normalizedField;
+  });
+  return changed ? { ...group, fields } : group;
+}
+
+function normalizeHeightSettingsInBlock(block) {
+  if (!isObjectRecord(block)) {
+    return block;
+  }
+
+  let nextBlock = block;
+  const settings = addSpecifiedHeightMode(block.settings);
+  if (settings !== block.settings) {
+    nextBlock = { ...nextBlock, settings };
+  }
+
+  if (Array.isArray(block.blocks)) {
+    let changed = false;
+    const blocks = block.blocks.map((child) => {
+      const normalizedChild = normalizeHeightSettingsInBlock(child);
+      if (normalizedChild !== child) changed = true;
+      return normalizedChild;
+    });
+    if (changed) nextBlock = { ...nextBlock, blocks };
+  }
+
+  if (isObjectRecord(block.popup)) {
+    const popup = normalizeHeightSettingsInPopup(block.popup);
+    if (popup !== block.popup) nextBlock = { ...nextBlock, popup };
+  }
+
+  for (const slot of ['actions', 'recordActions', 'fields']) {
+    if (!Array.isArray(block[slot])) continue;
+    let changed = false;
+    const items = block[slot].map((item) => {
+      const normalizedItem = normalizeHeightSettingsInPopupItem(item);
+      if (normalizedItem !== item) changed = true;
+      return normalizedItem;
+    });
+    if (changed) nextBlock = { ...nextBlock, [slot]: items };
+  }
+
+  if (Array.isArray(block.fieldGroups)) {
+    let changed = false;
+    const fieldGroups = block.fieldGroups.map((group) => {
+      const normalizedGroup = normalizeHeightSettingsInFieldGroup(group);
+      if (normalizedGroup !== group) changed = true;
+      return normalizedGroup;
+    });
+    if (changed) nextBlock = { ...nextBlock, fieldGroups };
+  }
+
+  return nextBlock;
+}
+
 function normalizeHeightSettingsForWrite(operation, payload) {
   if (!isObjectRecord(payload)) return payload;
   if (operation === 'configure') {
@@ -110,20 +193,16 @@ function normalizeHeightSettingsForWrite(operation, payload) {
   }
 
   if (operation === 'add-block') {
-    if (!isObjectRecord(payload.settings)) return payload;
-    const settings = addSpecifiedHeightMode(payload.settings);
-    return settings === payload.settings ? payload : { ...payload, settings };
+    return normalizeHeightSettingsInBlock(payload);
   }
 
   if (operation === 'add-blocks' || operation === 'compose') {
     if (!Array.isArray(payload.blocks)) return payload;
     let changed = false;
     const blocks = payload.blocks.map((block) => {
-      if (!isObjectRecord(block) || !isObjectRecord(block.settings)) return block;
-      const settings = addSpecifiedHeightMode(block.settings);
-      if (settings === block.settings) return block;
-      changed = true;
-      return { ...block, settings };
+      const normalizedBlock = normalizeHeightSettingsInBlock(block);
+      if (normalizedBlock !== block) changed = true;
+      return normalizedBlock;
     });
     return changed ? { ...payload, blocks } : payload;
   }
@@ -365,11 +444,10 @@ function pushUniqueRef(refs, seen, { collectionName, path, reason }) {
 function collectLocalizedTreeConnectCollectionRefs(payload, operation, metadata) {
   const refs = [];
   const seen = new Set();
-  const siblingBlocksByKey = collectBlocksByKey(payload?.blocks);
 
   const push = (collectionName, path, reason) => pushUniqueRef(refs, seen, { collectionName, path, reason });
 
-  const visitBlock = (block, path) => {
+  const visitBlock = (block, path, siblingBlocksByKey) => {
     if (!block || typeof block !== 'object' || Array.isArray(block)) return;
     if (normalizeText(block.type) === 'tree' && Object.hasOwn(block.settings || {}, 'connectFields')) {
       push(getBlockCollectionName(block), path, 'tree-connect-source');
@@ -395,17 +473,20 @@ function collectLocalizedTreeConnectCollectionRefs(payload, operation, metadata)
       }
     }
     if (Array.isArray(block.blocks)) {
-      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`));
+      const childBlocksByKey = collectBlocksByKey(block.blocks);
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, childBlocksByKey));
     }
     if (Array.isArray(block.popup?.blocks)) {
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`));
+      const popupBlocksByKey = collectBlocksByKey(block.popup.blocks);
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, popupBlocksByKey));
     }
   };
 
   if (Array.isArray(payload?.blocks)) {
-    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+    const siblingBlocksByKey = collectBlocksByKey(payload.blocks);
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`, siblingBlocksByKey));
   } else {
-    visitBlock(payload, '$');
+    visitBlock(payload, '$', collectBlocksByKey([payload]));
   }
 
   if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'connectFields')) {
@@ -871,9 +952,8 @@ function validateTreeConnectFilterPathTypes({
 function collectLocalizedTreeConnectFieldsErrors(payload, operation, metadata) {
   const errors = [];
   const shouldAllowSameRunTarget = operation === 'compose';
-  const siblingBlocksByKey = collectBlocksByKey(payload?.blocks);
 
-  const visitBlock = (block, path) => {
+  const visitBlock = (block, path, siblingBlocksByKey) => {
     if (!block || typeof block !== 'object' || Array.isArray(block)) return;
 
     if (normalizeText(block.type) === 'tree' && Object.hasOwn(block.settings || {}, 'connectFields')) {
@@ -935,17 +1015,20 @@ function collectLocalizedTreeConnectFieldsErrors(payload, operation, metadata) {
     }
 
     if (Array.isArray(block.blocks)) {
-      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`));
+      const childBlocksByKey = collectBlocksByKey(block.blocks);
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, childBlocksByKey));
     }
     if (Array.isArray(block.popup?.blocks)) {
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`));
+      const popupBlocksByKey = collectBlocksByKey(block.popup.blocks);
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, popupBlocksByKey));
     }
   };
 
   if (Array.isArray(payload?.blocks)) {
-    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+    const siblingBlocksByKey = collectBlocksByKey(payload.blocks);
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`, siblingBlocksByKey));
   } else {
-    visitBlock(payload, '$');
+    visitBlock(payload, '$', collectBlocksByKey([payload]));
   }
 
   if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'connectFields')) {

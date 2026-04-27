@@ -4386,6 +4386,54 @@ test('auditPayload blocks duplicate tree connectFields targets in public payload
   assert.equal(result.blockers.some((item) => item.code === 'TREE_CONNECT_TARGET_DUPLICATE'), true);
 });
 
+test('auditPayload blocks configure raw filterManager and flowRegistry connectFields writes', () => {
+  const rawFilterManager = auditPayload({
+    payload: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        filterManager: [
+          {
+            filterId: 'users-tree-uid',
+            targetId: 'users-table-uid',
+            filterPaths: ['id'],
+          },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    rawFilterManager.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.changes.filterManager',
+    ),
+    true,
+  );
+
+  const flowRegistryConnectFields = auditPayload({
+    payload: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        flowRegistry: {
+          connectFields: {
+            targets: [{ targetId: 'users-table-uid' }],
+          },
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    flowRegistryConnectFields.blockers.some(
+      (item) => item.code === 'TREE_CONNECT_FLOWREGISTRY_NOT_PUBLIC' && item.path === '$.changes.flowRegistry.connectFields',
+    ),
+    true,
+  );
+});
+
 test('canonicalizePayload fills form association record select title fallback when target collection has no titleField', () => {
   const payload = {
     use: 'FormItemModel',

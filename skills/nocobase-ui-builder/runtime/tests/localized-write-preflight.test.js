@@ -47,6 +47,11 @@ function makeMetadata() {
     },
     liveTopology: {
       byUid: {
+        'collection-tree-uid': {
+          uid: 'collection-tree-uid',
+          use: 'TreeCollectionBlockModel',
+          collectionName: 'users',
+        },
         'users-tree-uid': {
           uid: 'users-tree-uid',
           use: 'TreeBlockModel',
@@ -55,6 +60,11 @@ function makeMetadata() {
         'users-table-uid': {
           uid: 'users-table-uid',
           use: 'TableBlockModel',
+          collectionName: 'users',
+        },
+        'collection-tree-target-uid': {
+          uid: 'collection-tree-target-uid',
+          use: 'TreeCollectionBlockModel',
           collectionName: 'users',
         },
         'departments-tree-uid': {
@@ -407,6 +417,87 @@ test('runLocalizedWritePreflight defaults block settings heightMode to specifyVa
   assert.equal(addBlocks.cliBody.blocks[1].settings.heightMode, 'fullHeight');
 });
 
+test('runLocalizedWritePreflight defaults nested popup block heightMode to specifyValue', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'hostChart',
+          type: 'chart',
+          settings: { height: 420 },
+          popup: {
+            blocks: [
+              {
+                key: 'directPopupChart',
+                type: 'chart',
+                settings: { height: 360 },
+              },
+            ],
+          },
+          actions: [
+            {
+              type: 'popup',
+              popup: {
+                blocks: [
+                  {
+                    key: 'actionPopupChart',
+                    type: 'chart',
+                    settings: { height: 320 },
+                  },
+                ],
+              },
+            },
+          ],
+          fields: [
+            {
+              fieldPath: 'nickname',
+              popup: {
+                blocks: [
+                  {
+                    key: 'fieldPopupChart',
+                    type: 'chart',
+                    settings: { height: 300 },
+                  },
+                ],
+              },
+            },
+          ],
+          fieldGroups: [
+            {
+              title: 'Grouped',
+              fields: [
+                {
+                  fieldPath: 'email',
+                  popup: {
+                    blocks: [
+                      {
+                        key: 'groupedFieldPopupChart',
+                        type: 'chart',
+                        settings: { height: 280, heightMode: 'fullHeight' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  const host = result.cliBody.blocks[0];
+  assert.equal(result.ok, true);
+  assert.equal(host.settings.heightMode, 'specifyValue');
+  assert.equal(host.popup.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(host.actions[0].popup.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(host.fields[0].popup.blocks[0].settings.heightMode, 'specifyValue');
+  assert.equal(host.fieldGroups[0].fields[0].popup.blocks[0].settings.heightMode, 'fullHeight');
+});
+
 test('runLocalizedWritePreflight accepts localized tree connectFields public shapes', () => {
   const addBlock = runLocalizedWritePreflight({
     operation: 'add-block',
@@ -561,6 +652,127 @@ test('runLocalizedWritePreflight rejects configure tree connectFields with misma
 
   assert.equal(result.ok, false);
   assertHasRule(result, 'tree-connect-filter-path-type-mismatch', '$.changes.connectFields.targets[0].filterPaths[0]');
+});
+
+test('runLocalizedWritePreflight aligns tree connectFields live uses with backend TreeBlockModel support', () => {
+  const collectionTreeSource = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'collection-tree-uid' },
+      changes: {
+        connectFields: {
+          targets: [{ targetId: 'users-table-uid' }],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(collectionTreeSource.ok, false);
+  assertHasRule(collectionTreeSource, 'tree-connect-source-not-tree', '$.target.uid');
+
+  const collectionTreeTarget = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        connectFields: {
+          targets: [{ targetId: 'collection-tree-target-uid' }],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(collectionTreeTarget.ok, false);
+  assertHasRule(collectionTreeTarget, 'tree-connect-target-unsupported', '$.changes.connectFields.targets[0].targetId');
+});
+
+test('runLocalizedWritePreflight resolves tree connectFields same-run targets within nested block scope', () => {
+  const validPopupSibling = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'host',
+          type: 'markdown',
+          popup: {
+            blocks: [
+              {
+                key: 'usersTree',
+                type: 'tree',
+                resource: {
+                  dataSourceKey: 'main',
+                  collectionName: 'users',
+                },
+                settings: {
+                  connectFields: {
+                    targets: [{ target: 'usersTable' }],
+                  },
+                },
+              },
+              {
+                key: 'usersTable',
+                type: 'table',
+                resource: {
+                  dataSourceKey: 'main',
+                  collectionName: 'users',
+                },
+                defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+              },
+            ],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(validPopupSibling.ok, true);
+
+  const rootTargetOutOfScope = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        },
+        {
+          key: 'host',
+          type: 'markdown',
+          popup: {
+            blocks: [
+              {
+                key: 'usersTree',
+                type: 'tree',
+                resource: {
+                  dataSourceKey: 'main',
+                  collectionName: 'users',
+                },
+                settings: {
+                  connectFields: {
+                    targets: [{ target: 'usersTable' }],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(rootTargetOutOfScope.ok, false);
+  assertHasRule(rootTargetOutOfScope, 'tree-connect-target-unknown', '$.blocks[1].popup.blocks[0].settings.connectFields.targets[0].target');
 });
 
 test('runLocalizedWritePreflight fails closed when localized tree live context or metadata is incomplete', () => {
@@ -768,6 +980,44 @@ test('runLocalizedWritePreflight rejects raw filterManager in public localized w
 
   assert.equal(result.ok, false);
   assertHasRule(result, 'raw-filter-manager-not-public', '$.filterManager');
+
+  const configureRawFilterManager = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        filterManager: [
+          {
+            filterId: 'users-tree-uid',
+            targetId: 'users-table-uid',
+            filterPaths: ['id'],
+          },
+        ],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(configureRawFilterManager.ok, false);
+  assertHasRule(configureRawFilterManager, 'raw-filter-manager-not-public', '$.changes.filterManager');
+
+  const configureFlowRegistryConnectFields = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        flowRegistry: {
+          connectFields: {
+            targets: [{ targetId: 'users-table-uid' }],
+          },
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(configureFlowRegistryConnectFields.ok, false);
+  assertHasRule(configureFlowRegistryConnectFields, 'tree-connect-flowregistry-not-public', '$.changes.flowRegistry.connectFields');
 });
 
 test('runLocalizedWritePreflight rejects unsupported calendar main-block sections in compose', () => {

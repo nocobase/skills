@@ -1702,6 +1702,28 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
 }
 
 function inspectPublicRawFilterManagerWrites(payload, mode, blockers, seen) {
+  const pushRawFilterManagerFinding = (pathValue) => {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'RAW_FILTER_MANAGER_NOT_PUBLIC',
+      message: 'Public flow-surfaces payloads must not write raw filterManager; use settings.connectFields for tree blocks or public filterForm targets.',
+      path: pathValue,
+      mode,
+      dedupeKey: `RAW_FILTER_MANAGER_NOT_PUBLIC:${pathValue}`,
+    }));
+  };
+
+  const pushFlowRegistryConnectFieldsFinding = (pathValue) => {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'TREE_CONNECT_FLOWREGISTRY_NOT_PUBLIC',
+      message: 'tree connectFields is not a flowRegistry key; use changes.connectFields or settings.connectFields.',
+      path: pathValue,
+      mode,
+      dedupeKey: `TREE_CONNECT_FLOWREGISTRY_NOT_PUBLIC:${pathValue}`,
+    }));
+  };
+
   const inspectTreeConnectFields = (node, pathValue) => {
     if (normalizeOptionalText(node.type) !== 'tree' || !isPlainObject(node.settings?.connectFields)) {
       return;
@@ -1745,14 +1767,7 @@ function inspectPublicRawFilterManagerWrites(payload, mode, blockers, seen) {
     inspectTreeConnectFields(node, pathValue);
 
     if (Object.hasOwn(node, 'filterManager')) {
-      pushFinding(blockers, seen, createFinding({
-        severity: 'blocker',
-        code: 'RAW_FILTER_MANAGER_NOT_PUBLIC',
-        message: 'Public flow-surfaces payloads must not write raw filterManager; use settings.connectFields for tree blocks or public filterForm targets.',
-        path: `${pathValue}.filterManager`,
-        mode,
-        dedupeKey: `RAW_FILTER_MANAGER_NOT_PUBLIC:${pathValue}`,
-      }));
+      pushRawFilterManagerFinding(`${pathValue}.filterManager`);
     }
 
     if (Array.isArray(node.tabs)) {
@@ -1773,12 +1788,21 @@ function inspectPublicRawFilterManagerWrites(payload, mode, blockers, seen) {
   if (!isPlainObject(payload) || payload.use === 'BlockGridModel') {
     return;
   }
+  if (isPlainObject(payload.changes)) {
+    if (Object.hasOwn(payload.changes, 'filterManager')) {
+      pushRawFilterManagerFinding('$.changes.filterManager');
+    }
+    if (Object.hasOwn(payload.changes?.flowRegistry || {}, 'connectFields')) {
+      pushFlowRegistryConnectFieldsFinding('$.changes.flowRegistry.connectFields');
+    }
+  }
   if (
     Array.isArray(payload.tabs)
     || Array.isArray(payload.blocks)
     || isPublicDataSurfaceBlockType(payload.type)
     || normalizeOptionalText(payload.type) === 'tree'
     || Object.hasOwn(payload, 'filterManager')
+    || isPlainObject(payload.changes)
   ) {
     visitPublicObject(payload, '$');
   }
