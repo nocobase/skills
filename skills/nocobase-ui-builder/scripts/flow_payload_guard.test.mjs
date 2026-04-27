@@ -4368,6 +4368,24 @@ test('auditPayload blocks filterManager entries whose filterPaths drift from run
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED'), true);
 });
 
+test('auditPayload blocks duplicate tree connectFields targets in public payloads', () => {
+  const result = auditPayload({
+    payload: {
+      type: 'tree',
+      collection: 'users',
+      settings: {
+        connectFields: {
+          targets: [{ target: 'usersTable' }, { target: 'usersTable', filterPaths: ['id'] }],
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'TREE_CONNECT_TARGET_DUPLICATE'), true);
+});
+
 test('canonicalizePayload fills form association record select title fallback when target collection has no titleField', () => {
   const payload = {
     use: 'FormItemModel',

@@ -5,7 +5,7 @@ import {
   extractRequiredMetadata,
 } from '../../scripts/flow_payload_guard.mjs';
 
-const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose']);
+const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'fieldComponent',
   'fieldModel',
@@ -15,6 +15,21 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'subModels',
   'props',
   'stepParams',
+]);
+const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
+const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel', 'TreeCollectionBlockModel']);
+const TREE_CONNECT_TARGET_LIVE_USES = new Set([
+  'TableBlockModel',
+  'ListBlockModel',
+  'GridCardBlockModel',
+  'CalendarBlockModel',
+  'KanbanBlockModel',
+  'DetailsBlockModel',
+  'ChartBlockModel',
+  'MapBlockModel',
+  'CommentsBlockModel',
+  'TreeBlockModel',
+  'TreeCollectionBlockModel',
 ]);
 const PUBLIC_MAIN_BLOCK_SECTION_RULES = {
   calendar: [
@@ -60,7 +75,7 @@ function normalizeText(value) {
 function normalizeOperation(value) {
   const normalized = normalizeText(value).toLowerCase();
   if (!LOCALIZED_WRITE_OPERATIONS.has(normalized)) {
-    throw new Error(`Unsupported localized write operation "${value}". Expected one of: add-block, add-blocks, compose.`);
+    throw new Error(`Unsupported localized write operation "${value}". Expected one of: add-block, add-blocks, compose, configure.`);
   }
   return normalized;
 }
@@ -80,6 +95,293 @@ function normalizeMetadata(value) {
     throw new Error('collectionMetadata must be one object when provided.');
   }
   return value;
+}
+
+function normalizeFilterTargetKeyValue(value) {
+  if (Array.isArray(value)) {
+    return normalizeText(value[0]);
+  }
+  return normalizeText(value);
+}
+
+function normalizeCollectionField(field) {
+  if (!field || typeof field !== 'object' || Array.isArray(field)) {
+    return null;
+  }
+  const options = field.options && typeof field.options === 'object' && !Array.isArray(field.options)
+    ? field.options
+    : {};
+  const name = normalizeText(field.name) || normalizeText(field.field) || normalizeText(field.key) || normalizeText(options.name);
+  if (!name) return null;
+  return {
+    name,
+    interface: normalizeText(field.interface) || normalizeText(options.interface),
+    type: normalizeText(field.type) || normalizeText(options.type),
+    target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
+    foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
+    targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+  };
+}
+
+function getCollectionMeta(metadata, collectionName) {
+  const normalizedCollectionName = normalizeText(collectionName);
+  if (!normalizedCollectionName) return null;
+  const rawCollections = metadata?.collections;
+  let rawCollection = null;
+  if (Array.isArray(rawCollections)) {
+    rawCollection = rawCollections.find((entry) => normalizeText(entry?.name || entry?.data?.name) === normalizedCollectionName) || null;
+  } else if (rawCollections && typeof rawCollections === 'object') {
+    rawCollection = rawCollections[normalizedCollectionName] || null;
+  }
+  const source = rawCollection?.data && typeof rawCollection.data === 'object' && !Array.isArray(rawCollection.data)
+    ? rawCollection.data
+    : rawCollection;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+  const options = source.options && typeof source.options === 'object' && !Array.isArray(source.options)
+    ? source.options
+    : {};
+  const values = source.values && typeof source.values === 'object' && !Array.isArray(source.values)
+    ? source.values
+    : {};
+  const fields = Array.isArray(source.fields) ? source.fields.map(normalizeCollectionField).filter(Boolean) : [];
+  return {
+    name: normalizedCollectionName,
+    titleField: normalizeText(source.titleField) || normalizeText(values.titleField) || normalizeText(options.titleField),
+    filterTargetKey:
+      normalizeFilterTargetKeyValue(source.filterTargetKey)
+      || normalizeFilterTargetKeyValue(values.filterTargetKey)
+      || normalizeFilterTargetKeyValue(options.filterTargetKey),
+    fields,
+    fieldsByName: new Map(fields.map((field) => [field.name, field])),
+  };
+}
+
+function getCollectionFilterTargetKey(collectionMeta) {
+  return normalizeFilterTargetKeyValue(collectionMeta?.filterTargetKey) || 'id';
+}
+
+function isAssociationField(field) {
+  return !!field && Boolean(
+    normalizeText(field.target)
+    || ['belongsto', 'hasmany', 'hasone', 'belongstomany'].includes(normalizeText(field.type).toLowerCase())
+    || ['m2o', 'o2m', 'oho', 'obo', 'm2m'].includes(normalizeText(field.interface).toLowerCase()),
+  );
+}
+
+function resolveFieldPathInMetadata(metadata, collectionName, fieldPath) {
+  const segments = normalizeText(fieldPath).split('.').filter(Boolean);
+  let currentCollectionName = normalizeText(collectionName);
+  let field = null;
+  if (!currentCollectionName || segments.length === 0) return null;
+  for (const [index, segment] of segments.entries()) {
+    const collectionMeta = getCollectionMeta(metadata, currentCollectionName);
+    if (!collectionMeta) return null;
+    field = collectionMeta.fieldsByName.get(segment) || null;
+    if (!field) return null;
+    if (index < segments.length - 1) {
+      if (!isAssociationField(field) || !normalizeText(field.target)) return null;
+      currentCollectionName = normalizeText(field.target);
+    }
+  }
+  return {
+    collectionName: normalizeText(field?.target || currentCollectionName),
+    field,
+  };
+}
+
+function resolveCollectionFilterTargetField(metadata, collectionName) {
+  const collectionMeta = getCollectionMeta(metadata, collectionName);
+  if (!collectionMeta) return null;
+  const key = getCollectionFilterTargetKey(collectionMeta);
+  const field = collectionMeta.fieldsByName.get(key) || null;
+  if (field) {
+    return { fieldPath: key, field };
+  }
+  if (key === 'id') {
+    return { fieldPath: key, field: { name: 'id', type: 'bigInt', interface: 'integer' } };
+  }
+  return null;
+}
+
+function treeConnectFilterPathExists(metadata, collectionName, fieldPath) {
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedFieldPath) return false;
+  const collectionMeta = getCollectionMeta(metadata, collectionName);
+  if (!collectionMeta) return true;
+  if (normalizedFieldPath === 'id' || normalizedFieldPath === getCollectionFilterTargetKey(collectionMeta)) {
+    return true;
+  }
+  return !!resolveFieldPathInMetadata(metadata, collectionName, normalizedFieldPath);
+}
+
+function normalizeTreeConnectValueKind(field) {
+  const type = normalizeText(field?.type).toLowerCase();
+  const fieldInterface = normalizeText(field?.interface).toLowerCase();
+  if (
+    ['bigint', 'biginteger', 'integer', 'int', 'number', 'float', 'double', 'decimal', 'real'].includes(type)
+    || ['bigint', 'integer', 'number', 'percent'].includes(fieldInterface)
+  ) {
+    return 'number';
+  }
+  if (
+    ['string', 'text', 'uid', 'uuid', 'varchar', 'char'].includes(type)
+    || ['input', 'textarea', 'select', 'radiogroup', 'url', 'email', 'phone'].includes(fieldInterface)
+  ) {
+    return 'string';
+  }
+  if (
+    ['date', 'datetime', 'time'].includes(type)
+    || ['date', 'datetime', 'dateonly', 'time'].includes(fieldInterface)
+  ) {
+    return 'date';
+  }
+  if (
+    ['boolean', 'bool'].includes(type)
+    || ['checkbox', 'boolean'].includes(fieldInterface)
+  ) {
+    return 'boolean';
+  }
+  return '';
+}
+
+function getLiveTopologyEntry(metadata, uid) {
+  const normalizedUid = normalizeText(uid);
+  if (!normalizedUid) return null;
+  const topology = metadata?.liveTopology || metadata?.liveFlowTopology || metadata?.liveTreeTopology;
+  if (!topology || typeof topology !== 'object' || Array.isArray(topology)) return null;
+  const rawByUid = topology.byUid && typeof topology.byUid === 'object' && !Array.isArray(topology.byUid)
+    ? topology.byUid
+    : topology;
+  const entry = rawByUid?.[normalizedUid];
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) return entry;
+  if (Array.isArray(topology.entries)) {
+    return topology.entries.find((item) => normalizeText(item?.uid) === normalizedUid) || null;
+  }
+  return null;
+}
+
+function getLiveEntryCollectionName(entry) {
+  return (
+    normalizeText(entry?.collectionName)
+    || normalizeText(entry?.resource?.collectionName)
+    || normalizeText(entry?.resourceInit?.collectionName)
+    || normalizeText(entry?.stepParams?.resourceSettings?.init?.collectionName)
+  );
+}
+
+function getLiveEntryTitleField(entry) {
+  return (
+    normalizeText(entry?.titleField)
+    || normalizeText(entry?.props?.fieldNames?.title)
+    || normalizeText(entry?.stepParams?.treeSettings?.titleField?.titleField)
+  );
+}
+
+function getLiveEntryUse(entry) {
+  return normalizeText(entry?.use) || normalizeText(entry?.type) || normalizeText(entry?.model);
+}
+
+function getBlockCollectionName(block) {
+  return (
+    normalizeText(block?.collection)
+    || normalizeText(block?.resource?.collectionName)
+    || normalizeText(block?.resource?.collection)
+    || normalizeText(block?.resourceInit?.collectionName)
+    || normalizeText(block?.resourceInit?.collection)
+  );
+}
+
+function getBlockTitleField(block) {
+  return normalizeText(block?.settings?.titleField) || normalizeText(block?.settings?.fieldNames?.title);
+}
+
+function collectBlocksByKey(blocks) {
+  const map = new Map();
+  if (!Array.isArray(blocks)) return map;
+  blocks.forEach((block) => {
+    const key = normalizeText(block?.key);
+    if (key) map.set(key, block);
+  });
+  return map;
+}
+
+function pushUniqueRef(refs, seen, { collectionName, path, reason }) {
+  const normalizedName = normalizeText(collectionName);
+  if (!normalizedName) return;
+  const dedupeKey = `${normalizedName}:${path}:${reason}`;
+  if (seen.has(dedupeKey)) return;
+  seen.add(dedupeKey);
+  refs.push({
+    collectionName: normalizedName,
+    path,
+    reason,
+  });
+}
+
+function collectLocalizedTreeConnectCollectionRefs(payload, operation, metadata) {
+  const refs = [];
+  const seen = new Set();
+  const siblingBlocksByKey = collectBlocksByKey(payload?.blocks);
+
+  const push = (collectionName, path, reason) => pushUniqueRef(refs, seen, { collectionName, path, reason });
+
+  const visitBlock = (block, path) => {
+    if (!block || typeof block !== 'object' || Array.isArray(block)) return;
+    if (normalizeText(block.type) === 'tree' && Object.hasOwn(block.settings || {}, 'connectFields')) {
+      push(getBlockCollectionName(block), path, 'tree-connect-source');
+      if (Array.isArray(block.settings.connectFields?.targets)) {
+        block.settings.connectFields.targets.forEach((target, targetIndex) => {
+          if (!target || typeof target !== 'object' || Array.isArray(target)) return;
+          const sameRunTarget = normalizeText(target.target);
+          const liveTarget = normalizeText(target.targetId) || normalizeText(target.targetBlockUid);
+          if (sameRunTarget) {
+            push(
+              getBlockCollectionName(siblingBlocksByKey.get(sameRunTarget)),
+              `${path}.settings.connectFields.targets[${targetIndex}].target`,
+              'tree-connect-target',
+            );
+          } else if (liveTarget) {
+            push(
+              getLiveEntryCollectionName(getLiveTopologyEntry(metadata, liveTarget)),
+              `${path}.settings.connectFields.targets[${targetIndex}].${normalizeText(target.targetId) ? 'targetId' : 'targetBlockUid'}`,
+              'tree-connect-target',
+            );
+          }
+        });
+      }
+    }
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`));
+    }
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'connectFields')) {
+    const treeEntry = getLiveTopologyEntry(metadata, normalizeText(payload?.target?.uid));
+    push(getLiveEntryCollectionName(treeEntry), '$.target.uid', 'tree-connect-source');
+    if (Array.isArray(payload.changes.connectFields?.targets)) {
+      payload.changes.connectFields.targets.forEach((target, targetIndex) => {
+        if (!target || typeof target !== 'object' || Array.isArray(target)) return;
+        const liveTarget = normalizeText(target.targetId) || normalizeText(target.targetBlockUid);
+        if (!liveTarget) return;
+        push(
+          getLiveEntryCollectionName(getLiveTopologyEntry(metadata, liveTarget)),
+          `$.changes.connectFields.targets[${targetIndex}].${normalizeText(target.targetId) ? 'targetId' : 'targetBlockUid'}`,
+          'tree-connect-target',
+        );
+      });
+    }
+  }
+
+  return refs;
 }
 
 function toKebabCase(value) {
@@ -302,6 +604,346 @@ function collectLocalizedPublicFieldObjectErrors(payload) {
   return errors;
 }
 
+function validateTreeConnectFieldsValue(connectFields, connectFieldsPath, errors, {
+  shouldAllowSameRunTarget,
+  missingTargetMessage,
+  metadata,
+  treeCollection,
+  titleField,
+  sourceEntry,
+  sourcePath,
+  resolveTargetContext,
+}) {
+  if (!connectFields || typeof connectFields !== 'object' || Array.isArray(connectFields)) {
+    errors.push({
+      path: connectFieldsPath,
+      ruleId: 'tree-connect-fields-invalid',
+      message: 'tree settings.connectFields must be one object.',
+      code: 'TREE_CONNECT_FIELDS_INVALID',
+    });
+    return;
+  }
+  if (!Array.isArray(connectFields.targets)) {
+    errors.push({
+      path: `${connectFieldsPath}.targets`,
+      ruleId: 'tree-connect-targets-invalid',
+      message: 'tree settings.connectFields.targets must be an array.',
+      code: 'TREE_CONNECT_TARGETS_INVALID',
+    });
+    return;
+  }
+  if (sourceEntry && !TREE_LIVE_BLOCK_USES.has(getLiveEntryUse(sourceEntry))) {
+    errors.push({
+      path: sourcePath || connectFieldsPath,
+      ruleId: 'tree-connect-source-not-tree',
+      message: 'localized configure changes.connectFields target must be an existing tree block.',
+      code: 'TREE_CONNECT_SOURCE_NOT_TREE',
+    });
+    return;
+  }
+  if (!treeCollection) {
+    errors.push({
+      path: sourcePath || connectFieldsPath,
+      ruleId: 'tree-connect-source-unknown',
+      message: 'tree connectFields validation requires source tree live topology with collectionName.',
+      code: 'TREE_CONNECT_SOURCE_UNKNOWN',
+    });
+    return;
+  }
+  if (!getCollectionMeta(metadata, treeCollection)) {
+    errors.push({
+      path: sourcePath || connectFieldsPath,
+      ruleId: 'missing-collection-metadata',
+      message: `collectionMetadata is required for collection "${treeCollection}" before this localized tree connectFields write.`,
+      code: 'REQUIRED_COLLECTION_METADATA_MISSING',
+      details: {
+        collectionName: treeCollection,
+        path: sourcePath || connectFieldsPath,
+        reason: 'tree-connect-source',
+      },
+    });
+  }
+
+  const seenTargetKeys = new Set();
+  connectFields.targets.forEach((target, index) => {
+    const targetPath = `${connectFieldsPath}.targets[${index}]`;
+    if (!target || typeof target !== 'object' || Array.isArray(target)) {
+      errors.push({
+        path: targetPath,
+        ruleId: 'tree-connect-target-invalid',
+        message: 'Each tree connectFields target must be one object.',
+        code: 'TREE_CONNECT_TARGET_INVALID',
+      });
+      return;
+    }
+
+    const liveTarget = normalizeText(target.targetId) || normalizeText(target.targetBlockUid);
+    const sameRunTarget = normalizeText(target.target);
+    if (!liveTarget && !(shouldAllowSameRunTarget && sameRunTarget)) {
+      errors.push({
+        path: targetPath,
+        ruleId: 'tree-connect-target-required',
+        message: missingTargetMessage,
+        code: 'TREE_CONNECT_TARGET_REQUIRED',
+      });
+      return;
+    }
+    const targetKey = liveTarget ? `live:${liveTarget}` : `same-run:${sameRunTarget}`;
+    if (seenTargetKeys.has(targetKey)) {
+      errors.push({
+        path: targetPath,
+        ruleId: 'tree-connect-target-duplicate',
+        message: `tree connectFields target "${liveTarget || sameRunTarget}" is duplicated.`,
+        code: 'TREE_CONNECT_TARGET_DUPLICATE',
+      });
+      return;
+    }
+    seenTargetKeys.add(targetKey);
+
+    const hasFilterPaths = Object.hasOwn(target, 'filterPaths');
+    const filterPaths = hasFilterPaths
+      ? Array.isArray(target.filterPaths)
+        ? target.filterPaths.map((fieldPath) => normalizeText(fieldPath)).filter(Boolean)
+        : []
+      : [];
+    if (hasFilterPaths && (!Array.isArray(target.filterPaths) || filterPaths.length !== target.filterPaths.length || filterPaths.length === 0)) {
+      errors.push({
+        path: `${targetPath}.filterPaths`,
+        ruleId: 'tree-connect-filter-paths-invalid',
+        message: 'tree connectFields filterPaths must be a non-empty string array when provided.',
+        code: 'TREE_CONNECT_FILTER_PATHS_INVALID',
+      });
+      return;
+    }
+
+    const targetContext = typeof resolveTargetContext === 'function' ? resolveTargetContext(target, index) : null;
+    const targetCollection = targetContext?.collectionName;
+    if (targetContext?.error) {
+      errors.push({
+        path: targetContext.path || targetPath,
+        ruleId: targetContext.ruleId,
+        message: targetContext.message,
+        code: targetContext.code,
+      });
+      return;
+    }
+    if (!targetCollection) {
+      errors.push({
+        path: targetPath,
+        ruleId: 'tree-connect-target-unknown',
+        message: 'tree connectFields target must resolve to a filterable data block with collectionName.',
+        code: 'TREE_CONNECT_TARGET_UNKNOWN',
+      });
+      return;
+    }
+    if (!getCollectionMeta(metadata, targetCollection)) {
+      errors.push({
+        path: targetPath,
+        ruleId: 'missing-collection-metadata',
+        message: `collectionMetadata is required for collection "${targetCollection}" before this localized tree connectFields write.`,
+        code: 'REQUIRED_COLLECTION_METADATA_MISSING',
+        details: {
+          collectionName: targetCollection,
+          path: targetPath,
+          reason: 'tree-connect-target',
+        },
+      });
+      return;
+    }
+    if (
+      treeCollection !== targetCollection
+      && filterPaths.length === 0
+    ) {
+      errors.push({
+        path: `${targetPath}.filterPaths`,
+        ruleId: 'tree-connect-filter-paths-required',
+        message: 'tree connectFields filterPaths are required when the target collection differs from the tree collection.',
+        code: 'TREE_CONNECT_FILTER_PATHS_REQUIRED',
+      });
+      return;
+    }
+
+    if (filterPaths.length > 0) {
+      validateTreeConnectFilterPathTypes({
+        metadata,
+        treeCollection,
+        targetCollection,
+        titleField,
+        filterPaths,
+        targetPath,
+        errors,
+      });
+    }
+  });
+}
+
+function validateTreeConnectFilterPathTypes({
+  metadata,
+  treeCollection,
+  targetCollection,
+  titleField,
+  filterPaths,
+  targetPath,
+  errors,
+}) {
+  if (!metadata || !treeCollection || !targetCollection) return;
+  const source = resolveCollectionFilterTargetField(metadata, treeCollection);
+  if (!source?.field) return;
+  const sourceKind = normalizeTreeConnectValueKind(source.field);
+  if (!sourceKind) return;
+
+  filterPaths.forEach((fieldPath, fieldPathIndex) => {
+    if (!treeConnectFilterPathExists(metadata, targetCollection, fieldPath)) {
+      errors.push({
+        path: `${targetPath}.filterPaths[${fieldPathIndex}]`,
+        ruleId: 'tree-connect-filter-path-unknown',
+        message: `tree connectFields filterPaths entry "${fieldPath}" is unsupported for target collection ${targetCollection}.`,
+        code: 'TREE_CONNECT_FILTER_PATH_UNKNOWN',
+      });
+      return;
+    }
+    const target = resolveFieldPathInMetadata(metadata, targetCollection, fieldPath);
+    if (!target?.field) return;
+    const targetKind = normalizeTreeConnectValueKind(target.field);
+    if (!targetKind || targetKind === sourceKind) return;
+    errors.push({
+      path: `${targetPath}.filterPaths[${fieldPathIndex}]`,
+      ruleId: 'tree-connect-filter-path-type-mismatch',
+      message: `tree connectFields target field "${fieldPath}" is not type-compatible with the tree selected key "${source.fieldPath}". Tree titleField "${titleField || '(default)'}" only controls display; the selected filter value comes from "${source.fieldPath}". Omit filterPaths/use "${source.fieldPath}" for same-collection id filtering, or use a normal field filter/separate type collection for real type-value filtering.`,
+      code: 'TREE_CONNECT_FILTER_PATH_TYPE_MISMATCH',
+      details: {
+        treeCollection,
+        targetCollection,
+        treeKeyField: source.fieldPath,
+        titleField: titleField || null,
+        filterPath: fieldPath,
+        sourceKind,
+        targetKind,
+      },
+    });
+  });
+}
+
+function collectLocalizedTreeConnectFieldsErrors(payload, operation, metadata) {
+  const errors = [];
+  const shouldAllowSameRunTarget = operation === 'compose';
+  const siblingBlocksByKey = collectBlocksByKey(payload?.blocks);
+
+  const visitBlock = (block, path) => {
+    if (!block || typeof block !== 'object' || Array.isArray(block)) return;
+
+    if (normalizeText(block.type) === 'tree' && Object.hasOwn(block.settings || {}, 'connectFields')) {
+      validateTreeConnectFieldsValue(block.settings.connectFields, `${path}.settings.connectFields`, errors, {
+        shouldAllowSameRunTarget,
+        missingTargetMessage: shouldAllowSameRunTarget
+          ? 'tree connectFields targets must include target, targetId, or targetBlockUid.'
+          : 'localized add-block tree connectFields targets must include targetId or targetBlockUid.',
+        metadata,
+        treeCollection: getBlockCollectionName(block),
+        titleField: getBlockTitleField(block),
+        resolveTargetContext(target, targetIndex) {
+          const sameRunTarget = normalizeText(target.target);
+          if (sameRunTarget) {
+            const sameRunBlock = siblingBlocksByKey.get(sameRunTarget);
+            if (!sameRunBlock) {
+              return {
+                error: true,
+                path: `${path}.settings.connectFields.targets[${targetIndex}].target`,
+                ruleId: 'tree-connect-target-unknown',
+                message: `tree connectFields target "${sameRunTarget}" does not resolve to a same-run block key.`,
+                code: 'TREE_CONNECT_TARGET_UNKNOWN',
+              };
+            }
+            if (!TREE_CONNECT_TARGET_BLOCK_TYPES.has(normalizeText(sameRunBlock.type))) {
+              return {
+                error: true,
+                path: `${path}.settings.connectFields.targets[${targetIndex}].target`,
+                ruleId: 'tree-connect-target-unsupported',
+                message: `tree connectFields target "${sameRunTarget}" must be a filterable data block.`,
+                code: 'TREE_CONNECT_TARGET_UNSUPPORTED',
+              };
+            }
+            return { collectionName: getBlockCollectionName(sameRunBlock) };
+          }
+          const liveTarget = normalizeText(target.targetId) || normalizeText(target.targetBlockUid);
+          const targetEntry = getLiveTopologyEntry(metadata, liveTarget);
+          if (!targetEntry) {
+            return {
+              error: true,
+              path: `${path}.settings.connectFields.targets[${targetIndex}].${normalizeText(target.targetId) ? 'targetId' : 'targetBlockUid'}`,
+              ruleId: 'tree-connect-target-unknown',
+              message: `tree connectFields target "${liveTarget}" does not resolve to a live block uid.`,
+              code: 'TREE_CONNECT_TARGET_UNKNOWN',
+            };
+          }
+          if (!TREE_CONNECT_TARGET_LIVE_USES.has(getLiveEntryUse(targetEntry))) {
+            return {
+              error: true,
+              path: `${path}.settings.connectFields.targets[${targetIndex}].${normalizeText(target.targetId) ? 'targetId' : 'targetBlockUid'}`,
+              ruleId: 'tree-connect-target-unsupported',
+              message: `tree connectFields target "${liveTarget}" must be a filterable data block.`,
+              code: 'TREE_CONNECT_TARGET_UNSUPPORTED',
+            };
+          }
+          return { collectionName: getLiveEntryCollectionName(targetEntry) };
+        },
+      });
+    }
+
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`));
+    }
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'connectFields')) {
+    const treeUid = normalizeText(payload?.target?.uid);
+    const treeEntry = getLiveTopologyEntry(metadata, treeUid);
+    validateTreeConnectFieldsValue(payload.changes.connectFields, '$.changes.connectFields', errors, {
+      shouldAllowSameRunTarget: false,
+      missingTargetMessage: 'localized configure tree connectFields targets must include targetId or targetBlockUid.',
+      metadata,
+      treeCollection: getLiveEntryCollectionName(treeEntry),
+      titleField: getLiveEntryTitleField(treeEntry),
+      sourceEntry: treeEntry,
+      sourcePath: '$.target.uid',
+      resolveTargetContext(target, targetIndex) {
+        const liveTarget = normalizeText(target.targetId) || normalizeText(target.targetBlockUid);
+        const targetEntry = getLiveTopologyEntry(metadata, liveTarget);
+        const targetKey = normalizeText(target.targetId) ? 'targetId' : 'targetBlockUid';
+        if (!targetEntry) {
+          return {
+            error: true,
+            path: `$.changes.connectFields.targets[${targetIndex}].${targetKey}`,
+            ruleId: 'tree-connect-target-unknown',
+            message: `tree connectFields target "${liveTarget}" does not resolve to a live block uid.`,
+            code: 'TREE_CONNECT_TARGET_UNKNOWN',
+          };
+        }
+        if (!TREE_CONNECT_TARGET_LIVE_USES.has(getLiveEntryUse(targetEntry))) {
+          return {
+            error: true,
+            path: `$.changes.connectFields.targets[${targetIndex}].${targetKey}`,
+            ruleId: 'tree-connect-target-unsupported',
+            message: `tree connectFields target "${liveTarget}" must be a filterable data block.`,
+            code: 'TREE_CONNECT_TARGET_UNSUPPORTED',
+          };
+        }
+        return { collectionName: getLiveEntryCollectionName(targetEntry) };
+      },
+    });
+  }
+  return errors;
+}
+
 export function runLocalizedWritePreflight({
   operation,
   body,
@@ -319,9 +961,10 @@ export function runLocalizedWritePreflight({
     metadata: normalizedMetadata,
   });
   const localizedCollectionRefs = collectLocalizedCollectionRefs(normalizedBody);
+  const treeConnectCollectionRefs = collectLocalizedTreeConnectCollectionRefs(normalizedBody, normalizedOperation, normalizedMetadata);
   const requiredMetadata = {
     ...extractedMetadata,
-    collectionRefs: [...(extractedMetadata.collectionRefs || []), ...localizedCollectionRefs],
+    collectionRefs: [...(extractedMetadata.collectionRefs || []), ...localizedCollectionRefs, ...treeConnectCollectionRefs],
   };
 
   const canonicalize = canonicalizePayload({
@@ -360,6 +1003,7 @@ export function runLocalizedWritePreflight({
     });
   collectLocalizedMainBlockSectionErrors(cliBody).forEach(pushError);
   collectLocalizedPublicFieldObjectErrors(cliBody).forEach(pushError);
+  collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   audit.blockers.map(normalizeFinding).forEach(pushError);
 
   return {

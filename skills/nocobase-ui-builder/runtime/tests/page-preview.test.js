@@ -121,6 +121,19 @@ const zeroCandidateCollectionMetadata = {
     },
   },
 };
+const intelligenceTreeCollectionMetadata = {
+  collections: {
+    intelligenceEntries: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'bigInt', interface: 'integer' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'intelType', type: 'string', interface: 'select' },
+      ],
+    },
+  },
+};
 const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email'];
 const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
@@ -1991,6 +2004,339 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
   assert.equal(actionDefaultFilterExactTwoCandidateCoverage.ok, true);
+});
+
+test('prepareApplyBlueprintRequest accepts and previews tree connectFields targets', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users tree connect' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTree',
+              type: 'tree',
+              title: 'Users tree',
+              collection: 'users',
+              settings: {
+                title: 'Users tree',
+                connectFields: {
+                  targets: [{ target: 'usersTable' }],
+                },
+              },
+            },
+            {
+              key: 'usersTable',
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: ['filter'],
+            },
+          ],
+          layout: {
+            rows: [[{ key: 'usersTree', span: 8 }, { key: 'usersTable', span: 16 }]],
+          },
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.connectFields, {
+    targets: [{ target: 'usersTable' }],
+  });
+  assert.match(result.ascii, /Connects:\s*usersTable/i);
+
+  const mapAndComments = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users tree connect to map and comments' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTree',
+              type: 'tree',
+              title: 'Users tree',
+              collection: 'users',
+              settings: {
+                connectFields: {
+                  targets: [{ target: 'usersMap' }, { target: 'usersComments' }],
+                },
+              },
+            },
+            {
+              key: 'usersMap',
+              type: 'map',
+              title: 'Users map',
+              collection: 'users',
+            },
+            {
+              key: 'usersComments',
+              type: 'comments',
+              title: 'Users comments',
+              collection: 'users',
+            },
+          ],
+          layout: {
+            rows: [[{ key: 'usersTree', span: 8 }, { key: 'usersMap', span: 8 }, { key: 'usersComments', span: 8 }]],
+          },
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(mapAndComments.ok, true);
+  assert.match(mapAndComments.ascii, /Connects:\s*usersMap,\s*usersComments/i);
+
+  const duplicateTarget = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users tree duplicate connect' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTree',
+              type: 'tree',
+              collection: 'users',
+              settings: {
+                connectFields: {
+                  targets: [{ target: 'usersTable' }, { target: 'usersTable', filterPaths: ['id'] }],
+                },
+              },
+            },
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(duplicateTarget.ok, false);
+  assert.equal(
+    duplicateTarget.errors.some((issue) => issue.ruleId === 'tree-connect-target-duplicate'),
+    true,
+  );
+});
+
+test('prepareApplyBlueprintRequest validates tree connectFields target metadata', () => {
+  const missingFilterPaths = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Department tree connect' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'departmentsTree',
+              type: 'tree',
+              title: 'Departments tree',
+              collection: 'departments',
+              settings: {
+                connectFields: {
+                  targets: [{ target: 'usersTable' }],
+                },
+              },
+            },
+            {
+              key: 'usersTable',
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname', 'department.title'],
+              actions: ['filter'],
+            },
+          ],
+          layout: {
+            rows: [[{ key: 'departmentsTree', span: 8 }, { key: 'usersTable', span: 16 }]],
+          },
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(missingFilterPaths.ok, false);
+  assert.ok(missingFilterPaths.errors.some((issue) => issue.ruleId === 'tree-connect-filter-paths-required'));
+
+  const withFilterPaths = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Department tree connect' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'departmentsTree',
+              type: 'tree',
+              title: 'Departments tree',
+              collection: 'departments',
+              settings: {
+                connectFields: {
+                  targets: [{ target: 'usersTable', filterPaths: ['department.id'] }],
+                },
+              },
+            },
+            {
+              key: 'usersTable',
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname', 'department.title'],
+              actions: ['filter'],
+            },
+          ],
+          layout: {
+            rows: [[{ key: 'departmentsTree', span: 8 }, { key: 'usersTable', span: 16 }]],
+          },
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(withFilterPaths.ok, true);
+  assert.match(withFilterPaths.ascii, /Connects:\s*usersTable via department\.id/i);
+});
+
+test('prepareApplyBlueprintRequest rejects tree connectFields whose filterPaths type does not match the tree key', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Intel entries' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'intelTypeTree',
+              type: 'tree',
+              title: 'By type',
+              collection: 'intelligenceEntries',
+              settings: {
+                titleField: 'intelType',
+                connectFields: {
+                  targets: [{ target: 'entriesTable', filterPaths: ['intelType'] }],
+                },
+              },
+            },
+            {
+              key: 'entriesTable',
+              type: 'table',
+              title: 'Entries',
+              collection: 'intelligenceEntries',
+              fields: ['title', 'intelType'],
+              actions: ['filter'],
+            },
+          ],
+          layout: {
+            rows: [[{ key: 'intelTypeTree', span: 8 }, { key: 'entriesTable', span: 16 }]],
+          },
+        },
+      ],
+    },
+    { collectionMetadata: intelligenceTreeCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'tree-connect-filter-path-type-mismatch'), true);
+  assert.equal(
+    result.errors.some((issue) => /titleField/i.test(issue.message) && /intelType/.test(issue.message) && /id/.test(issue.message)),
+    true,
+  );
+});
+
+test('prepareApplyBlueprintRequest validates tree connectFields filterTargetKey metadata shapes', () => {
+  const metadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: ['nickname'],
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'nickname', type: 'string', interface: 'input' },
+        ],
+      },
+      departments: {
+        titleField: 'title',
+        options: {
+          filterTargetKey: ['slug'],
+        },
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'title', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree filter target key metadata' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'departmentsTree',
+              type: 'tree',
+              title: 'Departments tree',
+              collection: 'departments',
+              settings: {
+                connectFields: {
+                  targets: [{ target: 'departmentsTable', filterPaths: ['slug'] }],
+                },
+              },
+            },
+            {
+              key: 'departmentsTable',
+              type: 'table',
+              title: 'Departments table',
+              collection: 'departments',
+              fields: ['title'],
+              actions: ['filter'],
+            },
+          ],
+          layout: {
+            rows: [[{ key: 'departmentsTree', span: 8 }, { key: 'departmentsTable', span: 16 }]],
+          },
+        },
+      ],
+    },
+    { collectionMetadata: metadata },
+  );
+
+  assert.equal(result.ok, true);
 });
 
 test('prepareApplyBlueprintRequest accepts collection defaults and summarizes them', () => {
