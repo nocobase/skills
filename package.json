@@ -1,0 +1,19 @@
+{
+  "name": "@nocobase/skills",
+  "version": "1.0.0",
+  "description": "> [!WARNING] > NocoBase Skills is still in draft status. The content is for reference and may change at any time.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocobase/skills.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nocobase/skills/issues"
+  },
+  "homepage": "https://github.com/nocobase/skills#readme"
+}

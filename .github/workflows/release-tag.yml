@@ -1,0 +1,191 @@
+name: Release Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release. Leave empty to bump package.json automatically. Accepts 1.2.3 or v1.2.3.
+        required: false
+        type: string
+      bump:
+        description: Version bump to use when version is empty.
+        required: false
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      ref:
+        description: Branch to release from. Must be a branch because this workflow commits package.json.
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+
+      - name: Resolve and validate version
+        id: version
+        shell: bash
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          BUMP_INPUT: ${{ inputs.bump }}
+          RELEASE_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --heads origin "$RELEASE_REF" >/dev/null 2>&1; then
+            echo "Release ref '$RELEASE_REF' is not a branch. Use a branch name because this workflow commits package.json." >&2
+            exit 1
+          fi
+
+          current_version="$(node -p "require('./package.json').version")"
+
+          VERSION_INPUT="$VERSION_INPUT" BUMP_INPUT="$BUMP_INPUT" CURRENT_VERSION="$current_version" node <<'NODE' > /tmp/release-version.env
+          const input = (process.env.VERSION_INPUT || '').trim();
+          const bump = process.env.BUMP_INPUT || 'patch';
+          const current = process.env.CURRENT_VERSION;
+          const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
+          function parse(version, label) {
+            const match = version.match(semver);
+            if (!match) {
+              console.error(`Invalid semver ${label}: ${version}`);
+              process.exit(1);
+            }
+            return {
+              major: Number(match[1]),
+              minor: Number(match[2]),
+              patch: Number(match[3]),
+              prerelease: match[4] ? match[4].split('.') : [],
+              build: match[5] || '',
+            };
+          }
+
+          function comparePrerelease(left, right) {
+            if (!left.length && !right.length) return 0;
+            if (!left.length) return 1;
+            if (!right.length) return -1;
+
+            const length = Math.max(left.length, right.length);
+            for (let index = 0; index < length; index += 1) {
+              const a = left[index];
+              const b = right[index];
+              if (a === undefined) return -1;
+              if (b === undefined) return 1;
+              if (a === b) continue;
+
+              const aNumeric = /^(0|[1-9]\d*)$/.test(a);
+              const bNumeric = /^(0|[1-9]\d*)$/.test(b);
+              if (aNumeric && bNumeric) return Number(a) > Number(b) ? 1 : -1;
+              if (aNumeric) return -1;
+              if (bNumeric) return 1;
+              return a > b ? 1 : -1;
+            }
+
+            return 0;
+          }
+
+          function compareVersions(left, right) {
+            for (const key of ['major', 'minor', 'patch']) {
+              if (left[key] > right[key]) return 1;
+              if (left[key] < right[key]) return -1;
+            }
+            return comparePrerelease(left.prerelease, right.prerelease);
+          }
+
+          const currentParsed = parse(current, 'package.json version');
+
+          let next = input.replace(/^v/, '');
+          if (!next) {
+            if (!['patch', 'minor', 'major'].includes(bump)) {
+              console.error(`Invalid bump input: ${bump}`);
+              process.exit(1);
+            }
+
+            if (currentParsed.prerelease.length || currentParsed.build) {
+              console.error('Automatic bump only supports plain X.Y.Z package versions. Provide an explicit version for prerelease or build metadata releases.');
+              process.exit(1);
+            }
+
+            const parts = [currentParsed.major, currentParsed.minor, currentParsed.patch];
+            if (bump === 'major') {
+              parts[0] += 1;
+              parts[1] = 0;
+              parts[2] = 0;
+            } else if (bump === 'minor') {
+              parts[1] += 1;
+              parts[2] = 0;
+            } else {
+              parts[2] += 1;
+            }
+
+            next = parts.join('.');
+          }
+
+          const nextParsed = parse(next, 'release version');
+          if (compareVersions(nextParsed, currentParsed) <= 0) {
+            console.error(`Release version '${next}' must be greater than package.json version '${current}'.`);
+            process.exit(1);
+          }
+
+          console.log(`version=${next}`);
+          console.log(`tag=v${next}`);
+          NODE
+
+          source /tmp/release-version.env
+
+          tag="v$version"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag '$tag' already exists." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Update package version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          VERSION="$RELEASE_VERSION" node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'package.json';
+          const packageJson = JSON.parse(fs.readFileSync(path, 'utf8'));
+          packageJson.version = process.env.VERSION;
+          fs.writeFileSync(path, `${JSON.stringify(packageJson, null, 2)}\n`);
+          NODE
+
+      - name: Create and push tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          tag="$RELEASE_TAG"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json
+          git commit -m "chore: release $tag"
+          git push origin "HEAD:$RELEASE_REF"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
