@@ -4434,6 +4434,101 @@ test('auditPayload blocks configure raw filterManager and flowRegistry connectFi
   );
 });
 
+test('auditPayload blocks raw filterManager and tree connectFields inside nested popup blocks', () => {
+  const result = auditPayload({
+    payload: {
+      blocks: [
+        {
+          type: 'details',
+          actions: [
+            {
+              popup: {
+                blocks: [
+                  {
+                    type: 'markdown',
+                    filterManager: [],
+                  },
+                ],
+              },
+            },
+          ],
+          recordActions: [
+            {
+              popup: {
+                blocks: [
+                  {
+                    type: 'markdown',
+                    filterManager: [],
+                  },
+                ],
+              },
+            },
+          ],
+          fields: [
+            {
+              popup: {
+                blocks: [
+                  {
+                    type: 'tree',
+                    settings: {
+                      connectFields: {
+                        targets: [{ target: 'usersTable' }, { target: 'usersTable' }],
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          fieldGroups: [
+            {
+              fields: [
+                {
+                  popup: {
+                    blocks: [
+                      {
+                        type: 'markdown',
+                        filterManager: [],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.blocks[0].actions[0].popup.blocks[0].filterManager',
+    ),
+    true,
+  );
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.blocks[0].recordActions[0].popup.blocks[0].filterManager',
+    ),
+    true,
+  );
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'TREE_CONNECT_TARGET_DUPLICATE' && item.path === '$.blocks[0].fields[0].popup.blocks[0].settings.connectFields.targets[1]',
+    ),
+    true,
+  );
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.blocks[0].fieldGroups[0].fields[0].popup.blocks[0].filterManager',
+    ),
+    true,
+  );
+});
+
 test('canonicalizePayload fills form association record select title fallback when target collection has no titleField', () => {
   const payload = {
     use: 'FormItemModel',

@@ -110,8 +110,8 @@ const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
 const POPUP_PAGE_MODE_BLOCK_THRESHOLD = 3;
 const POPUP_PAGE_MODE_FIELD_THRESHOLD = 20;
 const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
-const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany']);
-const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
+const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany', 'belongstoarray', 'onetoone']);
+const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'o2o', 'mbm', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
 const AUDIT_FIELD_NAMES = new Set([
   'id',
   'createdAt',
@@ -1052,7 +1052,8 @@ function normalizeCollectionFieldMetadata(field) {
     name,
     interface: normalizeText(field.interface),
     type: normalizeText(field.type),
-    target: normalizeText(field.target || field.targetCollection || field.collectionName),
+    target: normalizeText(field.target || field.targetCollection),
+    collectionName: normalizeText(field.collectionName),
     foreignKey: normalizeText(field.foreignKey),
     targetKey: normalizeText(field.targetKey),
     readOnly: Boolean(field.readOnly ?? field.readonly),
@@ -1156,8 +1157,7 @@ function getCollectionFieldMeta(collectionMetadata, collectionName, fieldName) {
 function isAssociationFieldMeta(field) {
   if (!isPlainObject(field)) return false;
   return (
-    !!normalizeText(field.target)
-    || ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
+    ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
     || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(field.interface))
   );
 }
@@ -1208,6 +1208,7 @@ function getTraversalSurfaceCollection(context) {
 
 function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
   const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
+  if (!isAssociationFieldMeta(associationMeta?.field)) return '';
   const targetCollection = normalizeText(associationMeta?.field?.target);
   return targetCollection || '';
 }

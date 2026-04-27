@@ -1586,6 +1586,43 @@ function validatePublicDataSurfaceFilterSettings(block, pathValue, metadata, mod
   }
 }
 
+function forEachPublicChildBlockContainer(block, pathValue, visitContainer) {
+  if (!isPlainObject(block)) {
+    return;
+  }
+
+  if (Array.isArray(block.blocks)) {
+    visitContainer(block.blocks, `${pathValue}.blocks`);
+  }
+  if (Array.isArray(block.popup?.blocks)) {
+    visitContainer(block.popup.blocks, `${pathValue}.popup.blocks`);
+  }
+
+  ['actions', 'recordActions', 'fields'].forEach((slot) => {
+    if (!Array.isArray(block[slot])) {
+      return;
+    }
+    block[slot].forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        visitContainer(item.popup.blocks, `${pathValue}.${slot}[${index}].popup.blocks`);
+      }
+    });
+  });
+
+  if (Array.isArray(block.fieldGroups)) {
+    block.fieldGroups.forEach((group, groupIndex) => {
+      if (!Array.isArray(group?.fields)) {
+        return;
+      }
+      group.fields.forEach((field, fieldIndex) => {
+        if (Array.isArray(field?.popup?.blocks)) {
+          visitContainer(field.popup.blocks, `${pathValue}.fieldGroups[${groupIndex}].fields[${fieldIndex}].popup.blocks`);
+        }
+      });
+    });
+  }
+}
+
 function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blockers, seen) {
   const visitBlock = (block, pathValue) => {
     if (!isPlainObject(block)) {
@@ -1647,35 +1684,8 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
       validatePublicDataSurfaceFilterSettings(block, pathValue, metadata, mode, blockers, seen);
     }
 
-    if (Array.isArray(block.blocks)) {
-      block.blocks.forEach((child, index) => visitBlock(child, `${pathValue}.blocks[${index}]`));
-    }
-    if (Array.isArray(block.popup?.blocks)) {
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${pathValue}.popup.blocks[${index}]`));
-    }
-    ['actions', 'recordActions'].forEach((slot) => {
-      if (!Array.isArray(block[slot])) {
-        return;
-      }
-      block[slot].forEach((action, index) => {
-        if (Array.isArray(action?.popup?.blocks)) {
-          action.popup.blocks.forEach((child, childIndex) => visitBlock(child, `${pathValue}.${slot}[${index}].popup.blocks[${childIndex}]`));
-        }
-      });
-    });
-    ['fields', 'fieldGroups'].forEach((slot) => {
-      const container = block[slot];
-      if (!Array.isArray(container)) {
-        return;
-      }
-      const fields = slot === 'fieldGroups'
-        ? container.flatMap((group) => Array.isArray(group?.fields) ? group.fields : [])
-        : container;
-      fields.forEach((field, index) => {
-        if (Array.isArray(field?.popup?.blocks)) {
-          field.popup.blocks.forEach((child, childIndex) => visitBlock(child, `${pathValue}.${slot}[${index}].popup.blocks[${childIndex}]`));
-        }
-      });
+    forEachPublicChildBlockContainer(block, pathValue, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
     });
   };
 
@@ -1777,12 +1787,9 @@ function inspectPublicRawFilterManagerWrites(payload, mode, blockers, seen) {
         }
       });
     }
-    if (Array.isArray(node.blocks)) {
-      node.blocks.forEach((block, blockIndex) => visitPublicObject(block, `${pathValue}.blocks[${blockIndex}]`));
-    }
-    if (Array.isArray(node.popup?.blocks)) {
-      node.popup.blocks.forEach((block, blockIndex) => visitPublicObject(block, `${pathValue}.popup.blocks[${blockIndex}]`));
-    }
+    forEachPublicChildBlockContainer(node, pathValue, (blocks, blocksPath) => {
+      blocks.forEach((block, blockIndex) => visitPublicObject(block, `${blocksPath}[${blockIndex}]`));
+    });
   };
 
   if (!isPlainObject(payload) || payload.use === 'BlockGridModel') {

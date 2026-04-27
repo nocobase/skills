@@ -6349,6 +6349,140 @@ test('prepareApplyBlueprintRequest rejects one-level relation shorthand fields o
   );
 });
 
+test('prepareApplyBlueprintRequest does not treat collectionName metadata as a relation target', () => {
+  const productCollectionMetadata = {
+    collections: {
+      products: {
+        titleField: 'name',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', collectionName: 'products' },
+          { name: 'name', type: 'string', interface: 'input', collectionName: 'products' },
+          { name: 'website', type: 'string', interface: 'url', collectionName: 'products' },
+          { name: 'category', type: 'string', interface: 'select', collectionName: 'products' },
+          { name: 'legacyTargetCode', type: 'string', interface: 'input', target: 'legacyTargets', collectionName: 'products' },
+          { name: 'product', type: 'belongsTo', interface: 'm2o', target: 'products', collectionName: 'products' },
+        ],
+      },
+    },
+  };
+
+  const ordinaryFields = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Products' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'productsTable',
+              type: 'table',
+              collection: 'products',
+              fields: ['name', 'website', 'category', 'legacyTargetCode'],
+              actions: [defaultFilterAction(['name', 'website', 'category'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['products'], collectionMetadata: productCollectionMetadata },
+  );
+
+  assert.equal(ordinaryFields.ok, true);
+  assert.equal(
+    ordinaryFields.errors.some((issue) => issue.ruleId === 'display-association-field-popup-required'),
+    false,
+  );
+  assert.deepEqual(ordinaryFields.cliBody.tabs[0].blocks[0].fields, ['name', 'website', 'category', 'legacyTargetCode']);
+  assert.deepEqual(ordinaryFields.defaultsRequirements?.associations || [], []);
+
+  const relationField = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Products' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'productsTable',
+              type: 'table',
+              collection: 'products',
+              fields: ['name', 'product'],
+              actions: [defaultFilterAction(['name', 'website', 'category'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['products'], collectionMetadata: productCollectionMetadata },
+  );
+
+  assert.equal(relationField.ok, false);
+  assert.ok(
+    relationField.errors.some(
+      (issue) =>
+        issue.ruleId === 'display-association-field-popup-required'
+        && issue.path === 'tabs[0].blocks[0].fields[1]'
+        && issue.message.includes('"product"'),
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest treats o2o and mbm metadata fields as relations', () => {
+  const relationCollectionMetadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'profile', type: 'string', interface: 'o2o' },
+          { name: 'teams', type: 'string', interface: 'mbm' },
+        ],
+      },
+    },
+  };
+
+  for (const fieldName of ['profile', 'teams']) {
+    const result = prepareWithDirectCollectionDefaults(
+      {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                fields: ['nickname', fieldName],
+                actions: [defaultFilterAction(['nickname'])],
+              },
+            ],
+          },
+        ],
+      },
+      { collectionMetadata: relationCollectionMetadata },
+    );
+
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.errors.some(
+        (issue) =>
+          issue.ruleId === 'display-association-field-popup-required'
+          && issue.path === 'tabs[0].blocks[0].fields[1]'
+          && issue.message.includes(`"${fieldName}"`),
+      ),
+    );
+  }
+});
+
 test('prepareApplyBlueprintRequest rejects one-level relation field objects on details blocks when popup is omitted', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
