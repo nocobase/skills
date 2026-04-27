@@ -282,7 +282,7 @@ test('prepareApplyBlueprintRequest accepts flat relation fieldType objects and r
               {
                 key: 'rolesField',
                 field: 'roles',
-                fieldType: 'subTable',
+                fieldType: 'popupSubTable',
                 fields: ['title', 'name'],
               },
             ],
@@ -293,7 +293,7 @@ test('prepareApplyBlueprintRequest accepts flat relation fieldType objects and r
     defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
   }, { collectionMetadata });
   assert.equal(valid.ok, true);
-  assert.equal(valid.cliBody.tabs[0].blocks[0].fields[0].fieldType, 'subTable');
+  assert.equal(valid.cliBody.tabs[0].blocks[0].fields[0].fieldType, 'popupSubTable');
 
   const invalid = prepareApplyBlueprintRequest({
     version: '1',

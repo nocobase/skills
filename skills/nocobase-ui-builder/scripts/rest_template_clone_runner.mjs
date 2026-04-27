@@ -11,7 +11,7 @@ import {
 } from './menu_placement_runtime.mjs';
 import { reservePage } from './opaque_uid.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
-import { remapTemplateTreeToTarget, summarizeModelTree } from './template_clone_helpers.mjs';
+import { remapTemplateTreeToTarget } from './template_clone_helpers.mjs';
 import { resolveFilterFieldModelSpec } from './filter_form_field_resolver.mjs';
 
 const PAGE_ROOT_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
@@ -1974,24 +1974,6 @@ function reserveFreshPageTitle({
   throw new Error(`unable to reserve a fresh page title for "${normalizedTitle}"`);
 }
 
-function determineFinalStatus({
-  routeReady,
-  auditResult,
-  saveError,
-  readbackContractResult,
-}) {
-  if (!auditResult.ok) {
-    return 'failed';
-  }
-  if (saveError) {
-    return 'failed';
-  }
-  if (!routeReady.ok || !readbackContractResult.ok) {
-    return 'partial';
-  }
-  return 'success';
-}
-
 async function runBuild(flags) {
   const caseId = normalizeRequiredText(flags['case-id'], 'case id');
   const title = normalizeRequiredText(flags.title, 'title');
@@ -2261,62 +2243,9 @@ async function runBuild(flags) {
   writeJson(path.join(outDir, 'save-error.json'), saveError);
   summary.artifactPaths.saveError = path.join(outDir, 'save-error.json');
 
-  let readbackResult = null;
-  let readbackContractResult = {
-    ok: false,
-    findings: [{
-      severity: 'blocker',
-      code: 'READBACK_SKIPPED',
-      message: 'direct model write is unsupported，readback 已跳过',
-    }],
-    summary: {
-      topLevelUses: [],
-      visibleTabTitles: [],
-      filterManagerEntryCount: 0,
-    },
-  };
-  if (!saveError) {
-    readbackResult = await fetchAnchorModel({
-      apiBase,
-      token,
-      parentId: cloneTarget === 'page' ? schemaUid : `tabs-${schemaUid}`,
-      subKey: cloneTarget,
-    });
-    writeJson(path.join(outDir, 'readback.json'), readbackResult.raw);
-    summary.artifactPaths.readback = path.join(outDir, 'readback.json');
-    const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
-      compileArtifact.readbackContract || {},
-      canonicalizeResult.payload,
-    );
-    writeJson(path.join(outDir, 'effective-readback-contract.json'), effectiveReadbackContract);
-    summary.artifactPaths.effectiveReadbackContract = path.join(outDir, 'effective-readback-contract.json');
-    readbackContractResult = validateReadbackContract(readbackResult.data, effectiveReadbackContract);
-    writeJson(path.join(outDir, 'readback-contract.json'), readbackContractResult);
-    summary.artifactPaths.readbackContract = path.join(outDir, 'readback-contract.json');
-  }
-
-  summary.readback = readbackResult
-    ? {
-      summary: summarizeModelTree(readbackResult.data),
-      contract: readbackContractResult,
-    }
-    : null;
-
-  summary.status = determineFinalStatus({
-    routeReady,
-    auditResult,
-    saveError,
-    readbackContractResult,
-  });
-  if (summary.status === 'partial') {
-    summary.notes.push('save/readback 已完成，但 build gate 尚未全部满足。');
-  }
-  if (saveError) {
-    summary.notes.push(`direct model write blocked: ${saveError.message}`);
-  }
-  if (!readbackContractResult.ok) {
-    summary.notes.push('readback contract 未全部通过。');
-  }
+  summary.readback = null;
+  summary.status = 'failed';
+  summary.notes.push(`direct model write blocked: ${saveError.message}`);
 
   writeJson(path.join(outDir, 'summary.json'), summary);
   return summary;
