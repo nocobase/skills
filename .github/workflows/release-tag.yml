@@ -1,6 +1,9 @@
 name: Release Tag
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
@@ -30,21 +33,22 @@ jobs:
   tag:
     name: Create release tag
     runs-on: ubuntu-latest
+    if: "github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'chore: release v')"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
 
       - name: Resolve and validate version
         id: version
         shell: bash
         env:
-          VERSION_INPUT: ${{ inputs.version }}
-          BUMP_INPUT: ${{ inputs.bump }}
-          RELEASE_REF: ${{ inputs.ref }}
+          VERSION_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+          BUMP_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.bump || 'patch' }}
+          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -178,7 +182,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          RELEASE_REF: ${{ inputs.ref }}
+          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -198,7 +202,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_REF: ${{ inputs.ref }}
+          RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref_name }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
