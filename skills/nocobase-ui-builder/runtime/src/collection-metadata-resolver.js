@@ -324,7 +324,7 @@ async function execNbText(args, options = {}) {
 
 function parseCurrentNbEnvBaseUrl(output) {
   const currentLine = normalizeText(output)
-    ? String(output).split(/\r?\n/).find((line) => line.trim().startsWith('*') || line.includes('*'))
+    ? String(output).split(/\r?\n/).find((line) => /^\s*\*(?:\s|$)/.test(line))
     : '';
   if (!currentLine) return '';
   const match = currentLine.match(/https?:\/\/[^\s|]+/i);

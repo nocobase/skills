@@ -8465,6 +8465,9 @@ test('page preview cli prepare-write keeps fail-closed behavior with no-auto met
     stdin,
     stdout: stdout.stream,
     stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
     async fetchCollectionMetadata(collectionName) {
       fetched.push(collectionName);
       return minimalUserCollectionMetadata;
@@ -8480,7 +8483,7 @@ test('page preview cli prepare-write keeps fail-closed behavior with no-auto met
   assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
 });
 
-test('page preview cli prepare-write reports nb env Base URL fixes when auto metadata cannot resolve env', async () => {
+test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata cannot resolve env', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -8526,12 +8529,8 @@ test('page preview cli prepare-write reports nb env Base URL fixes when auto met
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
   assert.equal(payload.cliBody, undefined);
-  assert.ok(
-    payload.errors.some(
-      (issue) => issue.ruleId === 'collection-metadata-fetch-failed'
-        && /nb env add.*nb env update.*collectionMetadata/i.test(issue.message),
-    ),
-  );
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
 test('fetchCollectionMetadata falls back to resource list when data-modeling collection get fails', async () => {
@@ -8573,6 +8572,43 @@ test('fetchCollectionMetadata falls back to resource list when data-modeling col
   assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
   assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
   assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
+});
+
+test('fetchCollectionMetadata reads Base URL only from the current nb env row', async () => {
+  const calls = [];
+  const metadata = await fetchCollectionMetadata('users', {
+    cwd: process.cwd(),
+    async execFileImpl(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'env') {
+        return {
+          stdout: [
+            'Current  Name       Base URL                Auth   Runtime',
+            '-------  ---------  ----------------------  -----  -------',
+            '         staging*   http://127.0.0.1:14000  token  2.1.0',
+            '*        local      http://127.0.0.1:13000  oauth  2.1.0',
+          ].join('\n'),
+        };
+      }
+      return {
+        stdout: JSON.stringify({
+          data: {
+            name: 'users',
+            titleField: 'nickname',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'nickname', type: 'string', interface: 'input' },
+            ],
+          },
+        }),
+      };
+    },
+  });
+
+  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
   assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
 });
 
@@ -8625,7 +8661,7 @@ test('fetchCollectionMetadata fails when nb responses do not include the request
   assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
 });
 
-test('page preview cli prepare-write fails when auto collectionMetadata fetch returns no collection entry', async () => {
+test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata fetch returns no collection entry', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -8665,7 +8701,8 @@ test('page preview cli prepare-write fails when auto collectionMetadata fetch re
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
   assert.equal(payload.cliBody, undefined);
-  assert.ok(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'));
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
 test('page preview cli prepare-write returns normalized cli body json', async () => {

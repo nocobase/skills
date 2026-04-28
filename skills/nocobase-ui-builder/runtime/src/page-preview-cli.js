@@ -102,6 +102,12 @@ async function resolvePrepareWritePayload(payload, options = {}) {
     extractPrepareCollectionMetadata(payload),
     options,
   );
+  if (!resolution.ok && !extractPrepareCollectionMetadata(payload)) {
+    return {
+      payload,
+      resolverErrors: [],
+    };
+  }
   return {
     payload: withResolvedCollectionMetadata(payload, resolution.metadata),
     resolverErrors: resolution.errors || [],
