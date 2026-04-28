@@ -70,7 +70,12 @@ function getNodeBinding(node) {
 }
 
 function getNodeAssociationField(node) {
-  return normalizeText(node?.associationField || node?.resource?.associationField);
+  return normalizeText(
+    node?.associationField
+    || node?.associationPathName
+    || node?.resource?.associationField
+    || node?.resource?.associationPathName,
+  );
 }
 
 function hasResourceBinding(node) {
@@ -105,6 +110,12 @@ function getDefaultsAssociationFieldKey(associationField) {
   return normalizeText(associationField).split('.')[0] || '';
 }
 
+function getAssociationPathPrefixes(fieldPath) {
+  const segments = normalizeText(fieldPath).split('.').filter(Boolean);
+  if (segments.length === 0) return [];
+  return segments.map((_, index) => segments.slice(0, index + 1).join('.'));
+}
+
 function resolveScannedAssociation(metadata, sourceCollection, associationField, expectedTargetCollection = '') {
   const normalizedSourceCollection = normalizeText(sourceCollection);
   const normalizedAssociationPath = normalizeText(associationField);
@@ -124,6 +135,24 @@ function resolveScannedAssociation(metadata, sourceCollection, associationField,
     associationField: getDefaultsAssociationFieldKey(normalizedAssociationPath),
     targetCollection,
   };
+}
+
+function resolveDeepestScannedAssociation(metadata, sourceCollection, fieldPath) {
+  let deepestAssociation = null;
+  for (const associationPath of getAssociationPathPrefixes(fieldPath)) {
+    const association = resolveScannedAssociation(metadata, sourceCollection, associationPath);
+    if (association) {
+      deepestAssociation = association;
+    }
+  }
+  return deepestAssociation;
+}
+
+function scanAssociationPathTargets(metadata, sourceCollection, fieldPath, collectionNames) {
+  for (const associationPath of getAssociationPathPrefixes(fieldPath)) {
+    const association = resolveScannedAssociation(metadata, sourceCollection, associationPath);
+    addCollectionName(collectionNames, association?.targetCollection);
+  }
 }
 
 function buildBlockTraversalContext(block, parentContext, metadata) {
@@ -180,22 +209,22 @@ function scanFieldsForCollections(items, blockContext, metadata, collectionNames
           ? normalizeText(item.field)
           : '';
     if (fieldPath) {
-      const association = resolveScannedAssociation(
+      scanAssociationPathTargets(
         metadata,
         getTraversalSurfaceCollection(blockContext),
-        getDefaultsAssociationFieldKey(fieldPath),
+        fieldPath,
+        collectionNames,
       );
-      addCollectionName(collectionNames, association?.targetCollection);
     }
 
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
     const popupContext = fieldPath
       ? {
           surfaceCollection:
-            resolveScannedAssociation(
+            resolveDeepestScannedAssociation(
               metadata,
               getTraversalSurfaceCollection(blockContext),
-              getDefaultsAssociationFieldKey(fieldPath),
+              fieldPath,
             )?.targetCollection
             || getTraversalSurfaceCollection(blockContext),
         }
@@ -311,7 +340,10 @@ function extractCollectionResourceEntry(payload, collectionName) {
 
 function normalizeFetchedCollectionMetadata(collectionName, payload) {
   const entry = extractCollectionResourceEntry(payload, collectionName);
-  const normalized = normalizeCollectionMetadataInput([entry || { name: collectionName }]);
+  if (!entry) {
+    throw new Error(`collection metadata for "${collectionName}" was not found in nb response.`);
+  }
+  const normalized = normalizeCollectionMetadataInput([entry]);
   if (normalized.errors.length) {
     throw new Error(normalized.errors.map((issue) => issue.message).join('; '));
   }

@@ -4,6 +4,7 @@ import {
   canonicalizePayload,
   extractRequiredMetadata,
 } from '../../scripts/flow_payload_guard.mjs';
+import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
@@ -1205,51 +1206,25 @@ function collectLocalizedAssignValuesErrors(payload, operation, metadata) {
   };
 
   const validateAssignValuesObject = (assignValues, assignValuesPath, collectionName) => {
-    if (!isObjectRecord(assignValues)) {
-      push(
-        assignValuesPath,
-        'assign-values-must-be-object',
-        'settings.assignValues must be one plain object; use {} to clear assignment values.',
-        'ASSIGN_VALUES_MUST_BE_OBJECT',
-      );
-      return;
-    }
-
-    const fieldNames = Object.keys(assignValues).map(normalizeText).filter(Boolean);
-    if (fieldNames.length === 0) {
-      return;
-    }
-
     const normalizedCollectionName = normalizeText(collectionName);
     const collectionMeta = getCollectionMeta(metadata, normalizedCollectionName);
-    if (!collectionMeta) {
+    const issues = collectAssignValuesValidationIssues({
+      assignValues,
+      path: assignValuesPath,
+      collectionName: normalizedCollectionName,
+      collectionMeta,
+      normalizeName: normalizeText,
+      valueLabel: 'settings.assignValues',
+      metadataValueLabel: 'assignValues',
+      includeDetails: true,
+    });
+    issues.forEach((issue) => {
       push(
-        assignValuesPath,
-        'missing-collection-metadata',
-        `collectionMetadata is required for collection "${normalizedCollectionName || '(unknown)'}" before validating assignValues.`,
-        'REQUIRED_COLLECTION_METADATA_MISSING',
-        {
-          collectionName: normalizedCollectionName,
-          path: assignValuesPath,
-          reason: 'assign-values',
-        },
-      );
-      return;
-    }
-
-    fieldNames.forEach((fieldName) => {
-      if (collectionMeta.fieldsByName.has(fieldName)) {
-        return;
-      }
-      push(
-        `${assignValuesPath}.${fieldName}`,
-        'assign-values-field-unknown',
-        `settings.assignValues references unknown field "${fieldName}" on collection "${normalizedCollectionName}".`,
-        'ASSIGN_VALUES_FIELD_UNKNOWN',
-        {
-          collectionName: normalizedCollectionName,
-          fieldName,
-        },
+        issue.path,
+        issue.ruleId,
+        issue.message,
+        issue.code,
+        issue.details,
       );
     });
   };
@@ -1384,6 +1359,18 @@ export function runLocalizedWritePreflight({
       ...assignValuesCollectionRefs,
     ],
   };
+  const errors = [];
+  const errorSeen = new Set();
+  const pushError = (issue) => {
+    const key = `${issue.path}:${issue.ruleId}:${issue.message}`;
+    if (errorSeen.has(key)) return;
+    errorSeen.add(key);
+    errors.push(issue);
+  };
+
+  collectLocalizedAssignValuesErrors(normalizedBody, normalizedOperation, normalizedMetadata)
+    .filter((issue) => issue.ruleId === 'assign-values-must-be-object')
+    .forEach(pushError);
 
   const canonicalize = canonicalizePayload({
     payload: normalizedBody,
@@ -1400,14 +1387,6 @@ export function runLocalizedWritePreflight({
     riskAccept,
     snapshotPath,
   });
-  const errors = [];
-  const errorSeen = new Set();
-  const pushError = (issue) => {
-    const key = `${issue.path}:${issue.ruleId}:${issue.message}`;
-    if (errorSeen.has(key)) return;
-    errorSeen.add(key);
-    errors.push(issue);
-  };
   requiredMetadata.collectionRefs
     .filter((item) => !normalizedMetadata.collections?.[item.collectionName])
     .forEach((item) => {

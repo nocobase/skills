@@ -1400,6 +1400,21 @@ test('runLocalizedWritePreflight validates compose update action assignValues ag
   assert.equal(nonObject.ok, false);
   assertHasRule(nonObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
 
+  class AssignValuesClass {
+    status = 'inactive';
+  }
+  const nonPlainObject = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: new AssignValuesClass(),
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nonPlainObject.ok, false);
+  assertHasRule(nonPlainObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
+
   const emptyClear = runLocalizedWritePreflight({
     operation: 'compose',
     body: makeBody({

@@ -184,6 +184,31 @@ const minimalDepartmentCollectionMetadata = {
     },
   },
 };
+const departmentManagerAssociationMetadata = {
+  collections: {
+    departments: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'employees' },
+      ],
+    },
+  },
+};
+const minimalEmployeeCollectionMetadata = {
+  collections: {
+    employees: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
 const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email'];
 const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
@@ -7899,6 +7924,163 @@ test('page preview cli prepare-write resolves associatedRecords targets over mul
   assert.equal(payload.ok, true);
 });
 
+test('page preview cli prepare-write resolves multi-hop association field paths over multiple metadata rounds', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users department managers' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  department: buildFixedCollectionPopupDefaults('department'),
+                },
+              },
+            },
+            departments: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('departments'),
+                associations: {
+                  manager: buildFixedCollectionPopupDefaults('manager'),
+                },
+              },
+            },
+            employees: {
+              popups: buildFixedCollectionPopupDefaults('employees'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname', 'department.manager.name'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: userDepartmentAssociationMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      if (collectionName === 'departments') return departmentManagerAssociationMetadata;
+      if (collectionName === 'employees') return minimalEmployeeCollectionMetadata;
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['departments', 'employees']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves associatedRecords targets from associationPathName', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  roles: buildFixedCollectionPopupDefaults('roles'),
+                },
+              },
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+                recordActions: [
+                  {
+                    type: 'view',
+                    popup: {
+                      title: 'User roles',
+                      blocks: [
+                        {
+                          key: 'userRoles',
+                          type: 'table',
+                          title: 'Roles',
+                          resource: {
+                            binding: 'associatedRecords',
+                            associationPathName: 'roles',
+                          },
+                          defaultFilter: defaultFilterGroup(['name']),
+                          fields: ['name'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: oneCandidateCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      if (collectionName === 'roles') return minimalRoleCollectionMetadata;
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.collectionMetadata, undefined);
+});
+
 test('page preview cli prepare-write keeps fail-closed behavior with no-auto metadata flag', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
@@ -7974,6 +8156,69 @@ test('fetchCollectionMetadata falls back to resource list when data-modeling col
   assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
   assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
   assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
+});
+
+test('fetchCollectionMetadata fails when nb responses do not include the requested collection', async () => {
+  const calls = [];
+  await assert.rejects(
+    fetchCollectionMetadata('users', {
+      cwd: process.cwd(),
+      async execFileImpl(command, args) {
+        calls.push([command, ...args]);
+        if (args.includes('data-modeling')) {
+          return { stdout: JSON.stringify({ data: [] }) };
+        }
+        return { stdout: JSON.stringify({ rows: [] }) };
+      },
+    }),
+    /collection metadata for "users" was not found/i,
+  );
+
+  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+});
+
+test('page preview cli prepare-write fails when auto collectionMetadata fetch returns no collection entry', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata() {
+      return { collections: {} };
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'));
 });
 
 test('page preview cli prepare-write returns normalized cli body json', async () => {

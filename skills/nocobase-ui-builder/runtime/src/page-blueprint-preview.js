@@ -1,4 +1,5 @@
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
+import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
 import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
 import { ANT_DESIGN_ICON_NAMES } from './ant-design-icon-names.js';
@@ -802,7 +803,7 @@ function isDataBlock(block) {
 function describeResource(node) {
   if (!isPlainObject(node?.resource)) return '';
   const binding = normalizeText(node.resource.binding || node.resource.resourceBinding);
-  const associationField = normalizeText(node.resource.associationField);
+  const associationField = normalizeText(node.resource.associationField || node.resource.associationPathName);
   const collectionName = normalizeText(node.resource.collectionName || node.resource.collection);
   const parts = [];
   if (binding) parts.push(binding);
@@ -1199,7 +1200,12 @@ function getNodeBinding(node) {
 }
 
 function getNodeAssociationField(node) {
-  return normalizeText(node?.associationField || node?.resource?.associationField);
+  return normalizeText(
+    node?.associationField
+    || node?.associationPathName
+    || node?.resource?.associationField
+    || node?.resource?.associationPathName,
+  );
 }
 
 function getTraversalSurfaceCollection(context) {
@@ -3556,45 +3562,23 @@ function validateActionAssignValues(item, path, state, blockContext) {
 
   const assignValues = item.settings.assignValues;
   const assignValuesPath = `${path}.settings.assignValues`;
-  if (!isPlainObject(assignValues)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      assignValuesPath,
-      'assign-values-must-be-object',
-      'settings.assignValues must be one plain object; use {} to clear assignment values.',
-    );
-    return;
-  }
-
-  const assignedFieldNames = Object.keys(assignValues).map((fieldName) => normalizeText(fieldName)).filter(Boolean);
-  if (assignedFieldNames.length === 0) {
-    return;
-  }
-
   const collectionName = getTraversalSurfaceCollection(blockContext);
   const collectionMeta = getCollectionMeta(state.collectionMetadata, collectionName);
-  if (!collectionMeta) {
+  const issues = collectAssignValuesValidationIssues({
+    assignValues,
+    path: assignValuesPath,
+    collectionName,
+    collectionMeta,
+    normalizeName: normalizeText,
+    valueLabel: 'settings.assignValues',
+  });
+  for (const issue of issues) {
     pushValidationError(
       state.errors,
       state.seenErrors,
-      assignValuesPath,
-      'missing-collection-metadata',
-      `collectionMetadata is required for collection "${collectionName || '(unknown)'}" before validating settings.assignValues.`,
-    );
-    return;
-  }
-
-  for (const fieldName of assignedFieldNames) {
-    if (collectionMeta.fieldsByName.has(fieldName)) {
-      continue;
-    }
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${assignValuesPath}.${fieldName}`,
-      'assign-values-field-unknown',
-      `settings.assignValues references unknown field "${fieldName}" on collection "${collectionName}".`,
+      issue.path,
+      issue.ruleId,
+      issue.message,
     );
   }
 }
