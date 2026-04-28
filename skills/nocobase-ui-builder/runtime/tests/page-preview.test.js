@@ -6792,6 +6792,105 @@ test('prepareApplyBlueprintRequest normalizes legacy relation field details popu
   assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].collection, 'roles');
 });
 
+test('prepareApplyBlueprintRequest rejects relation field details popup with mismatched target collection', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'departmentDetails',
+                      type: 'details',
+                      collection: 'departments',
+                      fields: ['title'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'relation-popup-current-record-target-mismatch'
+        && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].resource.collectionName',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest accepts relation field popup table with associatedRecords binding', () => {
+  const relationPopupCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      roles: minimalRoleCollectionMetadata.collections.roles,
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role links',
+                  blocks: [
+                    {
+                      key: 'rolesTable',
+                      type: 'table',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'roles',
+                        collectionName: 'roles',
+                      },
+                      fields: ['name'],
+                      actions: [defaultFilterAction(['name'])],
+                      defaultFilter: defaultFilterGroup(['name']),
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  }, { collectionMetadata: relationPopupCollectionMetadata });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.blocks[0].resource.binding, 'associatedRecords');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.blocks[0].resource.associationField, 'roles');
+});
+
 test('prepareApplyBlueprintRequest rejects relation field popup table without associatedRecords binding', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
@@ -6985,6 +7084,63 @@ test('prepareApplyBlueprintRequest rejects conflicting settings.sort and setting
         && issue.path === 'tabs[0].blocks[0].settings.sort',
     ),
   );
+});
+
+test('prepareApplyBlueprintRequest removes settings.sort when it matches settings.sorting', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: {
+              sort: ['-createdAt'],
+              sorting: [{ field: 'createdAt', direction: 'desc' }],
+            },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'sort'), false);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [{ field: 'createdAt', direction: 'desc' }]);
+});
+
+test('prepareApplyBlueprintRequest does not normalize settings.sort on non-data-surface blocks', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            settings: { sort: ['-createdAt'] },
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
 });
 
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {

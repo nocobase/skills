@@ -11,6 +11,7 @@ The Collection instance associated with the current RunJS execution context, use
 | **Table Column / Detail Block** | Used for rendering based on collection structure or passing `filterByTk` when opening popups. |
 
 > Note: `ctx.collection` is available in scenarios where a data block, form block, or table block is bound to a collection. In an independent JSBlock that is not bound to a collection, it may be `null`. It is recommended to perform a null check before use.
+> Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values; direct `ctx.record` in runtime references is product context documentation.
 
 ## Type Definition
 
@@ -57,11 +58,12 @@ In scenarios like sub-tables, `ctx.collection` might be the association target c
 
 ```ts
 const primaryKey = ctx.collection?.filterTargetKey ?? 'id';
+const record = (await ctx.getVar('ctx.record')) || {};
 await ctx.openView(popupUid, {
   mode: 'dialog',
   params: {
-    filterByTk: ctx.record?.[primaryKey],
-    record: ctx.record,
+    filterByTk: record?.[primaryKey],
+    record,
   },
 });
 ```

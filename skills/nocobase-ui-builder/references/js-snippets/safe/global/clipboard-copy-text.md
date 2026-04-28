@@ -27,7 +27,7 @@ The surface must return a value; use a `value-return/*` snippet instead.
 ```js
 const currentRecord = await ctx.getVar('ctx.record');
 const text = String(currentRecord?.title ?? ctx.t('Copied text'));
-await navigator.clipboard.writeText(text);
+await navigator.clipboard?.writeText?.(text);
 ctx.message.success(ctx.t('Copied'));
 ```
 

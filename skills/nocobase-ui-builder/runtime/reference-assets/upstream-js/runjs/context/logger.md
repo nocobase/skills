@@ -48,7 +48,7 @@ pino also supports `level(meta, msg)` (object first) or `level({ msg, ...meta })
 ```ts
 ctx.logger.info('Block loading complete');
 ctx.logger.warn('Request failed, using cache', { err });
-ctx.logger.debug('Saving...', { recordId: ctx.record?.id });
+ctx.logger.debug('Saving...', { recordId: await ctx.getVar('ctx.record.id') });
 ```
 
 ### Creating a Child Logger with child()

@@ -104,7 +104,8 @@ if (ctx.collectionField?.readonly) {
 // When displaying an association field, use targetCollectionTitleField to get the title field name
 const titleField = ctx.collectionField?.targetCollectionTitleField;
 const titleKey = titleField?.name ?? 'title';
-const assocValue = ctx.getValue?.() ?? ctx.record?.[ctx.collectionField?.name];
+const assocFieldName = ctx.collectionField?.name;
+const assocValue = ctx.getValue?.() ?? (assocFieldName ? await ctx.getVar(`ctx.record.${assocFieldName}`) : undefined);
 const label = assocValue?.[titleKey];
 ```
 

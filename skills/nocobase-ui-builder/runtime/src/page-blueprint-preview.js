@@ -2629,15 +2629,16 @@ function materializePopupForWrite(popup, options = {}) {
   return nextPopup;
 }
 
-function materializeSettingsHeightForWrite(settings) {
+function materializeSettingsForWrite(block) {
+  const settings = block?.settings;
   if (!isPlainObject(settings)) {
     return settings;
   }
   let nextSettings = settings;
-  if (hasOwn(nextSettings, 'sort') && !hasOwn(nextSettings, 'sorting')) {
+  if (SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block?.type)) && hasOwn(nextSettings, 'sort')) {
     nextSettings = {
       ...nextSettings,
-      sorting: normalizeSortingValue(nextSettings.sort),
+      sorting: hasOwn(nextSettings, 'sorting') ? nextSettings.sorting : normalizeSortingValue(nextSettings.sort),
     };
     delete nextSettings.sort;
   }
@@ -2686,6 +2687,13 @@ function materializeFieldForWrite(field, options = {}) {
 function normalizeRelationFieldPopupBlocksForWrite(popup, options = {}) {
   if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return;
   const associationField = getDefaultsAssociationFieldKey(options.associationField);
+  const targetCollection = associationField
+    ? resolveAssociationTargetCollection(
+      options.collectionMetadata || {},
+      getTraversalSurfaceCollection(options.blockContext || {}),
+      associationField,
+    )
+    : '';
   for (const block of popup.blocks) {
     if (!isPlainObject(block)) continue;
     const blockType = normalizeText(block.type);
@@ -2701,13 +2709,8 @@ function normalizeRelationFieldPopupBlocksForWrite(popup, options = {}) {
       ...(blockResource || {}),
       binding: 'currentRecord',
     };
-    if (associationField && !normalizeText(block.resource.collectionName)) {
-      const targetCollection = resolveAssociationTargetCollection(
-        options.collectionMetadata || {},
-        getTraversalSurfaceCollection(options.blockContext || {}),
-        associationField,
-      );
-      if (targetCollection) block.resource.collectionName = targetCollection;
+    if (targetCollection && !normalizeText(block.resource.collectionName) && !normalizeText(block.collection)) {
+      block.resource.collectionName = targetCollection;
     }
   }
 }
@@ -2744,7 +2747,7 @@ function materializeBlockForWrite(block, options = {}) {
   }
   const nextBlock = cloneSerializable(block);
   if (hasOwn(nextBlock, 'settings')) {
-    nextBlock.settings = materializeSettingsHeightForWrite(nextBlock.settings);
+    nextBlock.settings = materializeSettingsForWrite(nextBlock);
   }
   if (hasOwn(nextBlock, 'fields')) {
     nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
@@ -3561,12 +3564,34 @@ function validateRelationFieldPopupResourceBindings(popup, popupPath, state, ope
     associationField,
   );
   const canonicalAssociationField = associationRequirement?.associationField || getDefaultsAssociationFieldKey(associationField);
+  const targetCollection = normalizeText(associationRequirement?.targetCollection);
   for (const [index, block] of ensureArray(popup.blocks).entries()) {
     if (!isPlainObject(block)) continue;
     const blockPath = `${popupPath}.blocks[${index}]`;
     const blockType = normalizeText(block.type);
     const binding = getNodeBinding(block);
     if (RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)) {
+      const blockCollection = getCollectionLabel(block);
+      if ((!binding || binding === 'currentcollection') && !targetCollection) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.binding`,
+          'relation-popup-current-record-target-unresolved',
+          `Relation field popup ${blockType} blocks must use resource.binding="currentRecord" and a target collection that can be verified from collection metadata.`,
+        );
+        continue;
+      }
+      if (targetCollection && blockCollection && blockCollection !== targetCollection) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.collectionName`,
+          'relation-popup-current-record-target-mismatch',
+          `Relation field popup ${blockType} blocks must target collection "${targetCollection}" for relation field "${canonicalAssociationField}".`,
+        );
+        continue;
+      }
       if (!binding || binding === 'currentcollection') {
         continue;
       }

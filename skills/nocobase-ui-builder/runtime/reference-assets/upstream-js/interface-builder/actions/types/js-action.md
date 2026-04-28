@@ -5,6 +5,7 @@
 JS Action is used to execute JavaScript when a button is clicked, allowing for custom business logic. It can be used in form toolbars, table toolbars (collection-level), table rows (record-level), and other locations to perform operations like validation, showing notifications, making API calls, opening pop-ups/drawers, and refreshing data.
 
 > Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, prefer full `http/https` request URLs and use popup actions, field popups, or event flows instead of emitting direct `ctx.openView(...)` as the final answer.
+> Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values; direct `ctx.record` below is product runtime context documentation.
 
 
 ![jsaction-add-20251029](https://static-docs.nocobase.com/jsaction-add-20251029.png)
@@ -73,10 +74,11 @@ ctx.message.success(ctx.t('Selected {n} items', { n: rows.length }));
 ### 3) Record Button: Read Current Row Record
 
 ```js
-if (!ctx.record) {
+const record = await ctx.getVar('ctx.record');
+if (!record) {
   ctx.message.error(ctx.t('No record'));
 } else {
-  ctx.message.success(ctx.t('Record ID: {id}', { id: ctx.record.id }))
+  ctx.message.success(ctx.t('Record ID: {id}', { id: record.id }))
 }
 ```
 

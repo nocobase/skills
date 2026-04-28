@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { maskJavaScriptSource } from '../src/source-mask.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const repoRoot = path.resolve(skillRoot, '..', '..');
@@ -92,6 +93,14 @@ function validateRunjsSnippet(model, code) {
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, true, `runjs validator should accept ${model}: ${result.stdout}`);
   return parsed;
+}
+
+function assertNoDirectCtxRecordValueReads(code, label) {
+  assert.doesNotMatch(
+    maskJavaScriptSource(code),
+    /\bctx\.record(?:\?\.|\.)/,
+    `${label} should read record values with await ctx.getVar('ctx.record...')`,
+  );
 }
 
 function readYamlDoubleQuotedScalar(yamlText, key) {
@@ -670,7 +679,7 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
 
   const jsModelAction = read('references/js-surfaces/js-model-action.md');
   assert.match(jsModelAction, /clickSettings\.runJs/i, 'js-model-action doc should expose action write path');
-  assert.match(jsModelAction, /inner-row-record[\s\S]{0,160}ctx\.record/i, 'js-model-action doc should distinguish popup inner row record from popup opener record');
+  assert.match(jsModelAction, /inner-row-record[\s\S]{0,180}ctx\.getVar\('ctx\.record/i, 'js-model-action doc should distinguish popup inner row record from popup opener record');
 
   const legacyIndex = read('references/js-models/index.md');
   assert.match(legacyIndex, /legacy/i, 'js-models/index should mark itself as a legacy entrypoint');
@@ -715,7 +724,7 @@ test('RunJS authoring docs require record semantic selection before code generat
   assert.match(loop, /recordSemantic/i, 'runjs-authoring-loop should include recordSemantic in the scenario card');
   assert.match(loop, /contextEvidence/i, 'runjs-authoring-loop should include contextEvidence in the scenario card');
   assert.match(loop, /popup-opener-record[\s\S]{0,180}ctx\.popup\.record/i, 'runjs authoring loop should map popup opener record to ctx.popup.record');
-  assert.match(loop, /inner-row-record[\s\S]{0,180}ctx\.record/i, 'runjs authoring loop should preserve ctx.record for inner row records');
+  assert.match(loop, /inner-row-record[\s\S]{0,200}ctx\.getVar\('ctx\.record/i, 'runjs authoring loop should route inner row records through ctx.getVar');
   assert.match(blockTextSummary, /Do not use[\s\S]{0,220}popup/i, 'block text-summary snippet should not be used for popup opener records');
   assert.match(textFromRecord, /Do not use[\s\S]{0,220}popup/i, 'text-from-record snippet should not be used for popup opener records');
 });
@@ -728,11 +737,7 @@ test('safe RunJS snippets read record values through ctx.getVar', () => {
   for (const entry of safeEntries) {
     const markdown = read(`references/${entry.doc}`);
     const code = extractJsFenceAfterH2(markdown, 'Normalized snippet');
-    assert.doesNotMatch(
-      code,
-      /\bctx\.record(?:\?\.|\.)/,
-      `${entry.id} normalized snippet should read record values with await ctx.getVar('ctx.record...')`,
-    );
+    assertNoDirectCtxRecordValueReads(code, `${entry.id} normalized snippet`);
   }
 });
 

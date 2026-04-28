@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { auditPayload, canonicalizePayload } from './flow_payload_guard.mjs';
 import { inspectRunJSStaticCode } from './runjs_guard.mjs';
+import { maskJavaScriptSource } from '../runtime/src/source-mask.js';
 
 const CASES_PATH = fileURLToPath(new URL('./runjs_regression_cases.json', import.meta.url));
 const SNAPSHOT_PATH = fileURLToPath(new URL('./runjs_contract_snapshot.json', import.meta.url));
@@ -51,11 +52,7 @@ for (const runjsCase of cases) {
     if (!runjsCase.expectedOk) {
       return;
     }
-    assert.doesNotMatch(
-      runjsCase.code,
-      DIRECT_CTX_RECORD_VALUE_READ_RE,
-      `${runjsCase.id} should read record values with await ctx.getVar('ctx.record...')`,
-    );
+    assert.doesNotMatch(maskJavaScriptSource(runjsCase.code), DIRECT_CTX_RECORD_VALUE_READ_RE, `${runjsCase.id} should read record values with await ctx.getVar('ctx.record...')`);
   });
 
   test(`RunJS regression: ${runjsCase.id}`, () => {

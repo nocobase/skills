@@ -15,7 +15,7 @@
     "surface": "event-flow.execute-javascript",
     "modelOrHost": null,
     "preferredSnippetIds": ["global/resource-list"],
-    "code": "const resource = ctx.makeResource('MultiRecordResource');\nresource.setResourceName('tasks');\nawait resource.refresh();\nreturn ctx.record?.id ?? null;",
+    "code": "const resource = ctx.makeResource('MultiRecordResource');\nresource.setResourceName('tasks');\nawait resource.refresh();\nreturn (await ctx.getVar('ctx.record.id')) ?? null;",
     "expectedOk": true,
     "expectedCodes": []
   },
@@ -45,7 +45,7 @@
     "surface": "js-model.render",
     "modelOrHost": "JSBlockModel",
     "preferredSnippetIds": ["render/text-from-record"],
-    "code": "ctx.render(String(ctx.record?.title ?? '-'));",
+    "code": "const title = await ctx.getVar('ctx.record.title');\nctx.render(String(title ?? '-'));",
     "expectedOk": true,
     "expectedCodes": []
   },

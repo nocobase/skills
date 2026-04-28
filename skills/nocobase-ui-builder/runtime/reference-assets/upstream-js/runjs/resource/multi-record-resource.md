@@ -163,7 +163,7 @@ await ctx.resource?.refresh?.();
 ```js
 const res = ctx.makeResource('MultiRecordResource');
 res.setResourceName('users.roles');
-res.setSourceId(ctx.record?.id);
+res.setSourceId(await ctx.getVar('ctx.record.id'));
 await res.refresh();
 const roles = res.getData();
 ```
