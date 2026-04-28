@@ -5,7 +5,16 @@ import path from 'node:path';
 
 const root = process.cwd();
 const baseDir = path.join(root, '.artifacts', 'nocobase-ui-builder');
-const scenarioNames = ['whole-page-blueprint', 'localized-reaction-edit', 'boundary-handoff'];
+const scenarioNames = [
+  'whole-page-blueprint',
+  'localized-reaction-edit',
+  'boundary-handoff',
+  'filter-search-action-default',
+  'route-locator-boundaries',
+  'artifact-preview-without-prepare-write',
+  'template-reference-scope-routing',
+  'whole-page-presuccess-retry',
+];
 
 async function pathExists(targetPath) {
   try {
@@ -26,14 +35,80 @@ async function listFiles(directoryPath) {
   return names.sort();
 }
 
-async function verifyWholePage(directoryPath) {
+async function expectExactFiles(directoryPath, expected, label) {
   const fileNames = await listFiles(directoryPath);
-  const expected = ['blueprint.json', 'prewrite-preview.txt', 'readback-checklist.md'];
   if (JSON.stringify(fileNames) !== JSON.stringify(expected)) {
-    fail('whole-page scenario must leave exactly blueprint.json, prewrite-preview.txt, and readback-checklist.md');
+    fail(`${label} scenario must leave exactly ${expected.join(', ')}`);
+  }
+}
+
+async function readJson(filePath) {
+  return JSON.parse(await fs.readFile(filePath, 'utf8'));
+}
+
+function walkJson(value, visitor) {
+  visitor(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      walkJson(item, visitor);
+    }
+    return;
   }
 
-  const blueprint = JSON.parse(await fs.readFile(path.join(directoryPath, 'blueprint.json'), 'utf8'));
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) {
+      walkJson(item, visitor);
+    }
+  }
+}
+
+function containsType(value, typeName) {
+  let found = false;
+  walkJson(value, (node) => {
+    if (node && typeof node === 'object' && node.type === typeName) {
+      found = true;
+    }
+  });
+  return found;
+}
+
+function containsFilterAction(value) {
+  let found = false;
+  walkJson(value, (node) => {
+    if (node === 'filter') {
+      found = true;
+      return;
+    }
+
+    if (!node || typeof node !== 'object') {
+      return;
+    }
+
+    if (
+      node.type === 'filter'
+      || node.name === 'filter'
+      || node.action === 'filter'
+      || node.kind === 'filter'
+    ) {
+      found = true;
+    }
+  });
+  return found;
+}
+
+function textIncludesAll(text, requiredWords, label) {
+  for (const requiredWord of requiredWords) {
+    if (!new RegExp(requiredWord, 'i').test(text)) {
+      fail(`${label} must mention ${requiredWord}`);
+    }
+  }
+}
+
+async function verifyWholePage(directoryPath) {
+  const expected = ['blueprint.json', 'prewrite-preview.txt', 'readback-checklist.md'];
+  await expectExactFiles(directoryPath, expected, 'whole-page');
+
+  const blueprint = await readJson(path.join(directoryPath, 'blueprint.json'));
   if (!Array.isArray(blueprint.tabs) || blueprint.tabs.length === 0) {
     fail('whole-page blueprint must contain a non-empty tabs array');
   }
@@ -50,11 +125,8 @@ async function verifyWholePage(directoryPath) {
 }
 
 async function verifyReaction(directoryPath) {
-  const fileNames = await listFiles(directoryPath);
   const expected = ['reaction-plan.json', 'readback-checklist.md'];
-  if (JSON.stringify(fileNames) !== JSON.stringify(expected)) {
-    fail('reaction scenario must leave exactly reaction-plan.json and readback-checklist.md');
-  }
+  await expectExactFiles(directoryPath, expected, 'reaction');
 
   const jsonText = await fs.readFile(path.join(directoryPath, 'reaction-plan.json'), 'utf8');
   JSON.parse(jsonText);
@@ -75,20 +147,126 @@ async function verifyReaction(directoryPath) {
 }
 
 async function verifyBoundary(directoryPath) {
+  await expectExactFiles(directoryPath, ['boundary-report.md'], 'boundary');
   const reportPath = path.join(directoryPath, 'boundary-report.md');
-  if (!(await pathExists(reportPath))) {
-    fail('boundary scenario must leave boundary-report.md');
-  }
-
   const report = await fs.readFile(reportPath, 'utf8');
   if (!report.trim()) {
     fail('boundary report must be non-empty');
   }
 
-  for (const requiredWord of ['ACL', 'data-model', 'workflow', 'browser']) {
-    if (!new RegExp(requiredWord, 'i').test(report)) {
-      fail(`boundary report must mention ${requiredWord}`);
-    }
+  textIncludesAll(report, ['ACL', 'data-model', 'workflow', 'browser'], 'boundary report');
+}
+
+async function verifyFilterSearchActionDefault(directoryPath) {
+  await expectExactFiles(directoryPath, ['blueprint.json', 'decision-notes.md'], 'filter/search action default');
+
+  const blueprint = await readJson(path.join(directoryPath, 'blueprint.json'));
+  if (containsType(blueprint, 'filterForm')) {
+    fail('filter/search action default blueprint must not contain filterForm');
+  }
+
+  if (!containsFilterAction(blueprint)) {
+    fail('filter/search action default blueprint must contain a host-level filter action');
+  }
+
+  const notes = await fs.readFile(path.join(directoryPath, 'decision-notes.md'), 'utf8');
+  textIncludesAll(notes, ['filterForm', 'host', 'action'], 'filter/search decision notes');
+}
+
+async function verifyRouteLocatorBoundaries(directoryPath) {
+  await expectExactFiles(directoryPath, ['locator-map.json', 'readback-checklist.md'], 'route locator boundary');
+
+  const locatorMap = await readJson(path.join(directoryPath, 'locator-map.json'));
+  if (!locatorMap.navigation?.routeId) {
+    fail('locator map must include navigation.routeId');
+  }
+  if (!locatorMap.page?.pageSchemaUid) {
+    fail('locator map must include page.pageSchemaUid');
+  }
+  if (!Array.isArray(locatorMap.liveTargets) || locatorMap.liveTargets.length === 0) {
+    fail('locator map must include liveTargets with uid entries');
+  }
+  if (!locatorMap.liveTargets.every((target) => target && typeof target.uid === 'string' && target.uid)) {
+    fail('locator map liveTargets entries must include non-empty uid values');
+  }
+
+  const checklist = await fs.readFile(path.join(directoryPath, 'readback-checklist.md'), 'utf8');
+  textIncludesAll(checklist, ['routeId', 'pageSchemaUid', 'uid'], 'route locator checklist');
+}
+
+async function verifyArtifactPreviewWithoutPrepareWrite(directoryPath) {
+  await expectExactFiles(
+    directoryPath,
+    ['blueprint.json', 'preview-policy.json', 'prewrite-preview.txt'],
+    'artifact-only preview',
+  );
+
+  const blueprint = await readJson(path.join(directoryPath, 'blueprint.json'));
+  if (!Array.isArray(blueprint.tabs) || blueprint.tabs.length === 0) {
+    fail('artifact-only preview blueprint must contain a non-empty tabs array');
+  }
+
+  const preview = await fs.readFile(path.join(directoryPath, 'prewrite-preview.txt'), 'utf8');
+  if (!preview.trim()) {
+    fail('artifact-only preview text must be non-empty');
+  }
+
+  const policy = await readJson(path.join(directoryPath, 'preview-policy.json'));
+  if (policy.prepareWriteRequired !== false) {
+    fail('artifact-only preview policy must set prepareWriteRequired to false');
+  }
+  if (policy.previewSource !== 'draft-blueprint') {
+    fail('artifact-only preview policy must set previewSource to draft-blueprint');
+  }
+}
+
+async function verifyTemplateReferenceScopeRouting(directoryPath) {
+  await expectExactFiles(
+    directoryPath,
+    ['readback-checklist.md', 'template-decision.json'],
+    'template reference routing',
+  );
+
+  const decision = await readJson(path.join(directoryPath, 'template-decision.json'));
+  if (decision.autoDetachToCopy !== false) {
+    fail('template decision must set autoDetachToCopy to false');
+  }
+  if (decision.needsClarification !== true) {
+    fail('template decision must set needsClarification to true');
+  }
+
+  const decisionText = JSON.stringify(decision);
+  textIncludesAll(decisionText, ['template', 'host', 'openView'], 'template decision');
+
+  const checklist = await fs.readFile(path.join(directoryPath, 'readback-checklist.md'), 'utf8');
+  textIncludesAll(checklist, ['template', 'copy'], 'template readback checklist');
+}
+
+async function verifyWholePagePresuccessRetry(directoryPath) {
+  await expectExactFiles(
+    directoryPath,
+    ['prewrite-preview.txt', 'readback-checklist.md', 'retry-plan.json'],
+    'whole-page pre-success retry',
+  );
+
+  const retryPlan = await readJson(path.join(directoryPath, 'retry-plan.json'));
+  if (retryPlan.lowLevelFallbackBeforeSuccess !== false) {
+    fail('retry plan must set lowLevelFallbackBeforeSuccess to false');
+  }
+  if (retryPlan.retryLimit !== 5) {
+    fail('retry plan must set retryLimit to 5');
+  }
+  if (
+    !Array.isArray(retryPlan.allowedMutatingWritesBeforeSuccess)
+    || retryPlan.allowedMutatingWritesBeforeSuccess.length !== 1
+    || retryPlan.allowedMutatingWritesBeforeSuccess[0] !== 'applyBlueprint'
+  ) {
+    fail('retry plan allowedMutatingWritesBeforeSuccess must contain only applyBlueprint');
+  }
+
+  const preview = await fs.readFile(path.join(directoryPath, 'prewrite-preview.txt'), 'utf8');
+  if (!preview.trim()) {
+    fail('whole-page pre-success retry preview must be non-empty');
   }
 }
 
@@ -111,8 +289,18 @@ async function main() {
     await verifyWholePage(scenarioPath);
   } else if (name === 'localized-reaction-edit') {
     await verifyReaction(scenarioPath);
-  } else {
+  } else if (name === 'boundary-handoff') {
     await verifyBoundary(scenarioPath);
+  } else if (name === 'filter-search-action-default') {
+    await verifyFilterSearchActionDefault(scenarioPath);
+  } else if (name === 'route-locator-boundaries') {
+    await verifyRouteLocatorBoundaries(scenarioPath);
+  } else if (name === 'artifact-preview-without-prepare-write') {
+    await verifyArtifactPreviewWithoutPrepareWrite(scenarioPath);
+  } else if (name === 'template-reference-scope-routing') {
+    await verifyTemplateReferenceScopeRouting(scenarioPath);
+  } else if (name === 'whole-page-presuccess-retry') {
+    await verifyWholePagePresuccessRetry(scenarioPath);
   }
 
   process.stdout.write(`verified ${name}\n`);

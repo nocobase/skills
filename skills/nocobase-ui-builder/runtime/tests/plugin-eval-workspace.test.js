@@ -9,7 +9,6 @@ import { fileURLToPath } from 'node:url';
 const verifierPath = fileURLToPath(
   new URL('../fixtures/plugin-eval-workspace/scripts/verify-plugin-eval-artifacts.mjs', import.meta.url),
 );
-const benchmarkConfigPath = fileURLToPath(new URL('../../.plugin-eval/benchmark.json', import.meta.url));
 const fixtureWorkspacePath = fileURLToPath(new URL('../fixtures/plugin-eval-workspace', import.meta.url));
 
 async function withTempWorkspace(run) {
@@ -103,16 +102,13 @@ test('plugin eval verifier rejects mixed scenario outputs', async () => {
   });
 });
 
-test('benchmark config stays pinned to the skill-owned fixture workspace and fixed scenarios', async () => {
-  const benchmark = JSON.parse(await fs.readFile(benchmarkConfigPath, 'utf8'));
+test('plugin eval fixture remains a local verifier fixture, not a benchmark config owner', async () => {
   const workspaceInstructions = await fs.readFile(path.join(fixtureWorkspacePath, 'AGENTS.md'), 'utf8');
+  const workspaceNotes = await fs.readFile(path.join(fixtureWorkspacePath, 'WORKSPACE.txt'), 'utf8');
 
-  assert.equal(benchmark.workspace.sourcePath, fixtureWorkspacePath);
-  assert.deepEqual(benchmark.verifiers.commands, ['node ./scripts/verify-plugin-eval-artifacts.mjs']);
-  assert.deepEqual(
-    benchmark.scenarios.map((scenario) => scenario.id),
-    ['whole-page-blueprint', 'localized-reaction-edit', 'boundary-handoff'],
-  );
   assert.match(workspaceInstructions, /Do not enumerate installed skill directories/i);
   assert.match(workspaceInstructions, /named quick-route doc/i);
+  assert.match(workspaceNotes, /local verifier fixture/i);
+  assert.match(workspaceNotes, /not the benchmark source of truth/i);
+  assert.match(workspaceNotes, /Centralized benchmark packs live in .*nb-eval\/packs/i);
 });

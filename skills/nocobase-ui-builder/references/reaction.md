@@ -135,6 +135,7 @@ Localized write:
 Use `fieldLinkage` when the intent is “when A/B changes, recompute C/D”.
 
 When the `value` payload uses RunJS, route the example choice first through [js-surfaces/value-return.md](./js-surfaces/value-return.md). When the action itself is `Execute JavaScript`, route first through [js-surfaces/linkage.md](./js-surfaces/linkage.md).
+For `value.source = "runjs"`, keep multi-statement code readable in the NocoBase editor: preserve newline characters in JSON `code` strings and use 2-space indentation instead of flattening logic onto one line.
 
 - simple copy -> `source: "path"`
 - formulas or branching -> `source: "runjs"`
@@ -173,7 +174,7 @@ When the `value` payload uses RunJS, route the example choice first through [js-
               "value": {
                 "source": "runjs",
                 "version": "v2",
-                "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
+                "code": "const amount = Number(ctx.formValues?.amount || 0);\nconst taxRate = Number(ctx.formValues?.taxRate || 0);\n\nreturn amount + amount * taxRate;"
               }
             }
           ]
@@ -219,7 +220,7 @@ Verified CLI shape:
 nb api flow-surfaces add-field -e <env> -j \
   --target '{"uid":"users-create-form-uid"}' \
   --type jsItem \
-  --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}'
+  --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles;\nconst selected = Array.isArray(roles)\n  ? roles.length > 0\n  : Boolean(roles);\n\nif (!selected) {\n  ctx.render(null);\n  return;\n}\n\nctx.render(\"已选择角色，可查看角色治理提示。\");"}'
 ```
 
 This counts as the helper toggle: hidden state is represented by `ctx.render(null)` while `roles` is empty, and visible state by rendering content after roles are selected. Do not write `setFieldLinkageRules` against the JSItem uid or `jsItem` pseudo path unless `get-reaction-meta.targetFields` explicitly lists that target.

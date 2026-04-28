@@ -101,7 +101,8 @@ If the live environment does not make it clear which JS action model applies, st
 
 ## Code Style and Context
 
-- Output readable multiline JS by default, using 2-space indentation consistently.
+- Output readable multiline JS by default, using 2-space indentation consistently. In JSON payloads, preserve those line breaks inside `code` strings with `\n`; do not flatten multi-statement RunJS into one line for transport convenience.
+- Keep only a single short return or expression on one line. Any code with local variables, conditional branches, fallback handling, string assembly, `await`, `ctx.render(...)`, or more than one statement must be multiline before validator/preflight and before the nb write.
 - For complex template strings, conditional branches, or string assembly, split them into local variables first and then pass them into `ctx.render(...)`.
 - Start with the runtime profile's `defaultContextShape`. If live nb readback already knows a more precise `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`, override the defaults with live data.
 - The validator already injects the minimum public ctx: `ctx.runjs(...)`, `ctx.initResource(...)`, `ctx.libs.React/ReactDOM/antd/antdIcons`, plus the aliases `ctx.React/ctx.ReactDOM/ctx.antd/ctx.antdIcons`. These are available for validating public docs and default templates.

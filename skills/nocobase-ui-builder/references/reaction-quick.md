@@ -114,7 +114,7 @@ For whole-page `reaction.items[]`, keep the public rule types aligned with the s
                     "value": {
                       "source": "runjs",
                       "version": "v2",
-                      "code": "const title = String(ctx.formValues?.title || '').trim(); if (!title) return null; return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');"
+                      "code": "const title = String(ctx.formValues?.title || '').trim();\nif (!title) return null;\n\nreturn title\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '');"
                     }
                   }
                 ]
@@ -185,6 +185,8 @@ The same rule applies to form submit guards. If a `createForm` / `editForm` subm
 
 For computed form fields such as "derive `name` from `title`" or "derive `nickname` from `username` / email", use the `fieldLinkage` capability and an `assignField` action with `value.source = "runjs"`:
 
+Keep value-return RunJS readable in the eventual NocoBase editor. Multi-statement snippets must keep newline characters in the JSON `code` string; do not compress local variables, guards, and return logic into one physical line.
+
 ```json
 {
   "target": { "uid": "<create-form-uid>" },
@@ -208,7 +210,7 @@ For computed form fields such as "derive `name` from `title`" or "derive `nickna
               "value": {
                 "source": "runjs",
                 "version": "v2",
-                "code": "const title = String(ctx.formValues?.title || '').trim(); if (!title) return null; return title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');"
+                "code": "const title = String(ctx.formValues?.title || '').trim();\nif (!title) return null;\n\nreturn title\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '_')\n  .replace(/^_+|_+$/g, '');"
               }
             }
           ]
@@ -234,7 +236,7 @@ Verified CLI shape for a form-scoped helper item:
 nb api flow-surfaces add-field -e <env> -j \
   --target '{"uid":"<create-form-uid>"}' \
   --type jsItem \
-  --settings '{"label":"Helper","showLabel":false,"version":"v2","code":"const selected = Array.isArray(ctx.formValues?.roles) ? ctx.formValues.roles.length > 0 : Boolean(ctx.formValues?.roles); if (!selected) { ctx.render(null); return; } ctx.render(\"Helper content is now visible.\");"}'
+  --settings '{"label":"Helper","showLabel":false,"version":"v2","code":"const roles = ctx.formValues?.roles;\nconst selected = Array.isArray(roles)\n  ? roles.length > 0\n  : Boolean(roles);\n\nif (!selected) {\n  ctx.render(null);\n  return;\n}\n\nctx.render(\"Helper content is now visible.\");"}'
 ```
 
 For a protected delete guard on an existing live page, first make sure the table has a concrete delete record action, then run `get-reaction-meta` on that returned action uid and write `set-action-linkage-rules`.

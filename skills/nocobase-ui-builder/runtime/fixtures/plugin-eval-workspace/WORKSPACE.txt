@@ -1,9 +1,11 @@
-# Plugin Eval Benchmark Workspace
+# Plugin Eval Verifier Fixture
 
 This workspace is intentionally minimal.
 
 - Use the installed `nocobase-ui-builder` skill as the source of truth.
-- Write benchmark artifacts only under `.artifacts/nocobase-ui-builder/<scenario-id>/`.
-- The fixed benchmark scenario ids are `whole-page-blueprint`, `localized-reaction-edit`, and `boundary-handoff`.
+- This is a local verifier fixture for deterministic UI Builder tests, not the benchmark source of truth.
+- Write local verifier artifacts only under `.artifacts/nocobase-ui-builder/<scenario-id>/`.
+- The local verifier scenario ids are `whole-page-blueprint`, `localized-reaction-edit`, and `boundary-handoff`.
 - Do not expect a live NocoBase server here.
-- Post-run verification uses `scripts/verify-plugin-eval-artifacts.mjs`.
+- Verification uses `scripts/verify-plugin-eval-artifacts.mjs`.
+- Centralized benchmark packs live in `/Users/gchust/auto_works/myskills/skills/nb-eval/packs`.
