@@ -64,6 +64,7 @@ Envelope boundary:
 - For the first real whole-page write, `prepare-write` is mandatory, and the actual nb raw body becomes `result.cliBody`, not the original draft blueprint.
 - Do not wrap that object again. If `prepare-write` already ran, that same object means the prepared `result.cliBody`.
 - Do not stringify this document into nested JSON such as `blueprint: "{\"version\":\"1\"...}"`.
+- Do not put `collectionMetadata` in this inner blueprint. It belongs only in the prepare helper envelope `{ blueprint, collectionMetadata }` or in direct helper call options; the CLI fills missing metadata entries by default before validation.
 - Every JSON snippet below should be treated as the inner blueprint draft; for the first real whole-page write, send the returned `cliBody` instead of the raw draft snippet.
 
 ## 2. Top-level Shape

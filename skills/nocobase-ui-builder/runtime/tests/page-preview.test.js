@@ -7,6 +7,7 @@ import {
 } from '../src/page-blueprint-preview.js';
 import { buildSuggestedDefaultFilterGroup } from '../src/default-filter-candidates.js';
 import { runPagePreviewCli } from '../src/page-preview-cli.js';
+import { fetchCollectionMetadata } from '../src/collection-metadata-resolver.js';
 
 function createMemoryStream() {
   const stream = new PassThrough();
@@ -130,6 +131,55 @@ const intelligenceTreeCollectionMetadata = {
         { name: 'id', type: 'bigInt', interface: 'integer' },
         { name: 'title', type: 'string', interface: 'input' },
         { name: 'intelType', type: 'string', interface: 'select' },
+      ],
+    },
+  },
+};
+const minimalUserCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+const minimalRoleCollectionMetadata = {
+  collections: {
+    roles: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+const userDepartmentAssociationMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments' },
+      ],
+    },
+  },
+};
+const minimalDepartmentCollectionMetadata = {
+  collections: {
+    departments: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'title', type: 'string', interface: 'input' },
       ],
     },
   },
@@ -988,7 +1038,7 @@ test('page preview cli returns a stable JSON error when --input is missing its v
     error: 'Missing value for --input.',
     usage: {
       command:
-        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
+        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
     },
   });
 });
@@ -7412,7 +7462,7 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -7433,6 +7483,497 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
         && issue.message.includes('tabs[0].blocks[0]'),
     ),
   );
+});
+
+test('page preview cli prepare-write auto-resolves collectionMetadata when it is missing', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'users');
+      return minimalUserCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['users']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.collectionMetadata, undefined);
+  assert.equal(payload.cliBody.page.title, 'Users');
+});
+
+test('page preview cli prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, []);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.collectionMetadata, undefined);
+});
+
+test('page preview cli prepare-write only fetches missing collectionMetadata entries', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users and roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            layout: {
+              rows: [['usersTable', 'rolesTable']],
+            },
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                title: 'Users',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+              {
+                key: 'rolesTable',
+                type: 'table',
+                title: 'Roles',
+                collection: 'roles',
+                defaultFilter: defaultFilterGroup(['name']),
+                fields: ['name'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves data-bound collections inside popups', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users popup' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+                recordActions: [
+                  {
+                    type: 'view',
+                    popup: {
+                      title: 'User roles',
+                      blocks: [
+                        {
+                          key: 'rolesTable',
+                          type: 'table',
+                          title: 'Roles',
+                          collection: 'roles',
+                          defaultFilter: defaultFilterGroup(['name']),
+                          fields: ['name'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write recursively resolves association target collection metadata', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users departments' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  department: buildFixedCollectionPopupDefaults('department'),
+                },
+              },
+            },
+            departments: {
+              popups: buildFixedCollectionPopupDefaults('departments'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersDetails',
+                type: 'details',
+                collection: 'users',
+                fields: [
+                  'nickname',
+                  {
+                    field: 'department',
+                    popup: {
+                      title: 'Department',
+                      blocks: [
+                        {
+                          key: 'departmentDetails',
+                          type: 'details',
+                          collection: 'departments',
+                          fields: ['title'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: userDepartmentAssociationMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'departments');
+      return minimalDepartmentCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['departments']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves associatedRecords targets over multiple metadata rounds', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  roles: buildFixedCollectionPopupDefaults('roles'),
+                },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+                recordActions: [
+                  {
+                    type: 'view',
+                    popup: {
+                      title: 'User roles',
+                      blocks: [
+                        {
+                          key: 'userRoles',
+                          type: 'table',
+                          title: 'Roles',
+                          resource: {
+                            binding: 'associatedRecords',
+                            associationField: 'roles',
+                          },
+                          defaultFilter: defaultFilterGroup(['name']),
+                          fields: ['name'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      if (collectionName === 'users') return oneCandidateCollectionMetadata;
+      if (collectionName === 'roles') return minimalRoleCollectionMetadata;
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['users', 'roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write keeps fail-closed behavior with no-auto metadata flag', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      return minimalUserCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, []);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+});
+
+test('fetchCollectionMetadata falls back to resource list when data-modeling collection get fails', async () => {
+  const calls = [];
+  const metadata = await fetchCollectionMetadata('users', {
+    cwd: process.cwd(),
+    async execFileImpl(command, args) {
+      calls.push([command, ...args]);
+      if (args.includes('data-modeling')) {
+        throw new Error('data-modeling unavailable');
+      }
+      return {
+        stdout: JSON.stringify({
+          data: [
+            {
+              name: 'users',
+              titleField: 'nickname',
+              fields: [
+                { name: 'id', type: 'integer', interface: 'number' },
+                { name: 'nickname', type: 'string', interface: 'input' },
+              ],
+            },
+          ],
+        }),
+      };
+    },
+  });
+
+  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
 });
 
 test('page preview cli prepare-write returns normalized cli body json', async () => {

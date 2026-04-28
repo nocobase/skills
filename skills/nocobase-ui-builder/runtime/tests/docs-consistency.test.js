@@ -1813,14 +1813,18 @@ test('whole-page defaults docs keep the fixed popup trio and table addNew thresh
   );
 });
 
-test('helper contracts require caller-supplied collectionMetadata for data-bound prepare-write', () => {
+test('helper contracts document prepare-write collectionMetadata auto-resolution', () => {
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /does not fetch live collection metadata/i);
+  assert.match(helperContracts, /auto-resolves missing `?collectionMetadata`? entries/i);
+  assert.match(helperContracts, /data-modeling collections get/i);
+  assert.match(helperContracts, /resource list/i);
+  assert.match(helperContracts, /--no-auto-collection-metadata/i);
   assert.match(helperContracts, /collectionMetadata/i);
   assert.match(helperContracts, /data-bound block/i);
   assert.match(helperContracts, /missing-collection-metadata/i);
   assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
-  assert.match(helperContracts, /caller-supplied/i);
+  assert.match(helperContracts, /caller-supplied[\s\S]{0,80}wins/i);
+  assert.match(helperContracts, /does not auto-fetch missing metadata/i);
   assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });

@@ -87,6 +87,7 @@ For actual execution in this skill:
 - do **not** stringify the JSON document
 - do **not** wrap it again as `{ values: payload }`
 - do **not** leak helper-envelope fields such as `blueprint`, `templateDecision`, or `collectionMetadata` into the inner page blueprint
+- whole-page `nb-page-preview --prepare-write` may receive `collectionMetadata` in the helper envelope and auto-fetch missing entries, but that metadata remains prewrite-only and must not be sent in `result.cliBody`
 
 Important exception:
 

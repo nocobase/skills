@@ -60,8 +60,8 @@ Use this path when the user is describing one entire page.
    - any requested `table` / `list` / `gridCard` / `calendar` / `kanban` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
-   - any data-bound block has caller-supplied `collectionMetadata`; missing or empty metadata fails prepare-write with `missing-collection-metadata`
-   - with `collectionMetadata`, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
+   - data-bound blocks have resolved `collectionMetadata`; the CLI auto-fills missing collection entries by default, while `--no-auto-collection-metadata` keeps the `missing-collection-metadata` fail-closed path
+   - with resolved `collectionMetadata`, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
 7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same draft blueprint.
 8. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in this route must be `nb api flow-surfaces apply-blueprint`.
 9. Before one whole-page `applyBlueprint` succeeds, do not issue `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.

@@ -1063,7 +1063,7 @@ function normalizeCollectionFieldMetadata(field) {
   };
 }
 
-function normalizeCollectionMetadataInput(rawMetadata) {
+export function normalizeCollectionMetadataInput(rawMetadata) {
   if (typeof rawMetadata === 'undefined') {
     return {
       provided: false,
@@ -1206,7 +1206,7 @@ function getTraversalSurfaceCollection(context) {
   return normalizeText(context?.surfaceCollection || context?.currentCollection);
 }
 
-function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
+export function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
   const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
   if (!isAssociationFieldMeta(associationMeta?.field)) return '';
   const targetCollection = normalizeText(associationMeta?.field?.target);

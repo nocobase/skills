@@ -19,6 +19,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
+   - You do not need to hand-build a complete helper envelope before `prepare-write`; pass any metadata you already have, and the CLI fills missing collection entries before validation.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
    - Under `defaults.collections`, every involved direct collection always carries fixed `popups.view` / `addNew` / `edit` `{ name, description }` objects, and any `table` block always pulls its collection into the `addNew` threshold evaluation even when the draft omitted an explicit `addNew` opener.
    - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when one of those fixed backend-generated popup scenes should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
