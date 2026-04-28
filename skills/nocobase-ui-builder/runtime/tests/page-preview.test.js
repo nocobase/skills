@@ -8480,12 +8480,74 @@ test('page preview cli prepare-write keeps fail-closed behavior with no-auto met
   assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
 });
 
+test('page preview cli prepare-write reports nb env Base URL fixes when auto metadata cannot resolve env', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      assert.deepEqual([command, ...args], ['nb', 'env', 'list']);
+      return {
+        stdout: [
+          '  Name      Base URL',
+          '* local',
+        ].join('\n'),
+      };
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(
+    payload.errors.some(
+      (issue) => issue.ruleId === 'collection-metadata-fetch-failed'
+        && /nb env add.*nb env update.*collectionMetadata/i.test(issue.message),
+    ),
+  );
+});
+
 test('fetchCollectionMetadata falls back to resource list when data-modeling collection get fails', async () => {
   const calls = [];
   const metadata = await fetchCollectionMetadata('users', {
     cwd: process.cwd(),
     async execFileImpl(command, args) {
       calls.push([command, ...args]);
+      if (args[0] === 'env') {
+        return {
+          stdout: [
+            '  Name      Base URL',
+            '* local     http://127.0.0.1:13000',
+          ].join('\n'),
+        };
+      }
       if (args.includes('data-modeling')) {
         throw new Error('data-modeling unavailable');
       }
@@ -8506,9 +8568,30 @@ test('fetchCollectionMetadata falls back to resource list when data-modeling col
     },
   });
 
-  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
-  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
   assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
+});
+
+test('fetchCollectionMetadata fails clearly when current nb env Base URL is empty', async () => {
+  await assert.rejects(
+    fetchCollectionMetadata('users', {
+      cwd: process.cwd(),
+      async execFileImpl(command, args) {
+        assert.deepEqual([command, ...args], ['nb', 'env', 'list']);
+        return {
+          stdout: [
+            '  Name      Base URL',
+            '* local',
+          ].join('\n'),
+        };
+      },
+    }),
+    /Current nb env has no Base URL.*nb env add.*nb env update.*collectionMetadata/i,
+  );
 });
 
 test('fetchCollectionMetadata fails when nb responses do not include the requested collection', async () => {
@@ -8518,6 +8601,14 @@ test('fetchCollectionMetadata fails when nb responses do not include the request
       cwd: process.cwd(),
       async execFileImpl(command, args) {
         calls.push([command, ...args]);
+        if (args[0] === 'env') {
+          return {
+            stdout: [
+              '  Name      Base URL',
+              '* local     http://127.0.0.1:13000',
+            ].join('\n'),
+          };
+        }
         if (args.includes('data-modeling')) {
           return { stdout: JSON.stringify({ data: [] }) };
         }
@@ -8527,8 +8618,11 @@ test('fetchCollectionMetadata fails when nb responses do not include the request
     /collection metadata for "users" was not found/i,
   );
 
-  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
-  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
 });
 
 test('page preview cli prepare-write fails when auto collectionMetadata fetch returns no collection entry', async () => {

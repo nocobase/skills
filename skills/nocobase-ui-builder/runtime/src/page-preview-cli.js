@@ -138,6 +138,7 @@ export async function runPagePreviewCli(argv, io = {}) {
       ? await resolvePrepareWritePayload(payload, {
           autoCollectionMetadata: !args['no-auto-collection-metadata'],
           cwd,
+          ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
           ...(io.fetchCollectionMetadata ? { fetchCollectionMetadata: io.fetchCollectionMetadata } : {}),
         })
       : { payload, resolverErrors: [] };
