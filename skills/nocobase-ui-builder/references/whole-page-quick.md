@@ -38,7 +38,12 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
 8. If the page explicitly asks for a tree filter (`树筛选 / 树状筛选 / tree filter`), keep a real `tree` block in that first-pass blueprint or localized write:
    - use `type: "tree"` / `TreeBlockModel`
    - bind it to the requested collection with live metadata
+   - when connecting the tree to a same-blueprint table/list/gridCard/calendar/kanban/details/chart/map/comments/tree target, prefer Blueprint-stage `settings.connectFields.targets[].target` with the target block key
+   - same collection may omit `filterPaths`; cross-collection tree connects must provide `filterPaths`, for example `["department.id"]`
+   - do not repeat the same target in one tree `targets` array; keep one entry with the final `filterPaths`
+   - `titleField` is display-only; the selected filter value comes from the tree key / `filterTargetKey`, so keep target `filterPaths` type-compatible with that key
    - prefer `title`, `searchable`, `includeDescendants`, `defaultExpandAll`, `titleField`, `fieldNames`, `pageSize`, `dataScope`, and `sorting` settings
+   - do not write raw `filterManager`; let `settings.connectFields` persist the front-end “连接数据区块” configuration
    - do not downgrade it into `filterForm` just because the phrase also contains `筛选`
 9. If the page explicitly asks for a filter block/form, keep a real `filterForm` in that first-pass blueprint:
    - add non-empty filter `fields`

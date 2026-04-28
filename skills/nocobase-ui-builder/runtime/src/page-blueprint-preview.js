@@ -1,10 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
 import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
+import { ANT_DESIGN_ICON_NAMES } from './ant-design-icon-names.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
@@ -70,6 +67,7 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
@@ -112,8 +110,8 @@ const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
 const POPUP_PAGE_MODE_BLOCK_THRESHOLD = 3;
 const POPUP_PAGE_MODE_FIELD_THRESHOLD = 20;
 const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
-const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany']);
-const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
+const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany', 'belongstoarray', 'onetoone']);
+const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'o2o', 'mbm', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
 const AUDIT_FIELD_NAMES = new Set([
   'id',
   'createdAt',
@@ -128,48 +126,6 @@ const AUDIT_FIELD_NAMES = new Set([
   'created_at',
   'updated_at',
   'deleted_at',
-]);
-const COMMON_ANT_DESIGN_ICON_NAMES = new Set([
-  'AppstoreOutlined',
-  'BankOutlined',
-  'BellOutlined',
-  'BookOutlined',
-  'BuildOutlined',
-  'CalendarOutlined',
-  'CloudOutlined',
-  'CodeOutlined',
-  'CompassOutlined',
-  'ContactsOutlined',
-  'ControlOutlined',
-  'CreditCardOutlined',
-  'CustomerServiceOutlined',
-  'DashboardOutlined',
-  'DatabaseOutlined',
-  'EditOutlined',
-  'FileOutlined',
-  'FilterOutlined',
-  'FormOutlined',
-  'GlobalOutlined',
-  'HomeOutlined',
-  'InboxOutlined',
-  'MailOutlined',
-  'NotificationOutlined',
-  'PieChartOutlined',
-  'ProjectOutlined',
-  'ReadOutlined',
-  'SafetyOutlined',
-  'ScheduleOutlined',
-  'SearchOutlined',
-  'SettingOutlined',
-  'ShopOutlined',
-  'SolutionOutlined',
-  'StockOutlined',
-  'SyncOutlined',
-  'TableOutlined',
-  'TagOutlined',
-  'TeamOutlined',
-  'ToolOutlined',
-  'UserOutlined',
 ]);
 const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
   'collection',
@@ -190,12 +146,18 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
 ]);
 const ADD_CHILD_RECORD_ACTION_MESSAGE =
   '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
-const ANT_DESIGN_ICON_NAMES = loadAntDesignIconNames();
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   const normalized = source.replace(/\s+/g, ' ').trim();
   return normalized || fallback;
+}
+
+function normalizeFilterTargetKeyValue(value) {
+  if (Array.isArray(value)) {
+    return normalizeText(value[0]);
+  }
+  return normalizeText(value);
 }
 
 function normalizeLowerText(value) {
@@ -210,49 +172,6 @@ function normalizeApplyBlueprintToken(value, fallback = 'item') {
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
   return normalized || fallback;
-}
-
-function loadAntDesignIconNames() {
-  const iconDir = resolveAntDesignIconDirectory();
-  if (!iconDir) {
-    return COMMON_ANT_DESIGN_ICON_NAMES;
-  }
-  try {
-    const names = fs
-      .readdirSync(iconDir)
-      .filter((entry) => entry.endsWith('.js'))
-      .map((entry) => entry.replace(/\.js$/, ''))
-      .filter(Boolean);
-    return names.length ? new Set(names) : COMMON_ANT_DESIGN_ICON_NAMES;
-  } catch {
-    return COMMON_ANT_DESIGN_ICON_NAMES;
-  }
-}
-
-function resolveAntDesignIconDirectory() {
-  const startDir = path.dirname(fileURLToPath(import.meta.url));
-  const visited = new Set();
-  let currentDir = startDir;
-
-  while (currentDir && !visited.has(currentDir)) {
-    visited.add(currentDir);
-    const candidates = [
-      path.join(currentDir, 'node_modules', '@ant-design', 'icons-svg', 'lib', 'asn'),
-      path.join(currentDir, 'nocobase', 'node_modules', '@ant-design', 'icons-svg', 'lib', 'asn'),
-    ];
-    for (const candidate of candidates) {
-      if (fs.existsSync(candidate)) {
-        return candidate;
-      }
-    }
-    const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) {
-      break;
-    }
-    currentDir = parentDir;
-  }
-
-  return '';
 }
 
 function isValidAntDesignIconName(value) {
@@ -779,6 +698,24 @@ function summarizeList(labels, { maxItems = DEFAULT_MAX_SUMMARY_ITEMS, formatter
   return hiddenCount > 0 ? `${visible.join(', ')}, +${hiddenCount} more` : visible.join(', ');
 }
 
+function describeTreeConnectFields(settings) {
+  if (!isPlainObject(settings?.connectFields) || !Array.isArray(settings.connectFields.targets)) {
+    return '';
+  }
+  const labels = settings.connectFields.targets
+    .filter((target) => isPlainObject(target))
+    .map((target) => {
+      const targetLabel = normalizeText(target.target || target.targetId || target.targetBlockUid);
+      if (!targetLabel) return '';
+      const filterPaths = ensureArray(target.filterPaths)
+        .map((fieldPath) => normalizeText(fieldPath))
+        .filter(Boolean);
+      return filterPaths.length ? `${targetLabel} via ${filterPaths.join('+')}` : targetLabel;
+    })
+    .filter(Boolean);
+  return summarizeList(labels, { formatter: (value) => value });
+}
+
 function getMenuPath(blueprint) {
   const groupTitle = normalizeText(blueprint?.navigation?.group?.title);
   const groupRouteId = blueprint?.navigation?.group?.routeId;
@@ -828,7 +765,13 @@ function getFactsPageTitle(blueprint) {
 }
 
 function getCollectionLabel(node) {
-  return normalizeText(node?.collection) || normalizeText(node?.resource?.collectionName) || normalizeText(node?.resource?.collection);
+  return (
+    normalizeText(node?.collection)
+    || normalizeText(node?.resource?.collectionName)
+    || normalizeText(node?.resource?.collection)
+    || normalizeText(node?.resourceInit?.collectionName)
+    || normalizeText(node?.resourceInit?.collection)
+  );
 }
 
 function hasResourceBinding(node) {
@@ -1109,7 +1052,8 @@ function normalizeCollectionFieldMetadata(field) {
     name,
     interface: normalizeText(field.interface),
     type: normalizeText(field.type),
-    target: normalizeText(field.target || field.targetCollection || field.collectionName),
+    target: normalizeText(field.target || field.targetCollection),
+    collectionName: normalizeText(field.collectionName),
     foreignKey: normalizeText(field.foreignKey),
     targetKey: normalizeText(field.targetKey),
     readOnly: Boolean(field.readOnly ?? field.readonly),
@@ -1167,13 +1111,9 @@ function normalizeCollectionMetadataInput(rawMetadata) {
       name: collectionName,
       titleField: normalizeText(source.titleField || values.titleField || options.titleField),
       filterTargetKey:
-        typeof source.filterTargetKey === 'string'
-          ? normalizeText(source.filterTargetKey)
-          : typeof values.filterTargetKey === 'string'
-            ? normalizeText(values.filterTargetKey)
-            : typeof options.filterTargetKey === 'string'
-              ? normalizeText(options.filterTargetKey)
-              : '',
+        normalizeFilterTargetKeyValue(source.filterTargetKey)
+        || normalizeFilterTargetKeyValue(values.filterTargetKey)
+        || normalizeFilterTargetKeyValue(options.filterTargetKey),
       fields,
       fieldsByName: new Map(fields.map((field) => [field.name, field])),
     };
@@ -1217,8 +1157,7 @@ function getCollectionFieldMeta(collectionMetadata, collectionName, fieldName) {
 function isAssociationFieldMeta(field) {
   if (!isPlainObject(field)) return false;
   return (
-    !!normalizeText(field.target)
-    || ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
+    ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
     || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(field.interface))
   );
 }
@@ -1269,6 +1208,7 @@ function getTraversalSurfaceCollection(context) {
 
 function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
   const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
+  if (!isAssociationFieldMeta(associationMeta?.field)) return '';
   const targetCollection = normalizeText(associationMeta?.field?.target);
   return targetCollection || '';
 }
@@ -2200,6 +2140,7 @@ function renderBlock(block, context) {
   const chart = normalizeText(block?.chart);
   const resource = describeResource(block);
   const templateLine = describeTemplateReference(block?.template);
+  const treeConnectFields = describeTreeConnectFields(block?.settings);
 
   if (templateLine) body.push(templateLine);
 
@@ -2215,6 +2156,7 @@ function renderBlock(block, context) {
   if (recordActionsSummary) body.push(`Record actions: ${recordActionsSummary}`);
 
   if (resource) body.push(resource);
+  if (treeConnectFields) body.push(`Connects: ${treeConnectFields}`);
   if (script) body.push(`Script: ${trimLabel(script, MAX_HEADER_TEXT)}`);
   if (chart) body.push(`Chart: ${trimLabel(chart, MAX_HEADER_TEXT)}`);
 
@@ -2678,6 +2620,19 @@ function materializePopupForWrite(popup, options = {}) {
   return nextPopup;
 }
 
+function materializeSettingsHeightForWrite(settings) {
+  if (!isPlainObject(settings)) {
+    return settings;
+  }
+  if (!hasOwn(settings, 'height') || hasOwn(settings, 'heightMode')) {
+    return settings;
+  }
+  return {
+    ...settings,
+    heightMode: 'specifyValue',
+  };
+}
+
 function materializeFieldForWrite(field, options = {}) {
   if (!isPlainObject(field)) {
     return field;
@@ -2726,6 +2681,9 @@ function materializeBlockForWrite(block, options = {}) {
     return block;
   }
   const nextBlock = cloneSerializable(block);
+  if (hasOwn(nextBlock, 'settings')) {
+    nextBlock.settings = materializeSettingsHeightForWrite(nextBlock.settings);
+  }
   if (hasOwn(nextBlock, 'fields')) {
     nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
       materializeFieldForWrite(field, {
@@ -3364,8 +3322,12 @@ function validatePopupDocument(popup, path, state, parentContext = {}) {
     );
   }
 
+  const popupBlockContext = {
+    ...parentContext,
+    siblingBlocksByKey: collectSiblingBlocksByKey(popup.blocks),
+  };
   for (const [index, block] of ensureArray(popup.blocks).entries()) {
-    validateBlock(block, `${path}.blocks[${index}]`, state, parentContext);
+    validateBlock(block, `${path}.blocks[${index}]`, state, popupBlockContext);
   }
 
   validateMultiBlockDataTitles(popup.blocks, `${path}.blocks`, state);
@@ -4148,6 +4110,283 @@ function validateDataSurfaceFilterActionSettings(block, path, state) {
   }
 }
 
+function collectSiblingBlocksByKey(blocks) {
+  const map = new Map();
+  for (const block of ensureArray(blocks)) {
+    if (!isPlainObject(block)) continue;
+    const key = normalizeText(block.key);
+    if (key) {
+      map.set(key, block);
+    }
+  }
+  return map;
+}
+
+function getCollectionFilterTargetKey(collectionMeta) {
+  const direct = normalizeFilterTargetKeyValue(collectionMeta?.filterTargetKey);
+  if (direct) return direct;
+  const optionsValue = collectionMeta?.options?.filterTargetKey;
+  const fromOptions = normalizeFilterTargetKeyValue(optionsValue);
+  return fromOptions || 'id';
+}
+
+function normalizeTreeConnectValueKind(field) {
+  const type = normalizeLowerText(field?.type);
+  const fieldInterface = normalizeLowerText(field?.interface);
+  if (
+    ['bigint', 'biginteger', 'integer', 'int', 'number', 'float', 'double', 'decimal', 'real'].includes(type)
+    || ['bigint', 'integer', 'number', 'percent'].includes(fieldInterface)
+  ) {
+    return 'number';
+  }
+  if (
+    ['string', 'text', 'uid', 'uuid', 'varchar', 'char'].includes(type)
+    || ['input', 'textarea', 'select', 'radiogroup', 'url', 'email', 'phone'].includes(fieldInterface)
+  ) {
+    return 'string';
+  }
+  if (
+    ['date', 'datetime', 'time'].includes(type)
+    || ['date', 'datetime', 'dateonly', 'time'].includes(fieldInterface)
+  ) {
+    return 'date';
+  }
+  if (
+    ['boolean', 'bool'].includes(type)
+    || ['checkbox', 'boolean'].includes(fieldInterface)
+  ) {
+    return 'boolean';
+  }
+  return '';
+}
+
+function resolveCollectionFilterTargetField(collectionMetadata, collectionName) {
+  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
+  if (!collectionMeta) return null;
+  const key = getCollectionFilterTargetKey(collectionMeta);
+  const field = collectionMeta.fieldsByName?.get(key) || null;
+  if (field) {
+    return {
+      fieldPath: key,
+      field,
+    };
+  }
+  if (key === 'id') {
+    return {
+      fieldPath: key,
+      field: { name: 'id', type: 'bigInt', interface: 'integer' },
+    };
+  }
+  return null;
+}
+
+function validateTreeConnectFilterPathType({
+  collectionMetadata,
+  treeCollection,
+  targetCollection,
+  titleField,
+  fieldPath,
+  fieldPathIndex,
+  targetPath,
+  errors,
+  seenErrors,
+}) {
+  const source = resolveCollectionFilterTargetField(collectionMetadata, treeCollection);
+  const target = resolveFieldPathInCollectionMetadata(collectionMetadata, targetCollection, fieldPath);
+  if (!source?.field || !target?.field) {
+    return;
+  }
+
+  const sourceKind = normalizeTreeConnectValueKind(source.field);
+  const targetKind = normalizeTreeConnectValueKind(target.field);
+  if (!sourceKind || !targetKind || sourceKind === targetKind) {
+    return;
+  }
+
+  pushValidationError(
+    errors,
+    seenErrors,
+    `${targetPath}.filterPaths[${fieldPathIndex}]`,
+    'tree-connect-filter-path-type-mismatch',
+    `tree connectFields target field "${fieldPath}" is not type-compatible with the tree selected key "${source.fieldPath}". Tree titleField "${titleField || '(default)'}" only controls display; the selected filter value comes from "${source.fieldPath}". Omit filterPaths/use "${source.fieldPath}" for same-collection id filtering, or use a normal field filter/separate type collection for real type-value filtering.`,
+  );
+}
+
+function treeConnectFilterPathExists(collectionMetadata, collectionName, fieldPath) {
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedFieldPath) return false;
+  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
+  if (!collectionMeta) return true;
+  if (normalizedFieldPath === 'id' || normalizedFieldPath === getCollectionFilterTargetKey(collectionMeta)) {
+    return true;
+  }
+  return !!resolveFieldPathInCollectionMetadata(collectionMetadata, collectionName, normalizedFieldPath);
+}
+
+function validateTreeConnectFields(block, path, state, siblingBlocksByKey = new Map()) {
+  if (normalizeText(block?.type) !== 'tree' || !hasOwn(block, 'settings') || !hasOwn(block.settings, 'connectFields')) {
+    return;
+  }
+
+  const connectFieldsPath = `${path}.settings.connectFields`;
+  const connectFields = block.settings.connectFields;
+  if (!isPlainObject(connectFields)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      connectFieldsPath,
+      'tree-connect-fields-invalid',
+      'tree settings.connectFields must be one object.',
+    );
+    return;
+  }
+  if (!Array.isArray(connectFields.targets)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${connectFieldsPath}.targets`,
+      'tree-connect-targets-invalid',
+      'tree settings.connectFields.targets must be an array.',
+    );
+    return;
+  }
+
+  const treeCollection = getCollectionLabel(block);
+  const titleField = normalizeText(block?.settings?.titleField || block?.settings?.fieldNames?.title);
+  const collectionMetadata = state.collectionMetadata || {};
+  const seenTargetKeys = new Set();
+  for (const [targetIndex, target] of connectFields.targets.entries()) {
+    const targetPath = `${connectFieldsPath}.targets[${targetIndex}]`;
+    if (!isPlainObject(target)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        targetPath,
+        'tree-connect-target-invalid',
+        'Each tree connectFields target must be one object.',
+      );
+      continue;
+    }
+
+    const localTargetKey = normalizeText(target.target);
+    if (!localTargetKey) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${targetPath}.target`,
+        'tree-connect-target-required',
+        'Blueprint tree connectFields targets must include target as one same-blueprint block key.',
+      );
+    } else if (seenTargetKeys.has(localTargetKey)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        targetPath,
+        'tree-connect-target-duplicate',
+        `tree connectFields target "${localTargetKey}" is duplicated.`,
+      );
+    } else {
+      seenTargetKeys.add(localTargetKey);
+    }
+    if (hasOwn(target, 'targetId') || hasOwn(target, 'targetBlockUid')) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        targetPath,
+        'tree-connect-live-target-not-blueprint',
+        'Blueprint tree connectFields must use target block keys; reserve targetId/targetBlockUid for localized live writes.',
+      );
+    }
+
+    const targetBlock = localTargetKey ? siblingBlocksByKey.get(localTargetKey) : null;
+    if (localTargetKey && !targetBlock) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${targetPath}.target`,
+        'tree-connect-target-unknown',
+        `tree connectFields target "${localTargetKey}" does not resolve to a same-tab block key.`,
+      );
+      continue;
+    }
+    if (targetBlock && !TREE_CONNECT_TARGET_BLOCK_TYPES.has(normalizeText(targetBlock.type))) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${targetPath}.target`,
+        'tree-connect-target-unsupported',
+        `tree connectFields target "${localTargetKey}" must be a filterable data block.`,
+      );
+    }
+
+    const hasFilterPaths = hasOwn(target, 'filterPaths');
+    const filterPaths = hasFilterPaths
+      ? ensureArray(target.filterPaths).map((fieldPath) => normalizeText(fieldPath)).filter(Boolean)
+      : [];
+    if (hasFilterPaths && (!Array.isArray(target.filterPaths) || filterPaths.length !== target.filterPaths.length || filterPaths.length === 0)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${targetPath}.filterPaths`,
+        'tree-connect-filter-paths-invalid',
+        'tree connectFields filterPaths must be a non-empty string array when provided.',
+      );
+      continue;
+    }
+
+    const targetCollection = targetBlock ? getCollectionLabel(targetBlock) : '';
+    const hasMetadata = Object.keys(collectionMetadata).length > 0;
+    const hasTreeMeta = !!getCollectionMeta(collectionMetadata, treeCollection);
+    const hasTargetMeta = !!getCollectionMeta(collectionMetadata, targetCollection);
+    if (
+      targetBlock
+      && hasMetadata
+      && hasTreeMeta
+      && hasTargetMeta
+      && treeCollection
+      && targetCollection
+      && treeCollection !== targetCollection
+      && filterPaths.length === 0
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${targetPath}.filterPaths`,
+        'tree-connect-filter-paths-required',
+        'tree connectFields filterPaths are required when the target collection differs from the tree collection.',
+      );
+      continue;
+    }
+
+    if (!targetCollection || !hasTargetMeta || filterPaths.length === 0) {
+      continue;
+    }
+    filterPaths.forEach((fieldPath, fieldPathIndex) => {
+      if (!treeConnectFilterPathExists(collectionMetadata, targetCollection, fieldPath)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${targetPath}.filterPaths[${fieldPathIndex}]`,
+          'tree-connect-filter-path-unknown',
+          `tree connectFields filterPaths entry "${fieldPath}" is unsupported for target collection ${targetCollection}.`,
+        );
+        return;
+      }
+      validateTreeConnectFilterPathType({
+        collectionMetadata,
+        treeCollection,
+        targetCollection,
+        titleField,
+        fieldPath,
+        fieldPathIndex,
+        targetPath,
+        errors: state.errors,
+        seenErrors: state.seenErrors,
+      });
+    });
+  }
+}
+
 function validateCalendarMainBlockShape(block, path, state) {
   if (!CALENDAR_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
@@ -4307,6 +4546,7 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateDataSurfaceFilterActionSettings(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
   validateKanbanMainBlockShape(block, path, state);
+  validateTreeConnectFields(block, path, state, parentContext.siblingBlocksByKey);
   validateBlockFieldGroups(block, path, state);
   validateBlockFieldsLayout(block, path, state);
 
@@ -4394,8 +4634,11 @@ function validateTab(tab, index, state) {
     );
   }
 
+  const tabBlockContext = {
+    siblingBlocksByKey: collectSiblingBlocksByKey(tab.blocks),
+  };
   for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
-    validateBlock(block, `${path}.blocks[${blockIndex}]`, state);
+    validateBlock(block, `${path}.blocks[${blockIndex}]`, state, tabBlockContext);
   }
 
   validateMultiBlockDataTitles(tab.blocks, `${path}.blocks`, state);

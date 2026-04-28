@@ -1586,6 +1586,43 @@ function validatePublicDataSurfaceFilterSettings(block, pathValue, metadata, mod
   }
 }
 
+function forEachPublicChildBlockContainer(block, pathValue, visitContainer) {
+  if (!isPlainObject(block)) {
+    return;
+  }
+
+  if (Array.isArray(block.blocks)) {
+    visitContainer(block.blocks, `${pathValue}.blocks`);
+  }
+  if (Array.isArray(block.popup?.blocks)) {
+    visitContainer(block.popup.blocks, `${pathValue}.popup.blocks`);
+  }
+
+  ['actions', 'recordActions', 'fields'].forEach((slot) => {
+    if (!Array.isArray(block[slot])) {
+      return;
+    }
+    block[slot].forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        visitContainer(item.popup.blocks, `${pathValue}.${slot}[${index}].popup.blocks`);
+      }
+    });
+  });
+
+  if (Array.isArray(block.fieldGroups)) {
+    block.fieldGroups.forEach((group, groupIndex) => {
+      if (!Array.isArray(group?.fields)) {
+        return;
+      }
+      group.fields.forEach((field, fieldIndex) => {
+        if (Array.isArray(field?.popup?.blocks)) {
+          visitContainer(field.popup.blocks, `${pathValue}.fieldGroups[${groupIndex}].fields[${fieldIndex}].popup.blocks`);
+        }
+      });
+    });
+  }
+}
+
 function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blockers, seen) {
   const visitBlock = (block, pathValue) => {
     if (!isPlainObject(block)) {
@@ -1647,35 +1684,8 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
       validatePublicDataSurfaceFilterSettings(block, pathValue, metadata, mode, blockers, seen);
     }
 
-    if (Array.isArray(block.blocks)) {
-      block.blocks.forEach((child, index) => visitBlock(child, `${pathValue}.blocks[${index}]`));
-    }
-    if (Array.isArray(block.popup?.blocks)) {
-      block.popup.blocks.forEach((child, index) => visitBlock(child, `${pathValue}.popup.blocks[${index}]`));
-    }
-    ['actions', 'recordActions'].forEach((slot) => {
-      if (!Array.isArray(block[slot])) {
-        return;
-      }
-      block[slot].forEach((action, index) => {
-        if (Array.isArray(action?.popup?.blocks)) {
-          action.popup.blocks.forEach((child, childIndex) => visitBlock(child, `${pathValue}.${slot}[${index}].popup.blocks[${childIndex}]`));
-        }
-      });
-    });
-    ['fields', 'fieldGroups'].forEach((slot) => {
-      const container = block[slot];
-      if (!Array.isArray(container)) {
-        return;
-      }
-      const fields = slot === 'fieldGroups'
-        ? container.flatMap((group) => Array.isArray(group?.fields) ? group.fields : [])
-        : container;
-      fields.forEach((field, index) => {
-        if (Array.isArray(field?.popup?.blocks)) {
-          field.popup.blocks.forEach((child, childIndex) => visitBlock(child, `${pathValue}.${slot}[${index}].popup.blocks[${childIndex}]`));
-        }
-      });
+    forEachPublicChildBlockContainer(block, pathValue, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
     });
   };
 
@@ -1698,6 +1708,110 @@ function inspectPublicDataSurfaceDefaultFilters(payload, metadata, mode, blocker
 
   if (isPublicDataSurfaceBlockType(payload.type)) {
     visitBlock(payload, '$');
+  }
+}
+
+function inspectPublicRawFilterManagerWrites(payload, mode, blockers, seen) {
+  const pushRawFilterManagerFinding = (pathValue) => {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'RAW_FILTER_MANAGER_NOT_PUBLIC',
+      message: 'Public flow-surfaces payloads must not write raw filterManager; use settings.connectFields for tree blocks or public filterForm targets.',
+      path: pathValue,
+      mode,
+      dedupeKey: `RAW_FILTER_MANAGER_NOT_PUBLIC:${pathValue}`,
+    }));
+  };
+
+  const pushFlowRegistryConnectFieldsFinding = (pathValue) => {
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'TREE_CONNECT_FLOWREGISTRY_NOT_PUBLIC',
+      message: 'tree connectFields is not a flowRegistry key; use changes.connectFields or settings.connectFields.',
+      path: pathValue,
+      mode,
+      dedupeKey: `TREE_CONNECT_FLOWREGISTRY_NOT_PUBLIC:${pathValue}`,
+    }));
+  };
+
+  const inspectTreeConnectFields = (node, pathValue) => {
+    if (normalizeOptionalText(node.type) !== 'tree' || !isPlainObject(node.settings?.connectFields)) {
+      return;
+    }
+    const targets = node.settings.connectFields.targets;
+    if (!Array.isArray(targets)) {
+      return;
+    }
+    const seenTargets = new Set();
+    targets.forEach((target, targetIndex) => {
+      if (!isPlainObject(target)) {
+        return;
+      }
+      const targetKey =
+        normalizeOptionalText(target.target) ||
+        normalizeOptionalText(target.targetId) ||
+        normalizeOptionalText(target.targetBlockUid);
+      if (!targetKey) {
+        return;
+      }
+      if (!seenTargets.has(targetKey)) {
+        seenTargets.add(targetKey);
+        return;
+      }
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'TREE_CONNECT_TARGET_DUPLICATE',
+        message: `tree connectFields target "${targetKey}" is duplicated; keep one target entry with the final filterPaths.`,
+        path: `${pathValue}.settings.connectFields.targets[${targetIndex}]`,
+        mode,
+        dedupeKey: `TREE_CONNECT_TARGET_DUPLICATE:${pathValue}:${targetKey}`,
+      }));
+    });
+  };
+
+  const visitPublicObject = (node, pathValue) => {
+    if (!isPlainObject(node)) {
+      return;
+    }
+
+    inspectTreeConnectFields(node, pathValue);
+
+    if (Object.hasOwn(node, 'filterManager')) {
+      pushRawFilterManagerFinding(`${pathValue}.filterManager`);
+    }
+
+    if (Array.isArray(node.tabs)) {
+      node.tabs.forEach((tab, tabIndex) => {
+        if (Array.isArray(tab?.blocks)) {
+          tab.blocks.forEach((block, blockIndex) => visitPublicObject(block, `${pathValue}.tabs[${tabIndex}].blocks[${blockIndex}]`));
+        }
+      });
+    }
+    forEachPublicChildBlockContainer(node, pathValue, (blocks, blocksPath) => {
+      blocks.forEach((block, blockIndex) => visitPublicObject(block, `${blocksPath}[${blockIndex}]`));
+    });
+  };
+
+  if (!isPlainObject(payload) || payload.use === 'BlockGridModel') {
+    return;
+  }
+  if (isPlainObject(payload.changes)) {
+    if (Object.hasOwn(payload.changes, 'filterManager')) {
+      pushRawFilterManagerFinding('$.changes.filterManager');
+    }
+    if (Object.hasOwn(payload.changes?.flowRegistry || {}, 'connectFields')) {
+      pushFlowRegistryConnectFieldsFinding('$.changes.flowRegistry.connectFields');
+    }
+  }
+  if (
+    Array.isArray(payload.tabs)
+    || Array.isArray(payload.blocks)
+    || isPublicDataSurfaceBlockType(payload.type)
+    || normalizeOptionalText(payload.type) === 'tree'
+    || Object.hasOwn(payload, 'filterManager')
+    || isPlainObject(payload.changes)
+  ) {
+    visitPublicObject(payload, '$');
   }
 }
 
@@ -7112,6 +7226,7 @@ export function auditPayload({
 
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectRawSetLayoutPayload(payload, mode, blockers, blockerSeen);
+  inspectPublicRawFilterManagerWrites(payload, mode, blockers, blockerSeen);
   inspectPublicDataSurfaceDefaultFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);

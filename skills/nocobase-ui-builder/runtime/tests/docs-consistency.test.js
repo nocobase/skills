@@ -1296,6 +1296,39 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     'filter-form should describe canonicalized filterManager wiring for stable same-run targets',
   );
 
+  const tree = read('references/blocks/tree.md');
+  assert.match(tree, /connectFields/i);
+  assert.match(tree, /settings\.connectFields/i);
+  assert.match(tree, /filterPaths/i);
+  assert.match(tree, /applyBlueprint[\s\S]{0,220}target|target[\s\S]{0,220}applyBlueprint/i);
+  assert.match(tree, /addBlock[\s\S]{0,220}targetId|targetId[\s\S]{0,220}addBlock/i);
+  assert.match(tree, /configure[\s\S]{0,220}changes\.connectFields|changes\.connectFields[\s\S]{0,220}configure/i);
+  assert.match(tree, /targets:\s*\[\][\s\S]{0,160}清空|clear/i);
+  assert.match(tree, /filterManager[\s\S]{0,160}(?:不要|do not|禁止)|(?:不要|do not|禁止)[\s\S]{0,160}filterManager/i);
+  assert.match(tree, /titleField[\s\S]{0,120}(?:display-only|只控制|展示)|(?:display-only|只控制|展示)[\s\S]{0,120}titleField/i);
+  assert.match(tree, /tree-connect-filter-path-type-mismatch/i);
+  assert.match(tree, /intelType[\s\S]{0,160}(?:varchar|bigint|类型错误)|(?:varchar|bigint|类型错误)[\s\S]{0,160}intelType/i);
+  assert.match(
+    wholePageQuick,
+    /tree filter|树筛选/i,
+    'whole-page-quick should keep tree filter routing visible',
+  );
+  assert.match(
+    wholePageQuick,
+    /settings\.connectFields[\s\S]{0,160}Blueprint|Blueprint[\s\S]{0,160}settings\.connectFields/i,
+    'whole-page-quick should prefer blueprint-stage tree connectFields wiring',
+  );
+  assert.match(
+    localEditQuick,
+    /addBlock[\s\S]{0,160}settings\.connectFields|settings\.connectFields[\s\S]{0,160}addBlock/i,
+    'local-edit-quick should document addBlock tree connectFields wiring',
+  );
+  assert.match(
+    localEditQuick,
+    /configure[\s\S]{0,160}changes\.connectFields|changes\.connectFields[\s\S]{0,160}configure/i,
+    'local-edit-quick should document configure tree connectFields wiring',
+  );
+
   const boundaryQuick = read('references/boundary-quick.md');
   assert.match(boundaryQuick, /\.artifacts\/nocobase-ui-builder/i);
   assert.match(boundaryQuick, /boundary-report\.md/i);

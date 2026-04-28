@@ -15,12 +15,16 @@ const ASSOCIATION_FIELD_TYPES = new Set([
   'hasone',
   'hasmany',
   'belongstomany',
+  'belongstoarray',
+  'onetoone',
 ]);
 
 const ASSOCIATION_FIELD_INTERFACES = new Set([
   'm2o',
   'o2m',
   'm2m',
+  'o2o',
+  'mbm',
   'obo',
   'oho',
   'manytoone',
@@ -81,8 +85,7 @@ function isAssociationFieldLike(field) {
     return false;
   }
   return (
-    !!normalizeText(field.target || field.targetCollection || field.collectionName)
-    || ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
+    ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
     || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(field.interface))
   );
 }

@@ -4368,6 +4368,167 @@ test('auditPayload blocks filterManager entries whose filterPaths drift from run
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED'), true);
 });
 
+test('auditPayload blocks duplicate tree connectFields targets in public payloads', () => {
+  const result = auditPayload({
+    payload: {
+      type: 'tree',
+      collection: 'users',
+      settings: {
+        connectFields: {
+          targets: [{ target: 'usersTable' }, { target: 'usersTable', filterPaths: ['id'] }],
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'TREE_CONNECT_TARGET_DUPLICATE'), true);
+});
+
+test('auditPayload blocks configure raw filterManager and flowRegistry connectFields writes', () => {
+  const rawFilterManager = auditPayload({
+    payload: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        filterManager: [
+          {
+            filterId: 'users-tree-uid',
+            targetId: 'users-table-uid',
+            filterPaths: ['id'],
+          },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    rawFilterManager.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.changes.filterManager',
+    ),
+    true,
+  );
+
+  const flowRegistryConnectFields = auditPayload({
+    payload: {
+      target: { uid: 'users-tree-uid' },
+      changes: {
+        flowRegistry: {
+          connectFields: {
+            targets: [{ targetId: 'users-table-uid' }],
+          },
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    flowRegistryConnectFields.blockers.some(
+      (item) => item.code === 'TREE_CONNECT_FLOWREGISTRY_NOT_PUBLIC' && item.path === '$.changes.flowRegistry.connectFields',
+    ),
+    true,
+  );
+});
+
+test('auditPayload blocks raw filterManager and tree connectFields inside nested popup blocks', () => {
+  const result = auditPayload({
+    payload: {
+      blocks: [
+        {
+          type: 'details',
+          actions: [
+            {
+              popup: {
+                blocks: [
+                  {
+                    type: 'markdown',
+                    filterManager: [],
+                  },
+                ],
+              },
+            },
+          ],
+          recordActions: [
+            {
+              popup: {
+                blocks: [
+                  {
+                    type: 'markdown',
+                    filterManager: [],
+                  },
+                ],
+              },
+            },
+          ],
+          fields: [
+            {
+              popup: {
+                blocks: [
+                  {
+                    type: 'tree',
+                    settings: {
+                      connectFields: {
+                        targets: [{ target: 'usersTable' }, { target: 'usersTable' }],
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          fieldGroups: [
+            {
+              fields: [
+                {
+                  popup: {
+                    blocks: [
+                      {
+                        type: 'markdown',
+                        filterManager: [],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.blocks[0].actions[0].popup.blocks[0].filterManager',
+    ),
+    true,
+  );
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.blocks[0].recordActions[0].popup.blocks[0].filterManager',
+    ),
+    true,
+  );
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'TREE_CONNECT_TARGET_DUPLICATE' && item.path === '$.blocks[0].fields[0].popup.blocks[0].settings.connectFields.targets[1]',
+    ),
+    true,
+  );
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'RAW_FILTER_MANAGER_NOT_PUBLIC' && item.path === '$.blocks[0].fieldGroups[0].fields[0].popup.blocks[0].filterManager',
+    ),
+    true,
+  );
+});
+
 test('canonicalizePayload fills form association record select title fallback when target collection has no titleField', () => {
   const payload = {
     use: 'FormItemModel',

@@ -96,7 +96,8 @@ Notes:
   - `fullHeight`
 - For compatibility with old skills / historical payloads, the server still accepts `fixed` and automatically normalizes it to `specifyValue`
 - `title` only accepts a non-empty string; `displayTitle` only accepts `true | false`
-- `height` only accepts numbers; it is typically paired with `heightMode = "specifyValue"`
+- `height` only accepts numbers; it must be paired with `heightMode = "specifyValue"` for the frontend to use the fixed value
+- The local prepare-write and localized preflight helpers auto-add `heightMode = "specifyValue"` when `height` is present and `heightMode` is omitted
 - If `heightMode = "specifyValue"`, it is recommended to also pass `height`
 - If `heightMode = "defaultHeight" | "fullHeight"`, you usually should not pass `height`
 - The primary success criterion in the current public contract is `stepParams.cardSettings`, for example `titleDescription` / `blockHeight`

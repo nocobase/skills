@@ -288,6 +288,12 @@ Common settings that are suitable for direct inline use:
 - `calendar`: `titleField`, `colorField`, `startField`, `endField`, `defaultView`, `quickCreateEvent`, `showLunar`, `weekStart`, `dataScope`, `linkageRules`, `quickCreatePopup`, `eventPopup`
 - form-like blocks: `labelWidth`, `labelWrap`, `layout`, `labelAlign`, `colon`
 
+Height settings:
+
+- If you set a numeric `height`, pair it with `heightMode: "specifyValue"` so the frontend uses the value.
+- The local prepare-write and localized preflight helpers auto-add `heightMode: "specifyValue"` when `height` is present and `heightMode` is omitted.
+- Do not override explicit `heightMode: "defaultHeight"` or `"fullHeight"` just because a stale payload also contains `height`.
+
 Calendar reminders:
 
 - `settings.startField` and `settings.endField` must bind date-capable non-association fields.

@@ -36,7 +36,7 @@ function writeJson(stream, payload) {
 function usage() {
   return {
     command:
-      'Validate one localized flow-surfaces add-block/add-blocks/compose body locally before a later explicit nb write. Required: --operation <add-block|add-blocks|compose> and --stdin-json or --input <path>. Optional: --metadata <path>.',
+      'Validate one localized flow-surfaces add-block/add-blocks/compose/configure body locally before a later explicit nb write. Required: --operation <add-block|add-blocks|compose|configure> and --stdin-json or --input <path>. Optional: --metadata <path>.',
   };
 }
 
