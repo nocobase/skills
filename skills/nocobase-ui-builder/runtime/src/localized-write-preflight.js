@@ -7,6 +7,14 @@ import {
 import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
+const SORTABLE_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const SORTABLE_DATA_SURFACE_LIVE_USES = new Set([
+  'TableBlockModel',
+  'ListBlockModel',
+  'GridCardBlockModel',
+  'CalendarBlockModel',
+  'KanbanBlockModel',
+]);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'fieldComponent',
   'fieldModel',
@@ -102,6 +110,77 @@ function addSpecifiedHeightMode(settings) {
   };
 }
 
+function normalizeSortingDirection(value) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized || normalized === 'asc' || normalized === 'ascend' || normalized === 'ascending') {
+    return 'asc';
+  }
+  if (normalized === 'desc' || normalized === 'descend' || normalized === 'descending') {
+    return 'desc';
+  }
+  return normalized;
+}
+
+function normalizeSortingValue(value) {
+  if (!Array.isArray(value)) return value;
+  return value.map((item) => {
+    if (typeof item === 'string') {
+      const trimmed = normalizeText(item);
+      if (!trimmed) return item;
+      const direction = trimmed.startsWith('-') ? 'desc' : 'asc';
+      const field = trimmed.replace(/^[+-]/, '');
+      return field ? { field, direction } : item;
+    }
+    if (isObjectRecord(item)) {
+      return {
+        ...item,
+        ...(Object.hasOwn(item, 'direction') ? { direction: normalizeSortingDirection(item.direction) } : {}),
+      };
+    }
+    return item;
+  });
+}
+
+function normalizeComparableJson(value) {
+  if (Array.isArray(value)) return value.map((item) => normalizeComparableJson(item));
+  if (!isObjectRecord(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, normalizeComparableJson(value[key])]),
+  );
+}
+
+function settingsSortValuesMatch(left, right) {
+  return JSON.stringify(normalizeComparableJson(normalizeSortingValue(left)))
+    === JSON.stringify(normalizeComparableJson(normalizeSortingValue(right)));
+}
+
+function normalizeSortAliasInSettings(settings) {
+  if (!isObjectRecord(settings) || !Object.hasOwn(settings, 'sort')) {
+    return settings;
+  }
+  const nextSettings = {
+    ...settings,
+    sorting: Object.hasOwn(settings, 'sorting') ? settings.sorting : normalizeSortingValue(settings.sort),
+  };
+  delete nextSettings.sort;
+  return nextSettings;
+}
+
+function normalizeWriteSettings(settings, { normalizeSortAlias = true } = {}) {
+  const sortNormalized = normalizeSortAlias ? normalizeSortAliasInSettings(settings) : settings;
+  return addSpecifiedHeightMode(sortNormalized);
+}
+
+function normalizeSortAliasInBlock(block) {
+  if (!isObjectRecord(block) || !SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block.type))) {
+    return block;
+  }
+  const settings = normalizeSortAliasInSettings(block.settings);
+  return settings === block.settings ? block : { ...block, settings };
+}
+
 function normalizeHeightSettingsInPopup(popup) {
   if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
     return popup;
@@ -141,8 +220,8 @@ function normalizeHeightSettingsInBlock(block) {
     return block;
   }
 
-  let nextBlock = block;
-  const settings = addSpecifiedHeightMode(block.settings);
+  let nextBlock = normalizeSortAliasInBlock(block);
+  const settings = normalizeWriteSettings(nextBlock.settings);
   if (settings !== block.settings) {
     nextBlock = { ...nextBlock, settings };
   }
@@ -186,11 +265,14 @@ function normalizeHeightSettingsInBlock(block) {
   return nextBlock;
 }
 
-function normalizeHeightSettingsForWrite(operation, payload) {
+function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
   if (!isObjectRecord(payload)) return payload;
   if (operation === 'configure') {
     if (!isObjectRecord(payload.changes)) return payload;
-    const changes = addSpecifiedHeightMode(payload.changes);
+    const targetEntry = getLiveTopologyEntry(metadata, payload?.target?.uid);
+    const changes = normalizeWriteSettings(payload.changes, {
+      normalizeSortAlias: SORTABLE_DATA_SURFACE_LIVE_USES.has(getLiveEntryUse(targetEntry)),
+    });
     return changes === payload.changes ? payload : { ...payload, changes };
   }
 
@@ -854,6 +936,50 @@ function collectLocalizedPublicFieldObjectErrors(payload) {
   return errors;
 }
 
+function collectLocalizedSortAliasErrors(payload, operation, metadata = {}) {
+  const errors = [];
+
+  const validateSettings = (settings, path) => {
+    if (!isObjectRecord(settings) || !Object.hasOwn(settings, 'sort') || !Object.hasOwn(settings, 'sorting')) {
+      return;
+    }
+    if (settingsSortValuesMatch(settings.sort, settings.sorting)) {
+      return;
+    }
+    errors.push({
+      path: `${path}.sort`,
+      ruleId: 'settings-sort-sorting-conflict',
+      message: 'settings.sort is a compatibility alias for settings.sorting; when both are present they must describe the same ordering.',
+      code: 'SETTINGS_SORT_SORTING_CONFLICT',
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!isObjectRecord(block)) return;
+    if (SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block.type))) {
+      validateSettings(block.settings, `${path}.settings`);
+    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
+  };
+
+  if (operation === 'configure') {
+    const targetEntry = getLiveTopologyEntry(metadata, payload?.target?.uid);
+    if (SORTABLE_DATA_SURFACE_LIVE_USES.has(getLiveEntryUse(targetEntry))) {
+      validateSettings(payload?.changes, '$.changes');
+    }
+  }
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  return errors;
+}
+
 function validateTreeConnectFieldsValue(connectFields, connectFieldsPath, errors, {
   shouldAllowSameRunTarget,
   missingTargetMessage,
@@ -1378,7 +1504,8 @@ export function runLocalizedWritePreflight({
     mode,
     snapshotPath,
   });
-  const cliBody = normalizeHeightSettingsForWrite(normalizedOperation, canonicalize.payload);
+  collectLocalizedSortAliasErrors(canonicalize.payload, normalizedOperation, normalizedMetadata).forEach(pushError);
+  const cliBody = normalizeHeightSettingsForWrite(normalizedOperation, canonicalize.payload, normalizedMetadata);
   const audit = auditPayload({
     payload: cliBody,
     metadata: normalizedMetadata,

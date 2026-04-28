@@ -62,6 +62,16 @@ function makeMetadata() {
           use: 'TableBlockModel',
           collectionName: 'users',
         },
+        'users-list-uid': {
+          uid: 'users-list-uid',
+          use: 'ListBlockModel',
+          collectionName: 'users',
+        },
+        'chart-block-uid': {
+          uid: 'chart-block-uid',
+          use: 'ChartBlockModel',
+          collectionName: 'users',
+        },
         'bulk-update-action-uid': {
           uid: 'bulk-update-action-uid',
           use: 'BulkUpdateActionModel',
@@ -463,6 +473,137 @@ test('runLocalizedWritePreflight defaults block settings heightMode to specifyVa
   assert.equal(addBlocks.ok, true);
   assert.equal(addBlocks.cliBody.blocks[0].settings.heightMode, 'specifyValue');
   assert.equal(addBlocks.cliBody.blocks[1].settings.heightMode, 'fullHeight');
+});
+
+test('runLocalizedWritePreflight normalizes localized settings.sort alias to sorting', () => {
+  const addBlock = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: {
+        dataSourceKey: 'main',
+        collectionName: 'users',
+      },
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      settings: {
+        sort: ['-createdAt', 'nickname'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(addBlock.ok, true);
+  assert.equal(Object.hasOwn(addBlock.cliBody.settings, 'sort'), false);
+  assert.deepEqual(addBlock.cliBody.settings.sorting, [
+    { field: 'createdAt', direction: 'desc' },
+    { field: 'nickname', direction: 'asc' },
+  ]);
+
+  const compose = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersList',
+          type: 'list',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          settings: {
+            sort: [{ field: 'nickname', direction: 'descend' }],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(compose.ok, true);
+  assert.equal(Object.hasOwn(compose.cliBody.blocks[0].settings, 'sort'), false);
+  assert.deepEqual(compose.cliBody.blocks[0].settings.sorting, [
+    { field: 'nickname', direction: 'desc' },
+  ]);
+
+  const configure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        sort: ['email'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(configure.ok, true);
+  assert.equal(Object.hasOwn(configure.cliBody.changes, 'sort'), false);
+  assert.deepEqual(configure.cliBody.changes.sorting, [
+    { field: 'email', direction: 'asc' },
+  ]);
+});
+
+test('runLocalizedWritePreflight rejects conflicting localized sort aliases', () => {
+  const compose = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          settings: {
+            sort: ['-createdAt'],
+            sorting: [{ field: 'createdAt', direction: 'asc' }],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(compose.ok, false);
+  assertHasRule(compose, 'settings-sort-sorting-conflict', '$.blocks[0].settings.sort');
+
+  const configure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-list-uid' },
+      changes: {
+        sort: ['-createdAt'],
+        sorting: [{ field: 'createdAt', direction: 'asc' }],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(configure.ok, false);
+  assertHasRule(configure, 'settings-sort-sorting-conflict', '$.changes.sort');
+});
+
+test('runLocalizedWritePreflight leaves configure sort unchanged for non-sorting live targets', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'chart-block-uid' },
+      changes: {
+        sort: ['-createdAt'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.changes.sort, ['-createdAt']);
+  assert.equal(Object.hasOwn(result.cliBody.changes, 'sorting'), false);
 });
 
 test('runLocalizedWritePreflight defaults nested popup block heightMode to specifyValue', () => {

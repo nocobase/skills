@@ -35,6 +35,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
    - in display hosts (`table`, `details`, `list`, `gridCard`), first-level relation fields such as `roles` must use object form with inline `popup`; do not leave them as ``"roles"`` or `{ "field": "roles" }`
+   - that relation field popup must also bind its child blocks correctly: `details` / `editForm` use `resource.binding = "currentRecord"` for the clicked related record, while relation tables/lists/cards use `resource.binding = "associatedRecords"` plus `resource.associationField`
    - dotted paths such as `department.title` stay allowed without popup, and `createForm` / `editForm` are exempt from that display-only rule
 8. If the page explicitly asks for a tree filter (`树筛选 / 树状筛选 / tree filter`), keep a real `tree` block in that first-pass blueprint or localized write:
    - use `type: "tree"` / `TreeBlockModel`
@@ -44,6 +45,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not repeat the same target in one tree `targets` array; keep one entry with the final `filterPaths`
    - `titleField` is display-only; the selected filter value comes from the tree key / `filterTargetKey`, so keep target `filterPaths` type-compatible with that key
    - prefer `title`, `searchable`, `includeDescendants`, `defaultExpandAll`, `titleField`, `fieldNames`, `pageSize`, `dataScope`, and `sorting` settings
+   - use canonical `settings.sorting`; legacy `settings.sort` is only a compatibility alias that prepare-write normalizes
    - do not write raw `filterManager`; let `settings.connectFields` persist the front-end “连接数据区块” configuration
    - do not downgrade it into `filterForm` just because the phrase also contains `筛选`
 9. If the page explicitly asks for a filter block/form, keep a real `filterForm` in that first-pass blueprint:
