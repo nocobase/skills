@@ -634,9 +634,11 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
 
   const jsModelRender = read('references/js-surfaces/js-model-render.md');
   assert.match(jsModelRender, /ctx\.render\(\.\.\.\).*required|required.*ctx\.render/i, 'js-model-render doc should require ctx.render');
+  assert.match(jsModelRender, /popup-opener-record[\s\S]{0,160}ctx\.popup\.record/i, 'js-model-render doc should route popup opener records to ctx.popup.record');
 
   const jsModelAction = read('references/js-surfaces/js-model-action.md');
   assert.match(jsModelAction, /clickSettings\.runJs/i, 'js-model-action doc should expose action write path');
+  assert.match(jsModelAction, /inner-row-record[\s\S]{0,160}ctx\.record/i, 'js-model-action doc should distinguish popup inner row record from popup opener record');
 
   const legacyIndex = read('references/js-models/index.md');
   assert.match(legacyIndex, /legacy/i, 'js-models/index should mark itself as a legacy entrypoint');
@@ -650,6 +652,12 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
   const safeIds = new Set(catalog.snippets.filter((entry) => entry.tier === 'safe').map((entry) => entry.id));
   const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+  const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
+  assert.deepEqual(
+    renderSurface?.recommendedBySceneHint?.popup,
+    ['scene/block/popup-record-summary'],
+    'js-model.render should recommend the popup record snippet for popup scenes',
+  );
   for (const surface of manifest.surfaces) {
     assert.equal(surface.recommendedSnippetIds.length <= 3, true, `${surface.id} should recommend at most 3 snippets`);
     for (const snippetId of surface.recommendedSnippetIds) {
@@ -662,6 +670,22 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
       `${surface.id} surface doc should keep first-hop snippets in exact manifest order`,
     );
   }
+});
+
+test('RunJS authoring docs require record semantic selection before code generation', () => {
+  const js = read('references/js.md');
+  const loop = read('references/runjs-authoring-loop.md');
+  const blockTextSummary = read('references/js-snippets/safe/scene/block/text-summary.md');
+  const textFromRecord = read('references/js-snippets/safe/render/text-from-record.md');
+
+  assert.match(js, /recordSemantic/i, 'js.md should require recording the selected record semantic');
+  assert.match(js, /contextEvidence/i, 'js.md should require evidence for context root choices');
+  assert.match(loop, /recordSemantic/i, 'runjs-authoring-loop should include recordSemantic in the scenario card');
+  assert.match(loop, /contextEvidence/i, 'runjs-authoring-loop should include contextEvidence in the scenario card');
+  assert.match(loop, /popup-opener-record[\s\S]{0,180}ctx\.popup\.record/i, 'runjs authoring loop should map popup opener record to ctx.popup.record');
+  assert.match(loop, /inner-row-record[\s\S]{0,180}ctx\.record/i, 'runjs authoring loop should preserve ctx.record for inner row records');
+  assert.match(blockTextSummary, /Do not use[\s\S]{0,220}popup/i, 'block text-summary snippet should not be used for popup opener records');
+  assert.match(textFromRecord, /Do not use[\s\S]{0,220}popup/i, 'text-from-record snippet should not be used for popup opener records');
 });
 
 test('key upstream js snapshot pages route back to skill contracts', () => {

@@ -3453,6 +3453,7 @@ function validateDisplayAssociationFieldGroupPopupRequirement(fieldGroups, block
 
 function validateActions(items, path, state, { recordActions = false, blockContext = {} } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
+    const itemPath = `${path}[${index}]`;
     const rawActionType =
       typeof item === 'string' ? item : isPlainObject(item) ? item.type : '';
     const hostBlockType = normalizeText(blockContext.hostBlockType);
@@ -3466,9 +3467,33 @@ function validateActions(items, path, state, { recordActions = false, blockConte
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}[${index}]`,
+        itemPath,
         'add-child-must-use-record-actions',
         ADD_CHILD_RECORD_ACTION_MESSAGE,
+      );
+    }
+    if (!recordActions && actionType === 'bulkupdate') {
+      validateActionAssignValues(item, itemPath, state, blockContext);
+    }
+    if (recordActions && actionType === 'bulkupdate') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        itemPath,
+        'bulk-update-must-use-actions',
+        '`bulkUpdate` is a collection action and must be authored under block actions.',
+      );
+    }
+    if (recordActions && actionType === 'updaterecord') {
+      validateActionAssignValues(item, itemPath, state, blockContext);
+    }
+    if (!recordActions && actionType === 'updaterecord') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        itemPath,
+        'update-record-must-use-record-actions',
+        '`updateRecord` is a record action and must be authored under recordActions.',
       );
     }
     if (
@@ -3479,7 +3504,7 @@ function validateActions(items, path, state, { recordActions = false, blockConte
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}[${index}]`,
+        itemPath,
         'calendar-action-unsupported',
         `calendar blocks only support actions: ${[...CALENDAR_ALLOWED_ACTION_TYPES].join(', ')}.`,
       );
@@ -3492,13 +3517,13 @@ function validateActions(items, path, state, { recordActions = false, blockConte
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}[${index}]`,
+        itemPath,
         'kanban-action-unsupported',
         `kanban blocks only support actions: ${[...KANBAN_ALLOWED_ACTION_TYPES].join(', ')}.`,
       );
     }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
-    const popupPath = `${path}[${index}].popup`;
+    const popupPath = `${itemPath}.popup`;
     validatePopupDocument(
       item.popup,
       popupPath,
@@ -3508,6 +3533,69 @@ function validateActions(items, path, state, { recordActions = false, blockConte
     if (EDIT_ACTION_TYPES.has(normalizeLowerText(item.type))) {
       validateCustomEditPopup(item.popup, popupPath, state);
     }
+  }
+}
+
+function validateActionAssignValues(item, path, state, blockContext) {
+  if (!isPlainObject(item) || !hasOwn(item, 'settings')) {
+    return;
+  }
+  if (!isPlainObject(item.settings)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.settings`,
+      'action-settings-must-be-object',
+      'Action settings must be one plain object.',
+    );
+    return;
+  }
+  if (!hasOwn(item.settings, 'assignValues')) {
+    return;
+  }
+
+  const assignValues = item.settings.assignValues;
+  const assignValuesPath = `${path}.settings.assignValues`;
+  if (!isPlainObject(assignValues)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      assignValuesPath,
+      'assign-values-must-be-object',
+      'settings.assignValues must be one plain object; use {} to clear assignment values.',
+    );
+    return;
+  }
+
+  const assignedFieldNames = Object.keys(assignValues).map((fieldName) => normalizeText(fieldName)).filter(Boolean);
+  if (assignedFieldNames.length === 0) {
+    return;
+  }
+
+  const collectionName = getTraversalSurfaceCollection(blockContext);
+  const collectionMeta = getCollectionMeta(state.collectionMetadata, collectionName);
+  if (!collectionMeta) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      assignValuesPath,
+      'missing-collection-metadata',
+      `collectionMetadata is required for collection "${collectionName || '(unknown)'}" before validating settings.assignValues.`,
+    );
+    return;
+  }
+
+  for (const fieldName of assignedFieldNames) {
+    if (collectionMeta.fieldsByName.has(fieldName)) {
+      continue;
+    }
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${assignValuesPath}.${fieldName}`,
+      'assign-values-field-unknown',
+      `settings.assignValues references unknown field "${fieldName}" on collection "${collectionName}".`,
+    );
   }
 }
 

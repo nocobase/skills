@@ -30,6 +30,7 @@ const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'CommentsBlockModel',
   'TreeBlockModel',
 ]);
+const LIVE_UPDATE_ACTION_USES = new Set(['BulkUpdateActionModel', 'UpdateRecordActionModel']);
 const PUBLIC_MAIN_BLOCK_SECTION_RULES = {
   calendar: [
     {
@@ -392,6 +393,15 @@ function getLiveEntryCollectionName(entry) {
   );
 }
 
+function getLiveEntryParentUid(entry) {
+  return (
+    normalizeText(entry?.parentUid)
+    || normalizeText(entry?.parentId)
+    || normalizeText(entry?.parent?.uid)
+    || normalizeText(entry?.parent?.id)
+  );
+}
+
 function getLiveEntryTitleField(entry) {
   return (
     normalizeText(entry?.titleField)
@@ -412,6 +422,22 @@ function getBlockCollectionName(block) {
     || normalizeText(block?.resourceInit?.collectionName)
     || normalizeText(block?.resourceInit?.collection)
   );
+}
+
+function getLocalizedBlockCollectionName(block, parentCollectionName = '') {
+  return getBlockCollectionName(block) || normalizeText(parentCollectionName);
+}
+
+function getActionType(item) {
+  return typeof item === 'string'
+    ? normalizeText(item).toLowerCase()
+    : isObjectRecord(item)
+      ? normalizeText(item.type).toLowerCase()
+      : '';
+}
+
+function hasAssignValues(item) {
+  return isObjectRecord(item?.settings) && Object.hasOwn(item.settings, 'assignValues');
 }
 
 function getBlockTitleField(block) {
@@ -588,6 +614,80 @@ function collectLocalizedCollectionRefs(payload) {
     payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
   } else {
     visitBlock(payload, '$');
+  }
+
+  return refs;
+}
+
+function collectLocalizedAssignValuesCollectionRefs(payload, operation, metadata) {
+  const refs = [];
+  const seen = new Set();
+  const push = (collectionName, path) => pushUniqueRef(refs, seen, {
+    collectionName,
+    path,
+    reason: 'assign-values',
+  });
+
+  const visitActions = (items, path, collectionName) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (hasAssignValues(item)) {
+        push(collectionName, `${path}[${index}].settings.assignValues`);
+      }
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${path}[${index}].popup.blocks[${blockIndex}]`,
+          collectionName,
+        ));
+      }
+    });
+  };
+
+  const visitFieldPopups = (items, path, collectionName) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${path}[${index}].popup.blocks[${blockIndex}]`,
+          collectionName,
+        ));
+      }
+    });
+  };
+
+  const visitBlock = (block, path, parentCollectionName = '') => {
+    if (!isObjectRecord(block)) return;
+    const collectionName = getLocalizedBlockCollectionName(block, parentCollectionName);
+    visitActions(block.actions, `${path}.actions`, collectionName);
+    visitActions(block.recordActions, `${path}.recordActions`, collectionName);
+    visitFieldPopups(block.fields, `${path}.fields`, collectionName);
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        visitFieldPopups(group?.fields, `${path}.fieldGroups[${groupIndex}].fields`, collectionName);
+      });
+    }
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, collectionName));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, collectionName));
+    }
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'assignValues')) {
+    const targetEntry = getLiveTopologyEntry(metadata, payload?.target?.uid);
+    const targetCollection = getLiveEntryCollectionName(targetEntry);
+    const parentCollection = targetCollection
+      || getLiveEntryCollectionName(getLiveTopologyEntry(metadata, getLiveEntryParentUid(targetEntry)));
+    push(parentCollection, '$.changes.assignValues');
   }
 
   return refs;
@@ -1091,6 +1191,171 @@ function collectLocalizedTreeConnectFieldsErrors(payload, operation, metadata) {
   return errors;
 }
 
+function collectLocalizedAssignValuesErrors(payload, operation, metadata) {
+  const errors = [];
+
+  const push = (path, ruleId, message, code, details = undefined) => {
+    errors.push({
+      path,
+      ruleId,
+      message,
+      code,
+      ...(details ? { details } : {}),
+    });
+  };
+
+  const validateAssignValuesObject = (assignValues, assignValuesPath, collectionName) => {
+    if (!isObjectRecord(assignValues)) {
+      push(
+        assignValuesPath,
+        'assign-values-must-be-object',
+        'settings.assignValues must be one plain object; use {} to clear assignment values.',
+        'ASSIGN_VALUES_MUST_BE_OBJECT',
+      );
+      return;
+    }
+
+    const fieldNames = Object.keys(assignValues).map(normalizeText).filter(Boolean);
+    if (fieldNames.length === 0) {
+      return;
+    }
+
+    const normalizedCollectionName = normalizeText(collectionName);
+    const collectionMeta = getCollectionMeta(metadata, normalizedCollectionName);
+    if (!collectionMeta) {
+      push(
+        assignValuesPath,
+        'missing-collection-metadata',
+        `collectionMetadata is required for collection "${normalizedCollectionName || '(unknown)'}" before validating assignValues.`,
+        'REQUIRED_COLLECTION_METADATA_MISSING',
+        {
+          collectionName: normalizedCollectionName,
+          path: assignValuesPath,
+          reason: 'assign-values',
+        },
+      );
+      return;
+    }
+
+    fieldNames.forEach((fieldName) => {
+      if (collectionMeta.fieldsByName.has(fieldName)) {
+        return;
+      }
+      push(
+        `${assignValuesPath}.${fieldName}`,
+        'assign-values-field-unknown',
+        `settings.assignValues references unknown field "${fieldName}" on collection "${normalizedCollectionName}".`,
+        'ASSIGN_VALUES_FIELD_UNKNOWN',
+        {
+          collectionName: normalizedCollectionName,
+          fieldName,
+        },
+      );
+    });
+  };
+
+  const validateAction = (item, path, collectionName, slot) => {
+    const actionType = getActionType(item);
+    if (slot === 'recordActions' && actionType === 'bulkupdate') {
+      push(
+        path,
+        'bulk-update-must-use-actions',
+        '`bulkUpdate` is a collection action and must be authored under block actions.',
+        'BULK_UPDATE_MUST_USE_ACTIONS',
+      );
+    }
+    if (slot === 'actions' && actionType === 'updaterecord') {
+      push(
+        path,
+        'update-record-must-use-record-actions',
+        '`updateRecord` is a record action and must be authored under recordActions.',
+        'UPDATE_RECORD_MUST_USE_RECORD_ACTIONS',
+      );
+    }
+    if (!hasAssignValues(item)) {
+      return;
+    }
+    if ((slot === 'actions' && actionType !== 'bulkupdate') || (slot === 'recordActions' && actionType !== 'updaterecord')) {
+      return;
+    }
+    validateAssignValuesObject(item.settings.assignValues, `${path}.settings.assignValues`, collectionName);
+  };
+
+  const visitActions = (items, path, collectionName, slot) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      const itemPath = `${path}[${index}]`;
+      validateAction(item, itemPath, collectionName, slot);
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${itemPath}.popup.blocks[${blockIndex}]`,
+          collectionName,
+        ));
+      }
+    });
+  };
+
+  const visitFieldPopups = (items, path, collectionName) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${path}[${index}].popup.blocks[${blockIndex}]`,
+          collectionName,
+        ));
+      }
+    });
+  };
+
+  const visitBlock = (block, path, parentCollectionName = '') => {
+    if (!isObjectRecord(block)) return;
+    const collectionName = getLocalizedBlockCollectionName(block, parentCollectionName);
+    visitActions(block.actions, `${path}.actions`, collectionName, 'actions');
+    visitActions(block.recordActions, `${path}.recordActions`, collectionName, 'recordActions');
+    visitFieldPopups(block.fields, `${path}.fields`, collectionName);
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        visitFieldPopups(group?.fields, `${path}.fieldGroups[${groupIndex}].fields`, collectionName);
+      });
+    }
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, collectionName));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, collectionName));
+    }
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'assignValues')) {
+    const targetUid = normalizeText(payload?.target?.uid);
+    const targetEntry = getLiveTopologyEntry(metadata, targetUid);
+    const targetUse = getLiveEntryUse(targetEntry);
+    if (targetEntry && targetUse && !LIVE_UPDATE_ACTION_USES.has(targetUse)) {
+      push(
+        '$.target.uid',
+        'assign-values-target-unsupported',
+        'localized configure changes.assignValues requires a BulkUpdateActionModel or UpdateRecordActionModel target.',
+        'ASSIGN_VALUES_TARGET_UNSUPPORTED',
+      );
+      return errors;
+    }
+    const targetCollection = getLiveEntryCollectionName(targetEntry);
+    const parentCollection = targetCollection
+      || getLiveEntryCollectionName(getLiveTopologyEntry(metadata, getLiveEntryParentUid(targetEntry)));
+    validateAssignValuesObject(payload.changes.assignValues, '$.changes.assignValues', parentCollection);
+  }
+
+  return errors;
+}
+
 export function runLocalizedWritePreflight({
   operation,
   body,
@@ -1109,9 +1374,15 @@ export function runLocalizedWritePreflight({
   });
   const localizedCollectionRefs = collectLocalizedCollectionRefs(normalizedBody);
   const treeConnectCollectionRefs = collectLocalizedTreeConnectCollectionRefs(normalizedBody, normalizedOperation, normalizedMetadata);
+  const assignValuesCollectionRefs = collectLocalizedAssignValuesCollectionRefs(normalizedBody, normalizedOperation, normalizedMetadata);
   const requiredMetadata = {
     ...extractedMetadata,
-    collectionRefs: [...(extractedMetadata.collectionRefs || []), ...localizedCollectionRefs, ...treeConnectCollectionRefs],
+    collectionRefs: [
+      ...(extractedMetadata.collectionRefs || []),
+      ...localizedCollectionRefs,
+      ...treeConnectCollectionRefs,
+      ...assignValuesCollectionRefs,
+    ],
   };
 
   const canonicalize = canonicalizePayload({
@@ -1151,6 +1422,7 @@ export function runLocalizedWritePreflight({
   collectLocalizedMainBlockSectionErrors(cliBody).forEach(pushError);
   collectLocalizedPublicFieldObjectErrors(cliBody).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedAssignValuesErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   audit.blockers.map(normalizeFinding).forEach(pushError);
 
   return {

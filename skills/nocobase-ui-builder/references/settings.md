@@ -441,6 +441,52 @@ If the goal is a standard details popup on a shown title/name field, prefer fiel
 }
 ```
 
+### Update action field assignment
+
+Use public `settings.assignValues` only. Do not create/update `AssignFormGridModel` / `AssignFormItemModel`, do not write raw `flowModels`, and do not try to configure this with `add-fields`.
+
+`bulkUpdate` is a collection action, so it belongs under block `actions` or `add-action`:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "bulkUpdate",
+  "settings": {
+    "assignValues": {
+      "priority": "high",
+      "isTracking": true
+    }
+  }
+}
+```
+
+`updateRecord` is a record action, so it belongs under `recordActions` or `add-record-action`:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "updateRecord",
+  "settings": {
+    "assignValues": {
+      "status": "active"
+    }
+  }
+}
+```
+
+For existing update actions, `configure` uses the same key:
+
+```json
+{
+  "target": { "uid": "update-action-uid" },
+  "changes": {
+    "assignValues": {}
+  }
+}
+```
+
+`assignValues` must be a plain object keyed by fields in the host collection metadata. `{}` is valid and clears the persisted assignment.
+
 Readback rule for localized creates:
 
 - `table` / `list` / `gridCard` / `calendar` / `kanban` may already come back with merged `filter` + `addNew` + `refresh`.

@@ -5,6 +5,7 @@ A render JS model should display one text value from the current record.
 
 ## Do not use when
 The surface should compute and return a value without rendering.
+The code is a standalone popup block that needs the popup opener record; use `scene/block/popup-record-summary`.
 
 ## Surfaces
 - `js-model.render`
@@ -30,4 +31,4 @@ ctx.render(text);
 - Replace `title` and `name` with the record fields to display.
 
 ## Skill-mode notes
-This follows the strict render-model contract: render output must go through `ctx.render(...)`.
+This follows the strict render-model contract: render output must go through `ctx.render(...)`. Use only after `recordSemantic` proves `ctx.record` is the host record.

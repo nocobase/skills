@@ -50,6 +50,16 @@
     "expectedCodes": []
   },
   {
+    "id": "positive-js-render-popup-record-summary",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/popup-record-summary"],
+    "code": "const record = (await ctx.getVar('ctx.popup.record')) || {};\nconst name = String(record.username ?? record.nickname ?? record.name ?? ctx.t('Untitled'));\nctx.render(name);",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
     "id": "positive-js-action-resource-count",
     "intent": "iterate-selected-rows",
     "surface": "js-model.action",

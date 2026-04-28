@@ -768,6 +768,26 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
 - in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 
+Field assignment for update actions uses only `settings.assignValues`:
+
+- `bulkUpdate` is a collection action and belongs under block `actions`
+- `updateRecord` is a record action and belongs under `recordActions`
+- `assignValues` must be a plain object keyed by fields in the host collection metadata
+- `{}` is valid and clears the persisted field assignment
+- do not configure assignment fields through `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel`
+
+```json
+{
+  "type": "bulkUpdate",
+  "settings": {
+    "assignValues": {
+      "priority": "high",
+      "isTracking": true
+    }
+  }
+}
+```
+
 For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 
 - when the user only asks to “增加筛选 / filter” on that data block, or explicitly adds “搜索 / search” to that host with wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, prefer the same block-level `filter` action

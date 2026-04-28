@@ -1877,7 +1877,51 @@
       "forbiddenApis": [],
       "doc": "js-snippets/safe/scene/block/text-summary.md",
       "relatedIds": [
+        "scene/block/popup-record-summary",
         "scene/block/list-summary",
+        "render/text-from-record"
+      ]
+    },
+    {
+      "id": "scene/block/popup-record-summary",
+      "tier": "safe",
+      "family": "scene/block",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block",
+        "popup"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "sceneHints": [
+        "popup",
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "ctxRoots": [
+        "getVar",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/block/popup-record-summary.md",
+      "relatedIds": [
+        "scene/block/text-summary",
         "render/text-from-record"
       ]
     },

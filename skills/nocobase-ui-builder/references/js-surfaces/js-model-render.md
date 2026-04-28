@@ -26,6 +26,17 @@ const text = String(ctx.record?.title ?? ctx.record?.name ?? '-');
 ctx.render(text);
 ```
 
+## Record Context
+
+| recordSemantic | Use this ctx path | Notes |
+| --- | --- | --- |
+| `popup-opener-record` | `await ctx.getVar('ctx.popup.record...')` | Standalone JSBlock in a popup that displays the record used to open the popup. |
+| `host-record` | `ctx.record...` | JS field/column/item is hosted by the data record itself. |
+| `inner-row-record` | `ctx.record...` | JS code belongs to a nested table/list row inside the popup, not the popup opener. |
+| `parent-popup-record` | `await ctx.getVar('ctx.popup.parent.record...')` | Nested popup needs the outer popup record. |
+
+For popup-level render blocks, prefer [scene/block/popup-record-summary](../js-snippets/safe/scene/block/popup-record-summary.md) over generic `ctx.record` snippets.
+
 ## What to open next
 
 - Exact model constraints -> [../js-models/index.md](../js-models/index.md)

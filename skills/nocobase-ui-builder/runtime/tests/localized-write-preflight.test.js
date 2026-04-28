@@ -62,6 +62,16 @@ function makeMetadata() {
           use: 'TableBlockModel',
           collectionName: 'users',
         },
+        'bulk-update-action-uid': {
+          uid: 'bulk-update-action-uid',
+          use: 'BulkUpdateActionModel',
+          parentUid: 'users-table-uid',
+        },
+        'update-record-action-uid': {
+          uid: 'update-record-action-uid',
+          use: 'UpdateRecordActionModel',
+          parentUid: 'users-table-uid',
+        },
         'collection-tree-target-uid': {
           uid: 'collection-tree-target-uid',
           use: 'TreeCollectionBlockModel',
@@ -1312,4 +1322,148 @@ test('nb-localized-write-preflight CLI help keeps validator-only contract explic
   assert.match(parsed.usage.command, /validate one localized flow-surfaces/i);
   assert.match(parsed.usage.command, /before a later explicit nb write/i);
   assert.doesNotMatch(parsed.usage.command, /before the real nb write/i);
+});
+
+test('runLocalizedWritePreflight validates compose update action assignValues against collection metadata', () => {
+  const makeBody = (actionPatch = {}, recordActionPatch = {}) => ({
+    target: { uid: 'page-tab-uid' },
+    blocks: [
+      {
+        key: 'usersTable',
+        type: 'table',
+        resource: {
+          dataSourceKey: 'main',
+          collectionName: 'users',
+        },
+        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        actions: [
+          {
+            type: 'bulkUpdate',
+            settings: {
+              assignValues: { status: 'inactive' },
+            },
+            ...actionPatch,
+          },
+        ],
+        recordActions: [
+          {
+            type: 'updateRecord',
+            settings: {
+              assignValues: { status: 'active' },
+            },
+            ...recordActionPatch,
+          },
+        ],
+      },
+    ],
+  });
+
+  const valid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody(),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(valid.ok, true);
+
+  const updateRecordValid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody(undefined, {
+      settings: {
+        assignValues: { email: 'a@example.com' },
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(updateRecordValid.ok, true);
+
+  const unknownField = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: { missingField: 'x' },
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(unknownField.ok, false);
+  assertHasRule(unknownField, 'assign-values-field-unknown', '$.blocks[0].actions[0].settings.assignValues.missingField');
+
+  const nonObject = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: ['status'],
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nonObject.ok, false);
+  assertHasRule(nonObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
+
+  const emptyClear = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: {},
+      },
+    }, {
+      settings: {
+        assignValues: {},
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(emptyClear.ok, true);
+});
+
+test('runLocalizedWritePreflight validates localized configure assignValues targets', () => {
+  const validBulkUpdate = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'bulk-update-action-uid' },
+      changes: {
+        assignValues: { status: 'inactive' },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validBulkUpdate.ok, true);
+
+  const validUpdateRecord = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'update-record-action-uid' },
+      changes: {
+        assignValues: {},
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validUpdateRecord.ok, true);
+
+  const unknownField = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'bulk-update-action-uid' },
+      changes: {
+        assignValues: { missingField: 'x' },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(unknownField.ok, false);
+  assertHasRule(unknownField, 'assign-values-field-unknown', '$.changes.assignValues.missingField');
+
+  const nonObject = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'update-record-action-uid' },
+      changes: {
+        assignValues: 'status',
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nonObject.ok, false);
+  assertHasRule(nonObject, 'assign-values-must-be-object', '$.changes.assignValues');
 });

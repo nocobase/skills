@@ -120,6 +120,9 @@
           "scene/block/list-summary",
           "render/list-from-resource"
         ],
+        "popup": [
+          "scene/block/popup-record-summary"
+        ],
         "detail": [
           "scene/detail/status-tag",
           "scene/detail/value-with-fallback",

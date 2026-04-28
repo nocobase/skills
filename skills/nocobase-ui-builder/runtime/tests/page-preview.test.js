@@ -8053,3 +8053,110 @@ test('prepareApplyBlueprintRequest rejects unsupported actions on kanban blocks'
   assert.equal(result.ok, false);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-action-unsupported'), true);
 });
+
+test('prepareApplyBlueprintRequest validates update action assignValues against collection metadata', () => {
+  const buildBlueprint = (actionPatch = {}, recordActionPatch = {}) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Assignment actions' },
+    tabs: [
+      {
+        title: 'Users',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'status'],
+            actions: [
+              {
+                type: 'bulkUpdate',
+                settings: {
+                  assignValues: { status: 'inactive' },
+                },
+                ...actionPatch,
+              },
+            ],
+            recordActions: [
+              {
+                type: 'updateRecord',
+                settings: {
+                  assignValues: { status: 'active' },
+                },
+                ...recordActionPatch,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  const valid = prepareWithDirectCollectionDefaults(buildBlueprint(), {
+    collectionMetadata,
+  });
+  assert.equal(valid.ok, true);
+
+  const unknownField = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        assignValues: { missingField: 'x' },
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(unknownField.ok, false);
+  assert.equal(unknownField.errors.some((issue) => issue.ruleId === 'assign-values-field-unknown'), true);
+
+  const nonObject = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        assignValues: ['status'],
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(nonObject.ok, false);
+  assert.equal(nonObject.errors.some((issue) => issue.ruleId === 'assign-values-must-be-object'), true);
+
+  const emptyClear = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        assignValues: {},
+      },
+    }, {
+      settings: {
+        assignValues: {},
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(emptyClear.ok, true);
+
+  const misplacedBulkUpdate = prepareWithDirectCollectionDefaults(
+    buildBlueprint({}, {
+      type: 'bulkUpdate',
+      settings: {
+        assignValues: { status: 'active' },
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(misplacedBulkUpdate.ok, false);
+  assert.equal(misplacedBulkUpdate.errors.some((issue) => issue.ruleId === 'bulk-update-must-use-actions'), true);
+
+  const misplacedUpdateRecord = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      type: 'updateRecord',
+      settings: {
+        assignValues: { status: 'inactive' },
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(misplacedUpdateRecord.ok, false);
+  assert.equal(
+    misplacedUpdateRecord.errors.some((issue) => issue.ruleId === 'update-record-must-use-record-actions'),
+    true,
+  );
+});

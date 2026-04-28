@@ -60,24 +60,29 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
    - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block
-11. If one tab or popup contains multiple non-filter blocks, give it explicit `layout`, avoid one-row-one-block stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`. Filter blocks should sit alone in the first row when they are present.
+11. For update action field assignment, use only `settings.assignValues`:
+   - `bulkUpdate` is a collection action under block `actions`
+   - `updateRecord` is a record action under `recordActions`
+   - keys must exist in the host collection metadata, and `{}` clears assignment values
+   - do not use `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel` for this configuration
+12. If one tab or popup contains multiple non-filter blocks, give it explicit `layout`, avoid one-row-one-block stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
    - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
-12. Keep popup semantics close to the opener:
+13. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-13. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
+14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nb api flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
    - after one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and should stay narrow
-14. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
-15. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-16. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body or nb helper envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact nb body becomes `result.cliBody`, not the original draft blueprint.
-17. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
+15. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
+16. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
+17. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body or nb helper envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact nb body becomes `result.cliBody`, not the original draft blueprint.
+18. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails
 
