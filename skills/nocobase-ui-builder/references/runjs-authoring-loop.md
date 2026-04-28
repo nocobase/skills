@@ -32,8 +32,8 @@ Choose this before writing code whenever the request says "current record", "当
 | recordSemantic | Use this ctx path | Typical case |
 | --- | --- | --- |
 | `popup-opener-record` | `await ctx.getVar('ctx.popup.record...')` | A standalone JS block/action in a popup needs the record that opened the popup. |
-| `host-record` | `ctx.record...` | JS field/column/action is hosted by a details, table row, list item, or grid-card item. |
-| `inner-row-record` | `ctx.record...` | A popup contains a nested table/list and the JS action belongs to that inner row. |
+| `host-record` | `await ctx.getVar('ctx.record...')` | JS field/column/action is hosted by a details, table row, list item, or grid-card item. |
+| `inner-row-record` | `await ctx.getVar('ctx.record...')` | A popup contains a nested table/list and the JS action belongs to that inner row. |
 | `parent-popup-record` | `await ctx.getVar('ctx.popup.parent.record...')` | A nested popup needs the outer popup's opener record. |
 | `selected-rows` | `ctx.resource?.getSelectedRows?.()` | A table toolbar/bulk action works on selected rows. |
 

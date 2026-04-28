@@ -124,6 +124,18 @@ Leave exactly:
 - `prewrite-preview.txt`
 - `readback-checklist.md`
 
+If the prompt asks for `preview-policy.json` instead of `readback-checklist.md`, leave that requested three-file set. The policy shape is `{ "prepareWriteRequired": false, "previewSource": "draft-blueprint" }`.
+
+For every artifact-only whole-page bundle, `blueprint.json` must be the bare blueprint root with top-level `tabs[]`; do not wrap it under `page`, `draft`, `blueprint`, `scenario`, `metadata`, or any explanatory envelope.
+
+For artifact-only locator boundary handoffs, use `locator-map.json` with direct fields and non-empty placeholder strings:
+
+```json
+{ "navigation": { "routeId": "route-id-placeholder" }, "page": { "pageSchemaUid": "page-schema-placeholder" }, "liveTargets": [{ "role": "table", "uid": "live-target-uid-placeholder" }] }
+```
+
+Keep `liveTargets[].uid` as a non-empty placeholder when live readback has not happened yet, not `null`; it records the source class and still blocks downstream writes until real readback.
+
 The checklist can stay short. It only needs to confirm create vs replace, one real tab by default, non-empty `tabs[]`, field truth from live `interface` facts when relevant, and that the preview came from the same blueprint draft.
 
 ## Minimal common-case blueprint

@@ -11,7 +11,7 @@ The host is a value-return surface; use `return null` there instead.
 
 ## Required ctx roots
 - `ctx.value`
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.render`
 
 ## Contract
@@ -23,7 +23,8 @@ The host is a value-return surface; use `return null` there instead.
 ## Normalized snippet
 
 ```js
-const value = ctx.value ?? ctx.record?.description ?? '';
+const currentRecord = await ctx.getVar('ctx.record');
+const value = ctx.value ?? currentRecord?.description ?? '';
 if (String(value).trim() === '') {
   ctx.render(null);
   return;

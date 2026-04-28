@@ -17,6 +17,7 @@ For artifact-only localized reaction drafting, stay on this file. Do not enumera
 - if the interaction logic belongs to the page you are building now, keep it in the same blueprint with top-level `reaction.items[]`
 - target same-run public paths, not live uids
 - default to no `expectedFingerprint` in first-pass whole-page blueprints
+- first-pass whole-page `reaction.items[]` uses no live `get-reaction-meta`, no live uid, and no live fingerprint; there is no persisted scene to probe until after `applyBlueprint` succeeds
 - use the same explicit block/action keys that the structure uses, for example:
   - `main.recordCreateForm`
   - `main.recordsTable.refreshAction`
@@ -251,6 +252,24 @@ For a common artifact-only localized reaction task, create:
 - `readback-checklist.md`
 
 The JSON can stay schematic. It only needs to make the matched `get-reaction-meta` + `set*Rules` path explicit; it does not need full final rule syntax unless the user asked for that detail.
+
+For artifact-only localized reaction drafts, do not invent a live `uid` or fingerprint. The artifact is a plan for the future live write, so make the probe and the dependent writes explicit:
+
+```json
+{
+  "route": "localized-reaction",
+  "metaProbe": {
+    "operation": "get-reaction-meta",
+    "target": "main.recordCreateForm",
+    "requiredKinds": ["fieldValue", "fieldLinkage"],
+    "requiredSourcePaths": ["formValues.status"]
+  },
+  "writes": [
+    { "operation": "setFieldValueRules", "dependsOnKind": "fieldValue" },
+    { "operation": "setFieldLinkageRules", "dependsOnKind": "fieldLinkage" }
+  ]
+}
+```
 
 ## Open next only if needed
 

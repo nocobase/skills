@@ -74,6 +74,13 @@ function extractFirstJsFenceAfterHeading(markdown, heading) {
   return match[2];
 }
 
+function extractJsFenceAfterH2(markdown, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = markdown.match(new RegExp(`^##\\s+${escaped}\\s*$([\\s\\S]*?)^\\\`\\\`\\\`(?:js|javascript)\\n([\\s\\S]*?)\\n\\\`\\\`\\\``, 'm'));
+  assert.ok(match, `should find js fence after h2 "${heading}"`);
+  return match[2];
+}
+
 function validateRunjsSnippet(model, code) {
   const cliPath = path.join(skillRoot, 'runtime/bin/nb-runjs.mjs');
   const result = spawnSync(process.execPath, [cliPath, 'validate', '--stdin-json', '--skill-mode'], {
@@ -219,6 +226,16 @@ function assertSkillKeepsTemplateRulesMinimal(text) {
     /clarify before writing|do not auto-detach/i,
     'SKILL.md should block automatic detach on unresolved existing-reference scope',
   );
+  assert.match(
+    text,
+    /record[\s\S]{0,160}template-owned[\s\S]{0,180}host\/openView[\s\S]{0,120}separately/i,
+    'SKILL.md should require separate template-owned and host/openView routing records',
+  );
+  assert.match(
+    text,
+    /templateOwnedContentRoute[\s\S]{0,160}hostOpenViewConfigRoute/i,
+    'SKILL.md should name the artifact fields for template-owned and host/openView routing',
+  );
   assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md should not restate popup.tryTemplate details');
   assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md should not restate popup.saveAsTemplate details');
   assert.doesNotMatch(text, /keyword-only search/i, 'SKILL.md should not restate template search heuristics');
@@ -239,8 +256,23 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /reaction work[\s\S]{0,160}`get-reaction-meta`[\s\S]{0,120}`set\*Rules`[\s\S]{0,120}\[reaction-quick\.md\]/i,
-    'SKILL.md should keep reaction work routing visible through reaction-quick.md',
+    /localized existing-surface reaction work[\s\S]{0,160}`get-reaction-meta`[\s\S]{0,120}`set\*Rules`[\s\S]{0,120}\[reaction-quick\.md\]/i,
+    'SKILL.md should keep localized reaction work routing visible through reaction-quick.md',
+  );
+  assert.match(
+    text,
+    /first-pass whole-page[\s\S]{0,160}`?reaction\.items\[\]`?[\s\S]{0,200}(?:no|without)[\s\S]{0,80}`?get-reaction-meta`?/i,
+    'SKILL.md should keep first-pass whole-page reactions in reaction.items[] without live meta',
+  );
+  assert.match(
+    text,
+    /artifact-only localized reaction[\s\S]{0,180}planned `?get-reaction-meta`? probe/i,
+    'SKILL.md should require artifact-only localized reaction drafts to record the planned meta probe',
+  );
+  assert.match(
+    text,
+    /artifact-only locator[\s\S]{0,180}navigation\.routeId[\s\S]{0,160}page\.pageSchemaUid[\s\S]{0,160}liveTargets\[\]\.uid[\s\S]{0,160}non-empty placeholder/i,
+    'SKILL.md should keep artifact-only locator maps as direct fields with non-empty placeholders',
   );
   assert.match(
     text,
@@ -688,6 +720,22 @@ test('RunJS authoring docs require record semantic selection before code generat
   assert.match(textFromRecord, /Do not use[\s\S]{0,220}popup/i, 'text-from-record snippet should not be used for popup opener records');
 });
 
+test('safe RunJS snippets read record values through ctx.getVar', () => {
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const safeEntries = catalog.snippets.filter((entry) => entry.tier === 'safe');
+  assert.ok(safeEntries.length > 0, 'safe snippet catalog should not be empty');
+
+  for (const entry of safeEntries) {
+    const markdown = read(`references/${entry.doc}`);
+    const code = extractJsFenceAfterH2(markdown, 'Normalized snippet');
+    assert.doesNotMatch(
+      code,
+      /\bctx\.record(?:\?\.|\.)/,
+      `${entry.id} normalized snippet should read record values with await ctx.getVar('ctx.record...')`,
+    );
+  }
+});
+
 test('key upstream js snapshot pages route back to skill contracts', () => {
   const eventFlow = read('runtime/reference-assets/upstream-js/interface-builder/event-flow.md');
   assert.match(eventFlow, /settings\.md/i, 'event-flow snapshot should route writes back to settings.md');
@@ -744,6 +792,11 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
     runtime,
     /pageSchemaUid[\s\S]{0,160}(catalog|context|get-reaction-meta|compose|configure|add\*|remove\*)/i,
     'runtime-playbook should require pageSchemaUid/live uid normalization before localized follow-up reads and writes',
+  );
+  assert.match(
+    runtime,
+    /locator-map\.json[\s\S]{0,160}navigation[\s\S]{0,80}routeId[\s\S]{0,160}page[\s\S]{0,80}pageSchemaUid[\s\S]{0,160}liveTargets[\s\S]{0,80}uid/i,
+    'runtime-playbook should show the artifact-only locator map shape with direct navigation/page/liveTargets fields',
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
@@ -1151,6 +1204,26 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
+    /blueprint\.json[\s\S]{0,160}(?:must be|is)[\s\S]{0,160}(?:bare|direct|root)[\s\S]{0,160}`?tabs\[\]`?/i,
+    'whole-page-quick should require artifact-only blueprint.json to be the direct blueprint root with tabs[]',
+  );
+  assert.match(
+    wholePageQuick,
+    /preview-policy\.json[\s\S]{0,160}"prepareWriteRequired"\s*:\s*false[\s\S]{0,160}"previewSource"\s*:\s*"draft-blueprint"/i,
+    'whole-page-quick should document the artifact-only preview policy shape',
+  );
+  assert.match(
+    wholePageQuick,
+    /locator-map\.json[\s\S]{0,180}"navigation"\s*:\s*\{\s*"routeId"[\s\S]{0,180}"page"\s*:\s*\{\s*"pageSchemaUid"[\s\S]{0,180}"liveTargets"[\s\S]{0,80}"uid"/i,
+    'whole-page-quick should show the direct artifact-only locator-map shape',
+  );
+  assert.match(
+    wholePageQuick,
+    /liveTargets\[\]\.uid[\s\S]{0,160}non-empty placeholder[\s\S]{0,120}not `?null`?/i,
+    'whole-page-quick should require non-empty live target placeholders instead of null',
+  );
+  assert.match(
+    wholePageQuick,
     /helper-contracts[\s\S]{0,120}(real write|prewrite gate)/i,
     'whole-page-quick should keep helper-contracts behind real-write or prewrite-gate needs',
   );
@@ -1246,6 +1319,21 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     reactionQuick,
     /Whole-page-first rule|for whole-page create \/ replace, prefer top-level `?reaction\.items\[\]`?/i,
     'reaction-quick should treat first-pass whole-page reactions as the default route',
+  );
+  assert.match(
+    reactionQuick,
+    /whole-page[\s\S]{0,220}`?reaction\.items\[\]`?[\s\S]{0,200}(?:no|without)[\s\S]{0,80}`?get-reaction-meta`?/i,
+    'reaction-quick should keep whole-page first-pass reactions off live meta probes',
+  );
+  assert.match(
+    reactionQuick,
+    /"metaProbe"[\s\S]{0,120}"operation"\s*:\s*"get-reaction-meta"[\s\S]{0,220}"requiredKinds"[\s\S]{0,220}"requiredSourcePaths"/i,
+    'reaction-quick should show a structured artifact-only metaProbe contract',
+  );
+  assert.match(
+    reactionQuick,
+    /artifact-only localized[\s\S]{0,260}(?:no|do not invent)[\s\S]{0,120}(?:live `?uid`?|fingerprint)/i,
+    'reaction-quick should forbid invented live uids/fingerprints in artifact-only localized drafts',
   );
   assert.match(
     reactionQuick,
@@ -1364,6 +1452,10 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   const templateQuick = read('references/template-quick.md');
   assert.match(templateQuick, /\[templates\.md\]/i);
   assert.match(templateQuick, /page-scoped wording/i);
+  assert.match(templateQuick, /"autoDetachToCopy"\s*:\s*false/i);
+  assert.match(templateQuick, /"needsClarification"\s*:\s*true/i);
+  assert.match(templateQuick, /"templateOwnedContentRoute"/i);
+  assert.match(templateQuick, /"hostOpenViewConfigRoute"/i);
 
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /real write|prewrite-validation/i);

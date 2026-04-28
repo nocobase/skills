@@ -11,7 +11,7 @@ The user wants a NocoBase popup or drawer; configure popup/action/field popup ou
 - `js-model.action`
 
 ## Required ctx roots
-- `ctx.record`
+- `ctx.getVar`
 
 ## Contract
 - Effect style: `action`
@@ -22,7 +22,8 @@ The user wants a NocoBase popup or drawer; configure popup/action/field popup ou
 ## Normalized snippet
 
 ```js
-const targetUrl = String(ctx.record?.url || 'https://example.com');
+const record = (await ctx.getVar('ctx.record')) || {};
+const targetUrl = String(record.url || 'https://example.com');
 window.open(targetUrl, '_blank', 'noopener,noreferrer');
 ```
 

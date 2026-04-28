@@ -30,8 +30,8 @@ ctx.message.success(ctx.t('Action completed'));
 | recordSemantic | Use this ctx path | Notes |
 | --- | --- | --- |
 | `popup-opener-record` | `await ctx.getVar('ctx.popup.record...')` | Popup toolbar or popup-level JS action works on the record that opened the popup. |
-| `host-record` | `ctx.record...` | Record-level action in table/list/details works on its host record. |
-| `inner-row-record` | `ctx.record...` | A JS action on a nested table row inside a popup works on that inner row, not the popup opener. |
+| `host-record` | `await ctx.getVar('ctx.record...')` | Record-level action in table/list/details works on its host record. |
+| `inner-row-record` | `await ctx.getVar('ctx.record...')` | A JS action on a nested table row inside a popup works on that inner row, not the popup opener. |
 | `selected-rows` | `ctx.resource?.getSelectedRows?.()` | Collection/table toolbar action works on selected rows. |
 
 If a popup action could mean either the popup opener or a row inside the popup, inspect the target host before writing JS.

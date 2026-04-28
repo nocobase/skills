@@ -12,7 +12,7 @@ You need a list; use `global/resource-list`.
 
 ## Required ctx roots
 - `ctx.makeResource`
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.message`
 - `ctx.t`
 
@@ -25,9 +25,10 @@ You need a list; use `global/resource-list`.
 ## Normalized snippet
 
 ```js
+const currentRecord = await ctx.getVar('ctx.record');
 const resource = ctx.makeResource('SingleRecordResource');
 resource.setResourceName('tasks');
-resource.setFilterByTk(ctx.record?.id);
+resource.setFilterByTk(currentRecord?.id);
 await resource.refresh();
 
 const record = resource.getData?.() || null;

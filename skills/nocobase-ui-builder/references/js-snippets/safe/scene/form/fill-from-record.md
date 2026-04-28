@@ -12,7 +12,7 @@ No current record context is available.
 
 ## Required ctx roots
 - `ctx.form`
-- `ctx.record`
+- `ctx.getVar`
 
 ## Contract
 - Effect style: `action`
@@ -23,7 +23,7 @@ No current record context is available.
 ## Normalized snippet
 
 ```js
-const record = ctx.record || {};
+const record = (await ctx.getVar('ctx.record')) || {};
 ctx.form?.setFieldsValue?.({
   title: record.title || '',
   ownerId: record.owner_id ?? record.owner?.id,

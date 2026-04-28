@@ -21,6 +21,7 @@ First-hop safe snippets:
 Example A:
 
 ```js
+const recordStatus = await ctx.getVar('ctx.record.status');
 const targetFieldUid = 'FIELD_UID_OR_NAME';
 const items = ctx.model?.subModels?.grid?.subModels?.items;
 const candidates = Array.isArray(items) ? items : Array.from(items?.values?.() || items || []);
@@ -33,14 +34,15 @@ if (!fieldModel) {
   return;
 }
 
-fieldModel.setProps({ value: ctx.record?.status ?? ctx.t('Updated value') });
+fieldModel.setProps({ value: recordStatus ?? ctx.t('Updated value') });
 ctx.message?.success?.(ctx.t('Updated field {{name}}', { name: targetFieldUid }));
 ```
 
 Example B:
 
 ```js
-if (!ctx.record?.sameAsAbove) {
+const record = (await ctx.getVar('ctx.record')) || {};
+if (!record.sameAsAbove) {
   return;
 }
 
@@ -49,7 +51,7 @@ const candidates = Array.isArray(items) ? items : Array.from(items?.values?.() |
 const targetField = candidates.find((item) => item?.props?.name === 'shippingAddress');
 
 if (targetField) {
-  targetField.setProps({ value: ctx.record?.billingAddress });
+  targetField.setProps({ value: record.billingAddress });
 }
 ```
 

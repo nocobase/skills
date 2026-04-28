@@ -6707,6 +6707,138 @@ test('prepareApplyBlueprintRequest allows one-level relation fields on editForm 
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['username', 'roles']);
 });
 
+test('prepareApplyBlueprintRequest accepts canonical relation field details popup binding', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              'nickname',
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      resource: { binding: 'currentRecord', collectionName: 'roles' },
+                      fields: ['title', 'name'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
+});
+
+test('prepareApplyBlueprintRequest normalizes legacy relation field details popup to currentRecord', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              'nickname',
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      collection: 'roles',
+                      fields: ['title', 'name'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].collection, 'roles');
+});
+
+test('prepareApplyBlueprintRequest rejects relation field popup table without associatedRecords binding', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role links',
+                  blocks: [
+                    {
+                      key: 'rolesTable',
+                      type: 'table',
+                      collection: 'roles',
+                      fields: ['title'],
+                      actions: [defaultFilterAction(['title'])],
+                      defaultFilter: defaultFilterGroup(['title']),
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'relation-popup-associated-records-binding-required'
+        && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].resource.binding',
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest allows dotted relation display fields without popup', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
@@ -6786,6 +6918,71 @@ test('prepareApplyBlueprintRequest requires explicit layout when multiple non-fi
   assert.ok(
     result.errors.some(
       (issue) => issue.ruleId === 'multi-block-layout-required' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest normalizes settings.sort alias to settings.sorting', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: { sort: ['-createdAt', 'nickname'] },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'sort'), false);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [
+    { field: 'createdAt', direction: 'desc' },
+    { field: 'nickname', direction: 'asc' },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest rejects conflicting settings.sort and settings.sorting', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: {
+              sort: ['-createdAt'],
+              sorting: [{ field: 'nickname', direction: 'asc' }],
+            },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'settings-sort-sorting-conflict'
+        && issue.path === 'tabs[0].blocks[0].settings.sort',
     ),
   );
 });

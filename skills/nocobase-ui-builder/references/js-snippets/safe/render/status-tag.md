@@ -10,7 +10,7 @@ The status should be written back to a form field; use a linkage snippet instead
 - `js-model.render`
 
 ## Required ctx roots
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.render`
 
 ## Contract
@@ -22,7 +22,8 @@ The status should be written back to a form field; use a linkage snippet instead
 ## Normalized snippet
 
 ```js
-const status = String(ctx.record?.status || 'unknown');
+const currentRecord = await ctx.getVar('ctx.record');
+const status = String(currentRecord?.status || 'unknown');
 const color = status === 'active' ? 'green' : status === 'draft' ? 'blue' : 'default';
 ctx.render(`<span data-color="${color}">${status}</span>`);
 ```

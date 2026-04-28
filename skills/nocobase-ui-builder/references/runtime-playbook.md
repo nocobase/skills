@@ -62,6 +62,20 @@ For whole-page create / replace, author from the draft blueprint first, then run
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
 - Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describe-surface`, or a previous create response.
 
+Artifact-only locator handoffs should use direct machine-readable fields, not only prose keys. `locator-map.json` should keep navigation, page, and live write targets as separate top-level branches:
+
+```json
+{
+  "navigation": { "routeId": "route-id-placeholder" },
+  "page": { "pageSchemaUid": "page-schema-placeholder" },
+  "liveTargets": [
+    { "role": "table", "uid": "live-target-uid-placeholder" }
+  ]
+}
+```
+
+Do not put `navigation.routeId` or `page.pageSchemaUid` only inside explanatory maps such as `locatorSemantics`; the direct fields are the contract future tooling can read. If the live uid is not known yet, use a non-empty placeholder that makes the missing readback explicit, then block downstream writes until real `liveTargets[].uid` values are read.
+
 ## 5. Practical Rules
 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.

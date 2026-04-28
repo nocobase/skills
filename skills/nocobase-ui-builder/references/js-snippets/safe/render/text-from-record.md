@@ -11,7 +11,7 @@ The code is a standalone popup block that needs the popup opener record; use `sc
 - `js-model.render`
 
 ## Required ctx roots
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.render`
 
 ## Contract
@@ -23,7 +23,8 @@ The code is a standalone popup block that needs the popup opener record; use `sc
 ## Normalized snippet
 
 ```js
-const text = String(ctx.record?.title ?? ctx.record?.name ?? '-');
+const currentRecord = await ctx.getVar('ctx.record');
+const text = String(currentRecord?.title ?? currentRecord?.name ?? '-');
 ctx.render(text);
 ```
 

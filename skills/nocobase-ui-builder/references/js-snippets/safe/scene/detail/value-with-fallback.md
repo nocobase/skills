@@ -11,7 +11,7 @@ The empty state should hide the field entirely; use a `render/null-when-empty` s
 
 ## Required ctx roots
 - `ctx.value`
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.render`
 - `ctx.t`
 
@@ -24,7 +24,8 @@ The empty state should hide the field entirely; use a `render/null-when-empty` s
 ## Normalized snippet
 
 ```js
-const rawValue = ctx.value ?? ctx.record?.description;
+const currentRecord = await ctx.getVar('ctx.record');
+const rawValue = ctx.value ?? currentRecord?.description;
 if (rawValue == null || String(rawValue).trim() === '') {
   ctx.render(ctx.t('No value'));
   return;

@@ -68,8 +68,11 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const SORTABLE_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
+const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
+const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
@@ -2630,13 +2633,33 @@ function materializeSettingsHeightForWrite(settings) {
   if (!isPlainObject(settings)) {
     return settings;
   }
-  if (!hasOwn(settings, 'height') || hasOwn(settings, 'heightMode')) {
-    return settings;
+  let nextSettings = settings;
+  if (hasOwn(nextSettings, 'sort') && !hasOwn(nextSettings, 'sorting')) {
+    nextSettings = {
+      ...nextSettings,
+      sorting: normalizeSortingValue(nextSettings.sort),
+    };
+    delete nextSettings.sort;
+  }
+  if (!hasOwn(nextSettings, 'height') || hasOwn(nextSettings, 'heightMode')) {
+    return nextSettings;
   }
   return {
-    ...settings,
+    ...nextSettings,
     heightMode: 'specifyValue',
   };
+}
+
+function normalizeSortingValue(value) {
+  if (!Array.isArray(value)) return value;
+  return value.map((item) => {
+    if (typeof item !== 'string') return item;
+    const trimmed = normalizeText(item);
+    if (!trimmed) return item;
+    const direction = trimmed.startsWith('-') ? 'desc' : 'asc';
+    const field = trimmed.replace(/^[+-]/, '');
+    return field ? { field, direction } : item;
+  });
 }
 
 function materializeFieldForWrite(field, options = {}) {
@@ -2652,8 +2675,41 @@ function materializeFieldForWrite(field, options = {}) {
       triggerKind: 'field',
       triggerLabel: describeField(nextField),
     });
+    normalizeRelationFieldPopupBlocksForWrite(nextField.popup, {
+      ...options,
+      associationField: nextField.field,
+    });
   }
   return nextField;
+}
+
+function normalizeRelationFieldPopupBlocksForWrite(popup, options = {}) {
+  if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return;
+  const associationField = getDefaultsAssociationFieldKey(options.associationField);
+  for (const block of popup.blocks) {
+    if (!isPlainObject(block)) continue;
+    const blockType = normalizeText(block.type);
+    if (!RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)) continue;
+    const blockResource = isPlainObject(block.resource) ? block.resource : null;
+    const binding = getNodeBinding(block);
+    if (binding && binding !== 'currentcollection') continue;
+    if (!blockResource && hasOwn(block, 'binding')) {
+      block.binding = 'currentRecord';
+      continue;
+    }
+    block.resource = {
+      ...(blockResource || {}),
+      binding: 'currentRecord',
+    };
+    if (associationField && !normalizeText(block.resource.collectionName)) {
+      const targetCollection = resolveAssociationTargetCollection(
+        options.collectionMetadata || {},
+        getTraversalSurfaceCollection(options.blockContext || {}),
+        associationField,
+      );
+      if (targetCollection) block.resource.collectionName = targetCollection;
+    }
+  }
 }
 
 function materializeFieldGroupForWrite(group, options = {}) {
@@ -3438,7 +3494,17 @@ function validateDisplayAssociationFieldPopupRequirement(items, block, blockCont
     if (!resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath)) {
       continue;
     }
-    if (isPlainObject(item) && (hasOwn(item, 'popup') || hasOwn(item, 'fieldType'))) {
+    if (isPlainObject(item) && hasOwn(item, 'popup')) {
+      validateRelationFieldPopupResourceBindings(
+        item.popup,
+        `${itemPath}.popup`,
+        state,
+        blockContext,
+        fieldPath,
+      );
+      continue;
+    }
+    if (isPlainObject(item) && hasOwn(item, 'fieldType')) {
       continue;
     }
     pushValidationError(
@@ -3455,6 +3521,89 @@ function validateDisplayAssociationFieldGroupPopupRequirement(fieldGroups, block
   forEachFieldGroup(fieldGroups, (group, groupIndex) => {
     validateDisplayAssociationFieldPopupRequirement(group.fields, block, blockContext, `${path}[${groupIndex}].fields`, state);
   });
+}
+
+function normalizeComparableJson(value) {
+  if (Array.isArray(value)) return value.map((item) => normalizeComparableJson(item));
+  if (!isPlainObject(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, normalizeComparableJson(value[key])]),
+  );
+}
+
+function settingsSortValuesMatch(left, right) {
+  return JSON.stringify(normalizeComparableJson(normalizeSortingValue(left)))
+    === JSON.stringify(normalizeComparableJson(normalizeSortingValue(right)));
+}
+
+function validateBlockSettingsSortAlias(block, path, state) {
+  if (!SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block?.type))) return;
+  if (!isPlainObject(block.settings)) return;
+  if (!hasOwn(block.settings, 'sort')) return;
+  if (hasOwn(block.settings, 'sorting') && !settingsSortValuesMatch(block.settings.sort, block.settings.sorting)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.settings.sort`,
+      'settings-sort-sorting-conflict',
+      'settings.sort is a compatibility alias for settings.sorting; when both are present they must describe the same ordering.',
+    );
+  }
+}
+
+function validateRelationFieldPopupResourceBindings(popup, popupPath, state, openerBlockContext, associationField) {
+  if (!isPlainObject(popup) || hasTemplateDocument(popup.template)) return;
+  const associationRequirement = resolveAssociationFieldRequirement(
+    state.collectionMetadata || {},
+    openerBlockContext,
+    associationField,
+  );
+  const canonicalAssociationField = associationRequirement?.associationField || getDefaultsAssociationFieldKey(associationField);
+  for (const [index, block] of ensureArray(popup.blocks).entries()) {
+    if (!isPlainObject(block)) continue;
+    const blockPath = `${popupPath}.blocks[${index}]`;
+    const blockType = normalizeText(block.type);
+    const binding = getNodeBinding(block);
+    if (RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)) {
+      if (!binding || binding === 'currentcollection') {
+        continue;
+      }
+      if (binding !== 'currentrecord') {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.binding`,
+          'relation-popup-current-record-binding-required',
+          `Relation field popup ${blockType} blocks must use resource.binding="currentRecord" for the clicked related record.`,
+        );
+      }
+      continue;
+    }
+    if (RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES.has(blockType)) {
+      if (binding !== 'associatedrecords') {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.binding`,
+          'relation-popup-associated-records-binding-required',
+          `Relation field popup ${blockType} blocks must use resource.binding="associatedRecords" with resource.associationField="${canonicalAssociationField}".`,
+        );
+        continue;
+      }
+      const blockAssociationField = getDefaultsAssociationFieldKey(getNodeAssociationField(block));
+      if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.associationField`,
+          'relation-popup-associated-records-association-field-required',
+          `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}".`,
+        );
+      }
+    }
+  }
 }
 
 function validateActions(items, path, state, { recordActions = false, blockContext = {} } = {}) {
@@ -4616,6 +4765,7 @@ function validateBlock(block, path, state, parentContext = {}) {
 
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
   validateDataSurfaceFilterActionSettings(block, path, state);
+  validateBlockSettingsSortAlias(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
   validateKanbanMainBlockShape(block, path, state);
   validateTreeConnectFields(block, path, state, parentContext.siblingBlocksByKey);

@@ -12,6 +12,7 @@ const CATALOG_PATH = fileURLToPath(new URL('../references/js-snippets/catalog.js
 const cases = JSON.parse(fs.readFileSync(CASES_PATH, 'utf8'));
 const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8'));
 const catalogById = new Map(catalog.snippets.map((entry) => [entry.id, entry]));
+const DIRECT_CTX_RECORD_VALUE_READ_RE = /\bctx\.record(?:\?\.|\.)/;
 
 function buildPayloadForCase(runjsCase) {
   const runJs = { code: runjsCase.code, version: 'v1' };
@@ -46,6 +47,17 @@ function collectMainChainCodes({ canonicalized, audit }) {
 }
 
 for (const runjsCase of cases) {
+  test(`RunJS regression positive cases avoid direct ctx.record reads: ${runjsCase.id}`, () => {
+    if (!runjsCase.expectedOk) {
+      return;
+    }
+    assert.doesNotMatch(
+      runjsCase.code,
+      DIRECT_CTX_RECORD_VALUE_READ_RE,
+      `${runjsCase.id} should read record values with await ctx.getVar('ctx.record...')`,
+    );
+  });
+
   test(`RunJS regression: ${runjsCase.id}`, () => {
     const result = inspectRunJSStaticCode({
       code: runjsCase.code,

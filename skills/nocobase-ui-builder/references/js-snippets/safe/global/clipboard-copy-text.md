@@ -12,7 +12,7 @@ The surface must return a value; use a `value-return/*` snippet instead.
 - `js-model.action`
 
 ## Required ctx roots
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.message`
 - `ctx.t`
 
@@ -25,7 +25,8 @@ The surface must return a value; use a `value-return/*` snippet instead.
 ## Normalized snippet
 
 ```js
-const text = String(ctx.record?.title ?? ctx.t('Copied text'));
+const currentRecord = await ctx.getVar('ctx.record');
+const text = String(currentRecord?.title ?? ctx.t('Copied text'));
 await navigator.clipboard.writeText(text);
 ctx.message.success(ctx.t('Copied'));
 ```

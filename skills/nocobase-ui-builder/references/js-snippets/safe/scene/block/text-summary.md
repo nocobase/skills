@@ -11,7 +11,7 @@ The block is standalone popup content reading the record that opened the popup; 
 - `js-model.render`
 
 ## Required ctx roots
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.render`
 - `ctx.t`
 
@@ -24,8 +24,9 @@ The block is standalone popup content reading the record that opened the popup; 
 ## Normalized snippet
 
 ```js
-const title = String(ctx.record?.title ?? ctx.record?.name ?? ctx.t('Untitled'));
-const owner = String(ctx.record?.owner?.nickname ?? ctx.record?.owner?.name ?? ctx.t('Unassigned'));
+const currentRecord = await ctx.getVar('ctx.record');
+const title = String(currentRecord?.title ?? currentRecord?.name ?? ctx.t('Untitled'));
+const owner = String(currentRecord?.owner?.nickname ?? currentRecord?.owner?.name ?? ctx.t('Unassigned'));
 ctx.render(`${title} · ${owner}`);
 ```
 

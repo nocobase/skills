@@ -47,7 +47,8 @@ await ctx.resource.refresh?.();
 ### 记录级按钮
 
 ```js
-if (!ctx.record) {
+const record = await ctx.getVar('ctx.record');
+if (!record) {
   ctx.message.error(ctx.t('No record'));
   return;
 }
