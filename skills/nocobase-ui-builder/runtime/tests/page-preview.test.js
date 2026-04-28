@@ -8533,6 +8533,170 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
   assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
+test('page preview cli prepare-write falls back to missing collectionMetadata when explicit empty metadata cannot be auto-filled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: emptyPrepareCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata() {
+      throw new Error('metadata fetch unavailable');
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+});
+
+test('page preview cli prepare-write falls back to missing collectionMetadata when partial metadata cannot be auto-filled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users and roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            layout: {
+              rows: [['usersTable', 'rolesTable']],
+            },
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                title: 'Users',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+              {
+                key: 'rolesTable',
+                type: 'table',
+                title: 'Roles',
+                collection: 'roles',
+                defaultFilter: defaultFilterGroup(['name']),
+                fields: ['name'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      assert.equal(collectionName, 'roles');
+      throw new Error('metadata fetch unavailable');
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+});
+
+test('page preview cli prepare-write preserves invalid explicit collectionMetadata errors', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: 'invalid metadata',
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata() {
+      throw new Error('unexpected metadata fetch');
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'invalid-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+});
+
 test('fetchCollectionMetadata falls back to resource list when data-modeling collection get fails', async () => {
   const calls = [];
   const metadata = await fetchCollectionMetadata('users', {

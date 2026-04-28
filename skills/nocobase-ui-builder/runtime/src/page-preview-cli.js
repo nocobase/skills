@@ -89,6 +89,19 @@ function withResolvedCollectionMetadata(payload, metadata) {
   };
 }
 
+function withoutPrepareCollectionMetadata(payload) {
+  if (!isObjectRecord(payload)) return payload;
+  if (!Object.prototype.hasOwnProperty.call(payload, 'blueprint') && !Object.prototype.hasOwnProperty.call(payload, 'requestBody')) {
+    return payload;
+  }
+  const { collectionMetadata, ...nextPayload } = payload;
+  return nextPayload;
+}
+
+function hasInvalidCollectionMetadataError(errors) {
+  return Array.isArray(errors) && errors.some((issue) => issue?.ruleId === 'invalid-collection-metadata');
+}
+
 async function resolvePrepareWritePayload(payload, options = {}) {
   if (options.autoCollectionMetadata === false) {
     return {
@@ -102,9 +115,9 @@ async function resolvePrepareWritePayload(payload, options = {}) {
     extractPrepareCollectionMetadata(payload),
     options,
   );
-  if (!resolution.ok && !extractPrepareCollectionMetadata(payload)) {
+  if (!resolution.ok && !hasInvalidCollectionMetadataError(resolution.errors)) {
     return {
-      payload,
+      payload: withoutPrepareCollectionMetadata(payload),
       resolverErrors: [],
     };
   }
