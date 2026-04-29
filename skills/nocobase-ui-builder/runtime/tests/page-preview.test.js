@@ -7998,6 +7998,237 @@ test('page preview cli prepare-write auto-resolves collectionMetadata when it is
   assert.equal(payload.cliBody.page.title, 'Users');
 });
 
+test('prepareApplyBlueprintRequest rejects chart displayTitle before remote applyBlueprint', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Dashboard', icon: 'DashboardOutlined' },
+      },
+      page: { title: 'Dashboard' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'statusChart',
+              type: 'chart',
+              title: 'Status chart',
+              settings: {
+                title: 'Status chart',
+                displayTitle: true,
+                query: {
+                  mode: 'builder',
+                  resource: { dataSourceKey: 'main', collectionName: 'users' },
+                  measures: [{ field: 'id', aggregation: 'count', alias: 'userCount' }],
+                },
+                visual: {
+                  mode: 'basic',
+                  type: 'bar',
+                  mappings: { x: 'userCount', y: 'userCount' },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'chart-display-title-unsupported'));
+  assert.equal(result.cliBody, undefined);
+});
+
+test('page preview cli prepare-write resolves unique existing navigation group to routeId', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const calls = [];
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      assert.equal(collectionName, 'users');
+      return minimalUserCollectionMetadata;
+    },
+    async execFileImpl(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'env' && args[1] === 'list') {
+        return {
+          stdout: [
+            'Current  Name   Base URL',
+            '*        local  http://127.0.0.1:13000/api',
+          ].join('\n'),
+        };
+      }
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [{ id: 42, title: 'Workspace', type: 'group' }],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.cliBody.navigation.group, { routeId: 42 });
+  assert.ok(payload.warnings.some((warning) => /Resolved existing menu group "Workspace" to routeId 42/.test(warning)));
+  assert.ok(calls.some((call) => call.includes('desktopRoutes')));
+});
+
+test('page preview cli prepare-write fails before applyBlueprint for ambiguous navigation group title', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      if (args[0] === 'env' && args[1] === 'list') {
+        return {
+          stdout: [
+            'Current  Name   Base URL',
+            '*        local  http://127.0.0.1:13000/api',
+          ].join('\n'),
+        };
+      }
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [
+              { id: 42, title: 'Workspace', type: 'group' },
+              { id: 43, title: 'Workspace', type: 'group' },
+            ],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'navigation-group-title-ambiguous'));
+});
+
+test('page preview cli prepare-write resolves navigation group even when auto collection metadata is disabled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Notes', icon: 'FileTextOutlined' },
+      },
+      page: { title: 'Notes' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      if (args[0] === 'env' && args[1] === 'list') {
+        return {
+          stdout: [
+            'Current  Name   Base URL',
+            '*        local  http://127.0.0.1:13000/api',
+          ].join('\n'),
+        };
+      }
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [{ id: 42, title: 'Workspace', type: 'group' }],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.cliBody.navigation.group, { routeId: 42 });
+});
+
 test('page preview cli prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

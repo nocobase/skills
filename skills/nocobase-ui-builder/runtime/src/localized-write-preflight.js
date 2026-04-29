@@ -28,6 +28,7 @@ const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', '
 const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
 const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
+const CHART_PUBLIC_BLOCK_TYPES = new Set(['chart']);
 const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'TableBlockModel',
   'ListBlockModel',
@@ -99,6 +100,10 @@ function normalizeBody(value) {
 
 function isObjectRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function addSpecifiedHeightMode(settings) {
@@ -278,6 +283,47 @@ function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
   }
 
   return payload;
+}
+
+function collectChartDisplayTitleErrorsFromBlock(block, path) {
+  const errors = [];
+  if (!isObjectRecord(block)) {
+    return errors;
+  }
+  if (
+    CHART_PUBLIC_BLOCK_TYPES.has(normalizeText(block.type))
+    && isObjectRecord(block.settings)
+    && Object.hasOwn(block.settings, 'displayTitle')
+  ) {
+    errors.push({
+      path: `${path}.settings.displayTitle`,
+      ruleId: 'chart-display-title-unsupported',
+      message: 'Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.',
+      code: 'CHART_DISPLAY_TITLE_UNSUPPORTED',
+    });
+  }
+  if (Array.isArray(block.blocks)) {
+    block.blocks.forEach((child, index) => {
+      collectChartDisplayTitleErrorsFromBlock(child, `${path}.blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
+}
+
+function collectLocalizedChartDisplayTitleErrors(payload, operation) {
+  const errors = [];
+  if (!isObjectRecord(payload)) {
+    return errors;
+  }
+  if (operation === 'add-block') {
+    return collectChartDisplayTitleErrorsFromBlock(payload, '');
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      collectChartDisplayTitleErrorsFromBlock(block, `blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
 }
 
 function normalizeMetadata(value) {
@@ -1686,6 +1732,7 @@ export function runLocalizedWritePreflight({
       });
     });
   collectLocalizedMainBlockSectionErrors(cliBody).forEach(pushError);
+  collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation).forEach(pushError);
   collectLocalizedPublicFieldObjectErrors(cliBody).forEach(pushError);
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedMetadata).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);

@@ -500,6 +500,25 @@ test('runLocalizedWritePreflight defaults block settings heightMode to specifyVa
   assert.equal(addBlocks.cliBody.blocks[1].settings.heightMode, 'fullHeight');
 });
 
+test('runLocalizedWritePreflight rejects chart settings displayTitle before remote write', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'chart',
+      settings: {
+        title: 'Status chart',
+        displayTitle: true,
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'chart-display-title-unsupported'));
+  assert.equal(result.cliBody.settings.displayTitle, true);
+});
+
 test('runLocalizedWritePreflight normalizes localized settings.sort alias to sorting', () => {
   const addBlock = runLocalizedWritePreflight({
     operation: 'add-block',

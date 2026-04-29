@@ -79,6 +79,7 @@ const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'edi
 const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
+const CHART_BLOCK_TYPES = new Set(['chart']);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
   'today',
   'turnPages',
@@ -4734,6 +4735,22 @@ function validateKanbanMainBlockShape(block, path, state) {
   }
 }
 
+function validateChartBlockSettings(block, path, state) {
+  if (!CHART_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return;
+  }
+  if (!isPlainObject(block.settings) || !hasOwn(block.settings, 'displayTitle')) {
+    return;
+  }
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    `${path}.settings.displayTitle`,
+    'chart-display-title-unsupported',
+    'Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.',
+  );
+}
+
 function validateBlock(block, path, state, parentContext = {}) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
@@ -4755,6 +4772,7 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
   validateDataSurfaceFilterActionSettings(block, path, state);
   validateBlockSettingsSortAlias(block, path, state);
+  validateChartBlockSettings(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
   validateKanbanMainBlockShape(block, path, state);
   validateTreeConnectFields(block, path, state, parentContext.siblingBlocksByKey);

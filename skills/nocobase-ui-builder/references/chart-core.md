@@ -41,7 +41,7 @@ Other than that, the chart block should only expose four additional outer-block 
 
 The priority is to stabilize both "card displays" and "chart renders". Do not expose frontend-internal details such as `props / decoratorProps / stepParams` to the user.
 
-Chart is also an example of the general public-settings pattern: when creating or reconfiguring, prefer public semantics such as `query / visual / events / title / displayTitle / height / heightMode`. Do not reverse internal `props / decoratorProps / stepParams` from readback into the next input template.
+Chart is also an example of the general public-settings pattern: when creating or reconfiguring, prefer public semantics such as `query / visual / events / title / height / heightMode`. Do not reverse internal `props / decoratorProps / stepParams` from readback into the next input template.
 
 ## Default Strategy
 
@@ -59,9 +59,9 @@ Chart is also an example of the general public-settings pattern: when creating o
 
 The most stable execution order for a chart block is not a one-shot blind write. It is:
 
-1. `add-block(type="chart", settings={ title?, displayTitle?, height?, heightMode? })`
+1. `add-block(type="chart", settings={ title?, height?, heightMode? })`
 2. If you are configuring a builder query, read `context(path="collection")` first to pick fields
-3. Run `configure(changes={ query, title?, displayTitle?, height?, heightMode? })` first
+3. Run `configure(changes={ query, title?, height?, heightMode? })` first
 4. Then read `context(path="chart")`
 5. Based on `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns`, run `configure(changes={ visual, events? })`
 6. Use `nb api flow-surfaces get --uid <chart-uid>` for canonical readback
@@ -81,10 +81,9 @@ Only use `changes.configure` when you are explicitly preserving compatibility wi
 
 ## Outer Block Parameters (Minimum Exposed Set)
 
-In addition to `query / visual / events / configure`, the chart block should expose only these four outer parameters to this skill:
+In addition to `query / visual / events / configure`, the chart block should expose only these three outer parameters to this skill:
 
 - `title?: string`
-- `displayTitle?: boolean`
 - `height?: number`
 - `heightMode?: "defaultHeight" | "specifyValue" | "fullHeight"`
 
@@ -95,7 +94,7 @@ Notes:
   - `specifyValue`
   - `fullHeight`
 - For compatibility with old skills / historical payloads, the server still accepts `fixed` and automatically normalizes it to `specifyValue`
-- `title` only accepts a non-empty string; `displayTitle` only accepts `true | false`
+- `title` only accepts a non-empty string
 - `height` only accepts numbers; it must be paired with `heightMode = "specifyValue"` for the frontend to use the fixed value
 - The local prepare-write and localized preflight helpers auto-add `heightMode = "specifyValue"` when `height` is present and `heightMode` is omitted
 - If `heightMode = "specifyValue"`, it is recommended to also pass `height`
@@ -106,6 +105,7 @@ Notes:
 
 Invalid:
 
+- passing `displayTitle`; current flowSurfaces chart configureOptions do not support it
 - documenting `heightMode = "fixed"` as the primary public syntax
 - passing arbitrary unknown strings into `heightMode`
 
@@ -412,10 +412,9 @@ Rules:
 
 Minimum required post-write readback:
 
-- `tree.stepParams.cardSettings.titleDescription.title` when `displayTitle !== false` and `title` is non-empty
+- `tree.stepParams.cardSettings.titleDescription.title` when `title` is non-empty
 - `tree.stepParams.cardSettings.blockHeight.heightMode`
 - `tree.stepParams.cardSettings.blockHeight.height` when `heightMode = "specifyValue"`
-- if `displayTitle = false`, expect `tree.stepParams.cardSettings.titleDescription` to be absent
 - `cardSettings` is the primary criterion; if `tree.decoratorProps.*` exists it is only an auxiliary mirror, and `tree.props.*` is not the primary criterion
 - `tree.stepParams.chartSettings.configure.query`
 - `tree.stepParams.chartSettings.configure.chart.option`

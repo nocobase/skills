@@ -219,6 +219,7 @@ Example:
   - multiple existing groups -> reject and require `routeId`
 - If same-title reuse hits an existing group, keep it title-only.
 - If an existing group's metadata must change, do not rely on applyBlueprint create; use low-level `updateMenu` instead.
+- During real-write prepare, the local helper may rewrite one unique same-title existing group to `navigation.group.routeId` in `cliBody`. Treat that prepared shape as authoritative and do not re-add `title`, `icon`, `tooltip`, or `hideInMenu`.
 
 ### `navigation.item` semantics
 
