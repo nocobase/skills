@@ -62,7 +62,7 @@ interface:
 
     If `nb env list` reports:
     - `No envs configured.`
-    - `Run 'nb env add <name> --base-url <url>' to add one.`
+    - `Run 'nb env add <name> --api-base-url <url>' to add one.`
     relay this to user directly and ask whether to create a new app (`nb init --ui`) or add env.
 
     Output should include executed command, relevant CLI outputs, and normalized API base URL when `env add` is used.

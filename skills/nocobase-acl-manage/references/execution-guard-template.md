@@ -17,7 +17,7 @@ Use this template before any ACL write (for example `role.create-blank`, role mo
 ## Guard Sequence (Mandatory)
 
 ```bash
-nb env list -s project
+nb env list
 nb env update <current_env_name>
 nb api acl --help
 nb api acl roles --help
@@ -25,7 +25,7 @@ nb api acl roles --help
 
 Pass criteria:
 
-- `env list -s project` returns an active project env (`*` row).
+- `env list` returns an active env (`*` row).
 - `env update <current_env_name>` succeeds or returns actionable recovery guidance.
 - `nb api acl --help` resolves successfully.
 - `nb api acl roles --help` resolves successfully and lists role lifecycle commands (`create/get/list/update/destroy`).
@@ -76,7 +76,7 @@ nb api acl roles get --filter-by-tk <role_name> -j
 ```text
 execution_guard:
 - base_dir: <acl_base_dir>
-- env_project_scope: <summary of env list -s project>
+- env_current_state: <summary of env list>
 - env_update: pass|fail
 - acl_help: pass|fail
 - acl_roles_help: pass|fail

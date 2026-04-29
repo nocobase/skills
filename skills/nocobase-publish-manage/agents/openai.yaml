@@ -12,7 +12,7 @@ agent:
     - migration
 
     Prefer executing user-requested publish commands first.
-    Use capability/help commands (`nb --help`, `nb backup --help`, `nb migration --help`) when diagnostics/help output or command discovery is needed.
+    Use capability/help commands (`nb --help`) when diagnostics/help output or command discovery is needed.
     Execute the target command directly and follow CLI output.
     If CLI reports command-not-found/unknown-command/not-supported, stop and return:
     - `feature_status=developing`
@@ -21,9 +21,9 @@ agent:
 
     Command mapping:
     - backup_restore publish:
-      `nb backup list --env <source_env>` -> `nb restore <backup_file> --env <target_env>`
+      blocked on current CLI unless a newer build restores top-level `nb backup` / `nb restore`
     - migration publish:
-      `nb migration rule add --env <source_env>` -> `nb migration generate <rule_id> --env <source_env>` -> `nb migration run <migration_file> --env <target_env>`
+      blocked on current CLI unless a newer build restores top-level `nb migration` commands
 
     Safety:
     - Require explicit `confirm=confirm` before publish mutations (`restore` / `migration run`).

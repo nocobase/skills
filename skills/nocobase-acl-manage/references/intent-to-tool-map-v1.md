@@ -20,7 +20,7 @@ Execute ACL commands through direct nb CLI:
 
 Resolve current env context through direct CLI:
 
-- `nb env list -s project` (resolve current env from row marked with `*`)
+- `nb env list` (resolve current env from row marked with `*`)
 
 ## Runtime Command Discovery
 
@@ -29,15 +29,15 @@ Because runtime commands are generated from swagger, command names can vary by b
 Prerequisite gate before runtime discovery:
 
 0. Lock one `base-dir` for the whole task (do not switch base-dir mid-task).
-1. Run `nb env list -s project` to get `current_env_name` from the `*` row.
+1. Run `nb env list` to get `current_env_name` from the `*` row.
 2. If there is no current env, add/use one first:
-   - local URL: `nb env add <env> --scope project --api-base-url <local_url>/api --auth-type oauth`
-   - remote URL (token): `nb env add <env> --scope project --api-base-url <remote_url>/api --auth-type token --access-token <token>`
-   - switch: `nb env use <env> -s project`
+   - local URL: `nb env add <env> --api-base-url <local_url>/api --auth-type oauth`
+   - remote URL (token): `nb env add <env> --api-base-url <remote_url>/api --auth-type token --access-token <token>`
+   - switch: `nb env use <env>`
 3. Run `nb env update <current_env_name>`.
 4. If output shows `swagger:get` 404 or API documentation plugin error, activate dependency bundle and retry:
-   - `nb pm enable @nocobase/plugin-api-doc`
-   - `nb pm enable @nocobase/plugin-api-keys`
+   - `nb plugin enable @nocobase/plugin-api-doc`
+   - `nb plugin enable @nocobase/plugin-api-keys`
    - restart app before rerun.
 5. If output shows `401/403/Auth required`, ensure `@nocobase/plugin-api-keys` is active and refresh token env first.
 6. If `nb api acl --help` or `nb api acl roles --help` still fails in this same `base-dir`, fail closed:

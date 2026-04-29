@@ -140,7 +140,7 @@ Common scope-related CLI commands:
 - `data_sources_roles_resources_scopes_update`
 - `data_sources_roles_resources_scopes_destroy`
 
-All calls should use resolved `nb` runtime commands through direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) discovered from CLI help, after env context is confirmed by `nb env list -s project`.
+All calls should use resolved `nb` runtime commands through direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) discovered from CLI help, after env context is confirmed by `nb env list`.
 
 Business rules:
 
@@ -173,5 +173,4 @@ Recommended usage:
 
 - `own` does not mean owner, assignee, approver, manager, or department member
 - for those semantics, create a custom scope and reference `$user` against real business relation paths
-
 

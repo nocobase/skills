@@ -35,7 +35,7 @@ nb api workflow jobs <subcommand> -h
 
 ## Invocation Conventions
 
-- Common connection flags are shared across commands: `--base-url`, `-e/--env`, `--role`, `-t/--token`, `-j/--json-output`.
+- Common connection flags are shared across commands: `--api-base-url`, `-e/--env`, `--role`, `-t/--token`, `-j/--json-output`.
 - Query parameters usually become kebab-case flags such as `--filter-by-tk`, `--page-size`, `--branch-index`, or `--workflow-id`.
 - Array query parameters are repeatable flags such as `--appends` and `--except`.
 - JSON fields expect JSON strings.

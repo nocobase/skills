@@ -23,13 +23,11 @@ Supported scenarios:
 
 - Feishu wiki: `https://nocobase.feishu.cn/wiki/M0knwAvYSiAouUk1ZHAcduDjnmh`
 
-Command examples from that direction:
+Current status against the latest local CLI:
 
-- `nb backup list --env <env>`
-- `nb restore <file-name> --env <env>`
-- `nb migration rule add --env <env>`
-- `nb migration generate <ruleId> --env <env>`
-- `nb migration run <file-name> --env <env>`
+- The current `nb` CLI in this repo does not expose top-level `backup`, `restore`, or `migration` commands.
+- Treat publish operations as capability-gated. Always verify with `nb --help` first.
+- If the required publish command family is absent, stop and return the capability-boundary message instead of fabricating a fallback command.
 
 # Hard Rules
 
@@ -73,29 +71,26 @@ Single or cross environment are both supported by env arguments.
 Recommended sequence:
 
 ```bash
-nb backup list --env <source_env>
-nb restore <backup_file> --env <target_env>
+Blocked on current CLI unless a newer `nb` build restores top-level `backup` / `restore`.
 ```
 
 Rules:
 
-- if `backup_file` is missing, stop after `backup list` and ask user to choose one file
-- require `confirm=confirm` before `restore`
+- if the CLI does not expose `backup` / `restore`, stop immediately with the capability-boundary message
+- require `confirm=confirm` before `restore` when this command family becomes available again
 
 ## publish with `migration`
 
 Recommended sequence:
 
 ```bash
-nb migration rule add --env <source_env>
-nb migration generate <rule_id> --env <source_env>
-nb migration run <migration_file> --env <target_env>
+Blocked on current CLI unless a newer `nb` build restores top-level `migration` commands.
 ```
 
 Rules:
 
-- if `rule_id` missing, stop and ask user to create/select rule first
-- if `migration_file` missing after generate step, stop and ask user to confirm package
+- if the CLI does not expose `migration`, stop immediately with the capability-boundary message
+- if `rule_id` or `migration_file` is missing after future support lands, stop and ask the user to choose the missing input
 - require `confirm=confirm` before `migration run`
 
 # Safety
@@ -109,8 +104,8 @@ Rules:
 - Skill does not reference local script entrypoints.
 - Skill executes publish command directly without precheck.
 - Missing commands produce `developing` response and no mutation command runs.
-- Backup restore flow uses `nb backup list` + `nb restore`.
-- Migration flow uses `nb migration rule add/generate/run`.
+- Backup restore flow is currently blocked unless a future `nb` build reintroduces the required commands.
+- Migration flow is currently blocked unless a future `nb` build reintroduces the required commands.
 
 # Output Contract
 

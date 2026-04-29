@@ -2,13 +2,12 @@
 
 ## Scope
 
-This skill is nb CLI only and follows:
+This skill is nb CLI only.
 
-- `nb backup list`
-- `nb restore`
-- `nb migration rule add`
-- `nb migration generate`
-- `nb migration run`
+Current compatibility note:
+
+- The current local `nb` CLI does not expose top-level `backup`, `restore`, or `migration` commands.
+- Do not emit those commands unless a newer CLI build explicitly restores them in `nb --help`.
 
 ## Execution Rule
 
@@ -26,16 +25,13 @@ When any required command is unavailable (`Unknown command`), runtime must retur
 ### backup_restore
 
 ```bash
-nb backup list --env <source_env>
-nb restore <backup_file> --env <target_env>
+Blocked on current CLI: top-level `nb backup` / `nb restore` commands are absent.
 ```
 
 ### migration
 
 ```bash
-nb migration rule add --env <source_env>
-nb migration generate <rule_id> --env <source_env>
-nb migration run <migration_file> --env <target_env>
+Blocked on current CLI: top-level `nb migration` commands are absent.
 ```
 
 ## Mutation Gate

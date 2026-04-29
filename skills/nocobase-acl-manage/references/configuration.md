@@ -373,11 +373,10 @@ Use CLI command contracts when auditing results. Do not fallback to direct HTTP 
 4. `roles_data_source_resources_get`
 5. `data_sources_roles_resources_scopes_get` or `data_sources_roles_resources_scopes_list`
 
-All checks above should be executed through resolved CLI runtime commands via direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) and command help discovery, with env context resolved first by `nb env list -s project`.
+All checks above should be executed through resolved CLI runtime commands via direct nb CLI (`nb <command> [subcommand ...] [flags ...]`) and command help discovery, with env context resolved first by `nb env list`.
 
 For scoped actions, do not rely only on appended `actions.scope` payloads. Prefer:
 
 - read the resource action and record its `scopeId`
 - read the target scope record separately by id
-
 

@@ -25,8 +25,8 @@ Excluded:
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| ACL-SMOKE-001 | cli | `nb --help` + `nb env list -s project` availability | runtime |
-| ACL-SMOKE-002 | cli | execution guard fail-closed check (`env list -s project`, `env update`, `nb api acl --help`, `nb api acl roles --help`) in one locked base-dir | runtime |
+| ACL-SMOKE-001 | cli | `nb --help` + `nb env list` availability | runtime |
+| ACL-SMOKE-002 | cli | execution guard fail-closed check (`env list`, `env update`, `nb api acl --help`, `nb api acl roles --help`) in one locked base-dir | runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -56,7 +56,7 @@ Excluded:
 Required:
 
 - `nb` CLI available in PATH
-- direct env commands available (`nb env list -s project`, `nb env use`, `nb env add`)
+- direct env commands available (`nb env list`, `nb env use`, `nb env add`)
 - configured current env context and token (when remote env requires it)
 - `@nocobase/plugin-api-doc` active (`swagger:get` available for runtime command discovery)
 - `@nocobase/plugin-api-keys` active (token generation/refresh recovery path)

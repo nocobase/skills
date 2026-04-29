@@ -135,7 +135,7 @@ For `current`, derive from the row marked with leading `*` in `nb env list` outp
 When CLI returns:
 
 - `No envs configured.`
-- `Run 'nb env add <name> --base-url <url>' to add one.`
+- `Run 'nb env add <name> --api-base-url <url>' to add one.`
 
 surface this message directly and ask whether to create a new app (`nb init --ui`) or add env.
 

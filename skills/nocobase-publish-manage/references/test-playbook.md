@@ -3,7 +3,7 @@
 ## Case 1: backup_restore direct execution when command missing
 
 ```bash
-nb backup list --env dev
+Blocked on current CLI: `nb backup list` is not available.
 ```
 
 Expected:
@@ -14,7 +14,7 @@ Expected:
 ## Case 2: migration direct execution when command missing
 
 ```bash
-nb migration rule add --env dev
+Blocked on current CLI: `nb migration rule add` is not available.
 ```
 
 Expected:
@@ -25,8 +25,7 @@ Expected:
 ## Case 3: backup_restore publish happy path (future-supported)
 
 ```bash
-nb backup list --env dev
-nb restore <backup_file> --env test
+Blocked on current CLI: `nb backup list` / `nb restore` are not available.
 ```
 
 Expected:
@@ -36,9 +35,7 @@ Expected:
 ## Case 4: migration publish happy path (future-supported)
 
 ```bash
-nb migration rule add --env dev
-nb migration generate <rule_id> --env dev
-nb migration run <migration_file> --env test
+Blocked on current CLI: `nb migration rule add` / `generate` / `run` are not available.
 ```
 
 Expected:

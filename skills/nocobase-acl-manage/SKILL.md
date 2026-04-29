@@ -225,18 +225,18 @@ Default behavior when user says `you decide`:
 - never execute write commands with uncertain, unresolved, or type-mismatched parameters
 - lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
 - run execution guard sequence before ACL writes:
-- `nb env list -s project`
+- `nb env list`
 - `nb env update <current_env_name>`
 - `nb api acl --help`
 - `nb api acl roles --help`
 - fail-closed policy:
 - if `nb api acl --help` or `nb api acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
-- confirm current env context through direct CLI: run `nb env list -s project` and resolve current env from the row marked with `*`
-- if no env is configured/current, stop writes and ask user whether to add/switch env using direct CLI (`nb env add ...` or `nb env use ... -s project`)
+- confirm current env context through direct CLI: run `nb env list` and resolve current env from the row marked with `*`
+- if no env is configured/current, stop writes and ask user whether to add/switch env using direct CLI (`nb env add ...` or `nb env use ...`)
 - if runtime command cache is missing/stale or command schema changed, run `nb env update <current_env_name>`
 - if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
-- `nb pm enable @nocobase/plugin-api-doc`
-- `nb pm enable @nocobase/plugin-api-keys`
+- `nb plugin enable @nocobase/plugin-api-doc`
+- `nb plugin enable @nocobase/plugin-api-keys`
 - restart app before retrying runtime refresh
 - if token is missing/invalid, ensure `@nocobase/plugin-api-keys` is active and refresh token env first
 - resolve runtime command names via [intent-to-tool-map-v1](references/intent-to-tool-map-v1.md) and command help discovery
@@ -315,10 +315,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 
 - task normalized to canonical task
 - required inputs complete before writes
-- CLI capability gate passes (env context available via direct `nb env list -s project`, runtime commands resolvable)
+- CLI capability gate passes (env context available via direct `nb env list`, runtime commands resolvable)
 - CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
 - runtime command names resolved from command map/help
-- execution guard evidence includes locked `base-dir` plus `nb env list -s project`, `nb env update <current_env_name>`, `nb api acl --help`, and `nb api acl roles --help`
+- execution guard evidence includes locked `base-dir` plus `nb env list`, `nb env update <current_env_name>`, `nb api acl --help`, and `nb api acl roles --help`
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
 - when user did not provide scope, confirmation/readback shows `all` as the applied default scope

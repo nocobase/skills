@@ -165,7 +165,7 @@ Runtime Command:
 ```bash
 cd <BASE_DIR>
 nb --help
-nb env list -s project
+nb env list
 nb env update <ENV_NAME>
 ```
 
@@ -187,7 +187,7 @@ Runtime Command:
 
 ```bash
 cd <WRONG_BASE_DIR>
-nb env list -s project
+nb env list
 nb api acl --help
 nb api acl roles --help
 ```
