@@ -1,6 +1,6 @@
 ---
 title: flow_nodes Resource HTTP API
-description: Parameter descriptions and call examples for flow_nodes node creation, update, deletion, movement, duplication, and testing interfaces.
+description: Parameter descriptions and call examples for flow_nodes node retrieval, creation, update, deletion, movement, duplication, and testing interfaces.
 ---
 
 # flow_nodes Resource HTTP API
@@ -8,6 +8,24 @@ description: Parameter descriptions and call examples for flow_nodes node creati
 > These endpoints are exposed through the NocoBase MCP tool; the following HTTP paths are used to map specific resource actions and parameters.
 >
 > **Note: Except for `test`, all write operations require that the workflow version has not yet been executed (`versionStats.executed == 0`). For already executed versions, a new version must first be created via `workflows:revision`.**
+
+## flow_nodes:get (Get Node)
+
+`GET /api/flow_nodes:get`
+
+Reads one node record. For approval UI authoring, use this to resolve `node.config.approvalUid` or `node.config.taskCardUid` before localized approval-surface edits.
+
+| Parameter | Description |
+|---|---|
+| `filterByTk` | Node ID (Query) |
+| `appends[]` | Optional appended associations such as `upstream` or `downstream` |
+
+```
+GET /api/flow_nodes:get?filterByTk=10
+GET /api/flow_nodes:get?filterByTk=10&appends[]=upstream
+```
+
+Returns the node object, including `config`.
 
 ## nodes:create (Create Node)
 

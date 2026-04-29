@@ -36,6 +36,7 @@ Detailed parameters and examples: [flow_nodes.md](flow_nodes.md)
 
 | Interface | Description |
 |---|---|
+| `GET /api/flow_nodes:get` | Get a single node and read approval-related config such as `approvalUid` or `taskCardUid` |
 | `POST /api/workflows/<workflowId>/nodes:create` | Create a node under a specified workflow |
 | `POST /api/flow_nodes:update` | Update node configuration or title |
 | `POST /api/flow_nodes:destroy` | Delete a node (and its branches by default) |
@@ -66,3 +67,21 @@ Detailed parameters and examples: [jobs.md](jobs.md)
 | Interface | Description |
 |---|---|
 | `GET /api/jobs:get` | Get details of a single node job (including full result) |
+
+---
+
+### flowSurfaces — Approval UI Authoring
+
+Use this only for workflow approval custom UI authoring. For blueprint vs incremental routing, owner resolution, and verification order, read [Approval UI authoring index](../ui-config/approval/index.md).
+
+| Interface | Description |
+|---|---|
+| `GET /api/flowSurfaces:get` | Read an existing approval surface by `uid` after resolving the root binding |
+| `POST /api/flowSurfaces:catalog` | Discover approval block / field / action capabilities under a target approval node |
+| `POST /api/flowSurfaces:applyApprovalBlueprint` | Bootstrap or replace an approval initiator / approver / task-card surface |
+| `POST /api/flowSurfaces:addBlock` | Add one approval block under an existing approval root |
+| `POST /api/flowSurfaces:addField` | Add one approval field under an existing approval root |
+| `POST /api/flowSurfaces:addAction` | Add one approval action under an existing approval root |
+| `POST /api/flowSurfaces:compose` | Batch localized edits under an existing approval root |
+| `POST /api/flowSurfaces:configure` | Update approval UI settings such as return-node or reassignee scope |
+| `POST /api/flowSurfaces:setLayout` | Re-layout an existing approval task-card/details grid without replacing the whole surface |

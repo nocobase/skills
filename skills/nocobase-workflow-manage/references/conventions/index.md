@@ -80,7 +80,7 @@ Workflow variables are internally JSON values. In the variable picker UI they ar
 
 1. Most variables are JSON objects or arrays, and you usually reference only the needed sub-path.
 2. Object properties are accessed with dot notation, such as `{{$context.data.title}}` or `{{$jobsMapByNodeKey.query1.author.department.name}}`.
-3. A selected relation field may itself be an object, and nested relations continue to form deeper object paths.
+3. A selected association field may itself be an object, and nested relations continue to form deeper object paths.
 4. Some variables are scalar values directly, such as `{{$context.date}}` or `{{$jobsMapByNodeKey.calc_total}}`.
 5. When a path segment is an array, selecting a child field under that array produces a mapped array of that child field's values.
 
