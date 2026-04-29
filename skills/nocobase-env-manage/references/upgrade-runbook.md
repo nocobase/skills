@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run app upgrade with direct `nb` commands and explicit env resolution.
+Run app upgrade with direct `nb app` commands and explicit env resolution.
 
 ## Mandatory Rule
 
@@ -14,26 +14,28 @@ Do not execute local scripts (`scripts/*.mjs`, `*.ps1`, `*.sh`).
 Pick env by priority:
 
 1. explicit user input (`runtime_env_name`)
-2. otherwise run `nb upgrade` without `-e` and follow CLI response
+2. otherwise run `nb app upgrade` without `--env` and follow CLI response
 3. if CLI reports no env configured, ask user to create a new app (`nb init --ui`) or add env
 
 ## Step 2: Upgrade
 
 ```bash
-nb upgrade -e <env>
+nb app upgrade --env <env>
 ```
 
 Optional:
 
 ```bash
-nb upgrade
-nb upgrade -e <env> --skip-code-update
+nb app upgrade
+nb app upgrade --env <env> --skip-code-update
+nb app upgrade --env <env> -s
 ```
 
 ## Step 3: Verification
 
 ```bash
-nb env list -s project
+nb env list
+nb env info <env>
 ```
 
 Report:

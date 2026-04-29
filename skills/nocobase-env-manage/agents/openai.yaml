@@ -7,46 +7,58 @@ interface:
     Hard rules:
     - Run direct `nb` commands only.
     - Never run local scripts (`*.mjs`, `*.ps1`, `*.sh`).
-    - For install task, always execute `nb init --ui` first.
+    - For install task, if the user provides an official NocoBase install or quick-start URL, read that URL first and follow the official guide flow. Ignore local install command tables when they conflict with the official guide.
+    - For install task without an official URL, use `nb init --ui` as the guided entrypoint unless current official docs say otherwise.
+    - `nb init --ui` is not completion. Do not stop after it prints a local setup URL.
     - When running `nb init --ui`, use a 30 minute timeout budget and do not interrupt the command before it exits.
+    - Keep the CLI running while the user completes the local browser setup form.
+    - If CLI prints a continuation command such as `nb init ... --resume ...`, execute that exact direct `nb` command next.
+    - Install is complete only after ready/finished output such as `NocoBase is ready ...` and `Workspace init finished`, plus readback like `nb env list` / `nb env info`.
     - If install prints a URL that cannot be opened in a sandbox, ask to elevate/open outside the sandbox first; if the user refuses, provide the URL directly.
     - Never proactively fill or submit install/setup forms for the user.
+    - Runtime lifecycle commands are under `nb app`.
     - Do not add extra precheck gates before executing requested `nb` commands.
     - Prefer executing requested runtime commands first; use `nb --help` when user asks diagnostics/help output or command discovery is needed.
     - Relay CLI outputs and hints directly.
 
     Execution policy:
     - execute target command directly
-    - for `nb init --ui`, treat it as a long-running interactive command; wait for completion instead of interrupting it mid-run
+    - for `nb init --ui`, treat it as a long-running interactive command; wait for completion instead of interrupting it mid-run or stopping at the setup URL
+    - when an install command fails with a CLI hint, follow the printed direct `nb` next-step command, especially `nb init ... --resume ...`
     - if command fails, report key CLI error/hint lines as-is and provide next action
     - for env query (`list/current`), use fast path:
-      - first run: `nb env list -s project`
-      - run `nb env list -s global` only when user explicitly asks global/all scopes, or project scope is empty and user asks for available envs
-    - for env query (`list/current`), keep command set minimal and compatible:
+      - first run: `nb env list`
+      - derive current env from the row marked with `*`
+      - run `nb env info [name]` when details or verification are needed
+    - for env query (`list/current`), keep command set minimal:
       - use `nb env --help` or `nb env list --help` when command discovery is needed
-      - `nb env current` and `nb env list --json` may be unavailable in some CLI builds
     - for `env add`, normalize `--api-base-url` before execution:
       - if URL already ends with `/api`, keep as-is
       - otherwise append `/api`
 
     Tasks:
-    - install: `nb init --ui` -> `nb env list -s project`
-    - app-manage list/current: `nb env list -s <project|global>` (derive current env from `*` row; never call `nb env current`)
-    - app-manage add oauth: `nb env add <name> --scope <project|global> --api-base-url <url> --auth-type oauth`
-    - app-manage add token: `nb env add <name> --scope <project|global> --api-base-url <url> --auth-type token --access-token <token>`
-    - app-manage use: `nb env use <name> -s <project|global>`
-    - app-manage remove: `nb env remove <name> -s <project|global>`
-    - upgrade: `nb upgrade -e <env>`
-    - stop: `nb stop -e <env>`
-    - start: `nb start -e <env>`
+    - install: official URL flow when provided; otherwise `nb init --ui`; follow `--resume` hints; verify with `nb env list` and `nb env info`
+    - app-manage list/current: `nb env list` (derive current env from `*` row; never call `nb env current`)
+    - app-manage info: `nb env info [name]`
+    - app-manage add oauth: `nb env add <name> --api-base-url <url> --auth-type oauth`
+    - app-manage add token: `nb env add <name> --api-base-url <url> --auth-type token --access-token <token>`
+    - app-manage auth: `nb env auth [name]`
+    - app-manage use: `nb env use <name>`
+    - app-manage remove: `nb env remove <name>`; use `-f` only with explicit confirmation
+    - upgrade: `nb app upgrade --env <env>`
+    - stop: `nb app stop --env <env>`
+    - start: `nb app start --env <env>`
+    - restart: `nb app restart --env <env>`
+    - logs: `nb app logs --env <env> --tail 100 --no-follow`
+    - down: `nb app down --env <env>`; require explicit confirmation
 
-    Env resolution for upgrade/start/stop/current:
+    Env resolution for upgrade/start/stop/restart/logs/down/current:
     1) if explicit env is provided, use it
-    2) if not provided, run command without `-e` and follow CLI response
+    2) if not provided, run command without `--env` and follow CLI response
     3) if CLI says no env configured, ask user whether to create a new app (`nb init --ui`) or add env (`nb env add ...`)
 
     After write actions (`env add/use/remove`), always run readback:
-    - `nb env list -s <project|global>`
+    - `nb env list`
 
     If `nb env list` reports:
     - `No envs configured.`
