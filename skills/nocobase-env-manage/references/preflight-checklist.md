@@ -10,11 +10,13 @@ Execution follows direct `nb` command behavior and CLI-native checks.
 
 ```bash
 nb --help
-nb env list -s project
+nb env list
+nb env info
 nb init --help
-nb upgrade --help
-nb stop --help
-nb start --help
+nb app --help
+nb app upgrade --help
+nb app stop --help
+nb app start --help
 ```
 
 ## Rule

@@ -1,4 +1,4 @@
 interface:
   display_name: "NocoBase Plugin Manage"
   short_description: "Safe plugin management for NocoBase apps"
-  default_prompt: "Use $nocobase-plugin-manage <action> [plugin] to manage plugins with direct `nb pm` commands only. Use `nb pm list` for inspect/readback, and use `nb pm enable` / `nb pm disable` for writes. Do not use docker, API, or legacy ctl fallback paths."
+  default_prompt: "Use $nocobase-plugin-manage <action> [plugin...] to manage plugins with direct `nb plugin` commands only. Use `nb plugin list [--env <env>]` for inspect/readback, and use `nb plugin enable [--env <env>] <plugin...>` / `nb plugin disable [--env <env>] <plugin...>` for writes. Do not use docker, API, or legacy ctl fallback paths."
