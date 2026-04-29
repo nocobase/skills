@@ -1032,8 +1032,13 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     helperContracts,
-    /relation field popup[\s\S]{0,160}details[\s\S]{0,80}editForm[\s\S]{0,120}currentRecord[\s\S]{0,160}associatedRecords[\s\S]{0,120}associationField/i,
+    /relation field popup[\s\S]{0,180}details[\s\S]{0,80}editForm[\s\S]{0,120}currentRecord/i,
     'helper-contracts should document relation popup resource bindings',
+  );
+  assert.match(
+    helperContracts,
+    /relation (?:tables\/lists\/cards|`table` \/ `list` \/ `gridCard` blocks)[\s\S]{0,120}associatedRecords[\s\S]{0,120}associationField/i,
+    'helper-contracts should document associatedRecords relation popup bindings',
   );
 
   const normativeContract = read('references/normative-contract.md');

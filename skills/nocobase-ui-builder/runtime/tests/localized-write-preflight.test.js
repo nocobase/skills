@@ -955,6 +955,45 @@ test('runLocalizedWritePreflight rejects invalid relation field popup resources'
   assertHasRule(wrongAssociatedTable, 'relation-popup-associated-records-binding-required', '$.blocks[0].fields[0].popup.blocks[0].resource.binding');
 });
 
+test('runLocalizedWritePreflight does not apply relation popup binding rules to scalar field popups', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'nickname',
+              popup: {
+                blocks: [
+                  {
+                    key: 'userDetails',
+                    type: 'details',
+                    collection: 'users',
+                    fields: ['nickname'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.errors.length, 0);
+});
+
 test('runLocalizedWritePreflight defaults nested popup block heightMode to specifyValue', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',

@@ -531,6 +531,17 @@ function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fiel
   };
 }
 
+function resolveAssociationFieldMetadata(metadata, sourceCollectionName, fieldPath) {
+  const canonicalAssociationField = getDefaultsAssociationFieldKey(fieldPath);
+  if (!sourceCollectionName || !canonicalAssociationField) return null;
+  const resolved = resolveFieldPathInMetadata(metadata, sourceCollectionName, canonicalAssociationField);
+  if (!isAssociationField(resolved?.field)) return null;
+  return {
+    associationField: canonicalAssociationField,
+    targetCollection: normalizeText(resolved?.field?.target),
+  };
+}
+
 function normalizeRelationPopupCurrentRecordBlock(block, targetCollection) {
   const blockResource = isObjectRecord(block.resource) ? block.resource : null;
   if (!blockResource && Object.hasOwn(block, 'binding')) {
@@ -986,7 +997,8 @@ function collectLocalizedRelationPopupResourceErrors(payload, metadata = {}) {
     if (!isObjectRecord(item) || !isObjectRecord(item.popup) || !Array.isArray(item.popup.blocks)) return;
     const relationField = normalizeText(item.field);
     if (!relationField || relationField.includes('.')) return;
-    const associationRequirement = resolveAssociationFieldRequirement(metadata, parentCollectionName, relationField);
+    const associationRequirement = resolveAssociationFieldMetadata(metadata, parentCollectionName, relationField);
+    if (!associationRequirement) return;
     const canonicalAssociationField = associationRequirement?.associationField || getDefaultsAssociationFieldKey(relationField);
     const targetCollection = normalizeText(associationRequirement?.targetCollection);
 

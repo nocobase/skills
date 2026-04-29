@@ -6938,6 +6938,46 @@ test('prepareApplyBlueprintRequest rejects relation field popup table without as
   );
 });
 
+test('prepareApplyBlueprintRequest does not apply relation popup binding rules to scalar field popups', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'nickname',
+                popup: {
+                  title: 'Nickname details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.errors.length, 0);
+});
+
 test('prepareApplyBlueprintRequest allows dotted relation display fields without popup', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
