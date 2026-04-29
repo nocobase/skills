@@ -179,7 +179,7 @@ Default behavior when user says `you decide`:
 - for `permission.data-source.resource.set`, if user has not confirmed the final write plan, do not write
 - if user asks to set role mode for a specific role, clarify and normalize to global mode change
 - if task implies writes and target identity is missing, stop and ask first
-- if CLI returns auth errors (`401`, `403`, `Auth required`), stop and request recovery (`@nocobase/plugin-api-keys` activation + token refresh)
+- if CLI returns auth errors (`401`, `403`, `Auth required`), stop and instruct the agent to hand off environment/auth recovery to `nocobase-env-manage`
 
 # Workflow
 
@@ -232,13 +232,10 @@ Default behavior when user says `you decide`:
 - fail-closed policy:
 - if `nb api acl --help` or `nb api acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
 - confirm current env context through direct CLI: run `nb env list` and resolve current env from the row marked with `*`
-- if no env is configured/current, stop writes and ask user whether to add/switch env using direct CLI (`nb env add ...` or `nb env use ...`)
+- if no env is configured/current, stop writes and instruct the agent to call `nocobase-env-manage`, then rerun the ACL task after env recovery
 - if runtime command cache is missing/stale or command schema changed, run `nb env update <current_env_name>`
-- if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
-- `nb plugin enable @nocobase/plugin-api-doc`
-- `nb plugin enable @nocobase/plugin-api-keys`
-- restart app before retrying runtime refresh
-- if token is missing/invalid, ensure `@nocobase/plugin-api-keys` is active and refresh token env first
+- if runtime refresh fails, stop writes and return the CLI error; instruct the agent to call `nocobase-env-manage` for env/auth/runtime recovery, or `nocobase-plugin-manage` only if the CLI error explicitly says a plugin must be enabled
+- if token is missing/invalid, stop writes and instruct the agent to call `nocobase-env-manage`
 - resolve runtime command names via [intent-to-tool-map-v1](references/intent-to-tool-map-v1.md) and command help discovery
 
 3. Plan before writes.
@@ -316,7 +313,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - task normalized to canonical task
 - required inputs complete before writes
 - CLI capability gate passes (env context available via direct `nb env list`, runtime commands resolvable)
-- CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
+- environment/auth prerequisites are available or explicit handoff guidance is emitted
 - runtime command names resolved from command map/help
 - execution guard evidence includes locked `base-dir` plus `nb env list`, `nb env update <current_env_name>`, `nb api acl --help`, and `nb api acl roles --help`
 - every write has immediate readback evidence

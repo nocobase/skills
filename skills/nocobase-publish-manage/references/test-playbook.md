@@ -1,52 +1,43 @@
-# Test Playbook (v2)
+# Test Playbook
 
-## Case 1: backup_restore direct execution when command missing
+## Case 1: backup_restore request
 
-```bash
-Blocked on current CLI: `nb backup list` is not available.
+Input:
+
+```text
+发布到测试环境，用备份恢复。
 ```
 
 Expected:
 
-- if `Unknown command` appears, output `feature_status=developing`
-- subsequent publish mutation is blocked
+- `feature_status=developing`
+- `commands_executed=[]`
+- response includes `This skill is still under active development. Stay tuned.`
 
-## Case 2: migration direct execution when command missing
+## Case 2: migration request
 
-```bash
-Blocked on current CLI: `nb migration rule add` is not available.
+Input:
+
+```text
+用 migration 发布到生产。
 ```
 
 Expected:
 
-- if `Unknown command` appears, output `feature_status=developing`
-- subsequent publish mutation is blocked
+- `feature_status=developing`
+- `commands_executed=[]`
+- response includes `This skill is still under active development. Stay tuned.`
 
-## Case 3: backup_restore publish happy path (future-supported)
+## Case 3: generic publish request
 
-```bash
-Blocked on current CLI: `nb backup list` / `nb restore` are not available.
+Input:
+
+```text
+帮我发布 NocoBase 应用。
 ```
 
 Expected:
 
-- requires `confirm=confirm` before restore
-
-## Case 4: migration publish happy path (future-supported)
-
-```bash
-Blocked on current CLI: `nb migration rule add` / `generate` / `run` are not available.
-```
-
-Expected:
-
-- requires `confirm=confirm` before migration run
-
-## Case 5: ambiguous method
-
-Input: generic publish request without method.
-
-Expected:
-
-- do not execute publish
-- ask user to choose `backup_restore` or `migration`
+- `feature_status=developing`
+- `commands_executed=[]`
+- response includes `This skill is still under active development. Stay tuned.`

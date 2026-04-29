@@ -1,126 +1,99 @@
 ---
 name: nocobase-publish-manage
-description: Use when users need NocoBase publish operations via nb CLI backup/restore or migration commands.
-argument-hint: "[action: publish] [method: backup_restore|migration] [source-env] [target-env]"
-allowed-tools: Bash, Read, Write, Grep, Glob
+description: Use when users ask for NocoBase publish, backup/restore release, or migration release operations that are not yet supported by the current CLI.
+argument-hint: "[action: publish] [method?: backup_restore|migration]"
+allowed-tools: Read, Grep, Glob
 owner: platform-tools
-version: 2.1.0
-last-reviewed: 2026-04-23
+version: 2.2.0
+last-reviewed: 2026-04-29
 risk-level: high
 ---
 
 # Goal
 
-Follow the new publish direction and execute release operations with direct `nb` CLI commands only.
+Return a clear capability-boundary response for NocoBase publish workflows.
 
-Supported scenarios:
+The related CLI capabilities are still in development and are not supported for use yet.
 
-- Single-environment backup restore
-- Cross-environment backup restore
-- Cross-environment migration
+# Scope
 
-# Direction Source
+- Publish requests.
+- Backup/restore release requests.
+- Migration-based release requests.
+- Questions about whether publish CLI can be used.
 
-- Feishu wiki: `https://nocobase.feishu.cn/wiki/M0knwAvYSiAouUk1ZHAcduDjnmh`
+# Non-Goals
 
-Current status against the latest local CLI:
-
-- The current `nb` CLI in this repo does not expose top-level `backup`, `restore`, or `migration` commands.
-- Treat publish operations as capability-gated. Always verify with `nb --help` first.
-- If the required publish command family is absent, stop and return the capability-boundary message instead of fabricating a fallback command.
+- Do not execute publish, backup, restore, or migration commands.
+- Do not route publish through app lifecycle, plugin, env, API, Docker, or script fallbacks.
+- Do not perform environment recovery for publish requests.
+- Do not invent substitute release workflows.
 
 # Hard Rules
 
-- Run `nb` commands only.
+- Do not run publish CLI commands.
 - Never execute local scripts (`*.mjs`, `*.ps1`, `*.sh`) in this skill.
-- Prefer executing user-requested publish commands first; use `--help` commands when user asks diagnostics/help output or command discovery is needed.
-- Execute requested publish commands directly, then follow CLI response.
-- If CLI returns unknown command / not supported, stop and tell user these features are still in development.
+- Do not run proactive capability checks.
+- Do not call `nb backup`, `nb restore`, `nb migration`, or any publish mutation command.
+- Always tell the user: `This skill is still under active development. Stay tuned.`
 
 # Input Contract
 
 | Input | Required | Default | Validation | Clarification |
 |---|---|---|---|---|
-| `action` | yes | inferred | `publish` | "Run publish workflow now?" |
-| `method` | for `action=publish` | none | one of `backup_restore/migration` | "Use backup_restore or migration?" |
-| `source_env` | conditional | none | non-empty env name | "Which source env should be used?" |
-| `target_env` | conditional | none | non-empty env name | "Which target env should be used?" |
-| `backup_file` | for backup restore publish | none | non-empty backup file id/name | "Which backup file should be restored?" |
-| `rule_id` | for migration publish | none | non-empty migration rule id | "Which migration rule id should be used?" |
-| `migration_file` | for migration run | generated/selected | non-empty file id/name | "Which migration package should be run?" |
-| `confirm` | publish | none | must be `confirm` | "Please type confirm to continue publish." |
-
-# Unsupported Command Handling
-
-Do not run proactive capability checks.
-
-If command output indicates unknown command / not supported (for example `Unknown command: \`backup\``), return:
-
-- `feature_status=developing`
-- missing command list
-- message: `Current nb CLI does not support this publish feature yet. It is still in development.`
-
-Do not continue to subsequent mutation commands when `feature_status=developing`.
+| `action` | yes | inferred | `publish` | none |
+| `method` | no | inferred | `backup_restore/migration/unknown` | none |
 
 # Workflow
 
-## publish with `backup_restore`
-
-Single or cross environment are both supported by env arguments.
-
-Recommended sequence:
-
-```bash
-Blocked on current CLI unless a newer `nb` build restores top-level `backup` / `restore`.
-```
-
-Rules:
-
-- if the CLI does not expose `backup` / `restore`, stop immediately with the capability-boundary message
-- require `confirm=confirm` before `restore` when this command family becomes available again
-
-## publish with `migration`
-
-Recommended sequence:
-
-```bash
-Blocked on current CLI unless a newer `nb` build restores top-level `migration` commands.
-```
-
-Rules:
-
-- if the CLI does not expose `migration`, stop immediately with the capability-boundary message
-- if `rule_id` or `migration_file` is missing after future support lands, stop and ask the user to choose the missing input
-- require `confirm=confirm` before `migration run`
+1. Recognize the publish intent.
+2. Do not execute CLI commands.
+3. Return `feature_status=developing`.
+4. Return message: `This skill is still under active development. Stay tuned.`
 
 # Safety
 
-- Never run publish mutations without `confirm=confirm`.
+- Never run publish mutations.
 - Never auto-fallback from `migration` to `backup_restore` or reverse.
-- When CLI reports command capability missing, block execution and return developing status.
+- Never auto-fallback to env, app, plugin, API, Docker, or script paths.
 
 # Verification Checklist
 
-- Skill does not reference local script entrypoints.
-- Skill executes publish command directly without precheck.
-- Missing commands produce `developing` response and no mutation command runs.
-- Backup restore flow is currently blocked unless a future `nb` build reintroduces the required commands.
-- Migration flow is currently blocked unless a future `nb` build reintroduces the required commands.
+- No publish CLI command is executed.
+- Every publish request returns `feature_status=developing`.
+- Response includes `This skill is still under active development. Stay tuned.`
+- No fallback command path is suggested.
 
 # Output Contract
 
 Final response must include:
 
-- selected `action` and `method`
-- `feature_status` (`available` or `developing`)
-- `missing_commands` (if any)
-- commands executed (or blocked reason)
-- relevant CLI outputs (especially failure/hint lines)
-- next action
+- selected `action`
+- selected/inferred `method` when available
+- `feature_status=developing`
+- `commands_executed=[]`
+- message: `This skill is still under active development. Stay tuned.`
+- next action: wait for CLI support
+
+# Reference Loading Map
+
+| Reference | Use When |
+|---|---|
+| [Intent Routing](references/intent-routing.md) | Recognizing publish/backup/migration intent. |
+| [Runtime Contract](references/v1-runtime-contract.md) | Enforcing the unsupported capability boundary. |
+| [Test Playbook](references/test-playbook.md) | Verifying no publish command execution. |
+
+# Safety Gate
+
+- No publish, backup, restore, migration, env, app, plugin, API, Docker, or script action is permitted by this skill.
+- Do not ask for secondary confirmation to run publish commands; execution is not supported.
+- If the user explicitly asks to proceed anyway, stop and return `This skill is still under active development. Stay tuned.`
+- If future CLI support is added, replace this blocked contract with a new high-risk workflow that requires explicit secondary confirmation before any mutation.
+- Until that replacement exists, the rollback plan is not to execute anything; `commands_executed=[]` must remain true.
 
 # References
 
 - [Intent Routing](references/intent-routing.md)
 - [Runtime Contract](references/v1-runtime-contract.md)
 - [Test Playbook](references/test-playbook.md)
-- Feishu wiki direction: `https://nocobase.feishu.cn/wiki/M0knwAvYSiAouUk1ZHAcduDjnmh`
+- [NocoBase Migration Manager](https://docs.nocobase.com/ops-management/migration-manager/): official context for migration risk, not an executable `nb` publish contract. [verified: 2026-04-29]

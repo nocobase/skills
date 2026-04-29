@@ -56,10 +56,9 @@ Excluded:
 Required:
 
 - `nb` CLI available in PATH
-- direct env commands available (`nb env list`, `nb env use`, `nb env add`)
+- direct env read/update commands available (`nb env list`, `nb env update`)
 - configured current env context and token (when remote env requires it)
-- `@nocobase/plugin-api-doc` active (`swagger:get` available for runtime command discovery)
-- `@nocobase/plugin-api-keys` active (token generation/refresh recovery path)
+- auth/runtime connectivity valid for the selected env
 
 Optional:
 

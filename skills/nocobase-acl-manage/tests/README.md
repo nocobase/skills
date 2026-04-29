@@ -20,17 +20,7 @@ nb api acl --help
 nb api acl roles --help
 ```
 
-2. If env context is missing, recover through direct CLI:
-
-```bash
-nb env list
-# add env when missing
-nb env add <ENV_NAME> --api-base-url <BASE_URL>/api --auth-type oauth
-# or switch to existing env
-nb env use <ENV_NAME>
-```
-
-If needed, follow with add/use actions before continuing ACL tests.
+2. If env context is missing, stop ACL tests and use `nocobase-env-manage` before continuing.
 
 3. Execute the full serial suite from `./test-playbook.md` (TC01, TC02, TC04-TC20; TC03 removed).
 

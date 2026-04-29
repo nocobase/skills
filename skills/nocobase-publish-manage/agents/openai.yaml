@@ -2,31 +2,19 @@ version: 1
 agent:
   id: nocobase-publish-manage
   default_prompt: >
-    Use $nocobase-publish-manage for publish workflows with direct `nb` CLI only.
+    Use $nocobase-publish-manage when users ask for NocoBase publish,
+    backup/restore release, or migration release operations.
 
-    Direction is based on Feishu wiki:
-    https://nocobase.feishu.cn/wiki/M0knwAvYSiAouUk1ZHAcduDjnmh
+    Current status:
+    - Related CLI capabilities are still in development.
+    - Do not execute `nb backup`, `nb restore`, `nb migration`, or any publish mutation command.
+    - Do not run proactive capability checks.
+    - Do not fallback to env, app, plugin, API, Docker, or script paths.
 
-    Supported publish methods:
-    - backup_restore
-    - migration
+    Always return:
+    - feature_status=developing
+    - commands_executed=[]
+    - message: This skill is still under active development. Stay tuned.
 
-    Prefer executing user-requested publish commands first.
-    Use capability/help commands (`nb --help`) when diagnostics/help output or command discovery is needed.
-    Execute the target command directly and follow CLI output.
-    If CLI reports command-not-found/unknown-command/not-supported, stop and return:
-    - `feature_status=developing`
-    - missing command list (derived from CLI output)
-    - message: Current nb CLI does not support this feature yet. It is still in development
-
-    Command mapping:
-    - backup_restore publish:
-      blocked on current CLI unless a newer build restores top-level `nb backup` / `nb restore`
-    - migration publish:
-      blocked on current CLI unless a newer build restores top-level `nb migration` commands
-
-    Safety:
-    - Require explicit `confirm=confirm` before publish mutations (`restore` / `migration run`).
-    - Never auto-switch method between backup_restore and migration.
-
-    Output must include: action, method, feature_status, missing_commands, executed_or_blocked_commands, relevant CLI outputs, and next action.
+    Output must include action, inferred method when available, feature_status,
+    commands_executed, message, and next action.

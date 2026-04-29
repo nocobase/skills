@@ -66,13 +66,9 @@ Current transport strategy is CLI-first:
 CLI capability gate requires:
 
 - direct nb CLI exists (`nb`) and `node` exists
-- current env is available via direct CLI (`nb env list`; switch/add through `nb env use` / `nb env add`)
+- current env is available via direct CLI (`nb env list`)
 - runtime commands are available (`nb env update` when needed)
-- `@nocobase/plugin-api-doc` is active so `swagger:get` can provide runtime command schema
-- `@nocobase/plugin-api-keys` is active so token bootstrap/refresh can recover auth failures
-- recovery command for missing dependencies:
-- `nb plugin enable @nocobase/plugin-api-doc`
-- `nb plugin enable @nocobase/plugin-api-keys`
+- auth/runtime connectivity is valid for the selected env
 
 ## 4. Current Constraints
 

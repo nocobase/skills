@@ -30,19 +30,13 @@ Prerequisite gate before runtime discovery:
 
 0. Lock one `base-dir` for the whole task (do not switch base-dir mid-task).
 1. Run `nb env list` to get `current_env_name` from the `*` row.
-2. If there is no current env, add/use one first:
-   - local URL: `nb env add <env> --api-base-url <local_url>/api --auth-type oauth`
-   - remote URL (token): `nb env add <env> --api-base-url <remote_url>/api --auth-type token --access-token <token>`
-   - switch: `nb env use <env>`
+2. If there is no current env, stop writes and instruct the agent to call `nocobase-env-manage`, then rerun the ACL task.
 3. Run `nb env update <current_env_name>`.
-4. If output shows `swagger:get` 404 or API documentation plugin error, activate dependency bundle and retry:
-   - `nb plugin enable @nocobase/plugin-api-doc`
-   - `nb plugin enable @nocobase/plugin-api-keys`
-   - restart app before rerun.
-5. If output shows `401/403/Auth required`, ensure `@nocobase/plugin-api-keys` is active and refresh token env first.
+4. If runtime refresh fails, stop writes and return the CLI error; instruct the agent to call `nocobase-env-manage` for env/auth/runtime recovery, or `nocobase-plugin-manage` only if the CLI error explicitly says a plugin must be enabled.
+5. If output shows `401/403/Auth required`, stop writes and instruct the agent to call `nocobase-env-manage`.
 6. If `nb api acl --help` or `nb api acl roles --help` still fails in this same `base-dir`, fail closed:
    - stop write execution
-   - emit recovery guidance
+   - emit handoff guidance naming `nocobase-env-manage` or, only for explicit plugin enablement errors, `nocobase-plugin-manage`
    - do not use temporary script-file execution as a fallback path
 
 Resolution order:

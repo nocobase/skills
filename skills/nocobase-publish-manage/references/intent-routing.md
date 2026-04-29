@@ -1,26 +1,20 @@
-# Intent Routing (v2)
+# Intent Routing
 
 ## Goal
 
-Route publish intent to the new CLI-first flows:
+Route publish-like requests to an unsupported capability response.
 
-- backup_restore
-- migration
+## Publish Intent Signals
 
-## Routing Rules
+- publish / 发布 / 上线
+- backup / restore / 备份 / 还原 / 恢复
+- migration / 迁移
+- release between environments
 
-1. Explicit `method` in input wins.
-2. If user text includes restore/restore-like keywords (`restore`, `还原`, `恢复`) and excludes migration keywords, route to `backup_restore`.
-3. If user text includes migration keywords (`migration`, `迁移`) and excludes restore keywords, route to `migration`.
-4. If method is still ambiguous, do not execute publish; ask user to choose one method.
+## Routing Rule
 
-## Action Rules
+If the request is about NocoBase publish, backup/restore release, or migration release:
 
-- `publish`: execute direct publish commands with selected method.
-- `restore` and `migration run` require `confirm=confirm` before mutation steps.
-
-## Unsupported Command Rule
-
-No proactive capability detection.
-
-If direct command execution returns unknown command / not supported, return `feature_status=developing` and block subsequent mutation commands.
+1. Do not execute CLI commands.
+2. Return `feature_status=developing`.
+3. Return message `This skill is still under active development. Stay tuned.`
