@@ -895,17 +895,9 @@ function collectLocalizedPublicFieldObjectErrors(payload) {
         errors.push({
           path: `${path}[${index}]`,
           ruleId: 'internal-field-keys-not-public',
-          message: `Field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
+          message: `Field objects must use flat fieldType/fields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
           code: 'INTERNAL_FIELD_KEYS_NOT_PUBLIC',
           details: { keys: forbidden },
-        });
-      }
-      if (Object.hasOwn(field, 'fields') && Object.hasOwn(field, 'selectorFields')) {
-        errors.push({
-          path: `${path}[${index}]`,
-          ruleId: 'relation-fields-selector-fields-conflict',
-          message: 'Do not mix fields and selectorFields on the same relation field object.',
-          code: 'RELATION_FIELDS_SELECTOR_FIELDS_CONFLICT',
         });
       }
     });

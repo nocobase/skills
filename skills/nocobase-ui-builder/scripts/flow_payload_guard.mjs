@@ -5227,21 +5227,11 @@ function inspectPublicFieldObjectKeys(payload, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'INTERNAL_FIELD_KEYS_NOT_PUBLIC',
-        message: `Public field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
+        message: `Public field objects must use flat fieldType/fields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
         path: pathValue,
         mode,
         dedupeKey: `INTERNAL_FIELD_KEYS_NOT_PUBLIC:${pathValue}`,
         details: { keys: forbidden },
-      }));
-    }
-    if (Object.hasOwn(node, 'fields') && Object.hasOwn(node, 'selectorFields')) {
-      pushFinding(blockers, seen, createFinding({
-        severity: 'blocker',
-        code: 'RELATION_FIELDS_SELECTOR_FIELDS_CONFLICT',
-        message: 'Public relation field objects must not mix fields and selectorFields.',
-        path: pathValue,
-        mode,
-        dedupeKey: `RELATION_FIELDS_SELECTOR_FIELDS_CONFLICT:${pathValue}`,
       }));
     }
   });

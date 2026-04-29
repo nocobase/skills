@@ -3445,16 +3445,7 @@ function validatePublicFieldObjects(items, path, state) {
         state.seenErrors,
         `${path}[${index}]`,
         'internal-field-keys-not-public',
-        `Field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
-      );
-    }
-    if (hasOwn(item, 'fields') && hasOwn(item, 'selectorFields')) {
-      pushValidationError(
-        state.errors,
-        state.seenErrors,
-        `${path}[${index}]`,
-        'relation-fields-selector-fields-conflict',
-        'Do not mix fields and selectorFields on the same relation field object.',
+        `Field objects must use flat fieldType/fields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
       );
     }
   }
