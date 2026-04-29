@@ -1800,6 +1800,71 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
   assert.ok(emptyNestedGroup.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
 });
 
+test('prepareApplyBlueprintRequest accepts gridCard settings.columns and rejects unsupported gridCard setting keys', () => {
+  const responsiveColumns = { xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 4 };
+  const valid = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              settings: {
+                columns: responsiveColumns,
+                rowCount: 3,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(valid.ok, true, JSON.stringify(valid.errors));
+  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].settings.columns, responsiveColumns);
+  assert.equal(valid.cliBody.tabs[0].blocks[0].settings.rowCount, 3);
+
+  const unsupportedKey = ['column', 'Count'].join('');
+  const invalid = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              settings: {
+                [unsupportedKey]: { xs: 1, md: 2 },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalid.ok, false);
+  assert.ok(
+    invalid.errors.some(
+      (issue) => issue.ruleId === 'grid-card-settings-unsupported'
+        && issue.path === `tabs[0].blocks[0].settings.${unsupportedKey}`,
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {
   const valid = prepareWithDirectCollectionDefaults(
     {
@@ -7173,6 +7238,11 @@ test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-tabl
       type: 'map',
       settings: { sort: ['nickname'] },
       expected: [{ field: 'nickname', direction: 'asc' }],
+    },
+    {
+      type: 'gridCard',
+      settings: { sort: ['-createdAt'] },
+      expected: [{ field: 'createdAt', direction: 'desc' }],
     },
   ]) {
     const result = prepareWithDirectCollectionDefaults({

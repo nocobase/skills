@@ -1052,6 +1052,13 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
 });
 
+test('gridCard reference documents public settings.columns without removed column count alias', () => {
+  const gridCardReference = read('references/blocks/grid-card.md');
+  const removedGridCardSetting = ['column', 'Count'].join('');
+  assert.doesNotMatch(gridCardReference, new RegExp(removedGridCardSetting, 'i'));
+  assert.match(gridCardReference, /settings[\s\S]{0,120}"columns"|"columns"[\s\S]{0,120}settings/i);
+});
+
 test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel cues', () => {
   for (const relativePath of [
     'references/aliases.md',

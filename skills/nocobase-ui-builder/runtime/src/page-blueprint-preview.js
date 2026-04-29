@@ -80,6 +80,20 @@ const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'l
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
 const CHART_BLOCK_TYPES = new Set(['chart']);
+const GRID_CARD_BLOCK_TYPES = new Set(['gridCard']);
+const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'height',
+  'heightMode',
+  'resource',
+  'columns',
+  'rowCount',
+  'dataScope',
+  'sort',
+  'sorting',
+  'layout',
+]);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
   'today',
   'turnPages',
@@ -4751,6 +4765,20 @@ function validateChartBlockSettings(block, path, state) {
   );
 }
 
+function validateGridCardBlockSettings(block, path, state) {
+  if (!GRID_CARD_BLOCK_TYPES.has(normalizeText(block?.type)) || !isPlainObject(block.settings)) {
+    return;
+  }
+  validateAllowedObjectKeys(
+    block.settings,
+    `${path}.settings`,
+    GRID_CARD_ALLOWED_SETTINGS_KEYS,
+    state,
+    'grid-card-settings-unsupported',
+    'gridCard settings',
+  );
+}
+
 function validateBlock(block, path, state, parentContext = {}) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
@@ -4773,6 +4801,7 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateDataSurfaceFilterActionSettings(block, path, state);
   validateBlockSettingsSortAlias(block, path, state);
   validateChartBlockSettings(block, path, state);
+  validateGridCardBlockSettings(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
   validateKanbanMainBlockShape(block, path, state);
   validateTreeConnectFields(block, path, state, parentContext.siblingBlocksByKey);

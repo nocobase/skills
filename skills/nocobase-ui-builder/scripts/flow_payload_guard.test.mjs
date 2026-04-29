@@ -5372,7 +5372,7 @@ function makeValidGridCardBlock(overrides = {}) {
         init: makeCollectionResourceInit('orders'),
       },
       GridCardSettings: {
-        columnCount: {
+        columns: {
           xs: 1,
           md: 2,
         },

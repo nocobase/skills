@@ -22,46 +22,42 @@ description: Grid card 区块的最小稳定树、两层 actions slot 语义与 
 
 ```json
 {
-  "use": "GridCardBlockModel",
-  "stepParams": {
-    "resourceSettings": {
-      "init": {
-        "dataSourceKey": "main",
-        "collectionName": "assets"
-      }
-    },
-    "GridCardSettings": {
-      "columnCount": {
-        "xs": 1,
-        "md": 2,
-        "lg": 3,
-        "xxl": 4
+  "type": "gridCard",
+  "title": "资产指标",
+  "collection": "assets",
+  "defaultFilter": {
+    "logic": "$and",
+    "items": [
+      {
+        "path": "name",
+        "operator": "$includes",
+        "value": ""
       },
-      "rowCount": {
-        "rowCount": 3
+      {
+        "path": "status",
+        "operator": "$eq",
+        "value": ""
       }
-    }
+    ]
   },
-  "subModels": {
-    "item": {
-      "use": "GridCardItemModel",
-      "subModels": {
-        "grid": {
-          "use": "DetailsGridModel",
-          "subModels": {
-            "items": []
-          }
-        },
-        "actions": []
-      }
+  "settings": {
+    "columns": {
+      "xs": 1,
+      "sm": 1,
+      "md": 2,
+      "lg": 3,
+      "xl": 3,
+      "xxl": 4
     },
-    "actions": []
-  }
+    "rowCount": 3
+  },
+  "fields": []
 }
 ```
 
 skill 至少要知道三件事：
 
+- public authoring 使用 `settings.columns` 控制列数，可以传数字或包含 `xs` / `sm` / `md` / `lg` / `xl` / `xxl` 的响应式对象
 - `subModels.item.use` 必须是 `GridCardItemModel`
 - `subModels.item.subModels.grid.use` 必须是 `DetailsGridModel`
 - block 与 item 各有一层 `actions`，语义不同
