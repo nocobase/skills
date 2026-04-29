@@ -89,17 +89,22 @@ function withResolvedCollectionMetadata(payload, metadata) {
   };
 }
 
-function withoutPrepareCollectionMetadata(payload) {
-  if (!isObjectRecord(payload)) return payload;
-  if (!Object.prototype.hasOwnProperty.call(payload, 'blueprint') && !Object.prototype.hasOwnProperty.call(payload, 'requestBody')) {
-    return payload;
-  }
-  const { collectionMetadata, ...nextPayload } = payload;
-  return nextPayload;
-}
-
 function hasInvalidCollectionMetadataError(errors) {
   return Array.isArray(errors) && errors.some((issue) => issue?.ruleId === 'invalid-collection-metadata');
+}
+
+function hasResolvedCollectionMetadata(metadata) {
+  return isObjectRecord(metadata?.collections) && Object.keys(metadata.collections).length > 0;
+}
+
+function createAutoCollectionMetadataMissingError(resolution) {
+  const missingCollections = Array.isArray(resolution?.missingCollections) ? resolution.missingCollections.filter(Boolean) : [];
+  const suffix = missingCollections.length > 0 ? ` Missing collections: ${missingCollections.join(', ')}.` : '';
+  return {
+    path: 'collectionMetadata',
+    ruleId: 'missing-collection-metadata',
+    message: `collectionMetadata is required for prepare-write when automatic collection metadata resolution cannot complete.${suffix}`,
+  };
 }
 
 async function resolvePrepareWritePayload(payload, options = {}) {
@@ -117,8 +122,10 @@ async function resolvePrepareWritePayload(payload, options = {}) {
   );
   if (!resolution.ok && !hasInvalidCollectionMetadataError(resolution.errors)) {
     return {
-      payload: withoutPrepareCollectionMetadata(payload),
-      resolverErrors: [],
+      payload: withResolvedCollectionMetadata(payload, resolution.metadata),
+      resolverErrors: hasResolvedCollectionMetadata(resolution.metadata)
+        ? [createAutoCollectionMetadataMissingError(resolution)]
+        : [],
     };
   }
   return {

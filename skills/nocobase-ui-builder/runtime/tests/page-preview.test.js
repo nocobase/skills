@@ -8648,6 +8648,10 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
   assert.equal(payload.cliBody, undefined);
   assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
   assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+  assert.ok(
+    payload.defaultsRequirements?.collections?.some((entry) => entry.collection === 'users'),
+    'resolved user metadata should still participate in later prepare-write validation',
+  );
 });
 
 test('page preview cli prepare-write preserves invalid explicit collectionMetadata errors', async () => {

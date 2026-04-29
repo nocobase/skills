@@ -32,7 +32,7 @@ Canonical front door is `nb api flow-surfaces`. This file is for **low-level wri
 | --- | --- | --- |
 | create node + frequent public attributes | `add* + settings` | the target fields have already been exposed as public semantics in the live environment; if confirmation is needed, read `catalog` first via normative contract |
 | small update to an existing node | `configure(changes)` | still within public semantic fields, but the node does not need to be recreated |
-| switch an existing relation field presentation | `configure(changes)` on `wrapperUid` | use flat `fieldType` with optional `fields` / `selectorFields` / `titleField`; use `popupSubTable` for 弹窗子表格 and `subTable` only for inline/editable subtable; do not send internal model keys |
+| switch an existing relation field presentation | `configure(changes)` on `wrapperUid` | use flat `fieldType` with optional `fields` / `titleField`; for `picker`, `fields` configures the selector table columns; use `popupSubTable` for 弹窗子表格 and `subTable` only for inline/editable subtable; do not send internal model keys |
 | path-level fine-grained patch | `update-settings` | the live environment only exposes a domain contract, without a public semantic entry |
 | layout | `set-layout` | only when the user explicitly accepts whole-layout replacement and the full current layout has already been read back |
 | event flows | `set-event-flows` | only when the user explicitly accepts full instance-level flow replacement and the full current flow has already been read back |
