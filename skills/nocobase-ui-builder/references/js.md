@@ -31,7 +31,7 @@ Choose the authoring surface before you chase `ctx.*` details:
 Every JS request follows the same five-step loop:
 
 1. Lock the surface.
-2. Fill the scenario card in [runjs-authoring-loop.md](./runjs-authoring-loop.md).
+2. Fill the scenario card in [runjs-authoring-loop.md](./runjs-authoring-loop.md), including `recordSemantic` and `contextEvidence` before choosing any record path.
 3. Select one `safe` snippet from [js-snippets/catalog.json](./js-snippets/catalog.json).
 4. Edit only the snippet's editable slots.
 5. Run validator / preflight and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md), with at most 3 retry rounds.
@@ -101,9 +101,12 @@ If the live environment does not make it clear which JS action model applies, st
 
 ## Code Style and Context
 
-- Output readable multiline JS by default, using 2-space indentation consistently.
+- Output readable multiline JS by default, using 2-space indentation consistently. In JSON payloads, preserve those line breaks inside `code` strings with `\n`; do not flatten multi-statement RunJS into one line for transport convenience.
+- Keep only a single short return or expression on one line. Any code with local variables, conditional branches, fallback handling, string assembly, `await`, `ctx.render(...)`, or more than one statement must be multiline before validator/preflight and before the nb write.
 - For complex template strings, conditional branches, or string assembly, split them into local variables first and then pass them into `ctx.render(...)`.
 - Start with the runtime profile's `defaultContextShape`. If live nb readback already knows a more precise `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`, override the defaults with live data.
+- Do not translate the phrase "current record" directly into a direct `ctx.record` read. Pick a `recordSemantic` first: popup opener data uses `await ctx.getVar('ctx.popup.record...')`, row/field host record values use `await ctx.getVar('ctx.record...')`, parent popup data uses `await ctx.getVar('ctx.popup.parent.record...')`, and selected table rows use `ctx.resource.getSelectedRows?.()`.
+- Record the `contextEvidence` used for that choice. For localized edits, prefer `flow-surfaces context --target ... --path popup.record` and `--path record`; for whole-page drafts, use the planned host position and stop if the record semantic is ambiguous.
 - The validator already injects the minimum public ctx: `ctx.runjs(...)`, `ctx.initResource(...)`, `ctx.libs.React/ReactDOM/antd/antdIcons`, plus the aliases `ctx.React/ctx.ReactDOM/ctx.antd/ctx.antdIcons`. These are available for validating public docs and default templates.
 - If the code depends on request reads, see [runjs-runtime.md](./runjs-runtime.md) for mock config and network constraints.
 - If a JSBlock example needs to fetch data proactively, prefer `ctx.initResource(...)` plus `ctx.resource`. The validator only provides minimal simulation and does not guarantee full parity with upstream runtime resource lifecycle.

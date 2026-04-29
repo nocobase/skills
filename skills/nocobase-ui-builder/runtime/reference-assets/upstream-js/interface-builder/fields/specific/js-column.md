@@ -5,6 +5,7 @@
 JS Column is used for "custom columns" in tables, rendering the content of each row's cell via JavaScript. It is not bound to a specific field and is suitable for scenarios such as derived columns, combined displays across fields, status badges, action buttons, and remote data aggregation.
 
 > Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
+> Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values; direct `ctx.record` below is product runtime context documentation.
 
 
 ![jscolumn-add-20251029](https://static-docs.nocobase.com/jscolumn-add-20251029.png)
@@ -45,14 +46,15 @@ The product UI can also invoke the built-in AI employee to help draft or revise 
 ### 1) Basic Rendering (Reading the current row record)
 
 ```js
-ctx.render(<span className="nb-js-col-name">{ctx.record?.name ?? '-'}</span>);
+const name = await ctx.getVar('ctx.record.name');
+ctx.render(<span className="nb-js-col-name">{name ?? '-'}</span>);
 ```
 
 ### 2) Using JSX to Render React Components
 
 ```js
 const { Tag } = ctx.libs.antd;
-const status = ctx.record?.status ?? 'unknown';
+const status = (await ctx.getVar('ctx.record.status')) ?? 'unknown';
 const color = status === 'active' ? 'green' : status === 'blocked' ? 'red' : 'default';
 ctx.render(
   <div style={{ padding: 4 }}>
@@ -81,7 +83,8 @@ ctx.render(
 ```js
 // AMD/UMD
 const _ = await ctx.requireAsync('https://cdn.jsdelivr.net/npm/lodash@4/lodash.min.js');
-const items = _.take(Object.keys(ctx.record || {}), 3);
+const record = (await ctx.getVar('ctx.record')) || {};
+const items = _.take(Object.keys(record), 3);
 ctx.render(<code>{items.join(', ')}</code>);
 
 // ESM

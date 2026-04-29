@@ -1,7 +1,13 @@
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
+import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
 import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
 import { ANT_DESIGN_ICON_NAMES } from './ant-design-icon-names.js';
+import {
+  isSortablePublicBlockType,
+  normalizeSortAliasInSettings,
+  settingsSortValuesMatch,
+} from './sorting-alias.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
@@ -69,6 +75,8 @@ const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
+const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
+const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
@@ -802,7 +810,7 @@ function isDataBlock(block) {
 function describeResource(node) {
   if (!isPlainObject(node?.resource)) return '';
   const binding = normalizeText(node.resource.binding || node.resource.resourceBinding);
-  const associationField = normalizeText(node.resource.associationField);
+  const associationField = normalizeText(node.resource.associationField || node.resource.associationPathName);
   const collectionName = normalizeText(node.resource.collectionName || node.resource.collection);
   const parts = [];
   if (binding) parts.push(binding);
@@ -1063,7 +1071,7 @@ function normalizeCollectionFieldMetadata(field) {
   };
 }
 
-function normalizeCollectionMetadataInput(rawMetadata) {
+export function normalizeCollectionMetadataInput(rawMetadata) {
   if (typeof rawMetadata === 'undefined') {
     return {
       provided: false,
@@ -1199,14 +1207,19 @@ function getNodeBinding(node) {
 }
 
 function getNodeAssociationField(node) {
-  return normalizeText(node?.associationField || node?.resource?.associationField);
+  return normalizeText(
+    node?.associationField
+    || node?.associationPathName
+    || node?.resource?.associationField
+    || node?.resource?.associationPathName,
+  );
 }
 
 function getTraversalSurfaceCollection(context) {
   return normalizeText(context?.surfaceCollection || context?.currentCollection);
 }
 
-function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
+export function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
   const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
   if (!isAssociationFieldMeta(associationMeta?.field)) return '';
   const targetCollection = normalizeText(associationMeta?.field?.target);
@@ -2620,15 +2633,20 @@ function materializePopupForWrite(popup, options = {}) {
   return nextPopup;
 }
 
-function materializeSettingsHeightForWrite(settings) {
+function materializeSettingsForWrite(block) {
+  const settings = block?.settings;
   if (!isPlainObject(settings)) {
     return settings;
   }
-  if (!hasOwn(settings, 'height') || hasOwn(settings, 'heightMode')) {
-    return settings;
+  let nextSettings = settings;
+  if (isSortablePublicBlockType(block?.type) && hasOwn(nextSettings, 'sort')) {
+    nextSettings = normalizeSortAliasInSettings(nextSettings);
+  }
+  if (!hasOwn(nextSettings, 'height') || hasOwn(nextSettings, 'heightMode')) {
+    return nextSettings;
   }
   return {
-    ...settings,
+    ...nextSettings,
     heightMode: 'specifyValue',
   };
 }
@@ -2646,8 +2664,43 @@ function materializeFieldForWrite(field, options = {}) {
       triggerKind: 'field',
       triggerLabel: describeField(nextField),
     });
+    normalizeRelationFieldPopupBlocksForWrite(nextField.popup, {
+      ...options,
+      associationField: nextField.field,
+    });
   }
   return nextField;
+}
+
+function normalizeRelationFieldPopupBlocksForWrite(popup, options = {}) {
+  if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return;
+  const associationField = getDefaultsAssociationFieldKey(options.associationField);
+  const targetCollection = associationField
+    ? resolveAssociationTargetCollection(
+      options.collectionMetadata || {},
+      getTraversalSurfaceCollection(options.blockContext || {}),
+      associationField,
+    )
+    : '';
+  for (const block of popup.blocks) {
+    if (!isPlainObject(block)) continue;
+    const blockType = normalizeText(block.type);
+    if (!RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)) continue;
+    const blockResource = isPlainObject(block.resource) ? block.resource : null;
+    const binding = getNodeBinding(block);
+    if (binding && binding !== 'currentcollection') continue;
+    if (!blockResource && hasOwn(block, 'binding')) {
+      block.binding = 'currentRecord';
+      continue;
+    }
+    block.resource = {
+      ...(blockResource || {}),
+      binding: 'currentRecord',
+    };
+    if (targetCollection && !normalizeText(block.resource.collectionName) && !normalizeText(block.collection)) {
+      block.resource.collectionName = targetCollection;
+    }
+  }
 }
 
 function materializeFieldGroupForWrite(group, options = {}) {
@@ -2682,7 +2735,7 @@ function materializeBlockForWrite(block, options = {}) {
   }
   const nextBlock = cloneSerializable(block);
   if (hasOwn(nextBlock, 'settings')) {
-    nextBlock.settings = materializeSettingsHeightForWrite(nextBlock.settings);
+    nextBlock.settings = materializeSettingsForWrite(nextBlock);
   }
   if (hasOwn(nextBlock, 'fields')) {
     nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
@@ -3380,16 +3433,7 @@ function validatePublicFieldObjects(items, path, state) {
         state.seenErrors,
         `${path}[${index}]`,
         'internal-field-keys-not-public',
-        `Field objects must use flat fieldType/fields/selectorFields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
-      );
-    }
-    if (hasOwn(item, 'fields') && hasOwn(item, 'selectorFields')) {
-      pushValidationError(
-        state.errors,
-        state.seenErrors,
-        `${path}[${index}]`,
-        'relation-fields-selector-fields-conflict',
-        'Do not mix fields and selectorFields on the same relation field object.',
+        `Field objects must use flat fieldType/fields/titleField only; remove internal keys: ${forbidden.join(', ')}.`,
       );
     }
   }
@@ -3432,7 +3476,17 @@ function validateDisplayAssociationFieldPopupRequirement(items, block, blockCont
     if (!resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath)) {
       continue;
     }
-    if (isPlainObject(item) && (hasOwn(item, 'popup') || hasOwn(item, 'fieldType'))) {
+    if (isPlainObject(item) && hasOwn(item, 'popup')) {
+      validateRelationFieldPopupResourceBindings(
+        item.popup,
+        `${itemPath}.popup`,
+        state,
+        blockContext,
+        fieldPath,
+      );
+      continue;
+    }
+    if (isPlainObject(item) && hasOwn(item, 'fieldType')) {
       continue;
     }
     pushValidationError(
@@ -3451,8 +3505,99 @@ function validateDisplayAssociationFieldGroupPopupRequirement(fieldGroups, block
   });
 }
 
+function validateBlockSettingsSortAlias(block, path, state) {
+  if (!isSortablePublicBlockType(block?.type)) return;
+  if (!isPlainObject(block.settings)) return;
+  if (!hasOwn(block.settings, 'sort')) return;
+  if (hasOwn(block.settings, 'sorting') && !settingsSortValuesMatch(block.settings.sort, block.settings.sorting)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.settings.sort`,
+      'settings-sort-sorting-conflict',
+      'settings.sort is a compatibility alias for settings.sorting; when both are present they must describe the same ordering.',
+    );
+  }
+}
+
+function validateRelationFieldPopupResourceBindings(popup, popupPath, state, openerBlockContext, associationField) {
+  if (!isPlainObject(popup) || hasTemplateDocument(popup.template)) return;
+  const associationRequirement = resolveAssociationFieldRequirement(
+    state.collectionMetadata || {},
+    openerBlockContext,
+    associationField,
+  );
+  const canonicalAssociationField = associationRequirement?.associationField || getDefaultsAssociationFieldKey(associationField);
+  const targetCollection = normalizeText(associationRequirement?.targetCollection);
+  for (const [index, block] of ensureArray(popup.blocks).entries()) {
+    if (!isPlainObject(block)) continue;
+    const blockPath = `${popupPath}.blocks[${index}]`;
+    const blockType = normalizeText(block.type);
+    const binding = getNodeBinding(block);
+    if (RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)) {
+      const blockCollection = getCollectionLabel(block);
+      if ((!binding || binding === 'currentcollection') && !targetCollection) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.binding`,
+          'relation-popup-current-record-target-unresolved',
+          `Relation field popup ${blockType} blocks must use resource.binding="currentRecord" and a target collection that can be verified from collection metadata.`,
+        );
+        continue;
+      }
+      if (targetCollection && blockCollection && blockCollection !== targetCollection) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.collectionName`,
+          'relation-popup-current-record-target-mismatch',
+          `Relation field popup ${blockType} blocks must target collection "${targetCollection}" for relation field "${canonicalAssociationField}".`,
+        );
+        continue;
+      }
+      if (!binding || binding === 'currentcollection') {
+        continue;
+      }
+      if (binding !== 'currentrecord') {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.binding`,
+          'relation-popup-current-record-binding-required',
+          `Relation field popup ${blockType} blocks must use resource.binding="currentRecord" for the clicked related record.`,
+        );
+      }
+      continue;
+    }
+    if (RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES.has(blockType)) {
+      if (binding !== 'associatedrecords') {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.binding`,
+          'relation-popup-associated-records-binding-required',
+          `Relation field popup ${blockType} blocks must use resource.binding="associatedRecords" with resource.associationField="${canonicalAssociationField}".`,
+        );
+        continue;
+      }
+      const blockAssociationField = getDefaultsAssociationFieldKey(getNodeAssociationField(block));
+      if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${blockPath}.resource.associationField`,
+          'relation-popup-associated-records-association-field-required',
+          `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}".`,
+        );
+      }
+    }
+  }
+}
+
 function validateActions(items, path, state, { recordActions = false, blockContext = {} } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
+    const itemPath = `${path}[${index}]`;
     const rawActionType =
       typeof item === 'string' ? item : isPlainObject(item) ? item.type : '';
     const hostBlockType = normalizeText(blockContext.hostBlockType);
@@ -3466,9 +3611,33 @@ function validateActions(items, path, state, { recordActions = false, blockConte
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}[${index}]`,
+        itemPath,
         'add-child-must-use-record-actions',
         ADD_CHILD_RECORD_ACTION_MESSAGE,
+      );
+    }
+    if (!recordActions && actionType === 'bulkupdate') {
+      validateActionAssignValues(item, itemPath, state, blockContext);
+    }
+    if (recordActions && actionType === 'bulkupdate') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        itemPath,
+        'bulk-update-must-use-actions',
+        '`bulkUpdate` is a collection action and must be authored under block actions.',
+      );
+    }
+    if (recordActions && actionType === 'updaterecord') {
+      validateActionAssignValues(item, itemPath, state, blockContext);
+    }
+    if (!recordActions && actionType === 'updaterecord') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        itemPath,
+        'update-record-must-use-record-actions',
+        '`updateRecord` is a record action and must be authored under recordActions.',
       );
     }
     if (
@@ -3479,7 +3648,7 @@ function validateActions(items, path, state, { recordActions = false, blockConte
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}[${index}]`,
+        itemPath,
         'calendar-action-unsupported',
         `calendar blocks only support actions: ${[...CALENDAR_ALLOWED_ACTION_TYPES].join(', ')}.`,
       );
@@ -3492,13 +3661,13 @@ function validateActions(items, path, state, { recordActions = false, blockConte
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${path}[${index}]`,
+        itemPath,
         'kanban-action-unsupported',
         `kanban blocks only support actions: ${[...KANBAN_ALLOWED_ACTION_TYPES].join(', ')}.`,
       );
     }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
-    const popupPath = `${path}[${index}].popup`;
+    const popupPath = `${itemPath}.popup`;
     validatePopupDocument(
       item.popup,
       popupPath,
@@ -3508,6 +3677,47 @@ function validateActions(items, path, state, { recordActions = false, blockConte
     if (EDIT_ACTION_TYPES.has(normalizeLowerText(item.type))) {
       validateCustomEditPopup(item.popup, popupPath, state);
     }
+  }
+}
+
+function validateActionAssignValues(item, path, state, blockContext) {
+  if (!isPlainObject(item) || !hasOwn(item, 'settings')) {
+    return;
+  }
+  if (!isPlainObject(item.settings)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.settings`,
+      'action-settings-must-be-object',
+      'Action settings must be one plain object.',
+    );
+    return;
+  }
+  if (!hasOwn(item.settings, 'assignValues')) {
+    return;
+  }
+
+  const assignValues = item.settings.assignValues;
+  const assignValuesPath = `${path}.settings.assignValues`;
+  const collectionName = getTraversalSurfaceCollection(blockContext);
+  const collectionMeta = getCollectionMeta(state.collectionMetadata, collectionName);
+  const issues = collectAssignValuesValidationIssues({
+    assignValues,
+    path: assignValuesPath,
+    collectionName,
+    collectionMeta,
+    normalizeName: normalizeText,
+    valueLabel: 'settings.assignValues',
+  });
+  for (const issue of issues) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      issue.path,
+      issue.ruleId,
+      issue.message,
+    );
   }
 }
 
@@ -4544,6 +4754,7 @@ function validateBlock(block, path, state, parentContext = {}) {
 
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
   validateDataSurfaceFilterActionSettings(block, path, state);
+  validateBlockSettingsSortAlias(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
   validateKanbanMainBlockShape(block, path, state);
   validateTreeConnectFields(block, path, state, parentContext.siblingBlocksByKey);

@@ -7,6 +7,7 @@ import {
 } from '../src/page-blueprint-preview.js';
 import { buildSuggestedDefaultFilterGroup } from '../src/default-filter-candidates.js';
 import { runPagePreviewCli } from '../src/page-preview-cli.js';
+import { fetchCollectionMetadata } from '../src/collection-metadata-resolver.js';
 
 function createMemoryStream() {
   const stream = new PassThrough();
@@ -130,6 +131,80 @@ const intelligenceTreeCollectionMetadata = {
         { name: 'id', type: 'bigInt', interface: 'integer' },
         { name: 'title', type: 'string', interface: 'input' },
         { name: 'intelType', type: 'string', interface: 'select' },
+      ],
+    },
+  },
+};
+const minimalUserCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+const minimalRoleCollectionMetadata = {
+  collections: {
+    roles: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+const userDepartmentAssociationMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments' },
+      ],
+    },
+  },
+};
+const minimalDepartmentCollectionMetadata = {
+  collections: {
+    departments: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'title', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+const departmentManagerAssociationMetadata = {
+  collections: {
+    departments: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'employees' },
+      ],
+    },
+  },
+};
+const minimalEmployeeCollectionMetadata = {
+  collections: {
+    employees: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'name', type: 'string', interface: 'input' },
       ],
     },
   },
@@ -988,7 +1063,7 @@ test('page preview cli returns a stable JSON error when --input is missing its v
     error: 'Missing value for --input.',
     usage: {
       command:
-        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
+        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
     },
   });
 });
@@ -6632,6 +6707,277 @@ test('prepareApplyBlueprintRequest allows one-level relation fields on editForm 
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['username', 'roles']);
 });
 
+test('prepareApplyBlueprintRequest accepts canonical relation field details popup binding', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              'nickname',
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      resource: { binding: 'currentRecord', collectionName: 'roles' },
+                      fields: ['title', 'name'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
+});
+
+test('prepareApplyBlueprintRequest normalizes legacy relation field details popup to currentRecord', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              'nickname',
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      collection: 'roles',
+                      fields: ['title', 'name'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].collection, 'roles');
+});
+
+test('prepareApplyBlueprintRequest rejects relation field details popup with mismatched target collection', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'departmentDetails',
+                      type: 'details',
+                      collection: 'departments',
+                      fields: ['title'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'relation-popup-current-record-target-mismatch'
+        && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].resource.collectionName',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest accepts relation field popup table with associatedRecords binding', () => {
+  const relationPopupCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      roles: minimalRoleCollectionMetadata.collections.roles,
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role links',
+                  blocks: [
+                    {
+                      key: 'rolesTable',
+                      type: 'table',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'roles',
+                        collectionName: 'roles',
+                      },
+                      fields: ['name'],
+                      actions: [defaultFilterAction(['name'])],
+                      defaultFilter: defaultFilterGroup(['name']),
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  }, { collectionMetadata: relationPopupCollectionMetadata });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.blocks[0].resource.binding, 'associatedRecords');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.blocks[0].resource.associationField, 'roles');
+});
+
+test('prepareApplyBlueprintRequest rejects relation field popup table without associatedRecords binding', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role links',
+                  blocks: [
+                    {
+                      key: 'rolesTable',
+                      type: 'table',
+                      collection: 'roles',
+                      fields: ['title'],
+                      actions: [defaultFilterAction(['title'])],
+                      defaultFilter: defaultFilterGroup(['title']),
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'relation-popup-associated-records-binding-required'
+        && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].resource.binding',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest does not apply relation popup binding rules to scalar field popups', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'nickname',
+                popup: {
+                  title: 'Nickname details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.errors.length, 0);
+});
+
 test('prepareApplyBlueprintRequest allows dotted relation display fields without popup', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
@@ -6713,6 +7059,169 @@ test('prepareApplyBlueprintRequest requires explicit layout when multiple non-fi
       (issue) => issue.ruleId === 'multi-block-layout-required' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout',
     ),
   );
+});
+
+test('prepareApplyBlueprintRequest normalizes settings.sort alias to settings.sorting', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: { sort: ['-createdAt', 'nickname'] },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'sort'), false);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [
+    { field: 'createdAt', direction: 'desc' },
+    { field: 'nickname', direction: 'asc' },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest rejects conflicting settings.sort and settings.sorting', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: {
+              sort: ['-createdAt'],
+              sorting: [{ field: 'nickname', direction: 'asc' }],
+            },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'settings-sort-sorting-conflict'
+        && issue.path === 'tabs[0].blocks[0].settings.sort',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest removes settings.sort when it matches settings.sorting', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: {
+              sort: ['-createdAt'],
+              sorting: [{ field: 'createdAt', direction: 'desc' }],
+            },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'sort'), false);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [{ field: 'createdAt', direction: 'desc' }]);
+});
+
+test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-table blocks and leaves calendar unchanged', () => {
+  for (const { type, settings, expected } of [
+    {
+      type: 'details',
+      settings: { sort: ['-createdAt'] },
+      expected: [{ field: 'createdAt', direction: 'desc' }],
+    },
+    {
+      type: 'tree',
+      settings: { sort: [{ field: 'nickname', direction: 'descending' }] },
+      expected: [{ field: 'nickname', direction: 'desc' }],
+    },
+    {
+      type: 'map',
+      settings: { sort: ['nickname'] },
+      expected: [{ field: 'nickname', direction: 'asc' }],
+    },
+  ]) {
+    const result = prepareWithDirectCollectionDefaults({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: `${type}Block`,
+              type,
+              collection: 'users',
+              settings,
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    });
+
+    assert.equal(result.ok, true, `${type}: ${JSON.stringify(result.errors)}`);
+    assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'sort'), false);
+    assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, expected);
+  }
+
+  const calendar = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Events' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'eventsCalendar',
+            type: 'calendar',
+            collection: 'calendar_events',
+            settings: { sort: ['-createdAt'] },
+            defaultFilter: defaultFilterGroup(['title', 'status', 'startAt']),
+          },
+        ],
+      },
+    ],
+  }, { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false });
+
+  assert.equal(calendar.ok, true, JSON.stringify(calendar.errors));
+  assert.deepEqual(calendar.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
 });
 
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {
@@ -7412,7 +7921,7 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -7433,6 +7942,1016 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
         && issue.message.includes('tabs[0].blocks[0]'),
     ),
   );
+});
+
+test('page preview cli prepare-write auto-resolves collectionMetadata when it is missing', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'users');
+      return minimalUserCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['users']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.collectionMetadata, undefined);
+  assert.equal(payload.cliBody.page.title, 'Users');
+});
+
+test('page preview cli prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, []);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.collectionMetadata, undefined);
+});
+
+test('page preview cli prepare-write only fetches missing collectionMetadata entries', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users and roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            layout: {
+              rows: [['usersTable', 'rolesTable']],
+            },
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                title: 'Users',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+              {
+                key: 'rolesTable',
+                type: 'table',
+                title: 'Roles',
+                collection: 'roles',
+                defaultFilter: defaultFilterGroup(['name']),
+                fields: ['name'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves data-bound collections inside popups', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users popup' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+                recordActions: [
+                  {
+                    type: 'view',
+                    popup: {
+                      title: 'User roles',
+                      blocks: [
+                        {
+                          key: 'rolesTable',
+                          type: 'table',
+                          title: 'Roles',
+                          collection: 'roles',
+                          defaultFilter: defaultFilterGroup(['name']),
+                          fields: ['name'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write recursively resolves association target collection metadata', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users departments' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  department: buildFixedCollectionPopupDefaults('department'),
+                },
+              },
+            },
+            departments: {
+              popups: buildFixedCollectionPopupDefaults('departments'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersDetails',
+                type: 'details',
+                collection: 'users',
+                fields: [
+                  'nickname',
+                  {
+                    field: 'department',
+                    popup: {
+                      title: 'Department',
+                      blocks: [
+                        {
+                          key: 'departmentDetails',
+                          type: 'details',
+                          collection: 'departments',
+                          fields: ['title'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: userDepartmentAssociationMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'departments');
+      return minimalDepartmentCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['departments']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves associatedRecords targets over multiple metadata rounds', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  roles: buildFixedCollectionPopupDefaults('roles'),
+                },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+                recordActions: [
+                  {
+                    type: 'view',
+                    popup: {
+                      title: 'User roles',
+                      blocks: [
+                        {
+                          key: 'userRoles',
+                          type: 'table',
+                          title: 'Roles',
+                          resource: {
+                            binding: 'associatedRecords',
+                            associationField: 'roles',
+                          },
+                          defaultFilter: defaultFilterGroup(['name']),
+                          fields: ['name'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      if (collectionName === 'users') return oneCandidateCollectionMetadata;
+      if (collectionName === 'roles') return minimalRoleCollectionMetadata;
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['users', 'roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves multi-hop association field paths over multiple metadata rounds', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users department managers' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  department: buildFixedCollectionPopupDefaults('department'),
+                },
+              },
+            },
+            departments: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('departments'),
+                associations: {
+                  manager: buildFixedCollectionPopupDefaults('manager'),
+                },
+              },
+            },
+            employees: {
+              popups: buildFixedCollectionPopupDefaults('employees'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname', 'department.manager.name'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: userDepartmentAssociationMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      if (collectionName === 'departments') return departmentManagerAssociationMetadata;
+      if (collectionName === 'employees') return minimalEmployeeCollectionMetadata;
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['departments', 'employees']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write resolves associatedRecords targets from associationPathName', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                ...buildFixedCollectionPopupDefaults('users'),
+                associations: {
+                  roles: buildFixedCollectionPopupDefaults('roles'),
+                },
+              },
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+                recordActions: [
+                  {
+                    type: 'view',
+                    popup: {
+                      title: 'User roles',
+                      blocks: [
+                        {
+                          key: 'userRoles',
+                          type: 'table',
+                          title: 'Roles',
+                          resource: {
+                            binding: 'associatedRecords',
+                            associationPathName: 'roles',
+                          },
+                          defaultFilter: defaultFilterGroup(['name']),
+                          fields: ['name'],
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: oneCandidateCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      if (collectionName === 'roles') return minimalRoleCollectionMetadata;
+      throw new Error(`unexpected fetch for ${collectionName}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.collectionMetadata, undefined);
+});
+
+test('page preview cli prepare-write keeps fail-closed behavior with no-auto metadata flag', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      return minimalUserCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, []);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+});
+
+test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata cannot resolve env', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      assert.deepEqual([command, ...args], ['nb', 'env', 'list']);
+      return {
+        stdout: [
+          '  Name      Base URL',
+          '* local',
+        ].join('\n'),
+      };
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+});
+
+test('page preview cli prepare-write falls back to missing collectionMetadata when explicit empty metadata cannot be auto-filled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: emptyPrepareCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata() {
+      throw new Error('metadata fetch unavailable');
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+});
+
+test('page preview cli prepare-write falls back to missing collectionMetadata when partial metadata cannot be auto-filled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users and roles' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            layout: {
+              rows: [['usersTable', 'rolesTable']],
+            },
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                title: 'Users',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+              {
+                key: 'rolesTable',
+                type: 'table',
+                title: 'Roles',
+                collection: 'roles',
+                defaultFilter: defaultFilterGroup(['name']),
+                fields: ['name'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: minimalUserCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      assert.equal(collectionName, 'roles');
+      throw new Error('metadata fetch unavailable');
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+  assert.ok(
+    payload.defaultsRequirements?.collections?.some((entry) => entry.collection === 'users'),
+    'resolved user metadata should still participate in later prepare-write validation',
+  );
+});
+
+test('page preview cli prepare-write preserves invalid explicit collectionMetadata errors', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(['nickname']),
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: 'invalid metadata',
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata() {
+      throw new Error('unexpected metadata fetch');
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'invalid-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
+});
+
+test('fetchCollectionMetadata falls back to resource list when data-modeling collection get fails', async () => {
+  const calls = [];
+  const metadata = await fetchCollectionMetadata('users', {
+    cwd: process.cwd(),
+    async execFileImpl(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'env') {
+        return {
+          stdout: [
+            '  Name      Base URL',
+            '* local     http://127.0.0.1:13000',
+          ].join('\n'),
+        };
+      }
+      if (args.includes('data-modeling')) {
+        throw new Error('data-modeling unavailable');
+      }
+      return {
+        stdout: JSON.stringify({
+          data: [
+            {
+              name: 'users',
+              titleField: 'nickname',
+              fields: [
+                { name: 'id', type: 'integer', interface: 'number' },
+                { name: 'nickname', type: 'string', interface: 'input' },
+              ],
+            },
+          ],
+        }),
+      };
+    },
+  });
+
+  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
+});
+
+test('fetchCollectionMetadata reads Base URL only from the current nb env row', async () => {
+  const calls = [];
+  const metadata = await fetchCollectionMetadata('users', {
+    cwd: process.cwd(),
+    async execFileImpl(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'env') {
+        return {
+          stdout: [
+            'Current  Name       Base URL                Auth   Runtime',
+            '-------  ---------  ----------------------  -----  -------',
+            '         staging*   http://127.0.0.1:14000  token  2.1.0',
+            '*        local      http://127.0.0.1:13000  oauth  2.1.0',
+          ].join('\n'),
+        };
+      }
+      return {
+        stdout: JSON.stringify({
+          data: {
+            name: 'users',
+            titleField: 'nickname',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'nickname', type: 'string', interface: 'input' },
+            ],
+          },
+        }),
+      };
+    },
+  });
+
+  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
+});
+
+test('fetchCollectionMetadata fails clearly when current nb env Base URL is empty', async () => {
+  await assert.rejects(
+    fetchCollectionMetadata('users', {
+      cwd: process.cwd(),
+      async execFileImpl(command, args) {
+        assert.deepEqual([command, ...args], ['nb', 'env', 'list']);
+        return {
+          stdout: [
+            '  Name      Base URL',
+            '* local',
+          ].join('\n'),
+        };
+      },
+    }),
+    /Current nb env has no Base URL.*nb env add.*nb env update.*collectionMetadata/i,
+  );
+});
+
+test('fetchCollectionMetadata fails when nb responses do not include the requested collection', async () => {
+  const calls = [];
+  await assert.rejects(
+    fetchCollectionMetadata('users', {
+      cwd: process.cwd(),
+      async execFileImpl(command, args) {
+        calls.push([command, ...args]);
+        if (args[0] === 'env') {
+          return {
+            stdout: [
+              '  Name      Base URL',
+              '* local     http://127.0.0.1:13000',
+            ].join('\n'),
+          };
+        }
+        if (args.includes('data-modeling')) {
+          return { stdout: JSON.stringify({ data: [] }) };
+        }
+        return { stdout: JSON.stringify({ rows: [] }) };
+      },
+    }),
+    /collection metadata for "users" was not found/i,
+  );
+
+  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+});
+
+test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata fetch returns no collection entry', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata() {
+      return { collections: {} };
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
+  assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
 test('page preview cli prepare-write returns normalized cli body json', async () => {
@@ -8052,4 +9571,111 @@ test('prepareApplyBlueprintRequest rejects unsupported actions on kanban blocks'
 
   assert.equal(result.ok, false);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-action-unsupported'), true);
+});
+
+test('prepareApplyBlueprintRequest validates update action assignValues against collection metadata', () => {
+  const buildBlueprint = (actionPatch = {}, recordActionPatch = {}) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Assignment actions' },
+    tabs: [
+      {
+        title: 'Users',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'status'],
+            actions: [
+              {
+                type: 'bulkUpdate',
+                settings: {
+                  assignValues: { status: 'inactive' },
+                },
+                ...actionPatch,
+              },
+            ],
+            recordActions: [
+              {
+                type: 'updateRecord',
+                settings: {
+                  assignValues: { status: 'active' },
+                },
+                ...recordActionPatch,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  const valid = prepareWithDirectCollectionDefaults(buildBlueprint(), {
+    collectionMetadata,
+  });
+  assert.equal(valid.ok, true);
+
+  const unknownField = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        assignValues: { missingField: 'x' },
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(unknownField.ok, false);
+  assert.equal(unknownField.errors.some((issue) => issue.ruleId === 'assign-values-field-unknown'), true);
+
+  const nonObject = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        assignValues: ['status'],
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(nonObject.ok, false);
+  assert.equal(nonObject.errors.some((issue) => issue.ruleId === 'assign-values-must-be-object'), true);
+
+  const emptyClear = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        assignValues: {},
+      },
+    }, {
+      settings: {
+        assignValues: {},
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(emptyClear.ok, true);
+
+  const misplacedBulkUpdate = prepareWithDirectCollectionDefaults(
+    buildBlueprint({}, {
+      type: 'bulkUpdate',
+      settings: {
+        assignValues: { status: 'active' },
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(misplacedBulkUpdate.ok, false);
+  assert.equal(misplacedBulkUpdate.errors.some((issue) => issue.ruleId === 'bulk-update-must-use-actions'), true);
+
+  const misplacedUpdateRecord = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      type: 'updateRecord',
+      settings: {
+        assignValues: { status: 'inactive' },
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(misplacedUpdateRecord.ok, false);
+  assert.equal(
+    misplacedUpdateRecord.errors.some((issue) => issue.ruleId === 'update-record-must-use-record-actions'),
+    true,
+  );
 });

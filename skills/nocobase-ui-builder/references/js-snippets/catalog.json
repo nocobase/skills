@@ -309,7 +309,7 @@
       ],
       "ctxRoots": [
         "makeResource",
-        "record",
+        "getVar",
         "message",
         "t"
       ],
@@ -469,7 +469,7 @@
         "copy-field-values"
       ],
       "ctxRoots": [
-        "record",
+        "getVar",
         "message",
         "t"
       ],
@@ -945,7 +945,7 @@
       ],
       "ctxRoots": [
         "form",
-        "record"
+        "getVar"
       ],
       "effectStyle": "action",
       "requiresTopLevelReturn": false,
@@ -1406,7 +1406,7 @@
         "render-helper"
       ],
       "ctxRoots": [
-        "record",
+        "getVar",
         "render"
       ],
       "effectStyle": "render",
@@ -1451,7 +1451,7 @@
         "render-helper"
       ],
       "ctxRoots": [
-        "record",
+        "getVar",
         "render"
       ],
       "effectStyle": "render",
@@ -1496,7 +1496,7 @@
       ],
       "ctxRoots": [
         "value",
-        "record",
+        "getVar",
         "render"
       ],
       "effectStyle": "render",
@@ -1808,7 +1808,7 @@
         "notify"
       ],
       "ctxRoots": [
-        "record"
+        "getVar"
       ],
       "effectStyle": "action",
       "requiresTopLevelReturn": false,
@@ -1863,7 +1863,7 @@
         ]
       },
       "ctxRoots": [
-        "record",
+        "getVar",
         "render",
         "t"
       ],
@@ -1877,7 +1877,51 @@
       "forbiddenApis": [],
       "doc": "js-snippets/safe/scene/block/text-summary.md",
       "relatedIds": [
+        "scene/block/popup-record-summary",
         "scene/block/list-summary",
+        "render/text-from-record"
+      ]
+    },
+    {
+      "id": "scene/block/popup-record-summary",
+      "tier": "safe",
+      "family": "scene/block",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block",
+        "popup"
+      ],
+      "intentTags": [
+        "render-helper"
+      ],
+      "sceneHints": [
+        "popup",
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "ctxRoots": [
+        "getVar",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "render-helper"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/block/popup-record-summary.md",
+      "relatedIds": [
+        "scene/block/text-summary",
         "render/text-from-record"
       ]
     },
@@ -1948,7 +1992,7 @@
       },
       "ctxRoots": [
         "value",
-        "record",
+        "getVar",
         "render"
       ],
       "effectStyle": "render",
@@ -1989,7 +2033,7 @@
       },
       "ctxRoots": [
         "value",
-        "record",
+        "getVar",
         "render",
         "t"
       ],

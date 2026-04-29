@@ -27,6 +27,17 @@ In those cases, stay on the primary route and do not open [templates.md](./templ
 - repeat-eligible scenes require contextual `list-templates` when you are actually deciding whether to bind / reuse / standardize a template-backed scene
 - keyword-only search is discovery-only
 
+For artifact-only existing-reference decisions, make both branches visible instead of collapsing the route to one generic boundary note:
+
+```json
+{
+  "autoDetachToCopy": false,
+  "needsClarification": true,
+  "templateOwnedContentRoute": "clarify-before-template-source-edit",
+  "hostOpenViewConfigRoute": "local-host-config"
+}
+```
+
 ## Open next only if needed
 
 - [templates.md](./templates.md) for the full decision matrix and existing-reference edit routing

@@ -123,7 +123,7 @@ const user = ctx.resource.getData();
 ```js
 const res = ctx.makeResource('SingleRecordResource');
 res.setResourceName('users.profile');
-res.setSourceId(ctx.record?.id); // Parent record primary key
+res.setSourceId(await ctx.getVar('ctx.record.id')); // Parent record primary key
 res.setFilterByTk(profileId);    // filterByTk can be omitted if profile is a hasOne relationship
 await res.refresh();
 const profile = res.getData();

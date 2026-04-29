@@ -11,7 +11,7 @@ The status should update another field or trigger side effects; use an action/li
 
 ## Required ctx roots
 - `ctx.value`
-- `ctx.record`
+- `ctx.getVar`
 - `ctx.render`
 
 ## Contract
@@ -23,7 +23,8 @@ The status should update another field or trigger side effects; use an action/li
 ## Normalized snippet
 
 ```js
-const status = String(ctx.value ?? ctx.record?.status ?? 'unknown');
+const currentRecord = await ctx.getVar('ctx.record');
+const status = String(ctx.value ?? currentRecord?.status ?? 'unknown');
 const color = status === 'active' ? 'green' : status === 'draft' ? 'blue' : 'default';
 ctx.render(`<span data-color="${color}">${status}</span>`);
 ```

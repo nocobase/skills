@@ -54,6 +54,7 @@ The popup subtree in public `applyBlueprint` still follows the same public page-
 
 - nested popup blocks use the same canonical block grammar as top-level tab blocks
 - nested `resource` objects use `collectionName`, not `collection`
+- relation-field popups must bind their child blocks to the clicked related record, not the opener collection: `details` / `editForm` use `resource.binding = "currentRecord"` and relation tables/lists/cards use `resource.binding = "associatedRecords"` with `resource.associationField`
 - for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`
 - the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; author the canonical shape directly whenever possible
 - when the requirement is "click the shown record / relation record to open details", prefer a field object with inline `popup` so the field itself is the opener; backend readback commonly normalizes this to clickable-field / `clickToOpen` semantics

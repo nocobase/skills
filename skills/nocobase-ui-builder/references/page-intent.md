@@ -45,8 +45,8 @@ Use this file only when the task is whole-page authoring. If the request is real
     - ambiguous `筛选` defaults to a block-level `filter` action, not a `filterForm`
     - any `filterForm` with 4 or more fields includes `collapse`
     - every custom `edit` popup contains exactly one `editForm`
-    - any data-bound block has caller-supplied `collectionMetadata`; missing or empty metadata fails prepare-write with `missing-collection-metadata`
-    - with `collectionMetadata`, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
+    - data-bound blocks have resolved `collectionMetadata`; the CLI auto-fills missing collection entries by default, while `--no-auto-collection-metadata` keeps the `missing-collection-metadata` fail-closed path
+    - with resolved `collectionMetadata`, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
 14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the nb raw body. Keep the local `prepare-write` gate and the later `nb api flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Do not wrap that prepared object again.
 

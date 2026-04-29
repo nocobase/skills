@@ -663,7 +663,7 @@ Notes:
               "value": {
                 "source": "runjs",
                 "version": "v2",
-                "code": "const amount = Number(ctx.formValues?.amount || 0); return amount;"
+                "code": "const amount = Number(ctx.formValues?.amount || 0);\n\nreturn amount;"
               }
             },
             {
@@ -671,7 +671,7 @@ Notes:
               "value": {
                 "source": "runjs",
                 "version": "v2",
-                "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
+                "code": "const amount = Number(ctx.formValues?.amount || 0);\nconst taxRate = Number(ctx.formValues?.taxRate || 0);\n\nreturn amount + amount * taxRate;"
               }
             }
           ]

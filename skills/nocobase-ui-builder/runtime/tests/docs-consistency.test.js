@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { maskJavaScriptSource } from '../src/source-mask.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const repoRoot = path.resolve(skillRoot, '..', '..');
@@ -74,6 +75,13 @@ function extractFirstJsFenceAfterHeading(markdown, heading) {
   return match[2];
 }
 
+function extractJsFenceAfterH2(markdown, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = markdown.match(new RegExp(`^##\\s+${escaped}\\s*$([\\s\\S]*?)^\\\`\\\`\\\`(?:js|javascript)\\n([\\s\\S]*?)\\n\\\`\\\`\\\``, 'm'));
+  assert.ok(match, `should find js fence after h2 "${heading}"`);
+  return match[2];
+}
+
 function validateRunjsSnippet(model, code) {
   const cliPath = path.join(skillRoot, 'runtime/bin/nb-runjs.mjs');
   const result = spawnSync(process.execPath, [cliPath, 'validate', '--stdin-json', '--skill-mode'], {
@@ -85,6 +93,14 @@ function validateRunjsSnippet(model, code) {
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, true, `runjs validator should accept ${model}: ${result.stdout}`);
   return parsed;
+}
+
+function assertNoDirectCtxRecordValueReads(code, label) {
+  assert.doesNotMatch(
+    maskJavaScriptSource(code),
+    /\bctx\.record(?:\?\.|\.)/,
+    `${label} should read record values with await ctx.getVar('ctx.record...')`,
+  );
 }
 
 function readYamlDoubleQuotedScalar(yamlText, key) {
@@ -219,6 +235,16 @@ function assertSkillKeepsTemplateRulesMinimal(text) {
     /clarify before writing|do not auto-detach/i,
     'SKILL.md should block automatic detach on unresolved existing-reference scope',
   );
+  assert.match(
+    text,
+    /record[\s\S]{0,160}template-owned[\s\S]{0,180}host\/openView[\s\S]{0,120}separately/i,
+    'SKILL.md should require separate template-owned and host/openView routing records',
+  );
+  assert.match(
+    text,
+    /templateOwnedContentRoute[\s\S]{0,160}hostOpenViewConfigRoute/i,
+    'SKILL.md should name the artifact fields for template-owned and host/openView routing',
+  );
   assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md should not restate popup.tryTemplate details');
   assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md should not restate popup.saveAsTemplate details');
   assert.doesNotMatch(text, /keyword-only search/i, 'SKILL.md should not restate template search heuristics');
@@ -239,8 +265,23 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /reaction work[\s\S]{0,160}`get-reaction-meta`[\s\S]{0,120}`set\*Rules`[\s\S]{0,120}\[reaction-quick\.md\]/i,
-    'SKILL.md should keep reaction work routing visible through reaction-quick.md',
+    /localized existing-surface reaction work[\s\S]{0,160}`get-reaction-meta`[\s\S]{0,120}`set\*Rules`[\s\S]{0,120}\[reaction-quick\.md\]/i,
+    'SKILL.md should keep localized reaction work routing visible through reaction-quick.md',
+  );
+  assert.match(
+    text,
+    /first-pass whole-page[\s\S]{0,160}`?reaction\.items\[\]`?[\s\S]{0,200}(?:no|without)[\s\S]{0,80}`?get-reaction-meta`?/i,
+    'SKILL.md should keep first-pass whole-page reactions in reaction.items[] without live meta',
+  );
+  assert.match(
+    text,
+    /artifact-only localized reaction[\s\S]{0,180}planned `?get-reaction-meta`? probe/i,
+    'SKILL.md should require artifact-only localized reaction drafts to record the planned meta probe',
+  );
+  assert.match(
+    text,
+    /artifact-only locator[\s\S]{0,180}navigation\.routeId[\s\S]{0,160}page\.pageSchemaUid[\s\S]{0,160}liveTargets\[\]\.uid[\s\S]{0,160}non-empty placeholder/i,
+    'SKILL.md should keep artifact-only locator maps as direct fields with non-empty placeholders',
   );
   assert.match(
     text,
@@ -634,9 +675,11 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
 
   const jsModelRender = read('references/js-surfaces/js-model-render.md');
   assert.match(jsModelRender, /ctx\.render\(\.\.\.\).*required|required.*ctx\.render/i, 'js-model-render doc should require ctx.render');
+  assert.match(jsModelRender, /popup-opener-record[\s\S]{0,160}ctx\.popup\.record/i, 'js-model-render doc should route popup opener records to ctx.popup.record');
 
   const jsModelAction = read('references/js-surfaces/js-model-action.md');
   assert.match(jsModelAction, /clickSettings\.runJs/i, 'js-model-action doc should expose action write path');
+  assert.match(jsModelAction, /inner-row-record[\s\S]{0,180}ctx\.getVar\('ctx\.record/i, 'js-model-action doc should distinguish popup inner row record from popup opener record');
 
   const legacyIndex = read('references/js-models/index.md');
   assert.match(legacyIndex, /legacy/i, 'js-models/index should mark itself as a legacy entrypoint');
@@ -650,6 +693,12 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
   const safeIds = new Set(catalog.snippets.filter((entry) => entry.tier === 'safe').map((entry) => entry.id));
   const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+  const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
+  assert.deepEqual(
+    renderSurface?.recommendedBySceneHint?.popup,
+    ['scene/block/popup-record-summary'],
+    'js-model.render should recommend the popup record snippet for popup scenes',
+  );
   for (const surface of manifest.surfaces) {
     assert.equal(surface.recommendedSnippetIds.length <= 3, true, `${surface.id} should recommend at most 3 snippets`);
     for (const snippetId of surface.recommendedSnippetIds) {
@@ -661,6 +710,34 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
       surface.recommendedSnippetIds,
       `${surface.id} surface doc should keep first-hop snippets in exact manifest order`,
     );
+  }
+});
+
+test('RunJS authoring docs require record semantic selection before code generation', () => {
+  const js = read('references/js.md');
+  const loop = read('references/runjs-authoring-loop.md');
+  const blockTextSummary = read('references/js-snippets/safe/scene/block/text-summary.md');
+  const textFromRecord = read('references/js-snippets/safe/render/text-from-record.md');
+
+  assert.match(js, /recordSemantic/i, 'js.md should require recording the selected record semantic');
+  assert.match(js, /contextEvidence/i, 'js.md should require evidence for context root choices');
+  assert.match(loop, /recordSemantic/i, 'runjs-authoring-loop should include recordSemantic in the scenario card');
+  assert.match(loop, /contextEvidence/i, 'runjs-authoring-loop should include contextEvidence in the scenario card');
+  assert.match(loop, /popup-opener-record[\s\S]{0,180}ctx\.popup\.record/i, 'runjs authoring loop should map popup opener record to ctx.popup.record');
+  assert.match(loop, /inner-row-record[\s\S]{0,200}ctx\.getVar\('ctx\.record/i, 'runjs authoring loop should route inner row records through ctx.getVar');
+  assert.match(blockTextSummary, /Do not use[\s\S]{0,220}popup/i, 'block text-summary snippet should not be used for popup opener records');
+  assert.match(textFromRecord, /Do not use[\s\S]{0,220}popup/i, 'text-from-record snippet should not be used for popup opener records');
+});
+
+test('safe RunJS snippets read record values through ctx.getVar', () => {
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const safeEntries = catalog.snippets.filter((entry) => entry.tier === 'safe');
+  assert.ok(safeEntries.length > 0, 'safe snippet catalog should not be empty');
+
+  for (const entry of safeEntries) {
+    const markdown = read(`references/${entry.doc}`);
+    const code = extractJsFenceAfterH2(markdown, 'Normalized snippet');
+    assertNoDirectCtxRecordValueReads(code, `${entry.id} normalized snippet`);
   }
 });
 
@@ -720,6 +797,11 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
     runtime,
     /pageSchemaUid[\s\S]{0,160}(catalog|context|get-reaction-meta|compose|configure|add\*|remove\*)/i,
     'runtime-playbook should require pageSchemaUid/live uid normalization before localized follow-up reads and writes',
+  );
+  assert.match(
+    runtime,
+    /locator-map\.json[\s\S]{0,160}navigation[\s\S]{0,80}routeId[\s\S]{0,160}page[\s\S]{0,80}pageSchemaUid[\s\S]{0,160}liveTargets[\s\S]{0,80}uid/i,
+    'runtime-playbook should show the artifact-only locator map shape with direct navigation/page/liveTargets fields',
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
@@ -938,6 +1020,26 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /\{\}[\s\S]{0,80}`?null`?[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\][\s\S]{0,80}rejected/i);
   assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(
+    helperContracts,
+    /sortable public blocks[\s\S]{0,160}table[\s\S]{0,80}details[\s\S]{0,80}list[\s\S]{0,80}tree[\s\S]{0,80}kanban[\s\S]{0,80}gridCard[\s\S]{0,80}map[\s\S]{0,160}settings\.sort[\s\S]{0,80}settings\.sorting/i,
+    'helper-contracts should scope sort alias normalization to sortable public blocks',
+  );
+  assert.match(
+    helperContracts,
+    /calendar[\s\S]{0,120}(?:not normalized|left unchanged)/i,
+    'helper-contracts should state calendar sort aliases are not normalized',
+  );
+  assert.match(
+    helperContracts,
+    /relation field popup[\s\S]{0,180}details[\s\S]{0,80}editForm[\s\S]{0,120}currentRecord/i,
+    'helper-contracts should document relation popup resource bindings',
+  );
+  assert.match(
+    helperContracts,
+    /relation (?:tables\/lists\/cards|`table` \/ `list` \/ `gridCard` blocks)[\s\S]{0,120}associatedRecords[\s\S]{0,120}associationField/i,
+    'helper-contracts should document associatedRecords relation popup bindings',
+  );
 
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i);
@@ -1127,6 +1229,26 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
+    /blueprint\.json[\s\S]{0,160}(?:must be|is)[\s\S]{0,160}(?:bare|direct|root)[\s\S]{0,160}`?tabs\[\]`?/i,
+    'whole-page-quick should require artifact-only blueprint.json to be the direct blueprint root with tabs[]',
+  );
+  assert.match(
+    wholePageQuick,
+    /preview-policy\.json[\s\S]{0,160}"prepareWriteRequired"\s*:\s*false[\s\S]{0,160}"previewSource"\s*:\s*"draft-blueprint"/i,
+    'whole-page-quick should document the artifact-only preview policy shape',
+  );
+  assert.match(
+    wholePageQuick,
+    /locator-map\.json[\s\S]{0,180}"navigation"\s*:\s*\{\s*"routeId"[\s\S]{0,180}"page"\s*:\s*\{\s*"pageSchemaUid"[\s\S]{0,180}"liveTargets"[\s\S]{0,80}"uid"/i,
+    'whole-page-quick should show the direct artifact-only locator-map shape',
+  );
+  assert.match(
+    wholePageQuick,
+    /liveTargets\[\]\.uid[\s\S]{0,160}non-empty placeholder[\s\S]{0,120}not `?null`?/i,
+    'whole-page-quick should require non-empty live target placeholders instead of null',
+  );
+  assert.match(
+    wholePageQuick,
     /helper-contracts[\s\S]{0,120}(real write|prewrite gate)/i,
     'whole-page-quick should keep helper-contracts behind real-write or prewrite-gate needs',
   );
@@ -1222,6 +1344,21 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     reactionQuick,
     /Whole-page-first rule|for whole-page create \/ replace, prefer top-level `?reaction\.items\[\]`?/i,
     'reaction-quick should treat first-pass whole-page reactions as the default route',
+  );
+  assert.match(
+    reactionQuick,
+    /whole-page[\s\S]{0,220}`?reaction\.items\[\]`?[\s\S]{0,200}(?:no|without)[\s\S]{0,80}`?get-reaction-meta`?/i,
+    'reaction-quick should keep whole-page first-pass reactions off live meta probes',
+  );
+  assert.match(
+    reactionQuick,
+    /"metaProbe"[\s\S]{0,120}"operation"\s*:\s*"get-reaction-meta"[\s\S]{0,220}"requiredKinds"[\s\S]{0,220}"requiredSourcePaths"/i,
+    'reaction-quick should show a structured artifact-only metaProbe contract',
+  );
+  assert.match(
+    reactionQuick,
+    /artifact-only localized[\s\S]{0,260}(?:no|do not invent)[\s\S]{0,120}(?:live `?uid`?|fingerprint)/i,
+    'reaction-quick should forbid invented live uids/fingerprints in artifact-only localized drafts',
   );
   assert.match(
     reactionQuick,
@@ -1340,6 +1477,10 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   const templateQuick = read('references/template-quick.md');
   assert.match(templateQuick, /\[templates\.md\]/i);
   assert.match(templateQuick, /page-scoped wording/i);
+  assert.match(templateQuick, /"autoDetachToCopy"\s*:\s*false/i);
+  assert.match(templateQuick, /"needsClarification"\s*:\s*true/i);
+  assert.match(templateQuick, /"templateOwnedContentRoute"/i);
+  assert.match(templateQuick, /"hostOpenViewConfigRoute"/i);
 
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /real write|prewrite-validation/i);
@@ -1789,14 +1930,18 @@ test('whole-page defaults docs keep the fixed popup trio and table addNew thresh
   );
 });
 
-test('helper contracts require caller-supplied collectionMetadata for data-bound prepare-write', () => {
+test('helper contracts document prepare-write collectionMetadata auto-resolution', () => {
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /does not fetch live collection metadata/i);
+  assert.match(helperContracts, /auto-resolves missing `?collectionMetadata`? entries/i);
+  assert.match(helperContracts, /data-modeling collections get/i);
+  assert.match(helperContracts, /resource list/i);
+  assert.match(helperContracts, /--no-auto-collection-metadata/i);
   assert.match(helperContracts, /collectionMetadata/i);
   assert.match(helperContracts, /data-bound block/i);
   assert.match(helperContracts, /missing-collection-metadata/i);
   assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
-  assert.match(helperContracts, /caller-supplied/i);
+  assert.match(helperContracts, /caller-supplied[\s\S]{0,80}wins/i);
+  assert.match(helperContracts, /does not auto-fetch missing metadata/i);
   assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });

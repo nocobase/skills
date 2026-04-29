@@ -82,7 +82,7 @@ if (!confirmed) {
   ctx.exit();  // Terminate subsequent steps if the user cancels
   return;
 }
-await ctx.runAction('destroy', { filterByTk: ctx.record?.id });
+await ctx.runAction('destroy', { filterByTk: await ctx.getVar('ctx.record.id') });
 ```
 
 ### Confirmation Modal with onOk

@@ -64,7 +64,7 @@ ctx.render(div);
 ### 错误 1：把返回值当渲染
 
 ```js
-const value = ctx.record?.status || '-';
+const value = (await ctx.getVar('ctx.record.status')) || '-';
 return value;
 ```
 
@@ -81,6 +81,6 @@ ctx.element.innerHTML = '<div>...</div>';
 ## 正确示例
 
 ```js
-const value = ctx.record?.status || '-';
+const value = (await ctx.getVar('ctx.record.status')) || '-';
 ctx.render(`<span>${value}</span>`);
 ```

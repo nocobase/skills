@@ -45,7 +45,7 @@ Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns t
 
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
-- In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
+- In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. The popup content must also use the correct resource binding: `details` / `editForm` for the clicked relation record use `resource.binding = "currentRecord"`, while relation lists use `resource.binding = "associatedRecords"` plus `resource.associationField`. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. Prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
@@ -64,6 +64,7 @@ Envelope boundary:
 - For the first real whole-page write, `prepare-write` is mandatory, and the actual nb raw body becomes `result.cliBody`, not the original draft blueprint.
 - Do not wrap that object again. If `prepare-write` already ran, that same object means the prepared `result.cliBody`.
 - Do not stringify this document into nested JSON such as `blueprint: "{\"version\":\"1\"...}"`.
+- Do not put `collectionMetadata` in this inner blueprint. It belongs only in the prepare helper envelope `{ blueprint, collectionMetadata }` or in direct helper call options; the CLI fills missing metadata entries by default before validation.
 - Every JSON snippet below should be treated as the inner blueprint draft; for the first real whole-page write, send the returned `cliBody` instead of the raw draft snippet.
 
 ## 2. Top-level Shape
@@ -767,6 +768,26 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 - applyBlueprint may auto-promote these common record actions from `actions`, but that is a convenience fallback, not the preferred authoring style
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
 - in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
+
+Field assignment for update actions uses only `settings.assignValues`:
+
+- `bulkUpdate` is a collection action and belongs under block `actions`
+- `updateRecord` is a record action and belongs under `recordActions`
+- `assignValues` must be a plain object keyed by fields in the host collection metadata
+- `{}` is valid and clears the persisted field assignment
+- do not configure assignment fields through `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel`
+
+```json
+{
+  "type": "bulkUpdate",
+  "settings": {
+    "assignValues": {
+      "priority": "high",
+      "isTracking": true
+    }
+  }
+}
+```
 
 For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 

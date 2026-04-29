@@ -37,7 +37,7 @@ When using `validate --stdin-json`, the recommended stdin JSON follows this cano
 {
   "surface": "js-model.render",
   "model": "JSColumnModel",
-  "code": "ctx.render(String(ctx.record?.nickname || ''));",
+  "code": "const nickname = await ctx.getVar('ctx.record.nickname');\nctx.render(String(nickname || ''));",
   "context": {}
 }
 ```
@@ -62,7 +62,7 @@ If the current cwd is already `skills/nocobase-ui-builder/runtime`, you can use 
 node ./bin/nb-runjs.mjs validate --surface js-model.render --model JSBlockModel --code-file ./fixtures/js-block-code.js
 node ./bin/nb-runjs.mjs validate --surface js-model.render --model JSBlockModel --code-file ./fixtures/js-block-code.js --context-file ./fixtures/js-block-context.json
 node ./bin/nb-runjs.mjs validate --surface js-model.render --model JSBlockModel --code-file ./fixtures/js-block-code.js --network-file ./fixtures/network-mock.json
-node ./bin/nb-runjs.mjs validate --surface reaction.value-runjs --stdin-json
+node ./bin/nb-runjs.mjs validate --stdin-json --surface reaction.value-runjs
 node ./bin/nb-runjs.mjs validate --model ChartOptionModel --stdin-json
 node ./bin/nb-runjs.mjs validate --model ChartEventsModel --stdin-json
 node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json

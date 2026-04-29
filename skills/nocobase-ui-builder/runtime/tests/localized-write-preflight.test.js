@@ -18,6 +18,7 @@ function makeMetadata() {
           { name: 'email', interface: 'email' },
           { name: 'status', interface: 'select' },
           { name: 'department', interface: 'm2o', type: 'belongsTo', target: 'departments' },
+          { name: 'roles', interface: 'm2m', type: 'belongsToMany', target: 'roles' },
         ],
       },
       departments: {
@@ -44,6 +45,15 @@ function makeMetadata() {
           { name: 'status', interface: 'select' },
         ],
       },
+      roles: {
+        name: 'roles',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', interface: 'integer', type: 'bigInt' },
+          { name: 'name', interface: 'input' },
+          { name: 'title', interface: 'input' },
+        ],
+      },
     },
     liveTopology: {
       byUid: {
@@ -61,6 +71,41 @@ function makeMetadata() {
           uid: 'users-table-uid',
           use: 'TableBlockModel',
           collectionName: 'users',
+        },
+        'users-list-uid': {
+          uid: 'users-list-uid',
+          use: 'ListBlockModel',
+          collectionName: 'users',
+        },
+        'users-details-uid': {
+          uid: 'users-details-uid',
+          use: 'DetailsBlockModel',
+          collectionName: 'users',
+        },
+        'users-map-uid': {
+          uid: 'users-map-uid',
+          use: 'MapBlockModel',
+          collectionName: 'users',
+        },
+        'users-calendar-uid': {
+          uid: 'users-calendar-uid',
+          use: 'CalendarBlockModel',
+          collectionName: 'calendar_events',
+        },
+        'chart-block-uid': {
+          uid: 'chart-block-uid',
+          use: 'ChartBlockModel',
+          collectionName: 'users',
+        },
+        'bulk-update-action-uid': {
+          uid: 'bulk-update-action-uid',
+          use: 'BulkUpdateActionModel',
+          parentUid: 'users-table-uid',
+        },
+        'update-record-action-uid': {
+          uid: 'update-record-action-uid',
+          use: 'UpdateRecordActionModel',
+          parentUid: 'users-table-uid',
         },
         'collection-tree-target-uid': {
           uid: 'collection-tree-target-uid',
@@ -453,6 +498,500 @@ test('runLocalizedWritePreflight defaults block settings heightMode to specifyVa
   assert.equal(addBlocks.ok, true);
   assert.equal(addBlocks.cliBody.blocks[0].settings.heightMode, 'specifyValue');
   assert.equal(addBlocks.cliBody.blocks[1].settings.heightMode, 'fullHeight');
+});
+
+test('runLocalizedWritePreflight normalizes localized settings.sort alias to sorting', () => {
+  const addBlock = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: {
+        dataSourceKey: 'main',
+        collectionName: 'users',
+      },
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      settings: {
+        sort: ['-createdAt', 'nickname'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(addBlock.ok, true);
+  assert.equal(Object.hasOwn(addBlock.cliBody.settings, 'sort'), false);
+  assert.deepEqual(addBlock.cliBody.settings.sorting, [
+    { field: 'createdAt', direction: 'desc' },
+    { field: 'nickname', direction: 'asc' },
+  ]);
+
+  const compose = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersList',
+          type: 'list',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          settings: {
+            sort: [{ field: 'nickname', direction: 'descend' }],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(compose.ok, true);
+  assert.equal(Object.hasOwn(compose.cliBody.blocks[0].settings, 'sort'), false);
+  assert.deepEqual(compose.cliBody.blocks[0].settings.sorting, [
+    { field: 'nickname', direction: 'desc' },
+  ]);
+
+  const configure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        sort: ['email'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(configure.ok, true);
+  assert.equal(Object.hasOwn(configure.cliBody.changes, 'sort'), false);
+  assert.deepEqual(configure.cliBody.changes.sorting, [
+    { field: 'email', direction: 'asc' },
+  ]);
+
+  const detailsBlock = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'details',
+      resourceInit: {
+        dataSourceKey: 'main',
+        collectionName: 'users',
+      },
+      settings: {
+        sort: [{ field: 'nickname', direction: 'ascending' }],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(detailsBlock.ok, true);
+  assert.equal(Object.hasOwn(detailsBlock.cliBody.settings, 'sort'), false);
+  assert.deepEqual(detailsBlock.cliBody.settings.sorting, [
+    { field: 'nickname', direction: 'asc' },
+  ]);
+
+  const treeBlock = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTree',
+          type: 'tree',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          settings: {
+            sort: ['nickname'],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(treeBlock.ok, true);
+  assert.equal(Object.hasOwn(treeBlock.cliBody.blocks[0].settings, 'sort'), false);
+  assert.deepEqual(treeBlock.cliBody.blocks[0].settings.sorting, [
+    { field: 'nickname', direction: 'asc' },
+  ]);
+
+  const mapConfigure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-map-uid' },
+      changes: {
+        sort: ['-nickname'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(mapConfigure.ok, true);
+  assert.equal(Object.hasOwn(mapConfigure.cliBody.changes, 'sort'), false);
+  assert.deepEqual(mapConfigure.cliBody.changes.sorting, [
+    { field: 'nickname', direction: 'desc' },
+  ]);
+});
+
+test('runLocalizedWritePreflight rejects conflicting localized sort aliases', () => {
+  const compose = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          settings: {
+            sort: ['-createdAt'],
+            sorting: [{ field: 'createdAt', direction: 'asc' }],
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(compose.ok, false);
+  assertHasRule(compose, 'settings-sort-sorting-conflict', '$.blocks[0].settings.sort');
+
+  const configure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-list-uid' },
+      changes: {
+        sort: ['-createdAt'],
+        sorting: [{ field: 'createdAt', direction: 'asc' }],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(configure.ok, false);
+  assertHasRule(configure, 'settings-sort-sorting-conflict', '$.changes.sort');
+});
+
+test('runLocalizedWritePreflight leaves configure sort unchanged for non-sorting live targets', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'chart-block-uid' },
+      changes: {
+        sort: ['-createdAt'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.changes.sort, ['-createdAt']);
+  assert.equal(Object.hasOwn(result.cliBody.changes, 'sorting'), false);
+
+  const calendar = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        sort: ['-createdAt'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(calendar.ok, true);
+  assert.deepEqual(calendar.cliBody.changes.sort, ['-createdAt']);
+  assert.equal(Object.hasOwn(calendar.cliBody.changes, 'sorting'), false);
+});
+
+test('runLocalizedWritePreflight validates and normalizes relation field popup resources', () => {
+  const canonicalDetails = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            'nickname',
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    resource: {
+                      binding: 'currentRecord',
+                      collectionName: 'roles',
+                    },
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(canonicalDetails.ok, true);
+  assert.equal(canonicalDetails.cliBody.blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
+
+  const legacyDetails = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    collection: 'roles',
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(legacyDetails.ok, true);
+  assert.equal(legacyDetails.cliBody.blocks[0].fields[0].popup.blocks[0].resource.binding, 'currentRecord');
+
+  const associatedTable = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'rolesTable',
+                    type: 'table',
+                    resource: {
+                      binding: 'associatedRecords',
+                      associationField: 'roles',
+                      collectionName: 'roles',
+                    },
+                    defaultFilter: makeDefaultFilter(['name', 'title']),
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(associatedTable.ok, true);
+  assert.equal(associatedTable.cliBody.blocks[0].fields[0].popup.blocks[0].resource.binding, 'associatedRecords');
+});
+
+test('runLocalizedWritePreflight rejects invalid relation field popup resources', () => {
+  const mismatchedDetails = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'departmentDetails',
+                    type: 'details',
+                    collection: 'departments',
+                    fields: ['title'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(mismatchedDetails.ok, false);
+  assertHasRule(mismatchedDetails, 'relation-popup-current-record-target-mismatch', '$.blocks[0].fields[0].popup.blocks[0].resource.collectionName');
+
+  const unresolvedMetadata = makeMetadata();
+  unresolvedMetadata.collections.users = {
+    ...unresolvedMetadata.collections.users,
+    fields: unresolvedMetadata.collections.users.fields.map((field) =>
+      field.name === 'roles' ? { ...field, target: '' } : field,
+    ),
+  };
+  const unresolvedDetails = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    collection: 'roles',
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: unresolvedMetadata,
+  });
+
+  assert.equal(unresolvedDetails.ok, false);
+  assertHasRule(unresolvedDetails, 'relation-popup-current-record-target-unresolved', '$.blocks[0].fields[0].popup.blocks[0].resource.binding');
+
+  const wrongAssociatedTable = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'rolesTable',
+                    type: 'table',
+                    collection: 'roles',
+                    defaultFilter: makeDefaultFilter(['name', 'title']),
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(wrongAssociatedTable.ok, false);
+  assertHasRule(wrongAssociatedTable, 'relation-popup-associated-records-binding-required', '$.blocks[0].fields[0].popup.blocks[0].resource.binding');
+});
+
+test('runLocalizedWritePreflight does not apply relation popup binding rules to scalar field popups', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'nickname',
+              popup: {
+                blocks: [
+                  {
+                    key: 'userDetails',
+                    type: 'details',
+                    collection: 'users',
+                    fields: ['nickname'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.errors.length, 0);
 });
 
 test('runLocalizedWritePreflight defaults nested popup block heightMode to specifyValue', () => {
@@ -1312,4 +1851,163 @@ test('nb-localized-write-preflight CLI help keeps validator-only contract explic
   assert.match(parsed.usage.command, /validate one localized flow-surfaces/i);
   assert.match(parsed.usage.command, /before a later explicit nb write/i);
   assert.doesNotMatch(parsed.usage.command, /before the real nb write/i);
+});
+
+test('runLocalizedWritePreflight validates compose update action assignValues against collection metadata', () => {
+  const makeBody = (actionPatch = {}, recordActionPatch = {}) => ({
+    target: { uid: 'page-tab-uid' },
+    blocks: [
+      {
+        key: 'usersTable',
+        type: 'table',
+        resource: {
+          dataSourceKey: 'main',
+          collectionName: 'users',
+        },
+        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        actions: [
+          {
+            type: 'bulkUpdate',
+            settings: {
+              assignValues: { status: 'inactive' },
+            },
+            ...actionPatch,
+          },
+        ],
+        recordActions: [
+          {
+            type: 'updateRecord',
+            settings: {
+              assignValues: { status: 'active' },
+            },
+            ...recordActionPatch,
+          },
+        ],
+      },
+    ],
+  });
+
+  const valid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody(),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(valid.ok, true);
+
+  const updateRecordValid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody(undefined, {
+      settings: {
+        assignValues: { email: 'a@example.com' },
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(updateRecordValid.ok, true);
+
+  const unknownField = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: { missingField: 'x' },
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(unknownField.ok, false);
+  assertHasRule(unknownField, 'assign-values-field-unknown', '$.blocks[0].actions[0].settings.assignValues.missingField');
+
+  const nonObject = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: ['status'],
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nonObject.ok, false);
+  assertHasRule(nonObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
+
+  class AssignValuesClass {
+    status = 'inactive';
+  }
+  const nonPlainObject = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: new AssignValuesClass(),
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nonPlainObject.ok, false);
+  assertHasRule(nonPlainObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
+
+  const emptyClear = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        assignValues: {},
+      },
+    }, {
+      settings: {
+        assignValues: {},
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(emptyClear.ok, true);
+});
+
+test('runLocalizedWritePreflight validates localized configure assignValues targets', () => {
+  const validBulkUpdate = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'bulk-update-action-uid' },
+      changes: {
+        assignValues: { status: 'inactive' },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validBulkUpdate.ok, true);
+
+  const validUpdateRecord = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'update-record-action-uid' },
+      changes: {
+        assignValues: {},
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validUpdateRecord.ok, true);
+
+  const unknownField = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'bulk-update-action-uid' },
+      changes: {
+        assignValues: { missingField: 'x' },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(unknownField.ok, false);
+  assertHasRule(unknownField, 'assign-values-field-unknown', '$.changes.assignValues.missingField');
+
+  const nonObject = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'update-record-action-uid' },
+      changes: {
+        assignValues: 'status',
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nonObject.ok, false);
+  assertHasRule(nonObject, 'assign-values-must-be-object', '$.changes.assignValues');
 });

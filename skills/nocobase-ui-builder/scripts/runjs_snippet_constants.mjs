@@ -23,6 +23,7 @@ export const RUNJS_SCENE_HINTS = new Set([
   'formValue',
   'customVariable',
   'block',
+  'popup',
   'detail',
   'form',
   'table',

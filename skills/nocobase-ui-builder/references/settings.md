@@ -32,7 +32,7 @@ Canonical front door is `nb api flow-surfaces`. This file is for **low-level wri
 | --- | --- | --- |
 | create node + frequent public attributes | `add* + settings` | the target fields have already been exposed as public semantics in the live environment; if confirmation is needed, read `catalog` first via normative contract |
 | small update to an existing node | `configure(changes)` | still within public semantic fields, but the node does not need to be recreated |
-| switch an existing relation field presentation | `configure(changes)` on `wrapperUid` | use flat `fieldType` with optional `fields` / `selectorFields` / `titleField`; use `popupSubTable` for 弹窗子表格 and `subTable` only for inline/editable subtable; do not send internal model keys |
+| switch an existing relation field presentation | `configure(changes)` on `wrapperUid` | use flat `fieldType` with optional `fields` / `titleField`; for `picker`, `fields` configures the selector table columns; use `popupSubTable` for 弹窗子表格 and `subTable` only for inline/editable subtable; do not send internal model keys |
 | path-level fine-grained patch | `update-settings` | the live environment only exposes a domain contract, without a public semantic entry |
 | layout | `set-layout` | only when the user explicitly accepts whole-layout replacement and the full current layout has already been read back |
 | event flows | `set-event-flows` | only when the user explicitly accepts full instance-level flow replacement and the full current flow has already been read back |
@@ -194,6 +194,7 @@ Notes:
 - For relation field presentation switching, prefer targeting the field wrapper rather than the inner field.
 - `popupSubTable` means 弹窗子表格 / popup editing. `subTable` means 编辑子表格 / inline editing.
 - After writing, always read back both the wrapper and the inner field to confirm that the server rebuilt the field sub-model instead of leaving stale UI structure behind.
+- For `picker` and `popupSubTable`, `fields` also configures the select-popup table under inner field `subModels["grid-block"]`. Persisted readback should show exactly one selector table item using `TableSelectModel`; if it shows ordinary `TableBlockModel`, treat that as a live repair gap because row selection will not receive the popup's `rowSelectionProps`.
 
 Invalid:
 
@@ -440,6 +441,52 @@ If the goal is a standard details popup on a shown title/name field, prefer fiel
   }
 }
 ```
+
+### Update action field assignment
+
+Use public `settings.assignValues` only. Do not create/update `AssignFormGridModel` / `AssignFormItemModel`, do not write raw `flowModels`, and do not try to configure this with `add-fields`.
+
+`bulkUpdate` is a collection action, so it belongs under block `actions` or `add-action`:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "bulkUpdate",
+  "settings": {
+    "assignValues": {
+      "priority": "high",
+      "isTracking": true
+    }
+  }
+}
+```
+
+`updateRecord` is a record action, so it belongs under `recordActions` or `add-record-action`:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "updateRecord",
+  "settings": {
+    "assignValues": {
+      "status": "active"
+    }
+  }
+}
+```
+
+For existing update actions, `configure` uses the same key:
+
+```json
+{
+  "target": { "uid": "update-action-uid" },
+  "changes": {
+    "assignValues": {}
+  }
+}
+```
+
+`assignValues` must be a plain object keyed by fields in the host collection metadata. `{}` is valid and clears the persisted assignment.
 
 Readback rule for localized creates:
 

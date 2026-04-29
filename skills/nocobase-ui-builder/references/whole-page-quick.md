@@ -19,6 +19,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
+   - You do not need to hand-build a complete helper envelope before `prepare-write`; pass any metadata you already have, and the CLI fills missing collection entries before validation.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
    - Under `defaults.collections`, every involved direct collection always carries fixed `popups.view` / `addNew` / `edit` `{ name, description }` objects, and any `table` block always pulls its collection into the `addNew` threshold evaluation even when the draft omitted an explicit `addNew` opener.
    - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when one of those fixed backend-generated popup scenes should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
@@ -34,6 +35,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
    - in display hosts (`table`, `details`, `list`, `gridCard`), first-level relation fields such as `roles` must use object form with inline `popup`; do not leave them as ``"roles"`` or `{ "field": "roles" }`
+   - that relation field popup must also bind its child blocks correctly: `details` / `editForm` use `resource.binding = "currentRecord"` for the clicked related record, while relation tables/lists/cards use `resource.binding = "associatedRecords"` plus `resource.associationField`
    - dotted paths such as `department.title` stay allowed without popup, and `createForm` / `editForm` are exempt from that display-only rule
 8. If the page explicitly asks for a tree filter (`树筛选 / 树状筛选 / tree filter`), keep a real `tree` block in that first-pass blueprint or localized write:
    - use `type: "tree"` / `TreeBlockModel`
@@ -43,6 +45,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not repeat the same target in one tree `targets` array; keep one entry with the final `filterPaths`
    - `titleField` is display-only; the selected filter value comes from the tree key / `filterTargetKey`, so keep target `filterPaths` type-compatible with that key
    - prefer `title`, `searchable`, `includeDescendants`, `defaultExpandAll`, `titleField`, `fieldNames`, `pageSize`, `dataScope`, and `sorting` settings
+   - use canonical `settings.sorting`; legacy `settings.sort` is only a compatibility alias that prepare-write normalizes
    - do not write raw `filterManager`; let `settings.connectFields` persist the front-end “连接数据区块” configuration
    - do not downgrade it into `filterForm` just because the phrase also contains `筛选`
 9. If the page explicitly asks for a filter block/form, keep a real `filterForm` in that first-pass blueprint:
@@ -60,24 +63,29 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
    - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block
-11. If one tab or popup contains multiple non-filter blocks, give it explicit `layout`, avoid one-row-one-block stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`. Filter blocks should sit alone in the first row when they are present.
+11. For update action field assignment, use only `settings.assignValues`:
+   - `bulkUpdate` is a collection action under block `actions`
+   - `updateRecord` is a record action under `recordActions`
+   - keys must exist in the host collection metadata, and `{}` clears assignment values
+   - do not use `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel` for this configuration
+12. If one tab or popup contains multiple non-filter blocks, give it explicit `layout`, avoid one-row-one-block stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
    - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
-12. Keep popup semantics close to the opener:
+13. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-13. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
+14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nb api flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
    - after one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and should stay narrow
-14. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
-15. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-16. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body or nb helper envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact nb body becomes `result.cliBody`, not the original draft blueprint.
-17. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
+15. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
+16. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
+17. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body or nb helper envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact nb body becomes `result.cliBody`, not the original draft blueprint.
+18. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails
 
@@ -117,6 +125,18 @@ Leave exactly:
 - `blueprint.json`
 - `prewrite-preview.txt`
 - `readback-checklist.md`
+
+If the prompt asks for `preview-policy.json` instead of `readback-checklist.md`, leave that requested three-file set. The policy shape is `{ "prepareWriteRequired": false, "previewSource": "draft-blueprint" }`.
+
+For every artifact-only whole-page bundle, `blueprint.json` must be the bare blueprint root with top-level `tabs[]`; do not wrap it under `page`, `draft`, `blueprint`, `scenario`, `metadata`, or any explanatory envelope.
+
+For artifact-only locator boundary handoffs, use `locator-map.json` with direct fields and non-empty placeholder strings:
+
+```json
+{ "navigation": { "routeId": "route-id-placeholder" }, "page": { "pageSchemaUid": "page-schema-placeholder" }, "liveTargets": [{ "role": "table", "uid": "live-target-uid-placeholder" }] }
+```
+
+Keep `liveTargets[].uid` as a non-empty placeholder when live readback has not happened yet, not `null`; it records the source class and still blocks downstream writes until real readback.
 
 The checklist can stay short. It only needs to confirm create vs replace, one real tab by default, non-empty `tabs[]`, field truth from live `interface` facts when relevant, and that the preview came from the same blueprint draft.
 
