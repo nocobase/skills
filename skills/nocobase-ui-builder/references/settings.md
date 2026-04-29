@@ -194,6 +194,7 @@ Notes:
 - For relation field presentation switching, prefer targeting the field wrapper rather than the inner field.
 - `popupSubTable` means 弹窗子表格 / popup editing. `subTable` means 编辑子表格 / inline editing.
 - After writing, always read back both the wrapper and the inner field to confirm that the server rebuilt the field sub-model instead of leaving stale UI structure behind.
+- For `picker` and `popupSubTable`, `fields` also configures the select-popup table under inner field `subModels["grid-block"]`. Persisted readback should show exactly one selector table item using `TableSelectModel`; if it shows ordinary `TableBlockModel`, treat that as a live repair gap because row selection will not receive the popup's `rowSelectionProps`.
 
 Invalid:
 

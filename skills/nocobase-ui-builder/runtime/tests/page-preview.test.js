@@ -7117,30 +7117,71 @@ test('prepareApplyBlueprintRequest removes settings.sort when it matches setting
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [{ field: 'createdAt', direction: 'desc' }]);
 });
 
-test('prepareApplyBlueprintRequest does not normalize settings.sort on non-data-surface blocks', () => {
-  const result = prepareWithDirectCollectionDefaults({
+test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-table blocks and leaves calendar unchanged', () => {
+  for (const { type, settings, expected } of [
+    {
+      type: 'details',
+      settings: { sort: ['-createdAt'] },
+      expected: [{ field: 'createdAt', direction: 'desc' }],
+    },
+    {
+      type: 'tree',
+      settings: { sort: [{ field: 'nickname', direction: 'descending' }] },
+      expected: [{ field: 'nickname', direction: 'desc' }],
+    },
+    {
+      type: 'map',
+      settings: { sort: ['nickname'] },
+      expected: [{ field: 'nickname', direction: 'asc' }],
+    },
+  ]) {
+    const result = prepareWithDirectCollectionDefaults({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: `${type}Block`,
+              type,
+              collection: 'users',
+              settings,
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    });
+
+    assert.equal(result.ok, true, `${type}: ${JSON.stringify(result.errors)}`);
+    assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'sort'), false);
+    assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, expected);
+  }
+
+  const calendar = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
-    page: { title: 'Users' },
+    page: { title: 'Events' },
     tabs: [
       {
         title: 'Overview',
         blocks: [
           {
-            key: 'userDetails',
-            type: 'details',
-            collection: 'users',
+            key: 'eventsCalendar',
+            type: 'calendar',
+            collection: 'calendar_events',
             settings: { sort: ['-createdAt'] },
-            fields: ['nickname'],
+            defaultFilter: defaultFilterGroup(['title', 'status', 'startAt']),
           },
         ],
       },
     ],
-  });
+  }, { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.errors.length, 0);
-  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
+  assert.equal(calendar.ok, true, JSON.stringify(calendar.errors));
+  assert.deepEqual(calendar.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
 });
 
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {

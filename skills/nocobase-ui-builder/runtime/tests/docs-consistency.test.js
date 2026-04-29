@@ -1020,6 +1020,21 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /\{\}[\s\S]{0,80}`?null`?[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\][\s\S]{0,80}rejected/i);
   assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(
+    helperContracts,
+    /sortable public blocks[\s\S]{0,160}table[\s\S]{0,80}details[\s\S]{0,80}list[\s\S]{0,80}tree[\s\S]{0,80}kanban[\s\S]{0,80}gridCard[\s\S]{0,80}map[\s\S]{0,160}settings\.sort[\s\S]{0,80}settings\.sorting/i,
+    'helper-contracts should scope sort alias normalization to sortable public blocks',
+  );
+  assert.match(
+    helperContracts,
+    /calendar[\s\S]{0,120}(?:not normalized|left unchanged)/i,
+    'helper-contracts should state calendar sort aliases are not normalized',
+  );
+  assert.match(
+    helperContracts,
+    /relation field popup[\s\S]{0,160}details[\s\S]{0,80}editForm[\s\S]{0,120}currentRecord[\s\S]{0,160}associatedRecords[\s\S]{0,120}associationField/i,
+    'helper-contracts should document relation popup resource bindings',
+  );
 
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i);

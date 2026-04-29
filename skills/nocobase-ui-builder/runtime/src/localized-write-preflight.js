@@ -5,16 +5,14 @@ import {
   extractRequiredMetadata,
 } from '../../scripts/flow_payload_guard.mjs';
 import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
+import {
+  isSortablePublicBlockType,
+  isSortablePublicLiveUse,
+  normalizeSortAliasInSettings,
+  settingsSortValuesMatch,
+} from './sorting-alias.js';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
-const SORTABLE_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
-const SORTABLE_DATA_SURFACE_LIVE_USES = new Set([
-  'TableBlockModel',
-  'ListBlockModel',
-  'GridCardBlockModel',
-  'CalendarBlockModel',
-  'KanbanBlockModel',
-]);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'fieldComponent',
   'fieldModel',
@@ -26,6 +24,9 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'stepParams',
 ]);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
+const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
+const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
+const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
 const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'TableBlockModel',
@@ -110,116 +111,85 @@ function addSpecifiedHeightMode(settings) {
   };
 }
 
-function normalizeSortingDirection(value) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized || normalized === 'asc' || normalized === 'ascend' || normalized === 'ascending') {
-    return 'asc';
-  }
-  if (normalized === 'desc' || normalized === 'descend' || normalized === 'descending') {
-    return 'desc';
-  }
-  return normalized;
-}
-
-function normalizeSortingValue(value) {
-  if (!Array.isArray(value)) return value;
-  return value.map((item) => {
-    if (typeof item === 'string') {
-      const trimmed = normalizeText(item);
-      if (!trimmed) return item;
-      const direction = trimmed.startsWith('-') ? 'desc' : 'asc';
-      const field = trimmed.replace(/^[+-]/, '');
-      return field ? { field, direction } : item;
-    }
-    if (isObjectRecord(item)) {
-      return {
-        ...item,
-        ...(Object.hasOwn(item, 'direction') ? { direction: normalizeSortingDirection(item.direction) } : {}),
-      };
-    }
-    return item;
-  });
-}
-
-function normalizeComparableJson(value) {
-  if (Array.isArray(value)) return value.map((item) => normalizeComparableJson(item));
-  if (!isObjectRecord(value)) return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, normalizeComparableJson(value[key])]),
-  );
-}
-
-function settingsSortValuesMatch(left, right) {
-  return JSON.stringify(normalizeComparableJson(normalizeSortingValue(left)))
-    === JSON.stringify(normalizeComparableJson(normalizeSortingValue(right)));
-}
-
-function normalizeSortAliasInSettings(settings) {
-  if (!isObjectRecord(settings) || !Object.hasOwn(settings, 'sort')) {
-    return settings;
-  }
-  const nextSettings = {
-    ...settings,
-    sorting: Object.hasOwn(settings, 'sorting') ? settings.sorting : normalizeSortingValue(settings.sort),
-  };
-  delete nextSettings.sort;
-  return nextSettings;
-}
-
 function normalizeWriteSettings(settings, { normalizeSortAlias = true } = {}) {
   const sortNormalized = normalizeSortAlias ? normalizeSortAliasInSettings(settings) : settings;
   return addSpecifiedHeightMode(sortNormalized);
 }
 
 function normalizeSortAliasInBlock(block) {
-  if (!isObjectRecord(block) || !SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block.type))) {
+  if (!isObjectRecord(block) || !isSortablePublicBlockType(block.type)) {
     return block;
   }
   const settings = normalizeSortAliasInSettings(block.settings);
   return settings === block.settings ? block : { ...block, settings };
 }
 
-function normalizeHeightSettingsInPopup(popup) {
+function normalizeHeightSettingsInPopup(popup, options = {}) {
   if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
     return popup;
   }
+  const associationRequirement = options.relationField
+    ? resolveAssociationFieldRequirement(options.metadata || {}, options.parentCollectionName, options.relationField)
+    : null;
+  const targetCollection = normalizeText(associationRequirement?.targetCollection);
   let changed = false;
   const blocks = popup.blocks.map((block) => {
-    const normalizedBlock = normalizeHeightSettingsInBlock(block);
+    let nextBlock = block;
+    const blockType = normalizeText(block?.type);
+    const binding = getNodeBinding(block);
+    const blockCollection = getBlockCollectionName(block);
+    if (
+      targetCollection
+      && RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)
+      && (!binding || binding === 'currentcollection')
+      && (!blockCollection || blockCollection === targetCollection)
+    ) {
+      nextBlock = normalizeRelationPopupCurrentRecordBlock(block, targetCollection);
+    }
+    const normalizedBlock = normalizeHeightSettingsInBlock(nextBlock, {
+      ...options,
+      parentCollectionName: getLocalizedBlockCollectionName(nextBlock, targetCollection || options.parentCollectionName),
+      relationField: '',
+    });
     if (normalizedBlock !== block) changed = true;
     return normalizedBlock;
   });
   return changed ? { ...popup, blocks } : popup;
 }
 
-function normalizeHeightSettingsInPopupItem(item) {
+function normalizeHeightSettingsInPopupItem(item, options = {}) {
   if (!isObjectRecord(item) || !isObjectRecord(item.popup)) {
     return item;
   }
-  const popup = normalizeHeightSettingsInPopup(item.popup);
+  const popup = normalizeHeightSettingsInPopup(item.popup, options);
   return popup === item.popup ? item : { ...item, popup };
 }
 
-function normalizeHeightSettingsInFieldGroup(group) {
+function normalizeHeightSettingsInFieldGroup(group, options = {}) {
   if (!isObjectRecord(group) || !Array.isArray(group.fields)) {
     return group;
   }
   let changed = false;
   const fields = group.fields.map((field) => {
-    const normalizedField = normalizeHeightSettingsInPopupItem(field);
+    const fieldOptions = {
+      ...options,
+      relationField: isObjectRecord(field) ? normalizeText(field.field) : '',
+      parentCollectionName: options.parentCollectionName,
+    };
+    const normalizedField = normalizeHeightSettingsInPopupItem(field, fieldOptions);
     if (normalizedField !== field) changed = true;
     return normalizedField;
   });
   return changed ? { ...group, fields } : group;
 }
 
-function normalizeHeightSettingsInBlock(block) {
+function normalizeHeightSettingsInBlock(block, options = {}) {
   if (!isObjectRecord(block)) {
     return block;
   }
 
+  const parentCollectionName = normalizeText(options.parentCollectionName);
+  const blockCollectionName = getLocalizedBlockCollectionName(block, parentCollectionName);
   let nextBlock = normalizeSortAliasInBlock(block);
   const settings = normalizeWriteSettings(nextBlock.settings);
   if (settings !== block.settings) {
@@ -229,7 +199,11 @@ function normalizeHeightSettingsInBlock(block) {
   if (Array.isArray(block.blocks)) {
     let changed = false;
     const blocks = block.blocks.map((child) => {
-      const normalizedChild = normalizeHeightSettingsInBlock(child);
+      const normalizedChild = normalizeHeightSettingsInBlock(child, {
+        ...options,
+        parentCollectionName: blockCollectionName,
+        relationField: '',
+      });
       if (normalizedChild !== child) changed = true;
       return normalizedChild;
     });
@@ -237,7 +211,11 @@ function normalizeHeightSettingsInBlock(block) {
   }
 
   if (isObjectRecord(block.popup)) {
-    const popup = normalizeHeightSettingsInPopup(block.popup);
+    const popup = normalizeHeightSettingsInPopup(block.popup, {
+      ...options,
+      parentCollectionName: blockCollectionName,
+      relationField: '',
+    });
     if (popup !== block.popup) nextBlock = { ...nextBlock, popup };
   }
 
@@ -245,7 +223,12 @@ function normalizeHeightSettingsInBlock(block) {
     if (!Array.isArray(block[slot])) continue;
     let changed = false;
     const items = block[slot].map((item) => {
-      const normalizedItem = normalizeHeightSettingsInPopupItem(item);
+      const itemOptions = {
+        ...options,
+        parentCollectionName: blockCollectionName,
+        relationField: slot === 'fields' && isObjectRecord(item) ? normalizeText(item.field) : '',
+      };
+      const normalizedItem = normalizeHeightSettingsInPopupItem(item, itemOptions);
       if (normalizedItem !== item) changed = true;
       return normalizedItem;
     });
@@ -255,7 +238,10 @@ function normalizeHeightSettingsInBlock(block) {
   if (Array.isArray(block.fieldGroups)) {
     let changed = false;
     const fieldGroups = block.fieldGroups.map((group) => {
-      const normalizedGroup = normalizeHeightSettingsInFieldGroup(group);
+      const normalizedGroup = normalizeHeightSettingsInFieldGroup(group, {
+        ...options,
+        parentCollectionName: blockCollectionName,
+      });
       if (normalizedGroup !== group) changed = true;
       return normalizedGroup;
     });
@@ -271,20 +257,20 @@ function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
     if (!isObjectRecord(payload.changes)) return payload;
     const targetEntry = getLiveTopologyEntry(metadata, payload?.target?.uid);
     const changes = normalizeWriteSettings(payload.changes, {
-      normalizeSortAlias: SORTABLE_DATA_SURFACE_LIVE_USES.has(getLiveEntryUse(targetEntry)),
+      normalizeSortAlias: isSortablePublicLiveUse(getLiveEntryUse(targetEntry)),
     });
     return changes === payload.changes ? payload : { ...payload, changes };
   }
 
   if (operation === 'add-block') {
-    return normalizeHeightSettingsInBlock(payload);
+    return normalizeHeightSettingsInBlock(payload, { metadata });
   }
 
   if (operation === 'add-blocks' || operation === 'compose') {
     if (!Array.isArray(payload.blocks)) return payload;
     let changed = false;
     const blocks = payload.blocks.map((block) => {
-      const normalizedBlock = normalizeHeightSettingsInBlock(block);
+      const normalizedBlock = normalizeHeightSettingsInBlock(block, { metadata });
       if (normalizedBlock !== block) changed = true;
       return normalizedBlock;
     });
@@ -373,6 +359,10 @@ function isAssociationField(field) {
     || ['belongsto', 'hasmany', 'hasone', 'belongstomany'].includes(normalizeText(field.type).toLowerCase())
     || ['m2o', 'o2m', 'oho', 'obo', 'm2m'].includes(normalizeText(field.interface).toLowerCase()),
   );
+}
+
+function getDefaultsAssociationFieldKey(associationField) {
+  return normalizeText(associationField).split('.')[0] || '';
 }
 
 function resolveFieldPathInMetadata(metadata, collectionName, fieldPath) {
@@ -507,8 +497,59 @@ function getBlockCollectionName(block) {
   );
 }
 
+function getNodeBinding(node) {
+  return normalizeText(
+    node?.binding
+    || node?.resource?.binding
+    || node?.resource?.resourceBinding,
+  ).toLowerCase();
+}
+
+function getNodeAssociationField(node) {
+  return normalizeText(
+    node?.associationField
+    || node?.associationPathName
+    || node?.resource?.associationField
+    || node?.resource?.associationPathName,
+  );
+}
+
 function getLocalizedBlockCollectionName(block, parentCollectionName = '') {
   return getBlockCollectionName(block) || normalizeText(parentCollectionName);
+}
+
+function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fieldPath) {
+  const canonicalAssociationField = getDefaultsAssociationFieldKey(fieldPath);
+  if (!sourceCollectionName || !canonicalAssociationField) return null;
+  const resolved = resolveFieldPathInMetadata(metadata, sourceCollectionName, canonicalAssociationField);
+  if (!isAssociationField(resolved?.field)) return null;
+  const targetCollection = normalizeText(resolved?.field?.target);
+  if (!targetCollection) return null;
+  return {
+    associationField: canonicalAssociationField,
+    targetCollection,
+  };
+}
+
+function normalizeRelationPopupCurrentRecordBlock(block, targetCollection) {
+  const blockResource = isObjectRecord(block.resource) ? block.resource : null;
+  if (!blockResource && Object.hasOwn(block, 'binding')) {
+    return {
+      ...block,
+      binding: 'currentRecord',
+    };
+  }
+  const resource = {
+    ...(blockResource || {}),
+    binding: 'currentRecord',
+  };
+  if (targetCollection && !normalizeText(resource.collectionName) && !normalizeText(block.collection)) {
+    resource.collectionName = targetCollection;
+  }
+  return {
+    ...block,
+    resource,
+  };
 }
 
 function getActionType(item) {
@@ -928,6 +969,121 @@ function collectLocalizedPublicFieldObjectErrors(payload) {
   return errors;
 }
 
+function collectLocalizedRelationPopupResourceErrors(payload, metadata = {}) {
+  const errors = [];
+
+  const push = (path, ruleId, message, code, details) => {
+    errors.push({
+      path,
+      ruleId,
+      message,
+      code,
+      ...(details ? { details } : {}),
+    });
+  };
+
+  const validateRelationPopup = (item, itemPath, parentCollectionName) => {
+    if (!isObjectRecord(item) || !isObjectRecord(item.popup) || !Array.isArray(item.popup.blocks)) return;
+    const relationField = normalizeText(item.field);
+    if (!relationField || relationField.includes('.')) return;
+    const associationRequirement = resolveAssociationFieldRequirement(metadata, parentCollectionName, relationField);
+    const canonicalAssociationField = associationRequirement?.associationField || getDefaultsAssociationFieldKey(relationField);
+    const targetCollection = normalizeText(associationRequirement?.targetCollection);
+
+    item.popup.blocks.forEach((block, blockIndex) => {
+      if (!isObjectRecord(block)) return;
+      const blockType = normalizeText(block.type);
+      const blockPath = `${itemPath}.popup.blocks[${blockIndex}]`;
+      const binding = getNodeBinding(block);
+      const blockCollection = getBlockCollectionName(block);
+
+      if (RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES.has(blockType)) {
+        if ((!binding || binding === 'currentcollection') && !targetCollection) {
+          push(
+            `${blockPath}.resource.binding`,
+            'relation-popup-current-record-target-unresolved',
+            `Relation field popup ${blockType} blocks must use resource.binding="currentRecord" and a target collection that can be verified from collection metadata.`,
+            'RELATION_POPUP_CURRENT_RECORD_TARGET_UNRESOLVED',
+            { collectionName: parentCollectionName, associationField: canonicalAssociationField },
+          );
+          return;
+        }
+        if (targetCollection && blockCollection && blockCollection !== targetCollection) {
+          push(
+            `${blockPath}.resource.collectionName`,
+            'relation-popup-current-record-target-mismatch',
+            `Relation field popup ${blockType} blocks must target collection "${targetCollection}" for relation field "${canonicalAssociationField}".`,
+            'RELATION_POPUP_CURRENT_RECORD_TARGET_MISMATCH',
+            { expectedCollectionName: targetCollection, actualCollectionName: blockCollection },
+          );
+          return;
+        }
+        if (binding && binding !== 'currentcollection' && binding !== 'currentrecord') {
+          push(
+            `${blockPath}.resource.binding`,
+            'relation-popup-current-record-binding-required',
+            `Relation field popup ${blockType} blocks must use resource.binding="currentRecord" for the clicked related record.`,
+            'RELATION_POPUP_CURRENT_RECORD_BINDING_REQUIRED',
+          );
+        }
+        return;
+      }
+
+      if (RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES.has(blockType)) {
+        if (binding !== 'associatedrecords') {
+          push(
+            `${blockPath}.resource.binding`,
+            'relation-popup-associated-records-binding-required',
+            `Relation field popup ${blockType} blocks must use resource.binding="associatedRecords" with resource.associationField="${canonicalAssociationField}".`,
+            'RELATION_POPUP_ASSOCIATED_RECORDS_BINDING_REQUIRED',
+          );
+          return;
+        }
+        const blockAssociationField = getDefaultsAssociationFieldKey(getNodeAssociationField(block));
+        if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField) {
+          push(
+            `${blockPath}.resource.associationField`,
+            'relation-popup-associated-records-association-field-required',
+            `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}".`,
+            'RELATION_POPUP_ASSOCIATED_RECORDS_ASSOCIATION_FIELD_REQUIRED',
+            { expectedAssociationField: canonicalAssociationField, actualAssociationField: blockAssociationField },
+          );
+        }
+      }
+    });
+  };
+
+  const visitFields = (fields, path, parentCollectionName) => {
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field, index) => validateRelationPopup(field, `${path}[${index}]`, parentCollectionName));
+  };
+
+  const visitBlock = (block, path, parentCollectionName = '') => {
+    if (!isObjectRecord(block)) return;
+    const blockType = normalizeText(block.type);
+    const collectionName = getLocalizedBlockCollectionName(block, parentCollectionName);
+    if (DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES.has(blockType)) {
+      visitFields(block.fields, `${path}.fields`, collectionName);
+      if (Array.isArray(block.fieldGroups)) {
+        block.fieldGroups.forEach((group, groupIndex) => {
+          visitFields(group?.fields, `${path}.fieldGroups[${groupIndex}].fields`, collectionName);
+        });
+      }
+    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`, collectionName));
+    });
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  return errors;
+}
+
 function collectLocalizedSortAliasErrors(payload, operation, metadata = {}) {
   const errors = [];
 
@@ -948,7 +1104,7 @@ function collectLocalizedSortAliasErrors(payload, operation, metadata = {}) {
 
   const visitBlock = (block, path) => {
     if (!isObjectRecord(block)) return;
-    if (SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block.type))) {
+    if (isSortablePublicBlockType(block.type)) {
       validateSettings(block.settings, `${path}.settings`);
     }
     forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
@@ -958,7 +1114,7 @@ function collectLocalizedSortAliasErrors(payload, operation, metadata = {}) {
 
   if (operation === 'configure') {
     const targetEntry = getLiveTopologyEntry(metadata, payload?.target?.uid);
-    if (SORTABLE_DATA_SURFACE_LIVE_USES.has(getLiveEntryUse(targetEntry))) {
+    if (isSortablePublicLiveUse(getLiveEntryUse(targetEntry))) {
       validateSettings(payload?.changes, '$.changes');
     }
   }
@@ -1519,6 +1675,7 @@ export function runLocalizedWritePreflight({
     });
   collectLocalizedMainBlockSectionErrors(cliBody).forEach(pushError);
   collectLocalizedPublicFieldObjectErrors(cliBody).forEach(pushError);
+  collectLocalizedRelationPopupResourceErrors(cliBody, normalizedMetadata).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedAssignValuesErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   audit.blockers.map(normalizeFinding).forEach(pushError);

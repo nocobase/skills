@@ -3,6 +3,11 @@ import { collectAssignValuesValidationIssues } from './assign-values-validation.
 import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
 import { ANT_DESIGN_ICON_NAMES } from './ant-design-icon-names.js';
+import {
+  isSortablePublicBlockType,
+  normalizeSortAliasInSettings,
+  settingsSortValuesMatch,
+} from './sorting-alias.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
@@ -68,7 +73,6 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
-const SORTABLE_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
@@ -2635,12 +2639,8 @@ function materializeSettingsForWrite(block) {
     return settings;
   }
   let nextSettings = settings;
-  if (SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block?.type)) && hasOwn(nextSettings, 'sort')) {
-    nextSettings = {
-      ...nextSettings,
-      sorting: hasOwn(nextSettings, 'sorting') ? nextSettings.sorting : normalizeSortingValue(nextSettings.sort),
-    };
-    delete nextSettings.sort;
+  if (isSortablePublicBlockType(block?.type) && hasOwn(nextSettings, 'sort')) {
+    nextSettings = normalizeSortAliasInSettings(nextSettings);
   }
   if (!hasOwn(nextSettings, 'height') || hasOwn(nextSettings, 'heightMode')) {
     return nextSettings;
@@ -2649,18 +2649,6 @@ function materializeSettingsForWrite(block) {
     ...nextSettings,
     heightMode: 'specifyValue',
   };
-}
-
-function normalizeSortingValue(value) {
-  if (!Array.isArray(value)) return value;
-  return value.map((item) => {
-    if (typeof item !== 'string') return item;
-    const trimmed = normalizeText(item);
-    if (!trimmed) return item;
-    const direction = trimmed.startsWith('-') ? 'desc' : 'asc';
-    const field = trimmed.replace(/^[+-]/, '');
-    return field ? { field, direction } : item;
-  });
 }
 
 function materializeFieldForWrite(field, options = {}) {
@@ -3517,23 +3505,8 @@ function validateDisplayAssociationFieldGroupPopupRequirement(fieldGroups, block
   });
 }
 
-function normalizeComparableJson(value) {
-  if (Array.isArray(value)) return value.map((item) => normalizeComparableJson(item));
-  if (!isPlainObject(value)) return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, normalizeComparableJson(value[key])]),
-  );
-}
-
-function settingsSortValuesMatch(left, right) {
-  return JSON.stringify(normalizeComparableJson(normalizeSortingValue(left)))
-    === JSON.stringify(normalizeComparableJson(normalizeSortingValue(right)));
-}
-
 function validateBlockSettingsSortAlias(block, path, state) {
-  if (!SORTABLE_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(block?.type))) return;
+  if (!isSortablePublicBlockType(block?.type)) return;
   if (!isPlainObject(block.settings)) return;
   if (!hasOwn(block.settings, 'sort')) return;
   if (hasOwn(block.settings, 'sorting') && !settingsSortValuesMatch(block.settings.sort, block.settings.sorting)) {
