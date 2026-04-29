@@ -17,6 +17,8 @@ nb app --help
 nb app upgrade --help
 nb app stop --help
 nb app start --help
+nb self check --json
+nb skills check --json
 ```
 
 ## Rule

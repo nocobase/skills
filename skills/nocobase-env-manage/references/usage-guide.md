@@ -19,6 +19,8 @@
 - environment add/switch/remove: `nb env add/use/remove`
 - install bootstrap: `nb init --ui`
 - app runtime lifecycle: `nb app upgrade`, `nb app stop`, `nb app start`
+- CLI self maintenance: `nb self check --json`, `nb self update --yes`
+- installed skills maintenance: `nb skills check --json`, `nb skills update --yes`
 
 ## Core Rule
 
@@ -34,6 +36,12 @@ Do not run local scripts from this skill (`scripts/*.mjs`, `*.ps1`, `*.sh`).
 - for `env add`, `app_base_url` may be provided with or without `/api`; execution command normalizes to `/api`
 - for env query (`list/current`), run `nb env list`; use `nb env --help` / `nb env list --help` when command discovery is needed
 - use `nb app <command>` for runtime lifecycle commands
+- use `nb self check --json` and `nb self update --yes` for CLI self maintenance
+- use `nb skills check --json` and `nb skills update --yes` for installed skills maintenance
+- if the user says generic `检查状态` / `健康检查` / `诊断` / `检查更新` / `升级` / `更新` without naming app/runtime/env, CLI, or skills, ask which target they mean before running any command
+- after `nb self update --yes`, run `nb self check --json` as readback unless the CLI asks for a new shell/session first
+- after `nb skills update --yes`, run `nb skills check --json` as readback unless the CLI asks for a new shell/session first
+- preserve JSON check output when reporting `self-check` and `skills-check` results
 
 ## Quick Command Map
 
@@ -59,6 +67,14 @@ nb app stop --env local
 nb app start --env local
 nb app restart --env local
 nb app logs --env local --tail 100 --no-follow
+
+# CLI self check/update
+nb self check --json
+nb self update --yes
+
+# skills check/update
+nb skills check --json
+nb skills update --yes
 ```
 
 ## Fast Query Path
@@ -68,6 +84,27 @@ When user asks "what envs exist / current env":
 1. Run `nb env list`.
 2. Current env is the row prefixed by `*`; do not call `nb env current`.
 3. Run `nb env info [name]` when details or verification are needed.
+
+## Ambiguous Status/Update Intents
+
+Generic check/update wording can target three different surfaces:
+
+- app/runtime/env: `nb env list`, `nb env info`, or `nb app ...`
+- CLI: `nb self check --json` or `nb self update --yes`
+- skills: `nb skills check --json` or `nb skills update --yes`
+
+If the user does not name the target, ask:
+
+```text
+你想检查/更新哪一类：NocoBase app/runtime/env、nb CLI，还是已安装 skills？
+```
+
+Clear examples:
+
+- `检查 nb CLI` -> `nb self check --json`
+- `更新已安装 skills` -> `nb skills update --yes`
+- `升级 NocoBase app` -> `nb app upgrade [--env <env>]`
+- `检查当前环境` -> `nb env list` / `nb env info`
 
 ## Current Env Resolution Rule
 
@@ -138,6 +175,26 @@ nb app stop --env <resolved_current_env>
 nb app start --env <resolved_current_env>
 ```
 
+### Check and update the nb CLI
+
+```bash
+nb self check --json
+nb self update --yes
+nb self check --json
+```
+
+Use `nb self check --json` for diagnostics and report the JSON output. Use `nb self update --yes` only when the user clearly asks to update the CLI. Do not replace it with package-manager commands.
+
+### Check and update installed skills
+
+```bash
+nb skills check --json
+nb skills update --yes
+nb skills check --json
+```
+
+Use `nb skills check --json` for installed skills diagnostics and report the JSON output. Use `nb skills update --yes` only when the user clearly asks to update skills.
+
 ## Verification
 
 After any write action (`env add/use/remove`), always run readback:
@@ -150,4 +207,11 @@ For local runtime verification, run:
 
 ```bash
 nb env info
+```
+
+After maintenance updates, run matching readback unless the CLI asks for a new shell/session first:
+
+```bash
+nb self check --json
+nb skills check --json
 ```
