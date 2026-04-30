@@ -255,7 +255,7 @@ async function resolvePrepareNavigationGroup(payload, options = {}) {
     payload: withResolvedNavigationGroup(payload, routeId),
     resolverErrors: [],
     warnings: groupHasMetadataFields(group)
-      ? [`Resolved existing menu group "${groupTitle}" to routeId ${routeId}; title/icon metadata was removed because same-title reuse is title-only.`]
+      ? [`Resolved existing menu group "${groupTitle}" to routeId ${routeId}; group metadata is ignored when reusing an existing group.`]
       : [`Resolved existing menu group "${groupTitle}" to routeId ${routeId}.`],
   };
 }

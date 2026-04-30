@@ -221,8 +221,7 @@ For `replace` runs:
 - skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write
 - in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, applyBlueprint reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
 - at the skill-authoring layer, if visible same-title menu groups already exist and title lookup would hit multiple groups, do **not** create another same-title group for disambiguation and do **not** choose one locally; require explicit `routeId` before write
-- `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
-- same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
+- `navigation.group.routeId` has highest priority and ignores `title`, `icon`, `tooltip`, and `hideInMenu`; title-based reuse also ignores `icon`, `tooltip`, and `hideInMenu` when an existing group is reused; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
 
 Use the resolved page `target` from the public response as the carry-forward locator. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 
