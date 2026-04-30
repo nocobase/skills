@@ -31,17 +31,17 @@ SYSTEM_RULE=overwrite-first
 
 ```bash
 cd <BASE_DIR>
-nb publish --help
-nb publish file --help
-nb publish file list --help
-nb publish file pull --help
-nb publish migration-rule --help
-nb publish migration-rule list --help
-nb publish migration-rule get --help
-nb publish migration-rule create --help
-nb publish generate --help
-nb publish copy --help
-nb publish execute --help
+nb release --help
+nb release file --help
+nb release file list --help
+nb release file pull --help
+nb release migration-rule --help
+nb release migration-rule list --help
+nb release migration-rule get --help
+nb release migration-rule create --help
+nb release generate --help
+nb release upload --help
+nb release execute --help
 ```
 
 2. Run discovery checks for local files, remote files, and migration rules.
@@ -50,18 +50,19 @@ nb publish execute --help
 
 4. Run the five core workflow prompts from `./test-playbook.md`.
 
-5. Stop before `nb publish execute` unless the case explicitly includes the secondary confirmation prompt.
+5. Stop before `nb release execute` unless the case explicitly includes the secondary confirmation prompt.
 
 ## Safety Requirements
 
-- Use `nb publish ...` commands only.
-- Do not use legacy publish-related command groups outside `nb publish`.
+- Use `nb release ...` commands only.
+- Do not use legacy publish-related command groups outside `nb release`.
 - Do not use direct REST/API calls, local scripts, Docker, or database fallback paths.
-- Treat `nb publish execute` as high impact and require explicit confirmation.
+- Treat `nb release execute` as high impact and require explicit confirmation.
+- Require publish input confirmation before package pull, migration-rule create, generate, or upload.
 - Record source environment, target environment, file name, local path, generated artifact id, and uploaded artifact id.
 - When a file or migration rule needs user selection, stop and ask; do not guess from prior output.
 - If a source or target environment returns 404, `Not Found`, missing plugin, inactive plugin, or license capability errors for backup/migration probes, mark that environment as unsupported for publish and stop.
-- For target environments, include `--source artifact` probes because upload/copy depends on the publish manager staging API.
+- For target environments, include `--source artifact` probes because upload depends on the publish manager staging API.
 
 ## Report Guidance
 

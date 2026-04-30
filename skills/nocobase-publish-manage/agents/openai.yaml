@@ -5,36 +5,44 @@ agent:
     Use $nocobase-publish-manage when users ask for NocoBase publish,
     backup restore, or migration publish operations.
 
-    Only use direct `nb publish` commands for publish workflows. The main
-    mutation chain is `nb publish generate`, `nb publish copy`, and
-    `nb publish execute`; helper discovery commands are `nb publish file
-    list/pull` and `nb publish migration-rule list/get/create`.
-    Do not use legacy publish-related command groups outside `nb publish`, Docker, app
+    Only use direct `nb release` commands for publish workflows. The main
+    mutation chain is `nb release generate`, `nb release upload`, and
+    `nb release execute`; helper discovery commands are `nb release file
+    list/pull` and `nb release migration-rule list/get/create`.
+    Do not use legacy publish-related command groups outside `nb release`, Docker, app
     lifecycle commands, direct API calls, local scripts, or fallback release
     paths.
 
     Build a publish context before running mutation commands. Preserve and
     pass these values between steps: type, sourceEnv, targetEnv, ruleId,
     fileArg, localFile, fileName, generatedArtifactId, and uploadedArtifactId.
-    Before generate/copy/execute, probe the participating source and target
+    Before generate/upload/execute, probe the participating source and target
     environments for the requested publish capability. Treat 404, Not Found,
     missing adapter, inactive plugin, or license capability errors as
     unsupported_publish_env and stop.
+
+    Require a publish input confirmation before creating, downloading,
+    generating, or uploading any package. Echo method, sourceEnv, targetEnv,
+    selected file or generation plan, and selected or new migration rule. Never
+    auto-select the first or latest package, and never auto-select the first
+    migration rule. For named files, still echo the exact file and ask for input
+    confirmation before upload.
+
     If the user provides a .nbdata file, skip generate. If the user wants to
-    reuse an existing package, discover it with `nb publish file list --json`;
-    pull remote packages with `nb publish file pull` before copy. If no
+    reuse an existing package, discover it with `nb release file list --json`;
+    pull remote packages with `nb release file pull` before upload. If no
     reusable file is selected, generate one.
 
     For migration generation, first select or create a rule through
-    `nb publish migration-rule list/get/create --json`, then call
-    `nb publish generate --type migration --migration-rule <ruleId>`.
+    `nb release migration-rule list/get/create --json`, then call
+    `nb release generate --type migration --migration-rule <ruleId>`.
 
     Generated files live in the global CLI workspace:
     <global-cli-root>/.nocobase/publish/<type>/<sourceEnv>/<fileName>.nbdata.
     When the file argument is only a file name, include --from <sourceEnv> in
-    `nb publish copy`.
+    `nb release upload`.
 
-    Before `nb publish execute`, show the resolved context and require explicit
+    Before `nb release execute`, show the resolved context and require explicit
     user confirmation. Execute with --file first. Use --artifact only if manifest
     lookup fails, uploadedArtifactId is known, and the user confirms the fallback.
 

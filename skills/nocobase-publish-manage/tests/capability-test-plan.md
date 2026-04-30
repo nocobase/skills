@@ -1,6 +1,6 @@
 # Publish Capability Verification Matrix
 
-This document defines capability checks for `nocobase-publish-manage` using prompt-first skill verification and `nb publish` CLI evidence.
+This document defines capability checks for `nocobase-publish-manage` using prompt-first skill verification and `nb release` CLI evidence.
 
 Companion acceptance suite:
 
@@ -16,8 +16,9 @@ Included:
 - local and remote publish file discovery
 - remote publish file pull
 - migration rule list/get/create
-- backup generate/copy/execute planning
-- migration generate/copy/execute planning
+- backup generate/upload/execute planning
+- migration generate/upload/execute planning
+- publish input confirmation before package pull/generate/upload
 - confirmation gates and failure handling
 
 Excluded:
@@ -48,19 +49,19 @@ Optional or case-specific:
 | `<USER_RULE>` | `schema-only` | User-defined table rule. Allowed: `schema-only`, `overwrite`. |
 | `<SYSTEM_RULE>` | `overwrite-first` | System table rule. Allowed: `overwrite-first`, `schema-only`. |
 | `<GENERATED_FILE>` | from CLI output | File name parsed from `Local file:`. |
-| `<UPLOADED_ARTIFACT_ID>` | from CLI output | Artifact id parsed from `copy` output. |
+| `<UPLOADED_ARTIFACT_ID>` | from CLI output | Artifact id parsed from `upload` output. |
 
 ## Capability IDs
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| PUB-SMOKE-001 | cli | `nb publish` command group help is available | runtime/read-only |
-| PUB-SMOKE-002 | cli | `file`, `migration-rule`, `generate`, `copy`, `execute` help is available | runtime/read-only |
+| PUB-SMOKE-001 | cli | `nb release` command group help is available | runtime/read-only |
+| PUB-SMOKE-002 | cli | `file`, `migration-rule`, `generate`, `upload`, `execute` help is available | runtime/read-only |
 | PUB-ENV-001 | env | source and target env variables are carried through every step | prompt + runtime |
 | PUB-ENV-002 | env | source and target support the requested backup/migration publish capability | runtime/read-only |
 | PUB-FILE-001 | file | list local backup/migration packages | runtime/read-only |
 | PUB-FILE-002 | file | list remote backup/migration packages | runtime/read-only |
-| PUB-FILE-003 | file | pull selected remote package before copy | runtime |
+| PUB-FILE-003 | file | pull selected remote package before upload | runtime |
 | PUB-RULE-001 | migration-rule | list migration rules before migration generation when rule id is missing | runtime/read-only |
 | PUB-RULE-002 | migration-rule | create global migration rule with allowed option values | runtime |
 | PUB-RULE-003 | migration-rule | get selected or created migration rule before generation | runtime/read-only |
@@ -70,11 +71,14 @@ Optional or case-specific:
 | PUB-MIGRATION-001 | migration | specified file migration to target | prompt + optional runtime |
 | PUB-MIGRATION-002 | migration | migrate source environment to target by generating a migration package | prompt + optional runtime |
 | PUB-GUARD-001 | safety | execute requires secondary confirmation | prompt |
-| PUB-GUARD-002 | safety | missing file selection blocks copy | prompt |
+| PUB-GUARD-002 | safety | missing file selection blocks upload | prompt |
 | PUB-GUARD-003 | safety | missing migration rule blocks migration generation | prompt |
+| PUB-GUARD-004 | safety | selected file still requires publish input confirmation before upload | prompt |
+| PUB-GUARD-005 | safety | existing migration rule list is not auto-selected before generation | prompt |
+| PUB-GUARD-006 | safety | new migration rule creation requires input confirmation | prompt |
 | PUB-FAIL-001 | failure | empty remote list does not guess a package | prompt |
-| PUB-FAIL-002 | failure | file pull failure blocks copy | prompt |
-| PUB-FAIL-003 | failure | copy check failure blocks execute | prompt |
+| PUB-FAIL-002 | failure | file pull failure blocks upload | prompt |
+| PUB-FAIL-003 | failure | upload check failure blocks execute | prompt |
 | PUB-FAIL-004 | failure | 404 or missing plugin response marks environment as unsupported for publish | runtime/prompt |
 
 ## Status Semantics
@@ -86,23 +90,27 @@ Optional or case-specific:
 
 ## Critical Assertions
 
-- Only `nb publish ...` commands are allowed.
+- Only `nb release ...` commands are allowed.
 - Existing `<BACKUP_FILE>` or `<MIGRATION_FILE>` skips `generate`.
+- Existing `<BACKUP_FILE>` or `<MIGRATION_FILE>` still requires publish input confirmation before `upload`.
+- Existing package lists and migration rule lists must not be auto-selected by first item, latest item, or prior run.
+- New migration rule creation requires confirmation of name, user table rule, and system table rule before `create`.
 - Capability probe failures are different from empty package lists.
 - HTTP 404, `Not Found`, missing adapter, inactive plugin, or license capability errors stop the workflow as `unsupported_publish_env`.
-- Target environments must pass `file list --scope remote --source artifact` probes because `copy` uploads into publish manager staging before execution.
-- If the user wants to choose an existing package, run `nb publish file list` before asking them to select.
-- Remote file reuse requires `nb publish file pull` before `copy`.
+- Target environments must pass `file list --scope remote --source artifact` probes because `upload` uploads into publish manager staging before execution.
+- If the user wants to choose an existing package, run `nb release file list` before asking them to select.
+- Remote file reuse requires `nb release file pull` before `upload`.
 - Backup without file runs `generate --type backup`.
 - Migration without file requires a selected or created migration rule before `generate --type migration`.
 - New migration generation uses the official `--migration-rule` parameter only.
 - Migration rule creation only uses global rule options:
   - user-defined tables: `schema-only` or `overwrite`
   - system tables: `overwrite-first` or `schema-only`
-- `copy` always runs before `execute`.
+- `upload` always runs before `execute`.
 - `execute` runs against `<TARGET_ENV>`, not `<SOURCE_ENV>` unless they are intentionally the same.
 - `execute` is blocked until secondary confirmation is present.
-- If `copy` reports `Check passed: no`, do not execute.
+- Publish input confirmation does not authorize `execute`.
+- If `upload` reports `Check passed: no`, do not execute.
 
 ## Recommended Serial Order
 
@@ -118,6 +126,6 @@ Run in strict serial order:
 8. TC08 restore source environment to target by generating a backup package
 9. TC09 specified file migration
 10. TC10 migrate source environment to target by generating a migration package
-11. TC11-TC17 safety and failure cases
+11. TC11-TC20 safety and failure cases
 
 `TC07` and `TC09` can run with `<TARGET_ENV>=dev` during the first round. They become true cross-environment checks when `<TARGET_ENV>` is changed to `test`.

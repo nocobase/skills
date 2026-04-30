@@ -2,7 +2,7 @@
 
 ## Goal
 
-Map user publish requests to a normalized publish context before any `nb publish` command runs.
+Map user publish requests to a normalized publish context before any `nb release` command runs.
 
 ## Intent Signals
 
@@ -35,7 +35,7 @@ Generation signals:
 - restore `<env>`
 - restore `<sourceEnv>` to `<targetEnv>`
 - migrate `<sourceEnv>` to `<targetEnv>`
-- latest generated package requested after generation
+- user explicitly refers to the package generated in the current workflow
 - Chinese sentence patterns meaning restore an environment
 - Chinese sentence patterns meaning restore source environment to target
 - Chinese sentence patterns meaning migrate source environment to target
@@ -49,9 +49,9 @@ Generation signals:
 4. Set `targetEnv` from the environment that receives and executes the file.
 5. If only one environment is named for restore, use it as both `sourceEnv` and `targetEnv`.
 6. If a `.nbdata` file is named, set `fileArg` and skip generation.
-7. If the user asks to choose an existing package, run `nb publish file list` before asking them to pick.
-8. If no file is named, generation is required before copy.
-9. If `type=migration`, no file is named, and `ruleId` is missing, run `nb publish migration-rule list` before asking the user to select or create a rule.
+7. If the user asks to choose an existing package, run `nb release file list` before asking them to pick.
+8. If no file is named, generation is required before upload.
+9. If `type=migration`, no file is named, and `ruleId` is missing, run `nb release migration-rule list` before asking the user to select or create a rule.
 
 ## Supported Scenario Mapping
 
@@ -61,7 +61,7 @@ Generation signals:
 | Restore dev without file | `backup` | dev | dev | yes | none |
 | Restore dev to test without file | `backup` | dev | test | yes | none |
 | Migrate specified file to test | `migration` | file source env | test | no | file |
-| Migrate dev to test without file | `migration` | dev | test | yes | `ruleId` selected from `publish migration-rule list` or created by `publish migration-rule create` |
+| Migrate dev to test without file | `migration` | dev | test | yes | `ruleId` selected from `release migration-rule list` or created by `release migration-rule create` |
 
 ## Stop Conditions
 
