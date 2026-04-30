@@ -77,7 +77,7 @@ Maintain this context throughout the workflow:
   "migrationName": "optional migration file name",
   "localFile": "absolute or relative local package path",
   "downloadPath": "path passed to --output",
-  "taskId": "optional backup restore task id",
+  "taskId": "optional backup restore task id parsed from data.taskId or data.task",
   "ruleId": "optional migration rule id",
   "ruleName": "optional migration rule name",
   "title": "optional migration title",
@@ -196,7 +196,7 @@ Rules:
 
 - Use direct restore when the backup already exists on the target environment.
 - Require execution confirmation before `restore`.
-- If restore returns a task id, check `backup restore-status --task <taskId>` after restore starts or if the command returns an async state.
+- If restore returns a task id, check `backup restore-status --task <taskId>` after restore starts or if the command returns an async state. Accept both `data.taskId` and `data.task` as the restore task id source.
 
 ### Source-To-Target Backup Restore
 
@@ -279,6 +279,7 @@ Rules:
   - system-defined tables: `overwrite-first` or `schema-only`
 - Verify a selected or created rule with `migration rules get` when possible.
 - Parse `migrationName` from the create response before download.
+- After creation, run `migration get --name <migrationName>` until it reports `status=ok`; if it reports `status=in_progress`, tell the user the package is still generating and wait before downloading.
 - Use the official `--rule-id` parameter.
 - If `migration download` returns a transient 400/503 after `migration get` reports `status=ok`, rerun `migration get` once and retry the same download command once. If retry fails, stop at the download step.
 - Apply the confirmation gate before rule creation, package creation, download, check, and execute steps.
@@ -288,7 +289,7 @@ Rules:
 Prefer JSON with `--json-output` for non-binary commands. Extract:
 
 - backup file name from `backup create`
-- backup status/state from `backup status` and `backup restore-status --task <taskId>`
+- backup status/state from `backup status` and `backup restore-status --task <taskId>`; for restore commands, parse `<taskId>` from `data.taskId` or `data.task`
 - migration rule id from `migration rules create/list/get`
 - migration file name from `migration create/list/get`
 - migration check result from `migration check`

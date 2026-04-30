@@ -31,18 +31,21 @@ agent:
     or local-file restore, download from the source with `nb api backup
     download --name <backupName> --output <cliHome>/release/<sourceEnv>/<backupName>`
     and restore to the target with `nb api backup restore-upload --file <path>`.
-    If restore returns a task id, inspect it with `nb api backup
-    restore-status --task <taskId>`.
+    If restore returns a task id as `data.taskId` or `data.task`, inspect it
+    with `nb api backup restore-status --task <taskId>`.
 
     For migration generation, first select or create a global migration rule
     with `nb api migration rules list/get/create`, then call `nb api migration
-    create --rule-id <ruleId> --title <title>`. Download the generated package
-    with `nb api migration download --name <name> --output
+    create --rule-id <ruleId> --title <title>`. After creation, run `nb api
+    migration get --name <name>` until the package reports `status=ok`; if it
+    reports `status=in_progress`, tell the user the package is still
+    generating and wait before downloading. Download the generated package with
+    `nb api migration download --name <name> --output
     <cliHome>/release/<sourceEnv>/<name>`, check it on the target with `nb api
     migration check --file <path>`, then execute with `nb api migration
-    execute --file <path>` after explicit execution confirmation. If
-    migration download transiently fails after `migration get` reports
-    status=ok, retry the same download once before failing the step.
+    execute --file <path>` after explicit execution confirmation. If migration
+    download transiently fails after `migration get` reports status=ok, retry
+    the same download once before failing the step.
 
     Final responses must include selected method, source and target envs,
     commands executed or planned, captured names and local file paths, failed

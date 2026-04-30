@@ -102,7 +102,8 @@ Optional or case-specific:
 - Migration package creation requires a selected or created migration rule before `migration create`.
 - New migration package creation uses `--rule-id`.
 - Migration package execution runs `migration check --file` before `migration execute --file`.
-- `backup restore-status` is called only with a returned `--task <taskId>`.
+- `backup restore-status` is called only with a returned `--task <taskId>`, parsed from `data.taskId` or `data.task`.
+- Migration packages created from rules wait for `migration get` to report `status=ok`; `status=in_progress` is reported as still generating.
 - A transient migration download 400/503 after package status is `ok` may be retried once before failing.
 - `restore` and `execute` wait for secondary confirmation.
 - Publish input confirmation is separate from restore and execute confirmation.

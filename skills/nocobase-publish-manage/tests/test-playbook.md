@@ -264,7 +264,7 @@ Expected:
 1. The server backup name `<BACKUP_NAME>` is used.
 2. The agent echoes `<BACKUP_NAME>` and `<TARGET_ENV>`.
 3. The agent asks for `confirm` before `backup restore`.
-4. If restore returns a task id, the agent may inspect `restore-status --task <RESTORE_TASK_ID>` after restore starts.
+4. If restore returns a task id as `data.taskId` or `data.task`, the agent may inspect `restore-status --task <RESTORE_TASK_ID>` after restore starts.
 
 Continuation Prompt:
 
@@ -387,10 +387,11 @@ Expected:
 3. Once a rule is selected or created, `migration rules get` verifies it when possible.
 4. The agent shows the selected rule or new rule plan and asks for `confirm input` before rule creation or package creation.
 5. Package creation uses `--rule-id <MIGRATION_RULE_ID>`.
-6. Download uses `--output <DOWNLOADED_MIGRATION_FILE>` under `<CLI_HOME>\release\<SOURCE_ENV>\`.
-7. Check runs before execute.
-8. The agent stops before execute and asks for `confirm`.
-9. If `migration download` returns a transient 400/503 after `migration get` reports `status=ok`, the agent retries the same download once before failing.
+6. If `migration get` reports `status=in_progress`, the agent reports that the package is still generating and waits until `status=ok` before download.
+7. Download uses `--output <DOWNLOADED_MIGRATION_FILE>` under `<CLI_HOME>\release\<SOURCE_ENV>\`.
+8. Check runs before execute.
+9. The agent stops before execute and asks for `confirm`.
+10. If `migration download` returns a transient 400/503 after `migration get` reports `status=ok`, the agent retries the same download once before failing.
 
 Input Confirmation Prompt:
 

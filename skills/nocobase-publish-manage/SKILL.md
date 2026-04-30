@@ -74,9 +74,10 @@ The skill converts user intent into an API-first publish context, carries genera
 5. For migration:
    - Local file: confirm the file, check it on `targetEnv`, then execute it on `targetEnv`.
    - Server migration package: download it from `sourceEnv` to `<cliHome>/release/<sourceEnv>/<migrationName>`, check it on `targetEnv`, then execute it on `targetEnv`.
-   - Created migration package: list or create a global rule, create the migration on `sourceEnv`, download the generated package to `<cliHome>/release/<sourceEnv>/<migrationName>`, check it on `targetEnv`, then execute it on `targetEnv`.
+   - Created migration package: list or create a global rule, create the migration on `sourceEnv`, poll `migration get` until the generated package reports `status=ok`, download it to `<cliHome>/release/<sourceEnv>/<migrationName>`, check it on `targetEnv`, then execute it on `targetEnv`.
 6. Poll or inspect status with available commands when needed: `backup status`, `backup restore-status --task <taskId>`, `migration get`, and `migration logs`.
-7. Report the final state, commands executed or planned, file names, local paths, failed step, and next verification command.
+7. Treat restore task ids as compatible fields: parse `taskId` from `data.taskId` or `data.task`, then pass that value to `backup restore-status --task`.
+8. Report the final state, commands executed or planned, file names, local paths, failed step, and next verification command.
 
 See [Runtime Contract](references/v1-runtime-contract.md) for exact command construction and parsing rules.
 
@@ -114,7 +115,8 @@ Confirm execution: <backup restore | migration execute> on <target_env> using <b
 
 Failure guidance:
 
-- Backup restore failure: if a restore task id is available, inspect `nb api backup restore-status --task <taskId> -e <targetEnv>`.
+- Backup restore failure: if a restore task id is available from `data.taskId` or `data.task`, inspect `nb api backup restore-status --task <taskId> -e <targetEnv>`.
+- Migration package creation: if `migration get` reports `status=in_progress`, tell the user the package is still generating, wait, and do not run `migration download` until `status=ok`.
 - Migration check failure: report the check output and keep the local package path.
 - Migration execution failure: inspect `nb api migration logs list -e <targetEnv>` and relevant `logs get/download` output.
 - Package or rule recreation after a failure requires explicit user instruction.
@@ -136,7 +138,7 @@ Failure guidance:
 - `migration rules create` uses global rule options.
 - Created or selected migration rules are verified with `migration rules get` when possible.
 - Download commands include `--output`.
-- Restore status commands include `--task <taskId>` and are only run after a task id is returned.
+- Restore status commands include `--task <taskId>` and are only run after a task id is returned as `data.taskId` or `data.task`.
 - Restore or execute waits for secondary confirmation.
 - Failure output includes the failed step and relevant CLI lines.
 

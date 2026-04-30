@@ -145,6 +145,7 @@ Checks:
 - Missing `ruleId` first runs `nb api migration rules list -e dev --json-output`, then waits for the user to select or create one.
 - The selected rule or new rule plan is confirmed before `migration rules create` or `migration create`.
 - `migrationName` is parsed from create output before download.
+- If `migration get` reports `status=in_progress`, report that the package is still generating and wait; do not run `migration download` until `status=ok`.
 - If `migration download` transiently fails after `migration get` reports `status=ok`, retry the same download once before failing.
 
 ## Discovery Checks
