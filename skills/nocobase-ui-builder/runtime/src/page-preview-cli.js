@@ -116,15 +116,6 @@ function createAutoCollectionMetadataMissingError(resolution) {
   };
 }
 
-function parseCurrentNbEnvBaseUrl(output) {
-  const currentLine = normalizeText(output)
-    ? String(output).split(/\r?\n/).find((line) => /^\s*\*(?:\s|$)/.test(line))
-    : '';
-  if (!currentLine) return '';
-  const match = currentLine.match(/https?:\/\/[^\s|]+/i);
-  return normalizeText(match?.[0]);
-}
-
 async function execNbText(args, options = {}) {
   const { execFileImpl, cwd = process.cwd() } = options;
   if (!execFileImpl) {
@@ -194,16 +185,6 @@ async function resolvePrepareNavigationGroup(payload, options = {}) {
   }
   const blueprint = extractPrepareBlueprint(payload);
   const group = blueprint.navigation.group;
-  let baseUrl = '';
-  try {
-    baseUrl = parseCurrentNbEnvBaseUrl(await execNbText(['env', 'list'], options));
-  } catch {
-    return { payload, resolverErrors: [] };
-  }
-  if (!baseUrl) {
-    return { payload, resolverErrors: [] };
-  }
-
   let rows = [];
   try {
     const response = await execNbJson([
@@ -214,8 +195,6 @@ async function resolvePrepareNavigationGroup(payload, options = {}) {
       'desktopRoutes',
       '--filter',
       JSON.stringify({ title: groupTitle, type: 'group' }),
-      '--base-url',
-      baseUrl,
       '-j',
     ], options);
     rows = extractDesktopRouteRows(response).filter((row) => normalizeText(row?.title) === groupTitle && normalizeText(row?.type) === 'group');

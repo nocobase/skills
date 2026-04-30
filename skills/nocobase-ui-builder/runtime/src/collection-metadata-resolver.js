@@ -312,40 +312,6 @@ async function execNbJson(args, options = {}) {
   return parseJsonOutput(stdout || '', commandDescription);
 }
 
-async function execNbText(args, options = {}) {
-  const { execFileImpl = execFileAsync, cwd = process.cwd() } = options;
-  const result = await execFileImpl('nb', args, {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  return typeof result === 'string' ? result : result.stdout || '';
-}
-
-function parseCurrentNbEnvBaseUrl(output) {
-  const currentLine = normalizeText(output)
-    ? String(output).split(/\r?\n/).find((line) => /^\s*\*(?:\s|$)/.test(line))
-    : '';
-  if (!currentLine) return '';
-  const match = currentLine.match(/https?:\/\/[^\s|]+/i);
-  return normalizeText(match?.[0]);
-}
-
-export async function resolveNbEnvBaseUrl(options = {}) {
-  const baseUrl = parseCurrentNbEnvBaseUrl(await execNbText(['env', 'list'], options));
-  if (!baseUrl) {
-    throw new Error(
-      'Current nb env has no Base URL. Please fix it with `nb env add` or `nb env update`, or pass collectionMetadata in the prepare-write helper envelope.',
-    );
-  }
-  return baseUrl;
-}
-
-function withNbBaseUrl(args, baseUrl) {
-  const normalizedBaseUrl = normalizeText(baseUrl);
-  return normalizedBaseUrl ? [...args, '--base-url', normalizedBaseUrl] : args;
-}
-
 function extractCollectionResourceEntry(payload, collectionName) {
   if (isPlainObject(payload?.data)) {
     return extractCollectionResourceEntry(payload.data, collectionName);
@@ -388,7 +354,7 @@ function normalizeFetchedCollectionMetadata(collectionName, payload) {
 }
 
 async function fetchCollectionMetadataWithDataModeling(collectionName, options = {}) {
-  const payload = await execNbJson(withNbBaseUrl([
+  const payload = await execNbJson([
     'api',
     'data-modeling',
     'collections',
@@ -398,12 +364,12 @@ async function fetchCollectionMetadataWithDataModeling(collectionName, options =
     '--appends',
     'fields',
     '-j',
-  ], options.nbBaseUrl), options);
+  ], options);
   return normalizeFetchedCollectionMetadata(collectionName, payload);
 }
 
 async function fetchCollectionMetadataWithResourceList(collectionName, options = {}) {
-  const payload = await execNbJson(withNbBaseUrl([
+  const payload = await execNbJson([
     'api',
     'resource',
     'list',
@@ -414,23 +380,18 @@ async function fetchCollectionMetadataWithResourceList(collectionName, options =
     '--appends',
     'fields',
     '-j',
-  ], options.nbBaseUrl), options);
+  ], options);
   return normalizeFetchedCollectionMetadata(collectionName, payload);
 }
 
 export async function fetchCollectionMetadata(collectionName, options = {}) {
-  const nbBaseUrl = options.nbBaseUrl || await resolveNbEnvBaseUrl(options);
-  const fetchOptions = {
-    ...options,
-    nbBaseUrl,
-  };
   try {
-    return await fetchCollectionMetadataWithDataModeling(collectionName, fetchOptions);
+    return await fetchCollectionMetadataWithDataModeling(collectionName, options);
   } catch (error) {
     if (options.onFallback) {
       options.onFallback(collectionName, error);
     }
-    return fetchCollectionMetadataWithResourceList(collectionName, fetchOptions);
+    return fetchCollectionMetadataWithResourceList(collectionName, options);
   }
 }
 
