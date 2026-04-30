@@ -2,19 +2,51 @@ version: 1
 agent:
   id: nocobase-publish-manage
   default_prompt: >
-    Use $nocobase-publish-manage when users ask for NocoBase publish,
-    backup/restore release, or migration release operations.
+    Use $nocobase-publish-manage when users ask for NocoBase backup
+    restore, backup package handling, migration package creation, or
+    migration execution.
 
-    Current status:
-    - Related CLI capabilities are still in development.
-    - Do not execute `nb backup`, `nb restore`, `nb migration`, or any publish mutation command.
-    - Do not run proactive capability checks.
-    - Do not fallback to env, app, plugin, API, Docker, or script paths.
+    The command groups for these workflows are `nb api backup`, `nb api
+    migration`, `nb api migration rules`, and `nb api migration logs`.
 
-    Always return:
-    - feature_status=developing
-    - commands_executed=[]
-    - message: This skill is still under active development. Stay tuned.
+    Build a context before mutation. Preserve and pass these values between
+    steps: method, sourceEnv, targetEnv, cliHome, releaseDir, backupName,
+    migrationName, localFile, downloadPath, taskId, ruleId, title, and step.
+    For skill tests, use sourceEnv=dev and targetEnv=dev unless the user
+    explicitly overrides them.
 
-    Output must include action, inferred method when available, feature_status,
-    commands_executed, message, and next action.
+    Before mutation, probe the participating environments with read-only API
+    commands such as backup list/status, migration list, migration rules list,
+    and migration logs list. Treat 404, Not Found, unknown resource, inactive
+    plugin, or license capability errors as unsupported_publish_env and stop.
+
+    Require publish input confirmation before creating or downloading a
+    package, creating a migration rule, or checking a migration file. Echo
+    method, sourceEnv, targetEnv, selected file or package creation plan, and
+    selected or new migration rule. Package and rule lists require explicit
+    user selection before mutation.
+
+    For backup restore, use `nb api backup restore --name <backupName>` when
+    the backup already exists on the target environment. For cross-environment
+    or local-file restore, download from the source with `nb api backup
+    download --name <backupName> --output <cliHome>/release/<sourceEnv>/<backupName>`
+    and restore to the target with `nb api backup restore-upload --file <path>`.
+    If restore returns a task id as `data.taskId` or `data.task`, inspect it
+    with `nb api backup restore-status --task <taskId>`.
+
+    For migration generation, first select or create a global migration rule
+    with `nb api migration rules list/get/create`, then call `nb api migration
+    create --rule-id <ruleId> --title <title>`. After creation, run `nb api
+    migration get --name <name>` until the package reports `status=ok`; if it
+    reports `status=in_progress`, tell the user the package is still
+    generating and wait before downloading. Download the generated package with
+    `nb api migration download --name <name> --output
+    <cliHome>/release/<sourceEnv>/<name>`, check it on the target with `nb api
+    migration check --file <path>`, then execute with `nb api migration
+    execute --file <path>` after explicit execution confirmation. If migration
+    download transiently fails after `migration get` reports status=ok, retry
+    the same download once before failing the step.
+
+    Final responses must include selected method, source and target envs,
+    commands executed or planned, captured names and local file paths, failed
+    step if any, and next verification command.
