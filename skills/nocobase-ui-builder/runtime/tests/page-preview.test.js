@@ -7294,6 +7294,43 @@ test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-tabl
   assert.deepEqual(calendar.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
 });
 
+test('prepareApplyBlueprintRequest strips top-level pagination and sorting compatibility keys from cliBody', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            pageSize: 50,
+            sort: ['nickname'],
+            sorting: [{ field: 'createdAt', direction: 'desc' }],
+            settings: {
+              pageSize: 20,
+              sorting: [{ field: 'updatedAt', direction: 'desc' }],
+            },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const block = result.cliBody.tabs[0].blocks[0];
+  assert.equal(Object.hasOwn(block, 'pageSize'), false);
+  assert.equal(Object.hasOwn(block, 'sort'), false);
+  assert.equal(Object.hasOwn(block, 'sorting'), false);
+  assert.equal(block.settings.pageSize, 20);
+  assert.deepEqual(block.settings.sorting, [{ field: 'updatedAt', direction: 'desc' }]);
+});
+
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',

@@ -2817,6 +2817,9 @@ function materializeBlockForWrite(block, options = {}) {
       nextBlock.fieldsLayout = synthesizedLayout;
     }
   }
+  delete nextBlock.pageSize;
+  delete nextBlock.sort;
+  delete nextBlock.sorting;
   return nextBlock;
 }
 
