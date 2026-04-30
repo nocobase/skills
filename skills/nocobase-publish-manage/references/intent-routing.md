@@ -11,10 +11,8 @@ Backup restore signals:
 - restore
 - backup
 - recover
-- 还原
-- 恢复
-- 备份还原
-- 将 `<env>` 还原
+- Chinese words meaning restore, recover, or backup restore
+- Chinese sentence patterns meaning restore one environment
 
 Migration signals:
 
@@ -22,18 +20,15 @@ Migration signals:
 - migrate
 - migration rule
 - ruleId
-- 迁移
-- 迁移规则
-- 将 `<env>` 迁移到 `<env>`
+- Chinese words meaning migration or migration rule
+- Chinese sentence patterns meaning migrate one environment to another
 
 Existing file reuse signals:
 
 - specified file
 - use file
 - `<file-name>.nbdata`
-- 指定文件
-- 用这个包
-- 用已有文件
+- Chinese phrases meaning specified file, use this package, or use existing file
 
 Generation signals:
 
@@ -41,11 +36,10 @@ Generation signals:
 - restore `<sourceEnv>` to `<targetEnv>`
 - migrate `<sourceEnv>` to `<targetEnv>`
 - latest generated package requested after generation
-- 还原 `<env>`
-- 将 `<sourceEnv>` 还原到 `<targetEnv>`
-- 将 `<sourceEnv>` 迁移到 `<targetEnv>`
-- 生成文件
-- 创建包
+- Chinese sentence patterns meaning restore an environment
+- Chinese sentence patterns meaning restore source environment to target
+- Chinese sentence patterns meaning migrate source environment to target
+- Chinese phrases meaning generate a file or create a package
 
 ## Normalization Rules
 
