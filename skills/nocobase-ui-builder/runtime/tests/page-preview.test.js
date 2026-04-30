@@ -8189,6 +8189,43 @@ test('page preview cli prepare-write resolves unique existing navigation group t
   assert.ok(calls.some((call) => call.includes('desktopRoutes')));
 });
 
+test('page preview prepare-write ignores navigation group metadata when routeId is present', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: {
+          routeId: 42,
+          title: 'Ignored workspace title',
+          icon: 'NotARealIcon',
+          tooltip: 'Ignored tooltip',
+          hideInMenu: true,
+        },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.navigation.group, { routeId: 42 });
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'invalid-menu-group-icon'), false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'missing-menu-group-icon'), false);
+  assert.ok(
+    result.warnings.some((warning) =>
+      /navigation\.group\.routeId has highest priority; title\/icon\/tooltip\/hideInMenu are ignored/.test(warning),
+    ),
+  );
+});
+
 test('page preview cli prepare-write fails before applyBlueprint for ambiguous navigation group title', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
