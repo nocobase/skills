@@ -2,7 +2,7 @@
 
 ## Goal
 
-Map user publish requests to a normalized publish context before any `nb release` command runs.
+Map user publish requests to a normalized API-first context before any `nb api backup` or `nb api migration` command runs.
 
 ## Intent Signals
 
@@ -11,8 +11,8 @@ Backup restore signals:
 - restore
 - backup
 - recover
-- Chinese words meaning restore, recover, or backup restore
-- Chinese sentence patterns meaning restore one environment
+- Chinese words meaning restore, recover, backup, or backup restore
+- Chinese sentence patterns meaning restore one environment or restore from a backup file
 
 Migration signals:
 
@@ -23,50 +23,55 @@ Migration signals:
 - Chinese words meaning migration or migration rule
 - Chinese sentence patterns meaning migrate one environment to another
 
-Existing file reuse signals:
+Existing file signals:
 
 - specified file
 - use file
-- `<file-name>.nbdata`
+- local `.nbdata` path
+- backup or migration file name
 - Chinese phrases meaning specified file, use this package, or use existing file
 
-Generation signals:
+Package creation signals:
 
-- restore `<env>`
-- restore `<sourceEnv>` to `<targetEnv>`
+- backup current environment
+- create backup
+- generate migration package
 - migrate `<sourceEnv>` to `<targetEnv>`
-- user explicitly refers to the package generated in the current workflow
-- Chinese sentence patterns meaning restore an environment
-- Chinese sentence patterns meaning restore source environment to target
-- Chinese sentence patterns meaning migrate source environment to target
-- Chinese phrases meaning generate a file or create a package
+- Chinese phrases meaning create a package from the source environment
 
 ## Normalization Rules
 
-1. Set `type=backup` for restore or backup restore requests.
-2. Set `type=migration` for migration requests.
-3. Set `sourceEnv` from the environment that provides or generates the file.
-4. Set `targetEnv` from the environment that receives and executes the file.
+1. Set `method=backup` for backup restore requests.
+2. Set `method=migration` for migration requests.
+3. Set `sourceEnv` from the environment that owns or generates the package. Use `dev` in tests unless overridden.
+4. Set `targetEnv` from the environment that receives restore or migration execution. Use `dev` in tests unless overridden.
 5. If only one environment is named for restore, use it as both `sourceEnv` and `targetEnv`.
-6. If a `.nbdata` file is named, set `fileArg` and skip generation.
-7. If the user asks to choose an existing package, run `nb release file list` before asking them to pick.
-8. If no file is named, generation is required before upload.
-9. If `type=migration`, no file is named, and `ruleId` is missing, run `nb release migration-rule list` before asking the user to select or create a rule.
+6. If a local `.nbdata` file is named, set `localFile` and skip package creation.
+7. If a server backup file name is named, set `backupName`.
+8. If a server migration file name is named, set `migrationName`.
+9. If the user asks to choose an existing package, run the relevant list command before asking them to pick:
+   - `nb api backup list -e <sourceEnv> --json-output`
+   - `nb api migration list -e <sourceEnv> --json-output`
+10. If `method=migration`, no migration file is named, and `ruleId` is missing, run `nb api migration rules list -e <sourceEnv> --json-output` before asking the user to select or create a rule.
+11. If the user asks to create a migration rule, only create a global rule with `--user-defined-rule` and `--system-defined-rule`.
 
 ## Supported Scenario Mapping
 
-| User scenario | Type | Source | Target | Generate? | Required extra input |
+| User scenario | Method | Source | Target | Package creation? | Required extra input |
 |---|---|---|---|---|---|
-| Restore specified file in one env | `backup` | env | same env | no | file |
-| Restore dev without file | `backup` | dev | dev | yes | none |
-| Restore dev to test without file | `backup` | dev | test | yes | none |
-| Migrate specified file to test | `migration` | file source env | test | no | file |
-| Migrate dev to test without file | `migration` | dev | test | yes | `ruleId` selected from `release migration-rule list` or created by `release migration-rule create` |
+| Restore local backup file in one env | `backup` | file path | dev | no | `localFile` |
+| Restore server backup in same env | `backup` | dev | dev | no | `backupName` |
+| Create backup and restore dev | `backup` | dev | dev | yes | none |
+| Restore source backup to target | `backup` | source env | target env | optional | `backupName` or create backup |
+| Execute local migration file | `migration` | file path | dev | no | `localFile` |
+| Execute server migration file | `migration` | source env | target env | no | `migrationName` |
+| Create migration from source | `migration` | source env | target env | yes | `ruleId` selected from `migration rules list` or created by `migration rules create` |
 
 ## Stop Conditions
 
 - Unknown method after two clarification rounds.
 - Missing target environment.
-- Missing source environment for a file name lookup.
-- Missing `ruleId` for migration generation.
-- User asks to create migration rule but also requires publish-only execution.
+- Missing source environment for a server package lookup.
+- Missing `ruleId` for migration package creation.
+- User asks the agent to choose the first/latest backup, migration package, or migration rule automatically.
+- User asks to create migration rules with per-table custom rules; this skill only supports global rules.

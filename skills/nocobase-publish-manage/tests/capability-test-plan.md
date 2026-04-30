@@ -1,6 +1,6 @@
 # Publish Capability Verification Matrix
 
-This document defines capability checks for `nocobase-publish-manage` using prompt-first skill verification and `nb release` CLI evidence.
+This document defines capability checks for `nocobase-publish-manage` using prompt-first skill verification and `nb api` CLI evidence.
 
 Companion acceptance suite:
 
@@ -12,21 +12,14 @@ Included:
 
 - CLI readiness
 - environment variable handling
-- source and target environment publish capability checks
-- local and remote publish file discovery
-- remote publish file pull
+- source and target API capability checks
+- backup and migration package discovery
+- backup create/status/download/restore-upload planning
+- backup direct restore planning for same-environment server backups
 - migration rule list/get/create
-- backup generate/upload/execute planning
-- migration generate/upload/execute planning
-- publish input confirmation before package pull/generate/upload
+- migration create/download/check/execute planning
+- migration log discovery for diagnosis
 - confirmation gates and failure handling
-
-Excluded:
-
-- direct REST mutation
-- direct database inspection
-- plugin-specific API fallback
-- automatic destructive execution without secondary confirmation
 
 ## Runtime Inputs
 
@@ -35,51 +28,56 @@ Required:
 | Placeholder | Default | Meaning |
 |---|---|---|
 | `<BASE_DIR>` | `E:\work\nocobase` | Workspace where `nb` is available. |
-| `<SOURCE_ENV>` | `dev` | Environment that provides or generates the publish package. |
-| `<TARGET_ENV>` | `dev` | Environment that receives and executes the publish package. |
+| `<SOURCE_ENV>` | `dev` | Environment that provides or generates the package. |
+| `<TARGET_ENV>` | `dev` | Environment that receives restore or migration execution. |
 
 Optional or case-specific:
 
 | Placeholder | Default | Meaning |
 |---|---|---|
-| `<BACKUP_FILE>` | none | Existing backup package file name. |
-| `<MIGRATION_FILE>` | none | Existing migration package file name. |
-| `<MIGRATION_RULE_ID>` | none | Selected migration rule id. |
-| `<MIGRATION_RULE_NAME>` | `publish-dev-to-target` | New global migration rule name. |
+| `<BACKUP_NAME>` | unset | Server backup package file name. |
+| `<BACKUP_FILE>` | `./backup.nbdata` | Local backup package path. |
+| `<MIGRATION_NAME>` | unset | Server migration package file name. |
+| `<MIGRATION_FILE>` | `./migration.nbdata` | Local migration package path. |
+| `<MIGRATION_RULE_ID>` | unset | Selected migration rule id. |
+| `<MIGRATION_RULE_NAME>` | `publish-dev-to-dev` | New global migration rule name. |
 | `<USER_RULE>` | `schema-only` | User-defined table rule. Allowed: `schema-only`, `overwrite`. |
-| `<SYSTEM_RULE>` | `overwrite-first` | System table rule. Allowed: `overwrite-first`, `schema-only`. |
-| `<GENERATED_FILE>` | from CLI output | File name parsed from `Local file:`. |
-| `<UPLOADED_ARTIFACT_ID>` | from CLI output | Artifact id parsed from `upload` output. |
+| `<SYSTEM_RULE>` | `overwrite-first` | System-defined table rule. Allowed: `overwrite-first`, `schema-only`. |
+| `<CLI_HOME>` | user CLI home, for example `C:\Users\Enzo\.nocobase` | CLI workspace root. |
+| `<RELEASE_DIR>` | `<CLI_HOME>\release\<SOURCE_ENV>` | Source-environment release workspace. |
+| `<DOWNLOADED_BACKUP_FILE>` | `<RELEASE_DIR>\<BACKUP_NAME>` | Path passed to `backup download --output`. |
+| `<DOWNLOADED_MIGRATION_FILE>` | `<RELEASE_DIR>\<MIGRATION_NAME>` | Path passed to `migration download --output`. |
 
 ## Capability IDs
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| PUB-SMOKE-001 | cli | `nb release` command group help is available | runtime/read-only |
-| PUB-SMOKE-002 | cli | `file`, `migration-rule`, `generate`, `upload`, `execute` help is available | runtime/read-only |
+| PUB-SMOKE-001 | cli | `nb api backup` command group help is available | runtime/read-only |
+| PUB-SMOKE-002 | cli | `nb api migration`, `migration rules`, and `migration logs` help is available | runtime/read-only |
 | PUB-ENV-001 | env | source and target env variables are carried through every step | prompt + runtime |
-| PUB-ENV-002 | env | source and target support the requested backup/migration publish capability | runtime/read-only |
-| PUB-FILE-001 | file | list local backup/migration packages | runtime/read-only |
-| PUB-FILE-002 | file | list remote backup/migration packages | runtime/read-only |
-| PUB-FILE-003 | file | pull selected remote package before upload | runtime |
-| PUB-RULE-001 | migration-rule | list migration rules before migration generation when rule id is missing | runtime/read-only |
+| PUB-ENV-002 | env | source and target support requested backup/migration API commands | runtime/read-only |
+| PUB-BACKUP-FILE-001 | backup | list backup packages | runtime/read-only |
+| PUB-BACKUP-FILE-002 | backup | download selected backup with `--output` | runtime |
+| PUB-MIGRATION-FILE-001 | migration | list migration packages | runtime/read-only |
+| PUB-MIGRATION-FILE-002 | migration | download selected migration with `--output` | runtime |
+| PUB-RULE-001 | migration-rule | list migration rules before migration creation when rule id is missing | runtime/read-only |
 | PUB-RULE-002 | migration-rule | create global migration rule with allowed option values | runtime |
-| PUB-RULE-003 | migration-rule | get selected or created migration rule before generation | runtime/read-only |
-| PUB-BACKUP-001 | backup | specified file restore in one environment | prompt + optional runtime |
-| PUB-BACKUP-002 | backup | restore current environment by generating a backup package | prompt + optional runtime |
-| PUB-BACKUP-003 | backup | restore source environment to target by generating a backup package | prompt + optional runtime |
-| PUB-MIGRATION-001 | migration | specified file migration to target | prompt + optional runtime |
-| PUB-MIGRATION-002 | migration | migrate source environment to target by generating a migration package | prompt + optional runtime |
-| PUB-GUARD-001 | safety | execute requires secondary confirmation | prompt |
-| PUB-GUARD-002 | safety | missing file selection blocks upload | prompt |
-| PUB-GUARD-003 | safety | missing migration rule blocks migration generation | prompt |
-| PUB-GUARD-004 | safety | selected file still requires publish input confirmation before upload | prompt |
-| PUB-GUARD-005 | safety | existing migration rule list is not auto-selected before generation | prompt |
+| PUB-RULE-003 | migration-rule | get selected or created migration rule before package creation | runtime/read-only |
+| PUB-BACKUP-001 | backup | local file restore-upload in one environment | prompt + optional runtime |
+| PUB-BACKUP-002 | backup | server backup restore in same environment | prompt + optional runtime |
+| PUB-BACKUP-003 | backup | create backup, download, then restore-upload to target | prompt + optional runtime |
+| PUB-MIGRATION-001 | migration | local migration file check and execute | prompt + optional runtime |
+| PUB-MIGRATION-002 | migration | create migration package from selected rule, download, check, execute | prompt + optional runtime |
+| PUB-GUARD-001 | safety | restore/execute requires secondary confirmation | prompt |
+| PUB-GUARD-002 | safety | missing backup file selection stays at selection step | prompt |
+| PUB-GUARD-003 | safety | missing migration rule stays at rule selection step | prompt |
+| PUB-GUARD-004 | safety | selected file requires input confirmation before check or restore | prompt |
+| PUB-GUARD-005 | safety | existing migration rule list requires explicit selection before package creation | prompt |
 | PUB-GUARD-006 | safety | new migration rule creation requires input confirmation | prompt |
-| PUB-FAIL-001 | failure | empty remote list does not guess a package | prompt |
-| PUB-FAIL-002 | failure | file pull failure blocks upload | prompt |
-| PUB-FAIL-003 | failure | upload check failure blocks execute | prompt |
-| PUB-FAIL-004 | failure | 404 or missing plugin response marks environment as unsupported for publish | runtime/prompt |
+| PUB-FAIL-001 | failure | empty package list stays in discovery flow | prompt |
+| PUB-FAIL-002 | failure | download failure keeps workflow at download step | prompt |
+| PUB-FAIL-003 | failure | migration check failure keeps workflow before execute | prompt |
+| PUB-FAIL-004 | failure | 404 or missing plugin response marks environment as unsupported | runtime/prompt |
 
 ## Status Semantics
 
@@ -90,27 +88,25 @@ Optional or case-specific:
 
 ## Critical Assertions
 
-- Only `nb release ...` commands are allowed.
-- Existing `<BACKUP_FILE>` or `<MIGRATION_FILE>` skips `generate`.
-- Existing `<BACKUP_FILE>` or `<MIGRATION_FILE>` still requires publish input confirmation before `upload`.
-- Existing package lists and migration rule lists must not be auto-selected by first item, latest item, or prior run.
-- New migration rule creation requires confirmation of name, user table rule, and system table rule before `create`.
+- Commands use `nb api backup ...` and `nb api migration ...`.
+- `<SOURCE_ENV>` and `<TARGET_ENV>` both default to `dev`.
+- Existing `<BACKUP_FILE>` or `<MIGRATION_FILE>` skips package creation.
+- Existing package lists and migration rule lists require explicit user selection.
+- New migration rule creation requires confirmation of name, user-defined rule, and system-defined rule before `create`.
 - Capability probe failures are different from empty package lists.
 - HTTP 404, `Not Found`, missing adapter, inactive plugin, or license capability errors stop the workflow as `unsupported_publish_env`.
-- Target environments must pass `file list --scope remote --source artifact` probes because `upload` uploads into publish manager staging before execution.
-- If the user wants to choose an existing package, run `nb release file list` before asking them to select.
-- Remote file reuse requires `nb release file pull` before `upload`.
-- Backup without file runs `generate --type backup`.
-- Migration without file requires a selected or created migration rule before `generate --type migration`.
-- New migration generation uses the official `--migration-rule` parameter only.
-- Migration rule creation only uses global rule options:
-  - user-defined tables: `schema-only` or `overwrite`
-  - system tables: `overwrite-first` or `schema-only`
-- `upload` always runs before `execute`.
-- `execute` runs against `<TARGET_ENV>`, not `<SOURCE_ENV>` unless they are intentionally the same.
-- `execute` is blocked until secondary confirmation is present.
-- Publish input confirmation does not authorize `execute`.
-- If `upload` reports `Check passed: no`, do not execute.
+- If the user wants to choose an existing package, run `nb api backup list` or `nb api migration list` before asking them to select.
+- Backup package creation runs `backup create`, parses `backupName`, downloads with `--output`, then uses `restore-upload`.
+- Downloaded backup and migration packages are stored under `<CLI_HOME>\release\<SOURCE_ENV>\`.
+- Same-environment server backup restore may use `backup restore --name`.
+- Migration package creation requires a selected or created migration rule before `migration create`.
+- New migration package creation uses `--rule-id`.
+- Migration package execution runs `migration check --file` before `migration execute --file`.
+- `backup restore-status` is called only with a returned `--task <taskId>`.
+- A transient migration download 400/503 after package status is `ok` may be retried once before failing.
+- `restore` and `execute` wait for secondary confirmation.
+- Publish input confirmation is separate from restore and execute confirmation.
+- If `migration check` reports failure, the workflow remains before execute.
 
 ## Recommended Serial Order
 
@@ -118,14 +114,14 @@ Run in strict serial order:
 
 1. TC01 CLI readiness smoke
 2. TC02 environment context
-3. TC03 environment publish capability gate
-4. TC04 local and remote file discovery
+3. TC03 API capability gate
+4. TC04 package discovery
 5. TC05 migration rule discovery/create/get
-6. TC06 specified file backup restore, one environment
-7. TC07 restore current environment by generating a backup package
-8. TC08 restore source environment to target by generating a backup package
-9. TC09 specified file migration
-10. TC10 migrate source environment to target by generating a migration package
+6. TC06 local file backup restore, one environment
+7. TC07 server backup restore, one environment
+8. TC08 create backup, download, restore-upload to target
+9. TC09 local migration file check and execute
+10. TC10 create migration from rule, download, check, execute
 11. TC11-TC20 safety and failure cases
 
-`TC07` and `TC09` can run with `<TARGET_ENV>=dev` during the first round. They become true cross-environment checks when `<TARGET_ENV>` is changed to `test`.
+All cases run with `<SOURCE_ENV>=dev` and `<TARGET_ENV>=dev` for the current test round.

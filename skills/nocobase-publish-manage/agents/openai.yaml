@@ -2,50 +2,48 @@ version: 1
 agent:
   id: nocobase-publish-manage
   default_prompt: >
-    Use $nocobase-publish-manage when users ask for NocoBase publish,
-    backup restore, or migration publish operations.
+    Use $nocobase-publish-manage when users ask for NocoBase backup
+    restore, backup package handling, migration package creation, or
+    migration execution.
 
-    Only use direct `nb release` commands for publish workflows. The main
-    mutation chain is `nb release generate`, `nb release upload`, and
-    `nb release execute`; helper discovery commands are `nb release file
-    list/pull` and `nb release migration-rule list/get/create`.
-    Do not use legacy publish-related command groups outside `nb release`, Docker, app
-    lifecycle commands, direct API calls, local scripts, or fallback release
-    paths.
+    The command groups for these workflows are `nb api backup`, `nb api
+    migration`, `nb api migration rules`, and `nb api migration logs`.
 
-    Build a publish context before running mutation commands. Preserve and
-    pass these values between steps: type, sourceEnv, targetEnv, ruleId,
-    fileArg, localFile, fileName, generatedArtifactId, and uploadedArtifactId.
-    Before generate/upload/execute, probe the participating source and target
-    environments for the requested publish capability. Treat 404, Not Found,
-    missing adapter, inactive plugin, or license capability errors as
-    unsupported_publish_env and stop.
+    Build a context before mutation. Preserve and pass these values between
+    steps: method, sourceEnv, targetEnv, cliHome, releaseDir, backupName,
+    migrationName, localFile, downloadPath, taskId, ruleId, title, and step.
+    For skill tests, use sourceEnv=dev and targetEnv=dev unless the user
+    explicitly overrides them.
 
-    Require a publish input confirmation before creating, downloading,
-    generating, or uploading any package. Echo method, sourceEnv, targetEnv,
-    selected file or generation plan, and selected or new migration rule. Never
-    auto-select the first or latest package, and never auto-select the first
-    migration rule. For named files, still echo the exact file and ask for input
-    confirmation before upload.
+    Before mutation, probe the participating environments with read-only API
+    commands such as backup list/status, migration list, migration rules list,
+    and migration logs list. Treat 404, Not Found, unknown resource, inactive
+    plugin, or license capability errors as unsupported_publish_env and stop.
 
-    If the user provides a .nbdata file, skip generate. If the user wants to
-    reuse an existing package, discover it with `nb release file list --json`;
-    pull remote packages with `nb release file pull` before upload. If no
-    reusable file is selected, generate one.
+    Require publish input confirmation before creating or downloading a
+    package, creating a migration rule, or checking a migration file. Echo
+    method, sourceEnv, targetEnv, selected file or package creation plan, and
+    selected or new migration rule. Package and rule lists require explicit
+    user selection before mutation.
 
-    For migration generation, first select or create a rule through
-    `nb release migration-rule list/get/create --json`, then call
-    `nb release generate --type migration --migration-rule <ruleId>`.
+    For backup restore, use `nb api backup restore --name <backupName>` when
+    the backup already exists on the target environment. For cross-environment
+    or local-file restore, download from the source with `nb api backup
+    download --name <backupName> --output <cliHome>/release/<sourceEnv>/<backupName>`
+    and restore to the target with `nb api backup restore-upload --file <path>`.
+    If restore returns a task id, inspect it with `nb api backup
+    restore-status --task <taskId>`.
 
-    Generated files live in the global CLI workspace:
-    <global-cli-root>/.nocobase/publish/<type>/<sourceEnv>/<fileName>.nbdata.
-    When the file argument is only a file name, include --from <sourceEnv> in
-    `nb release upload`.
-
-    Before `nb release execute`, show the resolved context and require explicit
-    user confirmation. Execute with --file first. Use --artifact only if manifest
-    lookup fails, uploadedArtifactId is known, and the user confirms the fallback.
+    For migration generation, first select or create a global migration rule
+    with `nb api migration rules list/get/create`, then call `nb api migration
+    create --rule-id <ruleId> --title <title>`. Download the generated package
+    with `nb api migration download --name <name> --output
+    <cliHome>/release/<sourceEnv>/<name>`, check it on the target with `nb api
+    migration check --file <path>`, then execute with `nb api migration
+    execute --file <path>` after explicit execution confirmation. If
+    migration download transiently fails after `migration get` reports
+    status=ok, retry the same download once before failing the step.
 
     Final responses must include selected method, source and target envs,
-    commands executed or planned, captured file/artifact values, failed step if
-    any, and next action.
+    commands executed or planned, captured names and local file paths, failed
+    step if any, and next verification command.

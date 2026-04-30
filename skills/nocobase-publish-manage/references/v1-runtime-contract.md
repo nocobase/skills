@@ -7,36 +7,60 @@
 - [Publish Context](#publish-context)
 - [Environment Capability Gate](#environment-capability-gate)
 - [Publish Input Confirmation Gate](#publish-input-confirmation-gate)
-- [Global Publish Workspace](#global-publish-workspace)
-- [Generate Step](#generate-step)
-- [Upload Step](#upload-step)
-- [Execute Step](#execute-step)
+- [Backup Workflow](#backup-workflow)
+- [Migration Workflow](#migration-workflow)
 - [Output Parsing](#output-parsing)
 - [Failure Handling](#failure-handling)
 
 ## Goal
 
-Execute NocoBase publish workflows as a stateful chain of `nb release generate`, `nb release upload`, and `nb release execute`.
+Execute NocoBase backup restore and migration workflows with API-generated CLI commands:
+
+- `nb api backup ...`
+- `nb api migration ...`
+- `nb api migration rules ...`
+- `nb api migration logs ...`
 
 ## Command Surface
 
-Allowed publish commands:
+Backup commands:
 
 ```bash
-nb release file list --scope local --type <backup|migration> --env <sourceEnv> --json
-nb release file list --scope remote --type <backup|migration> --env <sourceEnv> --json
-nb release file pull --type <backup|migration> --env <sourceEnv> --file <fileName>
-nb release migration-rule list --env <sourceEnv> --json
-nb release migration-rule get --env <sourceEnv> --id <ruleId> --json
-nb release migration-rule create --env <sourceEnv> --name <name> --user-rule <schema-only|overwrite> --system-rule <overwrite-first|schema-only> --json
-nb release generate --type backup --env <sourceEnv> --wait
-nb release generate --type migration --env <sourceEnv> --migration-rule <ruleId> --title <title> --wait
-nb release upload --type <backup|migration> --from <sourceEnv> --to <targetEnv> --file <fileArg>
-nb release execute --type <backup|migration> --env <targetEnv> --file <fileArg> --yes --wait
-nb release execute --type <backup|migration> --env <targetEnv> --artifact <uploadedArtifactId> --yes --wait
+nb api backup list -e <env> --json-output
+nb api backup create -e <sourceEnv> --json-output
+nb api backup status --name <backupName> -e <env> --json-output
+nb api backup download --name <backupName> --output <localFile> -e <sourceEnv>
+nb api backup restore --name <backupName> -e <targetEnv> --json-output
+nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output
+nb api backup restore-status --task <taskId> -e <targetEnv> --json-output
+nb api backup remove --name <backupName> -e <env> --json-output
 ```
 
-Do not use legacy publish-related command groups outside `nb release`, direct API calls, Docker commands, or local scripts for publish execution.
+Migration commands:
+
+```bash
+nb api migration list -e <env> --json-output
+nb api migration get --name <migrationName> -e <env> --json-output
+nb api migration create --rule-id <ruleId> --title <title> -e <sourceEnv> --json-output
+nb api migration download --name <migrationName> --output <localFile> -e <sourceEnv>
+nb api migration check --file <localFile> -e <targetEnv> --json-output
+nb api migration execute --file <localFile> -e <targetEnv> --json-output
+nb api migration remove --name <migrationName> -e <env> --json-output
+nb api migration rules list -e <sourceEnv> --json-output
+nb api migration rules get --filter-by-tk <ruleId> -e <sourceEnv> --json-output
+nb api migration rules create --name <name> --user-defined-rule <schema-only|overwrite> --system-defined-rule <overwrite-first|schema-only> -e <sourceEnv> --json-output
+nb api migration logs list -e <targetEnv> --json-output
+nb api migration logs get --name <logName> -e <targetEnv> --json-output
+nb api migration logs download --name <logName> --output <localFile> -e <targetEnv>
+```
+
+Command rules:
+
+- Use `--json-output` for JSON API results.
+- Use `--output` for binary downloads.
+- Use `--file` for multipart uploads.
+- Use `-e <env>` or `--env <env>` explicitly on every command.
+- Write downloaded release files to the CLI home release workspace: `<cliHome>/release/<sourceEnv>/<filename>`.
 
 ## Publish Context
 
@@ -44,196 +68,247 @@ Maintain this context throughout the workflow:
 
 ```json
 {
-  "type": "backup|migration",
+  "method": "backup|migration",
   "sourceEnv": "dev",
-  "targetEnv": "test",
+  "targetEnv": "dev",
+  "cliHome": "C:/Users/<user>/.nocobase",
+  "releaseDir": "C:/Users/<user>/.nocobase/release/dev",
+  "backupName": "optional backup file name",
+  "migrationName": "optional migration file name",
+  "localFile": "absolute or relative local package path",
+  "downloadPath": "path passed to --output",
+  "taskId": "optional backup restore task id",
   "ruleId": "optional migration rule id",
+  "ruleName": "optional migration rule name",
   "title": "optional migration title",
-  "fileArg": "fileName.nbdata or local path",
-  "localFile": "absolute local file path when known",
-  "fileName": "fileName.nbdata",
-  "generatedArtifactId": "artifact id from generate",
-  "uploadedArtifactId": "artifact id from upload",
-  "pulledFile": "optional file pull result",
-  "migrationRule": "optional selected or created migration rule",
-  "step": "planned|generated|uploaded|executed"
+  "step": "planned|created|downloaded|checked|executed|failed"
 }
 ```
 
-Never infer a later command argument from memory when the context has an explicit value.
+For tests, default to:
+
+```json
+{
+  "sourceEnv": "dev",
+  "targetEnv": "dev"
+}
+```
+
+Use explicit context values when building each later command.
+
+## Local Release Workspace
+
+Resolve `cliHome` from the CLI home directory. In normal global mode this is the user's home plus `.nocobase`, for example `C:/Users/Enzo/.nocobase` on Windows. If the user or CLI environment uses another configured CLI root, use that root's `.nocobase` home.
+
+For downloaded files, create and use this path shape:
+
+```text
+<cliHome>/release/<sourceEnv>/<filename>
+```
+
+Examples:
+
+```text
+C:/Users/Enzo/.nocobase/release/dev/backup_20260430_163137_3622.nbdata
+C:/Users/Enzo/.nocobase/release/dev/migration_1777538194680.nbdata
+```
+
+Rules:
+
+- Use the source environment in the release path because that environment produced or hosted the package.
+- Keep the server filename unchanged.
+- Pass the full release workspace path to `--output`, then reuse the same path for `restore-upload`, `migration check`, or `migration execute`.
+- Do not store downloaded packages in the current working directory or temporary repo folders unless the user explicitly provides a different `--output` path.
 
 ## Environment Capability Gate
 
-Before a workflow mutates any environment, verify that each participating environment supports the requested publish capability.
+Before a workflow mutates any environment, verify that each participating environment supports the requested API surface.
 
-Capability probes:
+Read-only probes:
 
 ```bash
-nb release file list --scope remote --type backup --env <env> --page-size 1 --json
-nb release file list --scope remote --type migration --env <env> --page-size 1 --json
-nb release file list --scope remote --source artifact --type backup --env <env> --page-size 1 --json
-nb release file list --scope remote --source artifact --type migration --env <env> --page-size 1 --json
-nb release migration-rule list --env <sourceEnv> --page-size 1 --json
+nb api backup list -e <env> --json-output
+nb api migration list -e <env> --json-output
+nb api migration rules list -e <sourceEnv> --json-output
+nb api migration logs list -e <targetEnv> --json-output
 ```
 
 Rules:
 
-- For backup restore, the source environment must support backup package generation or listing, and the target environment must support publish artifact staging plus backup restore execution.
-- For migration publish, the source environment must support migration rules and migration package generation, and the target environment must support publish artifact staging plus migration execution.
-- The target environment must pass `--source artifact` probes because `upload` uploads into the publish manager staging area before `execute`.
-- Treat HTTP 404, `Not Found`, unknown resource, missing adapter, missing plugin, inactive plugin, or license/commercial capability errors as `unsupported_publish_env`.
-- An empty package list is not the same as unsupported capability. Empty list means the feature exists but no package is available.
-- If any required environment is `unsupported_publish_env`, stop before `generate`, `upload`, or `execute`.
-- Report the environment, publish type, failed probe command, and likely cause: the required commercial plugin is not installed, not activated, or not licensed.
+- For backup restore, the source environment supports backup create/list/download when generating or copying a backup, and the target environment supports backup restore or restore-upload.
+- For migration, the source environment supports migration rules and migration create/download when generating a package, and the target environment supports migration check/execute.
+- HTTP 404, `Not Found`, unknown resource, missing adapter, missing plugin, inactive plugin, or license/commercial capability errors become `unsupported_publish_env`.
+- Empty lists mean the API exists and currently has no available package.
+- `unsupported_publish_env` stops the workflow at the capability gate.
+- Report the environment, method, failed probe command, and likely cause.
 
 ## Publish Input Confirmation Gate
 
-Before package creation, download, or upload, get explicit user confirmation for the publish input.
+Before package creation, download, rule creation, or migration check, get explicit user confirmation for the selected input.
 
-This gate applies before these commands:
+This gate applies before:
 
 ```bash
-nb release file pull ...
-nb release migration-rule create ...
-nb release generate ...
-nb release upload ...
+nb api backup create ...
+nb api backup download ...
+nb api migration rules create ...
+nb api migration create ...
+nb api migration download ...
+nb api migration check ...
 ```
 
 Rules:
 
-- Show the method, source environment, target environment, selected file or generation plan, and selected or new migration rule.
-- If the user named a file, echo the exact file name or path and ask for confirmation before `upload`.
-- If a package list was shown, do not auto-select by first item, latest item, or prior run. Ask the user to pick.
-- If a migration rule list was shown, do not auto-select by first item, latest item, or prior run. Ask the user to pick or approve creating a new global rule.
-- If a new global migration rule will be created, show `user-rule`, `system-rule`, rule name, and source environment before creating it.
-- Use a distinct confirmation phrase such as `confirm input` for this gate. This is separate from the destructive execution confirmation.
-- Passing the publish input gate does not authorize `execute`.
+- Show method, source environment, target environment, selected file or generation plan, and selected or new migration rule.
+- Echo named files exactly before using them.
+- Package lists lead to explicit user selection.
+- Migration rule lists lead to explicit user selection or approved global rule creation.
+- New global migration rule creation shows `user-defined-rule`, `system-defined-rule`, rule name, and source environment.
+- Use a distinct confirmation phrase such as `confirm input` for this gate.
+- Execution confirmation remains a separate gate for restore, execute, and remove actions.
 
-## Global Publish Workspace
+## Backup Workflow
 
-Generated files default to the global CLI workspace:
+### Existing Local Backup File
 
-```text
-<global-cli-root>/.nocobase/publish/<type>/<sourceEnv>/<fileName>.nbdata
-```
-
-On Windows without `NB_CLI_ROOT`, this is normally:
-
-```text
-C:\Users\Enzo\.nocobase\publish\<type>\<sourceEnv>\<fileName>.nbdata
-```
-
-When `NB_CLI_ROOT` is set, use:
-
-```text
-%NB_CLI_ROOT%\.nocobase\publish\<type>\<sourceEnv>\<fileName>.nbdata
-```
-
-If `fileArg` is a plain file name, `upload` must include `--from <sourceEnv>` so the CLI can resolve it under the global workspace. If `fileArg` is a path, still prefer passing `--from` when the source environment is known so the manifest remains useful.
-
-## Generate Step
-
-Before generate:
-
-- If the user wants to reuse an existing local package, run `nb release file list --scope local --type <type> --env <sourceEnv> --json` and let the user select a file.
-- If the user wants to reuse a remote package, run `nb release file list --scope remote --type <type> --env <sourceEnv> --json`, then `nb release file pull --type <type> --env <sourceEnv> --file <fileName>`.
-- Treat the pulled file as the selected `fileArg` and skip generate.
-- Do not run `file pull` or `generate` until the publish input confirmation gate passes.
-
-Backup generation:
+Plan:
 
 ```bash
-nb release generate --type backup --env <sourceEnv> --wait
-```
-
-Migration generation:
-
-```bash
-nb release generate --type migration --env <sourceEnv> --migration-rule <ruleId> --title <title> --wait
+nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output
 ```
 
 Rules:
 
-- Skip this step when the user provided `file`.
-- Require `ruleId` before migration generation.
-- If `ruleId` is unknown, discover with `nb release migration-rule list --env <sourceEnv> --json`.
-- If the user asks to create a global migration rule, create it with `nb release migration-rule create --user-rule <schema-only|overwrite> --system-rule <overwrite-first|schema-only> --json`.
-- Verify a selected or created rule with `nb release migration-rule get --env <sourceEnv> --id <ruleId> --json` when possible.
-- Do not create a migration rule or generate a migration file until the publish input confirmation gate passes.
-- Use the official `--migration-rule` parameter only.
-- Parse `Local file:` from stdout into `localFile`.
-- Parse `Artifact:` from stdout into `generatedArtifactId`.
-- Set `fileName` to the basename of `localFile`.
-- Set `fileArg=fileName` after successful generation unless the user explicitly requested a path.
-- If `Local file:` is missing after a successful generate command, inspect only the global publish directory for the same `type` and `sourceEnv`, sort `.nbdata` files by modified time, and use the newest file as a same-run fallback.
+- Use the provided local file as the package source.
+- Require execution confirmation before `restore-upload`.
+- Use `--skip-revert-on-error` when the user explicitly requests it and the confirmation summary repeats it.
 
-## Upload Step
+### Existing Server Backup In Same Environment
 
-Upload command:
+Plan:
 
 ```bash
-nb release upload --type <type> --from <sourceEnv> --to <targetEnv> --file <fileArg>
+nb api backup status --name <backupName> -e <targetEnv> --json-output
+nb api backup restore --name <backupName> -e <targetEnv> --json-output
 ```
 
 Rules:
 
-- Always run upload before execute.
-- Do not run upload until the publish input confirmation gate passes.
-- Parse `Artifact:` from stdout into `uploadedArtifactId`.
-- If stdout contains `Check passed: no`, stop before execute.
-- If stdout contains `Warning:` or adapter check details, report them in the final response.
-- Do not replace `fileArg` with `localFile` after upload unless the user explicitly supplied a path.
+- Use direct restore when the backup already exists on the target environment.
+- Require execution confirmation before `restore`.
+- If restore returns a task id, check `backup restore-status --task <taskId>` after restore starts or if the command returns an async state.
 
-## Execute Step
+### Source-To-Target Backup Restore
 
-Primary execute command:
+Plan:
 
 ```bash
-nb release execute --type <type> --env <targetEnv> --file <fileArg> --yes --wait
-```
-
-Fallback execute command:
-
-```bash
-nb release execute --type <type> --env <targetEnv> --artifact <uploadedArtifactId> --yes --wait
+nb api backup create -e <sourceEnv> --json-output
+nb api backup status --name <backupName> -e <sourceEnv> --json-output
+nb api backup download --name <backupName> --output <localFile> -e <sourceEnv>
+nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output
 ```
 
 Rules:
 
-- Require secondary confirmation before execute.
-- Use `--file` first so the CLI manifest resolves the uploaded artifact.
-- Only use `--artifact` if the `--file` path fails with `No uploaded artifact found` and `uploadedArtifactId` is known.
-- Before retrying with `--artifact`, ask the user to confirm the fallback execution.
-- Include user-provided `--var` and `--secret` values only for migration execution.
-- Treat `--skip-backup`, `--no-backup-before-execute`, and `--skip-revert-on-error` as high-risk options that require explicit mention in the confirmation summary.
+- User-selected source backups enter the workflow at `backup status`.
+- Parse `backupName` from the create response before status/download.
+- Always use `--output` for download, with `<localFile>` under `<cliHome>/release/<sourceEnv>/`.
+- Cross-environment restore uses `restore-upload`.
+
+## Migration Workflow
+
+### Existing Local Migration File
+
+Plan:
+
+```bash
+nb api migration check --file <localFile> -e <targetEnv> --json-output
+nb api migration execute --file <localFile> -e <targetEnv> --json-output
+```
+
+Rules:
+
+- Use the provided local file as the package source.
+- Check the local file before execute.
+- Require execution confirmation before execute.
+
+### Existing Server Migration File
+
+Plan:
+
+```bash
+nb api migration get --name <migrationName> -e <sourceEnv> --json-output
+nb api migration download --name <migrationName> --output <localFile> -e <sourceEnv>
+nb api migration check --file <localFile> -e <targetEnv> --json-output
+nb api migration execute --file <localFile> -e <targetEnv> --json-output
+```
+
+Rules:
+
+- Use the server file name from `migration list` or user input.
+- Download to `<cliHome>/release/<sourceEnv>/<migrationName>` before target check/execute.
+- Require input confirmation before download/check and execution confirmation before execute.
+
+### Generate Migration From Rule
+
+Plan:
+
+```bash
+nb api migration rules list -e <sourceEnv> --json-output
+nb api migration rules get --filter-by-tk <ruleId> -e <sourceEnv> --json-output
+nb api migration create --rule-id <ruleId> --title <title> -e <sourceEnv> --json-output
+nb api migration get --name <migrationName> -e <sourceEnv> --json-output
+nb api migration download --name <migrationName> --output <localFile> -e <sourceEnv>
+nb api migration check --file <localFile> -e <targetEnv> --json-output
+nb api migration execute --file <localFile> -e <targetEnv> --json-output
+```
+
+Global rule creation:
+
+```bash
+nb api migration rules create --name <ruleName> --user-defined-rule <schema-only|overwrite> --system-defined-rule <overwrite-first|schema-only> -e <sourceEnv> --json-output
+```
+
+Rules:
+
+- Require `ruleId` before `migration create`.
+- Discover unknown `ruleId` values with `migration rules list`.
+- Global rule creation supports:
+  - user-defined tables: `schema-only` or `overwrite`
+  - system-defined tables: `overwrite-first` or `schema-only`
+- Verify a selected or created rule with `migration rules get` when possible.
+- Parse `migrationName` from the create response before download.
+- Use the official `--rule-id` parameter.
+- If `migration download` returns a transient 400/503 after `migration get` reports `status=ok`, rerun `migration get` once and retry the same download command once. If retry fails, stop at the download step.
+- Apply the confirmation gate before rule creation, package creation, download, check, and execute steps.
 
 ## Output Parsing
 
-Parse case-insensitive labels from stdout:
+Prefer JSON with `--json-output` for non-binary commands. Extract:
 
-- `Local file: <path>`
-- `Artifact: <artifactId>`
-- `Check passed: yes|no`
-- `State: <state>`
-- `Error: <message>`
+- backup file name from `backup create`
+- backup status/state from `backup status` and `backup restore-status --task <taskId>`
+- migration rule id from `migration rules create/list/get`
+- migration file name from `migration create/list/get`
+- migration check result from `migration check`
+- execution state or error from `migration execute`
+- log names from `migration logs list`
 
-Do not require JSON output from publish commands.
+For binary commands, preserve the exact `--output` path:
 
-Prefer JSON output for discovery commands:
-
-- `file list --json`
-- `migration-rule list --json`
-- `migration-rule get --json`
-- `migration-rule create --json`
-
-For `file pull`, capture the local file path, file name, and checksum when the CLI reports them. At minimum, preserve the selected `fileName` so `upload` can resolve the file under the global workspace.
+- `backup download --output <cliHome>/release/<sourceEnv>/<backupName>`
+- `migration download --output <cliHome>/release/<sourceEnv>/<migrationName>`
+- `migration logs download --output <cliHome>/release/<targetEnv>/<logName>`
 
 ## Failure Handling
 
-- On generate failure, stop and report the command and error output.
-- On upload failure, stop and report whether the file path or target capability failed.
-- On execute failure, stop and report the state, result, and error lines.
-- On capability probe failure, stop and report `unsupported_publish_env`; do not continue with publish commands.
-- Do not automatically regenerate a file after an upload or execute failure.
-- Do not automatically create a new migration rule after a migration generation failure.
+- Capability probe failure reports `unsupported_publish_env`.
+- Backup create/status/download failure stops before restore.
+- Backup restore failure inspects or suggests `backup restore-status --task <taskId>` when a task id was returned.
+- Migration rule create failure stops before migration create.
+- Migration create/download failure stops before check or execute. A transient migration download failure may be retried once after `migration get` confirms `status=ok`.
+- Migration check failure stops before execute.
+- Migration execute failure inspects or suggests `migration logs list/get/download`.
+- Rule/package recreation after a failure requires explicit user instruction.
 - Preserve the context values collected before the failure.

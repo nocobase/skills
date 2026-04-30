@@ -3,196 +3,189 @@
 ## Contents
 
 - [Goal](#goal)
-- [Scenario 1: Specified File Backup Restore In One Environment](#scenario-1-specified-file-backup-restore-in-one-environment)
-- [Scenario 2: Restore Current Environment](#scenario-2-restore-current-environment)
-- [Scenario 3: Restore Source Environment To Target](#scenario-3-restore-source-environment-to-target)
-- [Scenario 4: Specified File Migration To Target](#scenario-4-specified-file-migration-to-target)
-- [Scenario 5: Migrate Source Environment To Target](#scenario-5-migrate-source-environment-to-target)
+- [Scenario 1: Local Backup Restore In One Environment](#scenario-1-local-backup-restore-in-one-environment)
+- [Scenario 2: Server Backup Restore In One Environment](#scenario-2-server-backup-restore-in-one-environment)
+- [Scenario 3: Create Backup And Restore To Target](#scenario-3-create-backup-and-restore-to-target)
+- [Scenario 4: Local Migration File To Target](#scenario-4-local-migration-file-to-target)
+- [Scenario 5: Create Migration From Rule](#scenario-5-create-migration-from-rule)
 - [Discovery Checks](#discovery-checks)
 - [Failure Cases](#failure-cases)
 - [Smoke Checks](#smoke-checks)
 
 ## Goal
 
-Validate that the publish skill preserves command dependencies and blocks unsafe execution.
+Validate that the publish skill uses the current API CLI commands, preserves command dependencies, and waits for confirmation before restore or migration execution.
 
-All publish workflows have two gates:
+All write workflows have two gates:
 
-- Publish input confirmation: required before package pull, migration-rule create, generate, or upload.
-- Execution confirmation: required before execute.
+- Publish input confirmation: required before package creation, package download, migration rule creation, or migration check.
+- Execution confirmation: required before backup restore, backup restore-upload, migration execute, or remove.
 
-Named files, existing package lists, and migration rule lists never authorize automatic selection or upload by themselves.
+Named files, existing package lists, and migration rule lists lead to explicit user selection or confirmation.
 
-## Scenario 1: Specified File Backup Restore In One Environment
+Tests default to `sourceEnv=dev` and `targetEnv=dev`.
+
+Downloaded files default to the CLI release workspace for the source environment:
+
+```text
+C:/Users/Enzo/.nocobase/release/dev/<file>
+```
+
+## Scenario 1: Local Backup Restore In One Environment
 
 Input:
 
 ```text
-Restore dev with file backup-001.nbdata.
+Restore dev with local file ./backup-001.nbdata.
 ```
 
 Expected plan:
 
 ```bash
-nb release upload --type backup --from dev --to dev --file backup-001.nbdata
-nb release execute --type backup --env dev --file backup-001.nbdata --yes --wait
+nb api backup restore-upload --file ./backup-001.nbdata -e dev --json-output
 ```
 
 Checks:
 
-- `generate` is not run.
-- The named file is echoed and confirmed before `upload`.
-- `upload` runs before `execute`.
-- `execute` waits for `confirm`.
+- The provided local file is used as the package source.
+- The named local file is echoed before restore.
+- `restore-upload` waits for `confirm`.
+- `targetEnv=dev` is used.
 
-## Scenario 2: Restore Current Environment
+## Scenario 2: Server Backup Restore In One Environment
 
 Input:
 
 ```text
-Restore dev.
+Restore dev with server backup backup-001.nbdata.
 ```
 
 Expected plan:
 
 ```bash
-nb release generate --type backup --env dev --wait
-nb release upload --type backup --from dev --to dev --file <generatedFileName>
-nb release execute --type backup --env dev --file <generatedFileName> --yes --wait
+nb api backup status --name backup-001.nbdata -e dev --json-output
+nb api backup restore --name backup-001.nbdata -e dev --json-output
+nb api backup restore-status --task <RESTORE_TASK_ID> -e dev --json-output
 ```
 
 Checks:
 
-- The generation plan is confirmed before `generate`.
-- `Local file:` is parsed from generate output.
-- `fileName` is derived from the generated local file path.
-- The generated file name, not a guessed latest file, is passed to upload and execute.
+- Direct `backup restore --name` is used because the backup exists on the target environment.
+- The named backup is echoed and confirmed before restore.
+- Restore waits for `confirm`.
+- `restore-status` is called only when a restore task id is returned.
 
-## Scenario 3: Restore Source Environment To Target
+## Scenario 3: Create Backup And Restore To Target
 
 Input:
 
 ```text
-Restore dev to test.
+Create a backup from dev and restore it to dev.
 ```
 
 Expected plan:
 
 ```bash
-nb release generate --type backup --env dev --wait
-nb release upload --type backup --from dev --to test --file <generatedFileName>
-nb release execute --type backup --env test --file <generatedFileName> --yes --wait
+nb api backup create -e dev --json-output
+nb api backup status --name <BACKUP_NAME> -e dev --json-output
+nb api backup download --name <BACKUP_NAME> --output C:/Users/Enzo/.nocobase/release/dev/<BACKUP_NAME> -e dev
+nb api backup restore-upload --file C:/Users/Enzo/.nocobase/release/dev/<BACKUP_NAME> -e dev --json-output
 ```
 
 Checks:
 
-- The generation and target upload plan is confirmed before `generate`.
-- Source remains `dev`.
-- Target remains `test`.
-- Execute runs on `test`, not `dev`.
+- The generation plan is confirmed before `backup create`.
+- `backupName` is parsed from create output.
+- Download includes `--output` under the CLI release workspace.
+- Restore uses the downloaded local file and waits for `confirm`.
 
-## Scenario 4: Specified File Migration To Target
+## Scenario 4: Local Migration File To Target
 
 Input:
 
 ```text
-Migrate file migration-001.nbdata to test.
+Migrate dev with local file ./migration-001.nbdata.
 ```
 
 Expected plan:
 
 ```bash
-nb release upload --type migration --from <sourceEnv> --to test --file migration-001.nbdata
-nb release execute --type migration --env test --file migration-001.nbdata --yes --wait
+nb api migration check --file ./migration-001.nbdata -e dev --json-output
+nb api migration execute --file ./migration-001.nbdata -e dev --json-output
 ```
 
 Checks:
 
-- `generate` is not run.
-- `ruleId` is not required when a migration file is provided.
-- The named migration file is echoed and confirmed before `upload`.
-- Source environment is required when the file is a plain file name.
+- The provided local file is used as the package source.
+- The local file is echoed and confirmed before check.
+- Execute waits for `confirm`.
 
-## Scenario 5: Migrate Source Environment To Target
+## Scenario 5: Create Migration From Rule
 
 Input:
 
 ```text
-Migrate dev to test with ruleId rule_123.
+Migrate dev to dev with ruleId rule_123.
 ```
 
 Expected plan:
 
 ```bash
-nb release generate --type migration --env dev --migration-rule rule_123 --title publish-dev-to-test --wait
-nb release upload --type migration --from dev --to test --file <generatedFileName>
-nb release execute --type migration --env test --file <generatedFileName> --yes --wait
+nb api migration rules get --filter-by-tk rule_123 -e dev --json-output
+nb api migration create --rule-id rule_123 --title publish-dev-to-dev -e dev --json-output
+nb api migration get --name <MIGRATION_NAME> -e dev --json-output
+nb api migration download --name <MIGRATION_NAME> --output C:/Users/Enzo/.nocobase/release/dev/<MIGRATION_NAME> -e dev
+nb api migration check --file C:/Users/Enzo/.nocobase/release/dev/<MIGRATION_NAME> -e dev --json-output
+nb api migration execute --file C:/Users/Enzo/.nocobase/release/dev/<MIGRATION_NAME> -e dev --json-output
 ```
 
 Checks:
 
-- Missing file triggers migration generation.
-- Missing `ruleId` first runs `nb release migration-rule list --env dev`, then blocks generation until the user selects or creates one.
-- The agent must not auto-select the first or latest migration rule.
-- The selected rule or new rule plan is confirmed before `migration-rule create` or `generate`.
-- `generatedArtifactId` and `uploadedArtifactId` are captured separately.
+- Missing file triggers migration package creation.
+- Missing `ruleId` first runs `nb api migration rules list -e dev --json-output`, then waits for the user to select or create one.
+- The selected rule or new rule plan is confirmed before `migration rules create` or `migration create`.
+- `migrationName` is parsed from create output before download.
+- If `migration download` transiently fails after `migration get` reports `status=ok`, retry the same download once before failing.
 
 ## Discovery Checks
 
-Run these checks when the user wants to inspect existing packages or migration rules before deciding whether to generate a new package.
+Run these checks when the user wants to inspect existing packages or migration rules before deciding whether to create a new package.
 
-### Local And Remote Publish Files
+### Backup And Migration Packages
 
 Expected commands:
 
 ```bash
-nb release file list --scope local --type backup --env dev --json
-nb release file list --scope remote --type backup --env dev --page-size 2 --json
-nb release file list --scope remote --type migration --env dev --page-size 2 --json
+nb api backup list -e dev --json-output
+nb api migration list -e dev --json-output
 ```
 
 Checks:
 
-- Local list is used for files already in the global CLI workspace.
-- Remote list is used for packages that exist on the source environment server.
-- Empty lists stop the reuse flow and lead to either generation or user selection from another environment.
-- A listed package must be selected by the user and confirmed before pull or upload.
-
-### Pull Remote Publish File
-
-Expected command:
-
-```bash
-nb release file pull --type backup --env dev --file <fileName>
-```
-
-Checks:
-
-- Pull runs before `upload` when the selected package is remote.
-- The pulled file remains under the CLI publish workspace for the selected type and environment.
-- If pull fails, stop before `upload`.
+- Lists are used for packages that exist on the selected server environment.
+- Empty lists lead to package creation or user selection from another environment.
+- A listed package is selected by the user and confirmed before download, restore, check, or execute.
 
 ### Migration Rule Discovery
 
 Expected commands:
 
 ```bash
-nb release migration-rule list --env dev --page-size 5 --json
-nb release migration-rule get --env dev --id <ruleId> --json
-nb release migration-rule create --env dev --name <name> --user-rule schema-only --system-rule overwrite-first --json
+nb api migration rules list -e dev --json-output
+nb api migration rules get --filter-by-tk <RULE_ID> -e dev --json-output
+nb api migration rules create --name <RULE_NAME> --user-defined-rule schema-only --system-defined-rule overwrite-first -e dev --json-output
 ```
 
 Checks:
 
-- `list` is used before asking the user to create a new rule when rules already exist.
-- `list` results are not auto-selected.
-- `create` only creates global rules.
+- `list` is used before asking the user to create a new rule when rules may already exist.
+- `create` uses global rules.
 - `create` requires publish input confirmation.
-- `get` verifies the selected or created rule before `generate --type migration`.
+- `get` verifies the selected or created rule before `migration create`.
 
 ## Failure Cases
 
-### Environment Publish Capability Unsupported
+### Environment API Capability Unsupported
 
 Command output:
 
@@ -204,40 +197,24 @@ Request failed with status 404
 Expected:
 
 - Mark the probed environment as `unsupported_publish_env`.
-- Report that the required backup or migration capability may be unavailable because the commercial plugin is not installed, not licensed, or not activated.
-- Do not continue to `generate`, `upload`, or `execute`.
-- Do not treat this as an empty package list.
+- Report that the required backup or migration capability depends on the commercial plugin and license activation state.
+- The workflow remains at the capability gate.
 
 ### Missing Migration Rule
 
 Input:
 
 ```text
-Migrate dev to test.
+Migrate dev to dev.
 ```
 
 Expected:
 
-- Run `nb release migration-rule list --env <sourceEnv> --json`.
+- Run `nb api migration rules list -e dev --json-output`.
 - Ask the user to select a `ruleId` or create a global rule.
-- Do not run `nb release generate`.
+- Migration package creation starts after rule selection and publish input confirmation.
 
-### Auto-Selected Migration Rule
-
-Input:
-
-```text
-Migrate dev to test.
-```
-
-Expected:
-
-- Run `nb release migration-rule list --env <sourceEnv> --json`.
-- Do not choose the first, latest, or previously used rule automatically.
-- Ask the user to select a rule or approve creating a new global rule.
-- Do not run `migration-rule create`, `generate`, or `upload` until publish input is confirmed.
-
-### Remote File List Empty
+### Server Package List Empty
 
 Command output:
 
@@ -247,65 +224,51 @@ Command output:
 
 Expected:
 
-- Do not guess a file name.
-- Ask whether to generate a new package or inspect another source environment.
+- Report the empty package list.
+- Ask whether to create a new package or inspect another source environment.
 
 ### Migration Rule Create Missing Id
 
 Command output:
 
 ```json
-{"name":"dev-to-test"}
+{"name":"dev-to-dev"}
 ```
 
 Expected:
 
-- Stop before migration generation.
+- Keep the workflow before migration package creation.
 - Report that no `ruleId` was returned.
-- Ask the user to inspect rules with `nb release migration-rule list --env <sourceEnv> --json`.
+- Ask the user to inspect rules with `nb api migration rules list -e dev --json-output`.
 
-### File Pull Failed
-
-Command output:
-
-```text
-Error: remote file not found
-```
-
-Expected:
-
-- Stop before upload.
-- Report the source environment, type, and requested file name.
-- Ask whether to list remote files again or generate a new package.
-
-### Upload Check Failed
+### Download Failed
 
 Command output:
 
 ```text
-Artifact: artifact_123
-Check passed: no
-Warning: adapter check failed
+Error: file not found
 ```
 
 Expected:
 
-- Store `uploadedArtifactId=artifact_123`.
-- Stop before execute.
-- Report the warning.
+- Keep the workflow at the download step.
+- Report the source environment, method, requested file name, and output path.
+- Ask whether to list packages again or create a new package.
+- For migration downloads only, if `migration get` reports `status=ok`, retry the same download once before reporting the failure.
 
-### Manifest Lookup Missing
+### Migration Check Failed
 
 Command output:
 
-```text
-No uploaded artifact found for file.nbdata on test. Run `nb release upload` first or use --artifact.
+```json
+{"data":{"checkStatus":"failed","message":"adapter check failed"}}
 ```
 
 Expected:
 
-- If `uploadedArtifactId` exists, ask whether to retry execute with `--artifact`.
-- If `uploadedArtifactId` is missing, stop and ask the user to rerun upload.
+- Store the local file path.
+- Keep the workflow before execute.
+- Report the check failure.
 
 ### Execute Failed
 
@@ -313,29 +276,37 @@ Command output:
 
 ```text
 State: failed
-Error: restore failed
+Error: migration failed
 ```
 
 Expected:
 
-- Stop immediately.
 - Report failed step and error.
-- Do not attempt rollback automatically.
+- Suggest `nb api migration logs list -e dev --json-output`.
 
 ## Smoke Checks
 
 Run these read-only checks before relying on the skill in a new CLI version:
 
 ```bash
-nb release --help
-nb release file --help
-nb release file list --help
-nb release file pull --help
-nb release migration-rule --help
-nb release migration-rule list --help
-nb release migration-rule get --help
-nb release migration-rule create --help
-nb release generate --help
-nb release upload --help
-nb release execute --help
+nb api backup --help
+nb api backup list --help
+nb api backup create --help
+nb api backup status --help
+nb api backup download --help
+nb api backup restore --help
+nb api backup restore-upload --help
+nb api backup restore-status --help
+nb api migration --help
+nb api migration list --help
+nb api migration create --help
+nb api migration download --help
+nb api migration check --help
+nb api migration execute --help
+nb api migration rules list --help
+nb api migration rules get --help
+nb api migration rules create --help
+nb api migration logs list --help
+nb api migration logs get --help
+nb api migration logs download --help
 ```

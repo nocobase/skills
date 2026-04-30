@@ -20,17 +20,19 @@ This playbook is aligned to:
 
 - `<BASE_DIR>`: project base directory, default `E:\work\nocobase`.
 - `<SOURCE_ENV>`: source environment, default `dev`.
-- `<TARGET_ENV>`: target environment, default `dev` for first round.
-- `<BACKUP_FILE>`: existing backup package file name.
-- `<MIGRATION_FILE>`: existing migration package file name.
+- `<TARGET_ENV>`: target environment, default `dev`.
+- `<BACKUP_NAME>`: server backup package file name.
+- `<BACKUP_FILE>`: local backup package path, default `./backup.nbdata`.
+- `<MIGRATION_NAME>`: server migration package file name.
+- `<MIGRATION_FILE>`: local migration package path, default `./migration.nbdata`.
 - `<MIGRATION_RULE_ID>`: selected migration rule id.
-- `<MIGRATION_RULE_NAME>`: migration rule name, default `publish-dev-to-target`.
+- `<MIGRATION_RULE_NAME>`: migration rule name, default `publish-dev-to-dev`.
 - `<USER_RULE>`: user-defined table rule, default `schema-only`.
-- `<SYSTEM_RULE>`: system table rule, default `overwrite-first`.
-- `<GENERATED_FILE>`: generated package file name parsed from `Local file:`.
-- `<LOCAL_FILE>`: absolute local package path parsed from `Local file:`.
-- `<GENERATED_ARTIFACT_ID>`: artifact id parsed from `generate`.
-- `<UPLOADED_ARTIFACT_ID>`: artifact id parsed from `upload`.
+- `<SYSTEM_RULE>`: system-defined table rule, default `overwrite-first`.
+- `<CLI_HOME>`: CLI home directory, default `C:\Users\Enzo\.nocobase`.
+- `<RELEASE_DIR>`: source environment release workspace, default `<CLI_HOME>\release\<SOURCE_ENV>`.
+- `<DOWNLOADED_BACKUP_FILE>`: path passed to `backup download --output`, default `<RELEASE_DIR>\<BACKUP_NAME>`.
+- `<DOWNLOADED_MIGRATION_FILE>`: path passed to `migration download --output`, default `<RELEASE_DIR>\<MIGRATION_NAME>`.
 
 ## Global Assertions
 
@@ -39,33 +41,32 @@ Unless explicitly noted, every prompt-driven result should include:
 - selected method: `backup` or `migration`
 - source environment and target environment
 - command chain executed or planned
-- selected file name or generated file name
-- selected or created migration rule id for migration generation
-- uploaded artifact id when available
+- selected server file name or local file path
+- selected or created migration rule id for migration package creation
 - explicit publish input confirmation status
 - explicit execute confirmation status
 - failed step and recovery guidance when blocked or failed
 
 Hard requirements:
 
-- Use `nb release ...` only.
-- Do not use legacy publish-related command groups outside `nb release`.
-- Do not use direct API, Docker, local scripts, or database fallback paths.
-- Do not guess file names or migration rule ids.
-- Stop before package pull, migration-rule create, generate, or upload until the user confirms the publish input.
-- Stop before `nb release execute` until the user explicitly confirms.
+- Use `nb api backup ...` and `nb api migration ...`.
+- Use explicit file names or user-selected package/rule ids.
+- Store downloaded packages under `<CLI_HOME>\release\<SOURCE_ENV>\`.
+- Stop before package create, package download, migration rule create, or migration check until the user confirms the publish input.
+- Stop before `backup restore`, `backup restore-upload`, `backup remove`, `migration execute`, or `migration remove` until the user explicitly confirms.
+- Use `<SOURCE_ENV>=dev` and `<TARGET_ENV>=dev` in this test suite unless a case explicitly overrides them.
 
 ## Interaction Model
 
 Many publish flows are multi-turn. Tests should record the first prompt, input confirmation prompt, and execution confirmation prompt when applicable.
 
-Use this confirmation text when a case intentionally proceeds into package creation, download, or upload:
+Use this confirmation text when a case intentionally proceeds into package creation, download, migration rule creation, or migration check:
 
 ```text
 confirm input
 ```
 
-Use this confirmation text when a case intentionally proceeds to execute:
+Use this confirmation text when a case intentionally proceeds to restore or execute:
 
 ```text
 confirm
@@ -73,9 +74,9 @@ confirm
 
 Expected behavior before confirmation:
 
-- `file pull`, `migration-rule create`, `generate`, and `upload` must not run before publish input confirmation.
-- `execute` must not run before execution confirmation.
-- The agent should show the resolved publish context and ask for confirmation.
+- Package create, package download, migration rule create, migration package create, migration download, and migration check wait for publish input confirmation.
+- Backup restore, backup restore-upload, and migration execute wait for execution confirmation.
+- The agent shows the resolved publish context and asks for confirmation.
 
 ## Cases
 
@@ -84,106 +85,109 @@ Expected behavior before confirmation:
 Prompt:
 
 ```text
-请检查发布管理 CLI 能力，不要执行任何写入。
+请检查发布管理 CLI 能力，只执行帮助命令。
 ```
 
 Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release --help
-nb release file --help
-nb release file list --help
-nb release file pull --help
-nb release migration-rule --help
-nb release migration-rule list --help
-nb release migration-rule get --help
-nb release migration-rule create --help
-nb release generate --help
-nb release upload --help
-nb release execute --help
+nb api backup --help
+nb api backup list --help
+nb api backup create --help
+nb api backup status --help
+nb api backup download --help
+nb api backup restore --help
+nb api backup restore-upload --help
+nb api backup restore-status --help
+nb api migration --help
+nb api migration list --help
+nb api migration create --help
+nb api migration download --help
+nb api migration check --help
+nb api migration execute --help
+nb api migration rules list --help
+nb api migration rules get --help
+nb api migration rules create --help
+nb api migration logs list --help
+nb api migration logs get --help
+nb api migration logs download --help
 ```
 
 Expected:
 
 1. Only read-only help commands are executed.
-2. Output confirms the `file`, `migration-rule`, `generate`, `upload`, and `execute` command groups exist.
-3. No publish package is generated, uploaded, or executed.
+2. Output confirms the `backup`, `migration`, `migration rules`, and `migration logs` command groups exist.
+3. The result is a capability report.
 
 ### TC02 Environment Context (`PUB-ENV-001`)
 
 Prompt:
 
 ```text
-发布测试使用 SOURCE_ENV=<SOURCE_ENV>，TARGET_ENV=<TARGET_ENV>。先确认后续命令都使用这两个变量，不要执行发布。
+发布测试使用 SOURCE_ENV=<SOURCE_ENV>，TARGET_ENV=<TARGET_ENV>。先确认后续命令都使用这两个变量，只做上下文记录。
 ```
 
 Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release --help
+nb api backup --help
 ```
 
 Expected:
 
 1. The agent stores `sourceEnv=<SOURCE_ENV>` and `targetEnv=<TARGET_ENV>`.
 2. The agent states that `<TARGET_ENV>=dev` is allowed for same-environment test mode.
-3. No `generate`, `upload`, or `execute` command is run.
+3. The result is a context summary.
 
-### TC03 Environment Publish Capability Gate (`PUB-ENV-002`)
+### TC03 API Capability Gate (`PUB-ENV-002`)
 
 Prompt:
 
 ```text
-先检查 <SOURCE_ENV> 和 <TARGET_ENV> 是否支持备份还原和迁移发布。如果任意环境缺少相关插件或能力，不要继续发布。
+先检查 <SOURCE_ENV> 和 <TARGET_ENV> 是否支持备份还原和迁移 API。能力检查结束后给我结论。
 ```
 
 Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release file list --scope remote --type backup --env <SOURCE_ENV> --page-size 1 --json
-nb release file list --scope remote --type backup --env <TARGET_ENV> --page-size 1 --json
-nb release file list --scope remote --type migration --env <SOURCE_ENV> --page-size 1 --json
-nb release file list --scope remote --type migration --env <TARGET_ENV> --page-size 1 --json
-nb release file list --scope remote --source artifact --type backup --env <TARGET_ENV> --page-size 1 --json
-nb release file list --scope remote --source artifact --type migration --env <TARGET_ENV> --page-size 1 --json
-nb release migration-rule list --env <SOURCE_ENV> --page-size 1 --json
+nb api backup list -e <SOURCE_ENV> --json-output
+nb api backup list -e <TARGET_ENV> --json-output
+nb api migration list -e <SOURCE_ENV> --json-output
+nb api migration list -e <TARGET_ENV> --json-output
+nb api migration rules list -e <SOURCE_ENV> --json-output
+nb api migration logs list -e <TARGET_ENV> --json-output
 ```
 
 Expected:
 
 1. The agent distinguishes an empty package list from an unsupported environment.
 2. If a probe returns 404, `Not Found`, missing plugin, inactive plugin, or license capability errors, the agent marks the environment as `unsupported_publish_env`.
-3. If any participating environment is unsupported, the agent stops before `generate`, `upload`, or `execute`.
-4. The response identifies the failed environment, publish type, failed probe, and likely plugin/license activation cause.
-5. The target environment must pass artifact source probes because `upload` depends on publish manager staging.
+3. The response identifies the failed environment, method, failed probe, and likely plugin/license activation cause.
 
-### TC04 Existing Package Discovery (`PUB-FILE-001`, `PUB-FILE-002`)
+### TC04 Existing Package Discovery (`PUB-BACKUP-FILE-001`, `PUB-MIGRATION-FILE-001`)
 
 Prompt:
 
 ```text
-我要用已有发布包，但我不知道文件名。请分别查看 <SOURCE_ENV> 本地和远程有哪些备份包和迁移包，不要执行上传或还原。
+我要用已有包，但我不知道文件名。请分别查看 <SOURCE_ENV> 上有哪些备份包和迁移包，然后让我选择。
 ```
 
 Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release file list --scope local --type backup --env <SOURCE_ENV> --json
-nb release file list --scope remote --type backup --env <SOURCE_ENV> --json
-nb release file list --scope local --type migration --env <SOURCE_ENV> --json
-nb release file list --scope remote --type migration --env <SOURCE_ENV> --json
+nb api backup list -e <SOURCE_ENV> --json-output
+nb api migration list -e <SOURCE_ENV> --json-output
 ```
 
 Expected:
 
-1. The agent lists local and remote packages separately.
+1. The agent lists backup and migration packages separately.
 2. The agent asks the user to select a file if one or more packages are available.
-3. The agent does not guess the latest package.
-4. The agent does not run `upload` or `execute`.
+3. The result remains in package selection flow.
 
 ### TC05 Migration Rule Discovery And Creation (`PUB-RULE-001`, `PUB-RULE-002`, `PUB-RULE-003`)
 
@@ -197,42 +201,140 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release migration-rule list --env <SOURCE_ENV> --json
-nb release migration-rule create --env <SOURCE_ENV> --name <MIGRATION_RULE_NAME> --user-rule <USER_RULE> --system-rule <SYSTEM_RULE> --json
-nb release migration-rule get --env <SOURCE_ENV> --id <MIGRATION_RULE_ID> --json
+nb api migration rules list -e <SOURCE_ENV> --json-output
+nb api migration rules create --name <MIGRATION_RULE_NAME> --user-defined-rule <USER_RULE> --system-defined-rule <SYSTEM_RULE> -e <SOURCE_ENV> --json-output
+nb api migration rules get --filter-by-tk <MIGRATION_RULE_ID> -e <SOURCE_ENV> --json-output
 ```
 
 Expected:
 
 1. The agent runs `list` before creating a rule.
-2. If the user selects an existing rule, `create` is skipped and `get` verifies the selected id.
-3. If a rule is created, only global options are used.
-4. The agent shows the selected or new rule details and asks for `confirm input` before `create` or later package generation.
-5. The created or selected `ruleId` is stored for migration generation.
-6. No migration package is generated until the rule id exists and publish input is confirmed.
+2. If the user selects an existing rule, `get` verifies the selected id.
+3. If a rule is created, global options are used.
+4. The agent shows the selected or new rule details and asks for `confirm input` before `create` or later package creation.
+5. The created or selected `ruleId` is stored for migration package creation.
 
-### TC06 Specified File Backup Restore In One Environment (`PUB-BACKUP-001`, scenario 1)
+### TC06 Local File Backup Restore (`PUB-BACKUP-001`)
 
 Prompt:
 
 ```text
-使用备份包 <BACKUP_FILE> 还原 <TARGET_ENV>，源环境是 <SOURCE_ENV>。先完成上传，执行还原前等我确认。
+使用本地备份包 <BACKUP_FILE> 还原 <TARGET_ENV>，源环境是 <SOURCE_ENV>。执行还原前等我确认。
 ```
 
 Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release upload --type backup --from <SOURCE_ENV> --to <TARGET_ENV> --file <BACKUP_FILE>
+nb api backup restore-upload --file <BACKUP_FILE> -e <TARGET_ENV> --json-output
 ```
 
 Expected:
 
-1. `generate` is skipped because `<BACKUP_FILE>` is provided.
-2. The agent echoes `<BACKUP_FILE>`, `<SOURCE_ENV>`, and `<TARGET_ENV>` and asks for `confirm input` before `upload`.
-3. `upload` uses `--from <SOURCE_ENV>` and `--to <TARGET_ENV>` only after input confirmation.
-4. The agent captures `<UPLOADED_ARTIFACT_ID>` from upload output when present.
-5. The agent stops before execute and asks for `confirm`.
+1. The local package path `<BACKUP_FILE>` is used.
+2. The agent echoes `<BACKUP_FILE>`, `<SOURCE_ENV>`, and `<TARGET_ENV>`.
+3. The agent asks for `confirm` before `restore-upload`.
+4. Restore runs on `<TARGET_ENV>`.
+
+Continuation Prompt:
+
+```text
+confirm
+```
+
+### TC07 Server Backup Restore In One Environment (`PUB-BACKUP-002`)
+
+Prompt:
+
+```text
+使用 <TARGET_ENV> 上已有的备份包 <BACKUP_NAME> 还原 <TARGET_ENV>，执行还原前等我确认。
+```
+
+Runtime Command:
+
+```bash
+cd <BASE_DIR>
+nb api backup status --name <BACKUP_NAME> -e <TARGET_ENV> --json-output
+nb api backup restore --name <BACKUP_NAME> -e <TARGET_ENV> --json-output
+nb api backup restore-status --task <RESTORE_TASK_ID> -e <TARGET_ENV> --json-output
+```
+
+Expected:
+
+1. The server backup name `<BACKUP_NAME>` is used.
+2. The agent echoes `<BACKUP_NAME>` and `<TARGET_ENV>`.
+3. The agent asks for `confirm` before `backup restore`.
+4. If restore returns a task id, the agent may inspect `restore-status --task <RESTORE_TASK_ID>` after restore starts.
+
+Continuation Prompt:
+
+```text
+confirm
+```
+
+### TC08 Create Backup Then Restore Upload (`PUB-BACKUP-003`)
+
+Prompt:
+
+```text
+把 <SOURCE_ENV> 的备份创建出来并还原到 <TARGET_ENV>。先创建和下载，执行还原前等我确认。
+```
+
+Runtime Command:
+
+```bash
+cd <BASE_DIR>
+nb api backup create -e <SOURCE_ENV> --json-output
+nb api backup status --name <BACKUP_NAME> -e <SOURCE_ENV> --json-output
+nb api backup download --name <BACKUP_NAME> --output <DOWNLOADED_BACKUP_FILE> -e <SOURCE_ENV>
+```
+
+Expected:
+
+1. The agent shows that it will create a backup from `<SOURCE_ENV>` and restore it to `<TARGET_ENV>`.
+2. The agent asks for `confirm input` before `backup create`.
+3. The agent parses `<BACKUP_NAME>` from create output.
+4. Download uses `--output <DOWNLOADED_BACKUP_FILE>` under `<CLI_HOME>\release\<SOURCE_ENV>\`.
+5. The agent stops before restore and asks for `confirm`.
+
+Input Confirmation Prompt:
+
+```text
+confirm input
+```
+
+Continuation Prompt:
+
+```text
+confirm
+```
+
+Expected Restore Command:
+
+```bash
+nb api backup restore-upload --file <DOWNLOADED_BACKUP_FILE> -e <TARGET_ENV> --json-output
+```
+
+### TC09 Local Migration File To Target (`PUB-MIGRATION-001`)
+
+Prompt:
+
+```text
+使用本地迁移包 <MIGRATION_FILE> 迁移到 <TARGET_ENV>，源环境是 <SOURCE_ENV>。先检查，执行迁移前等我确认。
+```
+
+Runtime Command:
+
+```bash
+cd <BASE_DIR>
+nb api migration check --file <MIGRATION_FILE> -e <TARGET_ENV> --json-output
+```
+
+Expected:
+
+1. The local migration package `<MIGRATION_FILE>` is used.
+2. The agent echoes `<MIGRATION_FILE>`, `<SOURCE_ENV>`, and `<TARGET_ENV>` and asks for `confirm input` before `check`.
+3. The agent stops before execute and asks for `confirm`.
 
 Input Confirmation Prompt:
 
@@ -249,137 +351,10 @@ confirm
 Expected Execute Command:
 
 ```bash
-nb release execute --type backup --env <TARGET_ENV> --file <BACKUP_FILE> --yes --wait
+nb api migration execute --file <MIGRATION_FILE> -e <TARGET_ENV> --json-output
 ```
 
-### TC07 Restore Current Environment (`PUB-BACKUP-002`, scenario 2)
-
-Prompt:
-
-```text
-把 <SOURCE_ENV> 自己还原。先生成备份包并上传，执行还原前等我确认。
-```
-
-Runtime Command:
-
-```bash
-cd <BASE_DIR>
-nb release generate --type backup --env <SOURCE_ENV> --wait
-nb release upload --type backup --from <SOURCE_ENV> --to <SOURCE_ENV> --file <GENERATED_FILE>
-```
-
-Expected:
-
-1. The agent shows that it will generate a backup package from `<SOURCE_ENV>` and publish it back to `<SOURCE_ENV>`.
-2. The agent asks for `confirm input` before `generate`.
-3. The agent parses `<LOCAL_FILE>` from `Local file:`.
-4. The agent derives `<GENERATED_FILE>` from `<LOCAL_FILE>`.
-5. `upload` uses the generated file name.
-6. The agent stops before execute and asks for `confirm`.
-
-Input Confirmation Prompt:
-
-```text
-confirm input
-```
-
-Continuation Prompt:
-
-```text
-confirm
-```
-
-Expected Execute Command:
-
-```bash
-nb release execute --type backup --env <SOURCE_ENV> --file <GENERATED_FILE> --yes --wait
-```
-
-### TC08 Restore Source Environment To Target (`PUB-BACKUP-003`, scenario 3)
-
-Prompt:
-
-```text
-把 <SOURCE_ENV> 还原到 <TARGET_ENV>。先生成和上传，执行目标环境还原前等我确认。
-```
-
-Runtime Command:
-
-```bash
-cd <BASE_DIR>
-nb release generate --type backup --env <SOURCE_ENV> --wait
-nb release upload --type backup --from <SOURCE_ENV> --to <TARGET_ENV> --file <GENERATED_FILE>
-```
-
-Expected:
-
-1. The agent shows that it will generate a backup package from `<SOURCE_ENV>` and upload it to `<TARGET_ENV>`.
-2. The agent asks for `confirm input` before `generate`.
-3. Generation runs only on `<SOURCE_ENV>`.
-4. Upload transfers from `<SOURCE_ENV>` to `<TARGET_ENV>`.
-5. The agent does not execute against `<SOURCE_ENV>` unless `<SOURCE_ENV>` and `<TARGET_ENV>` are intentionally the same.
-6. The agent stops before execute and asks for `confirm`.
-
-Input Confirmation Prompt:
-
-```text
-confirm input
-```
-
-Continuation Prompt:
-
-```text
-confirm
-```
-
-Expected Execute Command:
-
-```bash
-nb release execute --type backup --env <TARGET_ENV> --file <GENERATED_FILE> --yes --wait
-```
-
-### TC09 Specified File Migration To Target (`PUB-MIGRATION-001`, scenario 4)
-
-Prompt:
-
-```text
-使用迁移包 <MIGRATION_FILE> 迁移到 <TARGET_ENV>，源环境是 <SOURCE_ENV>。先完成上传，执行迁移前等我确认。
-```
-
-Runtime Command:
-
-```bash
-cd <BASE_DIR>
-nb release upload --type migration --from <SOURCE_ENV> --to <TARGET_ENV> --file <MIGRATION_FILE>
-```
-
-Expected:
-
-1. `generate` is skipped because `<MIGRATION_FILE>` is provided.
-2. No migration rule id is required for this case.
-3. The agent echoes `<MIGRATION_FILE>`, `<SOURCE_ENV>`, and `<TARGET_ENV>` and asks for `confirm input` before `upload`.
-4. Upload uses `--type migration` only after input confirmation.
-5. The agent stops before execute and asks for `confirm`.
-
-Input Confirmation Prompt:
-
-```text
-confirm input
-```
-
-Continuation Prompt:
-
-```text
-confirm
-```
-
-Expected Execute Command:
-
-```bash
-nb release execute --type migration --env <TARGET_ENV> --file <MIGRATION_FILE> --yes --wait
-```
-
-### TC10 Migrate Source Environment To Target (`PUB-MIGRATION-002`, scenario 5)
+### TC10 Create Migration From Rule (`PUB-MIGRATION-002`)
 
 Prompt:
 
@@ -391,28 +366,31 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb release migration-rule list --env <SOURCE_ENV> --json
-nb release migration-rule get --env <SOURCE_ENV> --id <MIGRATION_RULE_ID> --json
-nb release generate --type migration --env <SOURCE_ENV> --migration-rule <MIGRATION_RULE_ID> --title publish-<SOURCE_ENV>-to-<TARGET_ENV> --wait
-nb release upload --type migration --from <SOURCE_ENV> --to <TARGET_ENV> --file <GENERATED_FILE>
+nb api migration rules list -e <SOURCE_ENV> --json-output
+nb api migration rules get --filter-by-tk <MIGRATION_RULE_ID> -e <SOURCE_ENV> --json-output
+nb api migration create --rule-id <MIGRATION_RULE_ID> --title publish-<SOURCE_ENV>-to-<TARGET_ENV> -e <SOURCE_ENV> --json-output
+nb api migration get --name <MIGRATION_NAME> -e <SOURCE_ENV> --json-output
+nb api migration download --name <MIGRATION_NAME> --output <DOWNLOADED_MIGRATION_FILE> -e <SOURCE_ENV>
+nb api migration check --file <DOWNLOADED_MIGRATION_FILE> -e <TARGET_ENV> --json-output
 ```
 
 Alternative Rule Creation Command:
 
 ```bash
-nb release migration-rule create --env <SOURCE_ENV> --name <MIGRATION_RULE_NAME> --user-rule <USER_RULE> --system-rule <SYSTEM_RULE> --json
+nb api migration rules create --name <MIGRATION_RULE_NAME> --user-defined-rule <USER_RULE> --system-defined-rule <SYSTEM_RULE> -e <SOURCE_ENV> --json-output
 ```
 
 Expected:
 
-1. The agent lists migration rules before generation.
-2. The agent does not auto-select the first or latest migration rule.
-3. If the user has not selected a rule and does not authorize creation, the agent stops.
-4. Once a rule is selected or created, `migration-rule get` verifies it when possible.
-5. The agent shows the selected rule or new rule plan and asks for `confirm input` before rule creation or generation.
-6. Generation uses `--migration-rule <MIGRATION_RULE_ID>`.
-7. Upload uses the generated migration file.
+1. The agent lists migration rules before package creation.
+2. If the user has not selected a rule and has not approved creation, the agent stays at rule selection.
+3. Once a rule is selected or created, `migration rules get` verifies it when possible.
+4. The agent shows the selected rule or new rule plan and asks for `confirm input` before rule creation or package creation.
+5. Package creation uses `--rule-id <MIGRATION_RULE_ID>`.
+6. Download uses `--output <DOWNLOADED_MIGRATION_FILE>` under `<CLI_HOME>\release\<SOURCE_ENV>\`.
+7. Check runs before execute.
 8. The agent stops before execute and asks for `confirm`.
+9. If `migration download` returns a transient 400/503 after `migration get` reports `status=ok`, the agent retries the same download once before failing.
 
 Input Confirmation Prompt:
 
@@ -429,7 +407,7 @@ confirm
 Expected Execute Command:
 
 ```bash
-nb release execute --type migration --env <TARGET_ENV> --file <GENERATED_FILE> --yes --wait
+nb api migration execute --file <DOWNLOADED_MIGRATION_FILE> -e <TARGET_ENV> --json-output
 ```
 
 ## Interaction And Failure Cases
@@ -439,45 +417,44 @@ nb release execute --type migration --env <TARGET_ENV> --file <GENERATED_FILE> -
 Prompt:
 
 ```text
-用已有备份包还原 <TARGET_ENV>，但我不知道文件名，你自己选一个。
+用已有备份包还原 <TARGET_ENV>，但我不知道文件名，请列出来让我选。
 ```
 
 Expected:
 
-1. The agent runs `nb release file list --scope local --type backup --env <SOURCE_ENV> --json`.
-2. The agent may run remote list if needed.
-3. The agent asks the user to choose a file.
-4. The agent does not choose a file automatically and does not run upload.
+1. The agent runs `nb api backup list -e <SOURCE_ENV> --json-output`.
+2. The agent asks the user to choose a file.
+3. The result remains in package selection flow.
 
 ### TC12 Missing Migration Rule (`PUB-GUARD-003`)
 
 Prompt:
 
 ```text
-把 <SOURCE_ENV> 迁移到 <TARGET_ENV>，迁移规则你自己决定。
+把 <SOURCE_ENV> 迁移到 <TARGET_ENV>，先列出可用迁移规则让我选择。
 ```
 
 Expected:
 
-1. The agent runs `nb release migration-rule list --env <SOURCE_ENV> --json`.
+1. The agent runs `nb api migration rules list -e <SOURCE_ENV> --json-output`.
 2. The agent asks the user to select a rule or approve creating a global rule.
-3. The agent does not run `generate --type migration` until a rule id exists and publish input is confirmed.
+3. Migration package creation starts after rule id exists and publish input is confirmed.
 
 ### TC13 Selected File Still Requires Input Confirmation (`PUB-GUARD-004`)
 
 Prompt:
 
 ```text
-使用备份包 <BACKUP_FILE> 还原 <TARGET_ENV>，源环境是 <SOURCE_ENV>。
+使用迁移包 <MIGRATION_FILE> 迁移 <TARGET_ENV>，源环境是 <SOURCE_ENV>。
 ```
 
 Expected:
 
 1. The agent echoes the selected file, source environment, target environment, and method.
-2. The agent asks for `confirm input` before running `upload`.
-3. The agent does not treat the named file as permission to upload or execute.
+2. The agent asks for `confirm input` before running `migration check`.
+3. Execution waits for the execution confirmation gate.
 
-### TC14 Existing Migration Rule Is Not Auto-Selected (`PUB-GUARD-005`)
+### TC14 Existing Migration Rule Requires Selection (`PUB-GUARD-005`)
 
 Prompt:
 
@@ -487,10 +464,9 @@ Prompt:
 
 Expected:
 
-1. The agent runs `nb release migration-rule list --env <SOURCE_ENV> --json`.
+1. The agent runs `nb api migration rules list -e <SOURCE_ENV> --json-output`.
 2. The agent presents available rules for user selection.
-3. The agent does not select the first, latest, or previously used rule automatically.
-4. The agent does not run migration generation until a rule is selected and publish input is confirmed.
+3. Migration package creation starts after a rule is selected and publish input is confirmed.
 
 ### TC15 New Migration Rule Creation Requires Input Confirmation (`PUB-GUARD-006`)
 
@@ -502,30 +478,30 @@ Prompt:
 
 Expected:
 
-1. The agent shows the new rule name, user table rule, system table rule, and source environment.
-2. The agent asks for `confirm input` before `nb release migration-rule create`.
-3. The agent does not create the rule or generate a package before input confirmation.
+1. The agent shows the new rule name, user-defined rule, system-defined rule, and source environment.
+2. The agent asks for `confirm input` before `nb api migration rules create`.
+3. Package creation starts after rule creation and the relevant confirmation gate.
 
 ### TC16 Execute Confirmation Gate (`PUB-GUARD-001`)
 
 Prompt:
 
 ```text
-把 <SOURCE_ENV> 还原到 <TARGET_ENV>，可以生成和上传，但不要执行。
+把 <SOURCE_ENV> 备份并还原到 <TARGET_ENV>，创建和下载后停在还原确认点。
 ```
 
 Expected:
 
-1. The agent may run `generate` and `upload` after publish input confirmation.
-2. The agent must not run `execute`.
+1. The agent may run `backup create` and `backup download` after publish input confirmation.
+2. The workflow stops at the `backup restore-upload` confirmation gate.
 3. The final response includes the exact confirmation prompt and resolved context.
 
-### TC17 Remote File List Empty (`PUB-FAIL-001`)
+### TC17 Package List Empty (`PUB-FAIL-001`)
 
 Prompt:
 
 ```text
-查 <SOURCE_ENV> 远程备份包，如果没有就告诉我，不要生成新包。
+查 <SOURCE_ENV> 上的备份包，如果列表为空就告诉我下一步选择。
 ```
 
 Simulated Command Output:
@@ -536,58 +512,55 @@ Simulated Command Output:
 
 Expected:
 
-1. The agent reports no remote backup packages.
-2. The agent does not guess a file name.
-3. The agent asks whether to generate a new package or inspect another environment.
+1. The agent reports no backup packages.
+2. The agent asks whether to create a new package or inspect another environment.
 
-### TC18 File Pull Failed (`PUB-FAIL-002`)
+### TC18 Download Failed (`PUB-FAIL-002`)
 
 Prompt:
 
 ```text
-从 <SOURCE_ENV> 拉取远程备份包 <BACKUP_FILE>，然后上传到 <TARGET_ENV>。
+从 <SOURCE_ENV> 下载备份包 <BACKUP_NAME>，然后还原到 <TARGET_ENV>。
 ```
 
 Simulated Command Output:
 
 ```text
-Error: remote file not found
+Error: file not found
 ```
 
 Expected:
 
-1. The agent stops at `file pull`.
-2. The agent does not run `upload`.
-3. The response includes source env, type, file name, and recovery options.
+1. The workflow stays at `backup download`.
+2. The response includes source env, method, file name, output path, and recovery options.
+3. If this is a migration package and `migration get` reports `status=ok`, one retry of the same download command is allowed before reporting failure.
 
-### TC19 Upload Check Failed (`PUB-FAIL-003`)
+### TC19 Migration Check Failed (`PUB-FAIL-003`)
 
 Prompt:
 
 ```text
-使用备份包 <BACKUP_FILE> 还原 <TARGET_ENV>，上传后如果检查失败不要继续。
+使用迁移包 <MIGRATION_FILE> 迁移 <TARGET_ENV>，检查失败时停在检查结果。
 ```
 
 Simulated Command Output:
 
-```text
-Artifact: artifact_123
-Check passed: no
-Warning: adapter check failed
+```json
+{"data":{"checkStatus":"failed","message":"adapter check failed"}}
 ```
 
 Expected:
 
-1. The agent stores `uploadedArtifactId=artifact_123`.
-2. The agent stops before execute.
-3. The response reports the warning and failed upload check.
+1. The agent stores the local migration file path.
+2. The workflow stays before execute.
+3. The response reports the check failure.
 
 ### TC20 Environment Capability Unsupported (`PUB-FAIL-004`)
 
 Prompt:
 
 ```text
-检查 <TARGET_ENV> 是否支持发布。如果备份或迁移能力接口返回 404，就不要继续。
+检查 <TARGET_ENV> 是否支持发布。如果备份或迁移 API 返回 404，请报告能力缺失。
 ```
 
 Simulated Command Output:
@@ -600,26 +573,25 @@ Request failed with status 404
 Expected:
 
 1. The agent marks `<TARGET_ENV>` as `unsupported_publish_env`.
-2. The response explains that the environment may not have the required commercial plugin installed, licensed, or activated.
-3. The agent does not continue to `generate`, `upload`, or `execute`.
-4. The agent does not treat this as an empty remote file list.
+2. The response explains the required commercial plugin and license activation state.
+3. The workflow stays at the capability gate.
 
-### TC21 Manifest Lookup Missing During Execute
+### TC21 Migration Execute Failed
 
 Prompt:
 
 ```text
-刚才 upload 已经成功了，现在执行 <TARGET_ENV> 上的 <BACKUP_FILE>。
+刚才 migration check 已经成功了，现在执行 <TARGET_ENV> 上的 <MIGRATION_FILE>。
 ```
 
 Simulated Command Output:
 
 ```text
-No uploaded artifact found for <BACKUP_FILE> on <TARGET_ENV>. Run `nb release upload` first or use --artifact.
+State: failed
+Error: migration failed
 ```
 
 Expected:
 
-1. If `<UPLOADED_ARTIFACT_ID>` exists in context, the agent asks whether to retry with `--artifact <UPLOADED_ARTIFACT_ID>`.
-2. If `<UPLOADED_ARTIFACT_ID>` is missing, the agent asks the user to rerun upload.
-3. The agent does not retry with `--artifact` without confirmation.
+1. The agent reports the failed execute step.
+2. The agent suggests `nb api migration logs list -e <TARGET_ENV> --json-output`.

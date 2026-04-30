@@ -5,7 +5,7 @@ This folder tracks prompt-first runtime verification for `nocobase-publish-manag
 ## Primary Test Assets
 
 - `./capability-test-plan.md`: capability matrix, environment variables, and assertions.
-- `./test-playbook.md`: prompt-driven acceptance cases for publish workflows.
+- `./test-playbook.md`: prompt-driven acceptance cases for API backup and migration workflows.
 
 ## Environment Variables
 
@@ -15,15 +15,21 @@ Use one editable environment block for the whole suite:
 BASE_DIR=E:\work\nocobase
 SOURCE_ENV=dev
 TARGET_ENV=dev
-BACKUP_FILE=<backup-file-name.nbdata>
-MIGRATION_FILE=<migration-file-name.nbdata>
+BACKUP_NAME=<backup-file-name.nbdata>
+BACKUP_FILE=./backup.nbdata
+MIGRATION_NAME=<migration-file-name.nbdata>
+MIGRATION_FILE=./migration.nbdata
 MIGRATION_RULE_ID=<migration-rule-id>
-MIGRATION_RULE_NAME=publish-dev-to-target
+MIGRATION_RULE_NAME=publish-dev-to-dev
 USER_RULE=schema-only
 SYSTEM_RULE=overwrite-first
+CLI_HOME=C:\Users\Enzo\.nocobase
+RELEASE_DIR=<CLI_HOME>\release\<SOURCE_ENV>
+DOWNLOADED_BACKUP_FILE=<RELEASE_DIR>\<BACKUP_NAME>
+DOWNLOADED_MIGRATION_FILE=<RELEASE_DIR>\<MIGRATION_NAME>
 ```
 
-`TARGET_ENV=dev` is valid for the first round. When a `test` environment is ready, change only `TARGET_ENV=test` and rerun the cross-environment cases.
+Both source and target environments are `dev` for the current test round. Change `TARGET_ENV` only when a separate target environment is intentionally available. Downloaded packages should be written to the CLI release workspace for the source environment, for example `C:\Users\Enzo\.nocobase\release\dev\<file>`.
 
 ## Recommended Verification Flow
 
@@ -31,38 +37,44 @@ SYSTEM_RULE=overwrite-first
 
 ```bash
 cd <BASE_DIR>
-nb release --help
-nb release file --help
-nb release file list --help
-nb release file pull --help
-nb release migration-rule --help
-nb release migration-rule list --help
-nb release migration-rule get --help
-nb release migration-rule create --help
-nb release generate --help
-nb release upload --help
-nb release execute --help
+nb api backup --help
+nb api backup list --help
+nb api backup create --help
+nb api backup status --help
+nb api backup download --help
+nb api backup restore --help
+nb api backup restore-upload --help
+nb api backup restore-status --help
+nb api migration --help
+nb api migration list --help
+nb api migration create --help
+nb api migration download --help
+nb api migration check --help
+nb api migration execute --help
+nb api migration rules list --help
+nb api migration rules get --help
+nb api migration rules create --help
+nb api migration logs list --help
+nb api migration logs get --help
+nb api migration logs download --help
 ```
 
-2. Run discovery checks for local files, remote files, and migration rules.
+2. Run discovery checks for backup files, migration files, migration rules, and migration logs.
 
-3. Run the environment publish capability gate for both source and target.
+3. Run the API capability gate for both source and target. In this test round both are `dev`.
 
 4. Run the five core workflow prompts from `./test-playbook.md`.
 
-5. Stop before `nb release execute` unless the case explicitly includes the secondary confirmation prompt.
+5. Keep restore and migration execution at the secondary confirmation gate unless the case explicitly includes the continuation prompt.
 
 ## Safety Requirements
 
-- Use `nb release ...` commands only.
-- Do not use legacy publish-related command groups outside `nb release`.
-- Do not use direct REST/API calls, local scripts, Docker, or database fallback paths.
-- Treat `nb release execute` as high impact and require explicit confirmation.
-- Require publish input confirmation before package pull, migration-rule create, generate, or upload.
-- Record source environment, target environment, file name, local path, generated artifact id, and uploaded artifact id.
-- When a file or migration rule needs user selection, stop and ask; do not guess from prior output.
-- If a source or target environment returns 404, `Not Found`, missing plugin, inactive plugin, or license capability errors for backup/migration probes, mark that environment as unsupported for publish and stop.
-- For target environments, include `--source artifact` probes because upload depends on the publish manager staging API.
+- Use `nb api backup ...` and `nb api migration ...` commands.
+- Treat backup restore and migration execute as high impact and require explicit confirmation.
+- Require publish input confirmation before package create, package download, migration rule create, or migration check.
+- Record source environment, target environment, file names, local paths, migration rule id, and status output.
+- File and migration rule selection is explicit.
+- If a source or target environment returns 404, `Not Found`, missing plugin, inactive plugin, or license capability errors for backup/migration probes, mark that environment as unsupported and stop at the capability gate.
 
 ## Report Guidance
 
@@ -73,6 +85,6 @@ For each case, record:
 - command(s) executed or planned
 - status: `pass`, `warn`, `fail`, or `blocked`
 - selected source and target environments
-- selected file or migration rule id
+- selected file, backup name, migration name, or migration rule id
 - whether execution was blocked pending confirmation
 - concise evidence and recovery guidance
