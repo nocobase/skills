@@ -210,15 +210,16 @@ Example:
 ### `navigation.group` semantics
 
 - Prefer `navigation.group.routeId` when the destination menu group is already known.
-- `navigation.group.routeId` is exact targeting only; do not mix it with `icon`, `tooltip`, or `hideInMenu`.
-- `navigation.group.title` is for new-group creation or title-only unique same-title reuse.
+- `navigation.group.routeId` has highest priority; when it is present, `title`, `icon`, `tooltip`, and `hideInMenu` are ignored for the existing group.
+- `navigation.group.title` is for new-group creation or unique same-title reuse.
 - When `navigation.group.title` creates a new group, `navigation.group.icon` is required.
 - When `routeId` is omitted and `title` matches:
   - zero existing groups -> create a new group
   - one existing group -> reuse that group
   - multiple existing groups -> reject and require `routeId`
-- If same-title reuse hits an existing group, keep it title-only.
+- If same-title reuse hits an existing group, `icon`, `tooltip`, and `hideInMenu` are ignored.
 - If an existing group's metadata must change, do not rely on applyBlueprint create; use low-level `updateMenu` instead.
+- During real-write prepare, the local helper may rewrite one unique same-title existing group or one explicit `routeId` group to `navigation.group.routeId` in `cliBody`. Treat that prepared shape as authoritative.
 
 ### `navigation.item` semantics
 

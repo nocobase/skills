@@ -4,6 +4,11 @@ import { parseCliArgs } from './cli-args.js';
 import { prepareApplyBlueprintRequest, renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 import { resolveMissingCollectionMetadataForBlueprint } from './collection-metadata-resolver.js';
 
+function normalizeText(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
 async function readStreamText(stream) {
   let output = '';
   for await (const chunk of stream) {
@@ -42,6 +47,10 @@ function usage() {
 
 function writeJson(stream, payload) {
   stream.write(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function uniqueStrings(values) {
+  return Array.from(new Set(values.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim())));
 }
 
 function parseOptionalNumber(value, label) {
@@ -107,6 +116,129 @@ function createAutoCollectionMetadataMissingError(resolution) {
   };
 }
 
+async function execNbText(args, options = {}) {
+  const { execFileImpl, cwd = process.cwd() } = options;
+  if (!execFileImpl) {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(execFile);
+    const result = await execFileAsync('nb', args, {
+      cwd,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return result.stdout || '';
+  }
+  const result = await execFileImpl('nb', args, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return typeof result === 'string' ? result : result?.stdout || '';
+}
+
+async function execNbJson(args, options = {}) {
+  const stdout = await execNbText(args, options);
+  return JSON.parse(stdout || '{}');
+}
+
+function getPrepareNavigationGroupTitle(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  const group = isObjectRecord(blueprint?.navigation?.group) ? blueprint.navigation.group : null;
+  if (!group || normalizeText(group.routeId) || !normalizeText(group.title)) return '';
+  return normalizeText(group.title);
+}
+
+function groupHasMetadataFields(group) {
+  return ['icon', 'tooltip', 'hideInMenu'].some((key) => Object.prototype.hasOwnProperty.call(group, key));
+}
+
+function withResolvedNavigationGroup(payload, routeId) {
+  if (!isObjectRecord(payload)) return payload;
+  const wrappedKey = isObjectRecord(payload.blueprint) ? 'blueprint' : isObjectRecord(payload.requestBody) ? 'requestBody' : '';
+  const blueprint = wrappedKey ? payload[wrappedKey] : payload;
+  if (!isObjectRecord(blueprint)) return payload;
+  const nextBlueprint = {
+    ...blueprint,
+    navigation: {
+      ...(blueprint.navigation || {}),
+      group: { routeId },
+    },
+  };
+  return wrappedKey ? { ...payload, [wrappedKey]: nextBlueprint } : nextBlueprint;
+}
+
+function extractDesktopRouteRows(payload) {
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+async function resolvePrepareNavigationGroup(payload, options = {}) {
+  if (options.autoNavigationGroup === false) {
+    return { payload, resolverErrors: [] };
+  }
+  const groupTitle = getPrepareNavigationGroupTitle(payload);
+  if (!groupTitle) {
+    return { payload, resolverErrors: [] };
+  }
+  const blueprint = extractPrepareBlueprint(payload);
+  const group = blueprint.navigation.group;
+  let rows = [];
+  try {
+    const response = await execNbJson([
+      'api',
+      'resource',
+      'list',
+      '--resource',
+      'desktopRoutes',
+      '--filter',
+      JSON.stringify({ title: groupTitle, type: 'group' }),
+      '-j',
+    ], options);
+    rows = extractDesktopRouteRows(response).filter((row) => normalizeText(row?.title) === groupTitle && normalizeText(row?.type) === 'group');
+  } catch {
+    return { payload, resolverErrors: [] };
+  }
+
+  if (rows.length === 0) {
+    return { payload, resolverErrors: [] };
+  }
+  if (rows.length > 1) {
+    return {
+      payload,
+      resolverErrors: [
+        {
+          path: 'navigation.group.routeId',
+          ruleId: 'navigation-group-title-ambiguous',
+          message: `navigation.group.title "${groupTitle}" matches ${rows.length} existing menu groups; pass navigation.group.routeId explicitly before applyBlueprint.`,
+        },
+      ],
+    };
+  }
+  const routeId = rows[0]?.id;
+  if (!normalizeText(routeId)) {
+    return {
+      payload,
+      resolverErrors: [
+        {
+          path: 'navigation.group.routeId',
+          ruleId: 'navigation-group-route-id-missing',
+          message: `Existing navigation group "${groupTitle}" is missing route id; pass navigation.group.routeId explicitly before applyBlueprint.`,
+        },
+      ],
+    };
+  }
+  return {
+    payload: withResolvedNavigationGroup(payload, routeId),
+    resolverErrors: [],
+    warnings: groupHasMetadataFields(group)
+      ? [`Resolved existing menu group "${groupTitle}" to routeId ${routeId}; group metadata is ignored when reusing an existing group.`]
+      : [`Resolved existing menu group "${groupTitle}" to routeId ${routeId}.`],
+  };
+}
+
 async function resolvePrepareWritePayload(payload, options = {}) {
   if (options.autoCollectionMetadata === false) {
     return {
@@ -160,7 +292,7 @@ export async function runPagePreviewCli(argv, io = {}) {
 
     const maxPopupDepth = parseOptionalNumber(args['max-popup-depth'], '--max-popup-depth');
     const expectedOuterTabs = parseOptionalInteger(args['expected-outer-tabs'], '--expected-outer-tabs');
-    const preparePayload = args['prepare-write']
+    const collectionPreparePayload = args['prepare-write']
       ? await resolvePrepareWritePayload(payload, {
           autoCollectionMetadata: !args['no-auto-collection-metadata'],
           cwd,
@@ -168,16 +300,29 @@ export async function runPagePreviewCli(argv, io = {}) {
           ...(io.fetchCollectionMetadata ? { fetchCollectionMetadata: io.fetchCollectionMetadata } : {}),
         })
       : { payload, resolverErrors: [] };
+    const navigationPreparePayload = args['prepare-write']
+      ? await resolvePrepareNavigationGroup(collectionPreparePayload.payload, {
+          cwd,
+          ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
+        })
+      : { payload: collectionPreparePayload.payload, resolverErrors: [], warnings: [] };
     const result = args['prepare-write']
-      ? prepareApplyBlueprintRequest(preparePayload.payload, {
+      ? prepareApplyBlueprintRequest(navigationPreparePayload.payload, {
           maxPopupDepth,
           expectedOuterTabs,
         })
       : renderPageBlueprintAsciiPreview(payload, {
           maxPopupDepth,
         });
-    if (preparePayload.resolverErrors.length > 0) {
-      result.errors = [...preparePayload.resolverErrors, ...(Array.isArray(result.errors) ? result.errors : [])];
+    const resolverErrors = [
+      ...(collectionPreparePayload.resolverErrors || []),
+      ...(navigationPreparePayload.resolverErrors || []),
+    ];
+    if (navigationPreparePayload.warnings?.length) {
+      result.warnings = uniqueStrings([...(Array.isArray(result.warnings) ? result.warnings : []), ...navigationPreparePayload.warnings]);
+    }
+    if (resolverErrors.length > 0) {
+      result.errors = [...resolverErrors, ...(Array.isArray(result.errors) ? result.errors : [])];
       result.ok = false;
       delete result.cliBody;
     }

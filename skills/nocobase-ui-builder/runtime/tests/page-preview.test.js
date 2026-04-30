@@ -1800,6 +1800,71 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
   assert.ok(emptyNestedGroup.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-empty'));
 });
 
+test('prepareApplyBlueprintRequest accepts gridCard settings.columns and rejects unsupported gridCard setting keys', () => {
+  const responsiveColumns = { xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 4 };
+  const valid = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              settings: {
+                columns: responsiveColumns,
+                rowCount: 3,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(valid.ok, true, JSON.stringify(valid.errors));
+  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].settings.columns, responsiveColumns);
+  assert.equal(valid.cliBody.tabs[0].blocks[0].settings.rowCount, 3);
+
+  const unsupportedKey = ['column', 'Count'].join('');
+  const invalid = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'gridCard',
+              title: 'Users grid',
+              collection: 'users',
+              fields: ['nickname'],
+              settings: {
+                [unsupportedKey]: { xs: 1, md: 2 },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(invalid.ok, false);
+  assert.ok(
+    invalid.errors.some(
+      (issue) => issue.ruleId === 'grid-card-settings-unsupported'
+        && issue.path === `tabs[0].blocks[0].settings.${unsupportedKey}`,
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest accepts default filter settings and validates metadata fields', () => {
   const valid = prepareWithDirectCollectionDefaults(
     {
@@ -7174,6 +7239,11 @@ test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-tabl
       settings: { sort: ['nickname'] },
       expected: [{ field: 'nickname', direction: 'asc' }],
     },
+    {
+      type: 'gridCard',
+      settings: { sort: ['-createdAt'] },
+      expected: [{ field: 'createdAt', direction: 'desc' }],
+    },
   ]) {
     const result = prepareWithDirectCollectionDefaults({
       version: '1',
@@ -7222,6 +7292,43 @@ test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-tabl
 
   assert.equal(calendar.ok, true, JSON.stringify(calendar.errors));
   assert.deepEqual(calendar.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
+});
+
+test('prepareApplyBlueprintRequest strips top-level pagination and sorting compatibility keys from cliBody', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            pageSize: 50,
+            sort: ['nickname'],
+            sorting: [{ field: 'createdAt', direction: 'desc' }],
+            settings: {
+              pageSize: 20,
+              sorting: [{ field: 'updatedAt', direction: 'desc' }],
+            },
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const block = result.cliBody.tabs[0].blocks[0];
+  assert.equal(Object.hasOwn(block, 'pageSize'), false);
+  assert.equal(Object.hasOwn(block, 'sort'), false);
+  assert.equal(Object.hasOwn(block, 'sorting'), false);
+  assert.equal(block.settings.pageSize, 20);
+  assert.deepEqual(block.settings.sorting, [{ field: 'updatedAt', direction: 'desc' }]);
 });
 
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {
@@ -7998,6 +8105,252 @@ test('page preview cli prepare-write auto-resolves collectionMetadata when it is
   assert.equal(payload.cliBody.page.title, 'Users');
 });
 
+test('prepareApplyBlueprintRequest rejects chart displayTitle before remote applyBlueprint', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Dashboard', icon: 'DashboardOutlined' },
+      },
+      page: { title: 'Dashboard' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'statusChart',
+              type: 'chart',
+              title: 'Status chart',
+              settings: {
+                title: 'Status chart',
+                displayTitle: true,
+                query: {
+                  mode: 'builder',
+                  resource: { dataSourceKey: 'main', collectionName: 'users' },
+                  measures: [{ field: 'id', aggregation: 'count', alias: 'userCount' }],
+                },
+                visual: {
+                  mode: 'basic',
+                  type: 'bar',
+                  mappings: { x: 'userCount', y: 'userCount' },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'chart-display-title-unsupported'));
+  assert.equal(result.cliBody, undefined);
+});
+
+test('page preview cli prepare-write resolves unique existing navigation group to routeId', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname']),
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const calls = [];
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      assert.equal(collectionName, 'users');
+      return minimalUserCollectionMetadata;
+    },
+    async execFileImpl(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [{ id: 42, title: 'Workspace', type: 'group' }],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.cliBody.navigation.group, { routeId: 42 });
+  assert.ok(payload.warnings.some((warning) => /Resolved existing menu group "Workspace" to routeId 42/.test(warning)));
+  assert.ok(calls.some((call) => call.includes('desktopRoutes')));
+  assert.equal(calls.some((call) => call[1] === 'env' && call[2] === 'list'), false);
+  assert.equal(calls.some((call) => call.includes('--base-url')), false);
+});
+
+test('page preview prepare-write ignores navigation group metadata when routeId is present', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: {
+          routeId: 42,
+          title: 'Ignored workspace title',
+          icon: 'NotARealIcon',
+          tooltip: 'Ignored tooltip',
+          hideInMenu: true,
+        },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.navigation.group, { routeId: 42 });
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'invalid-menu-group-icon'), false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'missing-menu-group-icon'), false);
+  assert.ok(
+    result.warnings.some((warning) =>
+      /navigation\.group\.routeId has highest priority; title\/icon\/tooltip\/hideInMenu are ignored/.test(warning),
+    ),
+  );
+});
+
+test('page preview cli prepare-write fails before applyBlueprint for ambiguous navigation group title', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [
+              { id: 42, title: 'Workspace', type: 'group' },
+              { id: 43, title: 'Workspace', type: 'group' },
+            ],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'navigation-group-title-ambiguous'));
+});
+
+test('page preview cli prepare-write resolves navigation group even when auto collection metadata is disabled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Notes', icon: 'FileTextOutlined' },
+      },
+      page: { title: 'Notes' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [{ id: 42, title: 'Workspace', type: 'group' }],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.cliBody.navigation.group, { routeId: 42 });
+});
+
 test('page preview cli prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
@@ -8564,7 +8917,7 @@ test('page preview cli prepare-write keeps fail-closed behavior with no-auto met
   assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
 });
 
-test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata cannot resolve env', async () => {
+test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata fetch fails', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -8595,13 +8948,8 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
     stdout: stdout.stream,
     stderr: stderr.stream,
     async execFileImpl(command, args) {
-      assert.deepEqual([command, ...args], ['nb', 'env', 'list']);
-      return {
-        stdout: [
-          '  Name      Base URL',
-          '* local',
-        ].join('\n'),
-      };
+      assert.deepEqual([command, ...args].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+      throw new Error('metadata fetch unavailable');
     },
   });
 
@@ -8788,14 +9136,6 @@ test('fetchCollectionMetadata falls back to resource list when data-modeling col
     cwd: process.cwd(),
     async execFileImpl(command, args) {
       calls.push([command, ...args]);
-      if (args[0] === 'env') {
-        return {
-          stdout: [
-            '  Name      Base URL',
-            '* local     http://127.0.0.1:13000',
-          ].join('\n'),
-        };
-      }
       if (args.includes('data-modeling')) {
         throw new Error('data-modeling unavailable');
       }
@@ -8816,30 +9156,19 @@ test('fetchCollectionMetadata falls back to resource list when data-modeling col
     },
   });
 
-  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
-  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
-  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
-  assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
-  assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.equal(calls[0].includes('--base-url'), false);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.equal(calls[1].includes('--base-url'), false);
   assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
 });
 
-test('fetchCollectionMetadata reads Base URL only from the current nb env row', async () => {
+test('fetchCollectionMetadata uses current nb env without explicit Base URL flag', async () => {
   const calls = [];
   const metadata = await fetchCollectionMetadata('users', {
     cwd: process.cwd(),
     async execFileImpl(command, args) {
       calls.push([command, ...args]);
-      if (args[0] === 'env') {
-        return {
-          stdout: [
-            'Current  Name       Base URL                Auth   Runtime',
-            '-------  ---------  ----------------------  -----  -------',
-            '         staging*   http://127.0.0.1:14000  token  2.1.0',
-            '*        local      http://127.0.0.1:13000  oauth  2.1.0',
-          ].join('\n'),
-        };
-      }
       return {
         stdout: JSON.stringify({
           data: {
@@ -8855,28 +9184,9 @@ test('fetchCollectionMetadata reads Base URL only from the current nb env row', 
     },
   });
 
-  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
-  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
-  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.equal(calls[0].includes('--base-url'), false);
   assert.equal(metadata.collections.users.fieldsByName.get('nickname').interface, 'input');
-});
-
-test('fetchCollectionMetadata fails clearly when current nb env Base URL is empty', async () => {
-  await assert.rejects(
-    fetchCollectionMetadata('users', {
-      cwd: process.cwd(),
-      async execFileImpl(command, args) {
-        assert.deepEqual([command, ...args], ['nb', 'env', 'list']);
-        return {
-          stdout: [
-            '  Name      Base URL',
-            '* local',
-          ].join('\n'),
-        };
-      },
-    }),
-    /Current nb env has no Base URL.*nb env add.*nb env update.*collectionMetadata/i,
-  );
 });
 
 test('fetchCollectionMetadata fails when nb responses do not include the requested collection', async () => {
@@ -8886,14 +9196,6 @@ test('fetchCollectionMetadata fails when nb responses do not include the request
       cwd: process.cwd(),
       async execFileImpl(command, args) {
         calls.push([command, ...args]);
-        if (args[0] === 'env') {
-          return {
-            stdout: [
-              '  Name      Base URL',
-              '* local     http://127.0.0.1:13000',
-            ].join('\n'),
-          };
-        }
         if (args.includes('data-modeling')) {
           return { stdout: JSON.stringify({ data: [] }) };
         }
@@ -8903,11 +9205,10 @@ test('fetchCollectionMetadata fails when nb responses do not include the request
     /collection metadata for "users" was not found/i,
   );
 
-  assert.deepEqual(calls[0], ['nb', 'env', 'list']);
-  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
-  assert.deepEqual(calls[1].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
-  assert.deepEqual(calls[2].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
-  assert.deepEqual(calls[2].slice(-2), ['--base-url', 'http://127.0.0.1:13000']);
+  assert.deepEqual(calls[0].slice(0, 5), ['nb', 'api', 'data-modeling', 'collections', 'get']);
+  assert.equal(calls[0].includes('--base-url'), false);
+  assert.deepEqual(calls[1].slice(0, 5), ['nb', 'api', 'resource', 'list', '--resource']);
+  assert.equal(calls[1].includes('--base-url'), false);
 });
 
 test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata fetch returns no collection entry', async () => {

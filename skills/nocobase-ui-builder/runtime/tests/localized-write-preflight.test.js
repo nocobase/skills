@@ -77,6 +77,11 @@ function makeMetadata() {
           use: 'ListBlockModel',
           collectionName: 'users',
         },
+        'users-grid-card-uid': {
+          uid: 'users-grid-card-uid',
+          use: 'GridCardBlockModel',
+          collectionName: 'users',
+        },
         'users-details-uid': {
           uid: 'users-details-uid',
           use: 'DetailsBlockModel',
@@ -500,6 +505,148 @@ test('runLocalizedWritePreflight defaults block settings heightMode to specifyVa
   assert.equal(addBlocks.cliBody.blocks[1].settings.heightMode, 'fullHeight');
 });
 
+test('runLocalizedWritePreflight rejects chart settings displayTitle before remote write', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'chart',
+      settings: {
+        title: 'Status chart',
+        displayTitle: true,
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'chart-display-title-unsupported'));
+  assert.equal(result.cliBody.settings.displayTitle, true);
+});
+
+test('runLocalizedWritePreflight accepts gridCard settings.columns and rejects unsupported gridCard setting keys', () => {
+  const responsiveColumns = { xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 4 };
+  const addBlock = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'gridCard',
+      resourceInit: {
+        dataSourceKey: 'main',
+        collectionName: 'users',
+      },
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      settings: {
+        columns: responsiveColumns,
+        rowCount: 3,
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(addBlock.ok, true, JSON.stringify(addBlock.errors));
+  assert.deepEqual(addBlock.cliBody.settings.columns, responsiveColumns);
+  assert.equal(addBlock.cliBody.settings.rowCount, 3);
+
+  const unsupportedKey = ['column', 'Count'].join('');
+  const invalidCases = [
+    {
+      operation: 'add-block',
+      body: {
+        target: { uid: 'grid-uid' },
+        type: 'gridCard',
+        resourceInit: {
+          dataSourceKey: 'main',
+          collectionName: 'users',
+        },
+        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        settings: {
+          [unsupportedKey]: { xs: 1, md: 2 },
+        },
+      },
+      path: `$.settings.${unsupportedKey}`,
+    },
+    {
+      operation: 'add-blocks',
+      body: {
+        target: { uid: 'grid-uid' },
+        blocks: [
+          {
+            key: 'usersGrid',
+            type: 'gridCard',
+            resource: {
+              dataSourceKey: 'main',
+              collectionName: 'users',
+            },
+            defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+            settings: {
+              [unsupportedKey]: { xs: 1, md: 2 },
+            },
+          },
+        ],
+      },
+      path: `$.blocks[0].settings.${unsupportedKey}`,
+    },
+    {
+      operation: 'compose',
+      body: {
+        target: { uid: 'page-tab-uid' },
+        blocks: [
+          {
+            key: 'usersGrid',
+            type: 'gridCard',
+            resource: {
+              dataSourceKey: 'main',
+              collectionName: 'users',
+            },
+            defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+            settings: {
+              [unsupportedKey]: { xs: 1, md: 2 },
+            },
+          },
+        ],
+      },
+      path: `$.blocks[0].settings.${unsupportedKey}`,
+    },
+  ];
+
+  for (const item of invalidCases) {
+    const result = runLocalizedWritePreflight({
+      operation: item.operation,
+      body: item.body,
+      collectionMetadata: makeMetadata(),
+    });
+    assert.equal(result.ok, false);
+    assertHasRule(result, 'grid-card-settings-unsupported', item.path);
+  }
+
+  const invalidConfigure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-grid-card-uid' },
+      changes: {
+        [unsupportedKey]: { xs: 1, md: 2 },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(invalidConfigure.ok, false);
+  assertHasRule(invalidConfigure, 'grid-card-settings-unsupported', `$.changes.${unsupportedKey}`);
+
+  const validConfigure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-grid-card-uid' },
+      changes: {
+        columns: 3,
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validConfigure.ok, true, JSON.stringify(validConfigure.errors));
+  assert.equal(validConfigure.cliBody.changes.columns, 3);
+});
+
 test('runLocalizedWritePreflight normalizes localized settings.sort alias to sorting', () => {
   const addBlock = runLocalizedWritePreflight({
     operation: 'add-block',
@@ -634,6 +781,29 @@ test('runLocalizedWritePreflight normalizes localized settings.sort alias to sor
   assert.equal(Object.hasOwn(mapConfigure.cliBody.changes, 'sort'), false);
   assert.deepEqual(mapConfigure.cliBody.changes.sorting, [
     { field: 'nickname', direction: 'desc' },
+  ]);
+
+  const gridCardBlock = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'gridCard',
+      resourceInit: {
+        dataSourceKey: 'main',
+        collectionName: 'users',
+      },
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      settings: {
+        sort: ['-createdAt'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(gridCardBlock.ok, true, JSON.stringify(gridCardBlock.errors));
+  assert.equal(Object.hasOwn(gridCardBlock.cliBody.settings, 'sort'), false);
+  assert.deepEqual(gridCardBlock.cliBody.settings.sorting, [
+    { field: 'createdAt', direction: 'desc' },
   ]);
 });
 

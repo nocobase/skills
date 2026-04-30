@@ -28,6 +28,22 @@ const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', '
 const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
 const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
+const CHART_PUBLIC_BLOCK_TYPES = new Set(['chart']);
+const GRID_CARD_PUBLIC_BLOCK_TYPES = new Set(['gridCard']);
+const GRID_CARD_LIVE_BLOCK_USES = new Set(['GridCardBlockModel']);
+const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'height',
+  'heightMode',
+  'resource',
+  'columns',
+  'rowCount',
+  'dataScope',
+  'sort',
+  'sorting',
+  'layout',
+]);
 const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'TableBlockModel',
   'ListBlockModel',
@@ -99,6 +115,10 @@ function normalizeBody(value) {
 
 function isObjectRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function addSpecifiedHeightMode(settings) {
@@ -278,6 +298,104 @@ function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
   }
 
   return payload;
+}
+
+function collectChartDisplayTitleErrorsFromBlock(block, path) {
+  const errors = [];
+  if (!isObjectRecord(block)) {
+    return errors;
+  }
+  if (
+    CHART_PUBLIC_BLOCK_TYPES.has(normalizeText(block.type))
+    && isObjectRecord(block.settings)
+    && Object.hasOwn(block.settings, 'displayTitle')
+  ) {
+    errors.push({
+      path: `${path}.settings.displayTitle`,
+      ruleId: 'chart-display-title-unsupported',
+      message: 'Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.',
+      code: 'CHART_DISPLAY_TITLE_UNSUPPORTED',
+    });
+  }
+  if (Array.isArray(block.blocks)) {
+    block.blocks.forEach((child, index) => {
+      collectChartDisplayTitleErrorsFromBlock(child, `${path}.blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
+}
+
+function collectLocalizedChartDisplayTitleErrors(payload, operation) {
+  const errors = [];
+  if (!isObjectRecord(payload)) {
+    return errors;
+  }
+  if (operation === 'add-block') {
+    return collectChartDisplayTitleErrorsFromBlock(payload, '');
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      collectChartDisplayTitleErrorsFromBlock(block, `blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
+}
+
+function collectGridCardSettingsErrorsFromObject(settings, path) {
+  const errors = [];
+  if (!isObjectRecord(settings)) {
+    return errors;
+  }
+  for (const key of Object.keys(settings)) {
+    if (GRID_CARD_ALLOWED_SETTINGS_KEYS.has(key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: 'grid-card-settings-unsupported',
+      message: `gridCard settings only accepts keys: ${Array.from(GRID_CARD_ALLOWED_SETTINGS_KEYS).join(', ')}; unsupported key "${key}".`,
+      code: 'GRID_CARD_SETTINGS_UNSUPPORTED',
+      details: { key },
+    });
+  }
+  return errors;
+}
+
+function collectGridCardSettingsErrorsFromBlock(block, path) {
+  const errors = [];
+  if (!isObjectRecord(block)) {
+    return errors;
+  }
+  if (GRID_CARD_PUBLIC_BLOCK_TYPES.has(normalizeText(block.type))) {
+    collectGridCardSettingsErrorsFromObject(block.settings, `${path}.settings`).forEach((issue) => errors.push(issue));
+  }
+  forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+    blocks.forEach((child, index) => {
+      collectGridCardSettingsErrorsFromBlock(child, `${blocksPath}[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  });
+  return errors;
+}
+
+function collectLocalizedGridCardSettingsErrors(payload, operation, metadata = {}) {
+  const errors = [];
+  if (!isObjectRecord(payload)) {
+    return errors;
+  }
+  if (operation === 'configure') {
+    const targetEntry = getLiveTopologyEntry(metadata, payload?.target?.uid);
+    if (GRID_CARD_LIVE_BLOCK_USES.has(getLiveEntryUse(targetEntry))) {
+      collectGridCardSettingsErrorsFromObject(payload.changes, '$.changes').forEach((issue) => errors.push(issue));
+    }
+    return errors;
+  }
+  if (operation === 'add-block') {
+    return collectGridCardSettingsErrorsFromBlock(payload, '$');
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      collectGridCardSettingsErrorsFromBlock(block, `$.blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
 }
 
 function normalizeMetadata(value) {
@@ -1686,6 +1804,8 @@ export function runLocalizedWritePreflight({
       });
     });
   collectLocalizedMainBlockSectionErrors(cliBody).forEach(pushError);
+  collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation).forEach(pushError);
+  collectLocalizedGridCardSettingsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicFieldObjectErrors(cliBody).forEach(pushError);
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedMetadata).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);

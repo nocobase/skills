@@ -17,6 +17,20 @@ function assertFileDoesNotContain(relativePath, pattern, message) {
   assert.doesNotMatch(read(relativePath), pattern, message || `${relativePath} should not contain ${pattern}`);
 }
 
+function assertNavigationGroupDocsDoNotKeepOldMetadataRules(relativePath) {
+  const text = read(relativePath);
+  assert.doesNotMatch(
+    text,
+    /title-only (?:unique )?same-title reuse|same-title reuse is title-only|one-match title-only reuse/i,
+    `${relativePath} should not describe existing navigation group reuse as title-only`,
+  );
+  assert.doesNotMatch(
+    text,
+    /navigation\.group\.routeId[\s\S]{0,120}(?:exact targeting only|do not mix|must not be mixed)[\s\S]{0,120}(?:icon|tooltip|hideInMenu)/i,
+    `${relativePath} should not forbid ignored navigation.group metadata when routeId is present`,
+  );
+}
+
 function readRelativeMarkdownLinks(markdown) {
   return [...markdown.matchAll(/\]\(((?:\.\/|\.\.\/)[^)]+)\)/g)].map((match) => match[1]);
 }
@@ -1052,6 +1066,13 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
 });
 
+test('gridCard reference documents public settings.columns without removed column count alias', () => {
+  const gridCardReference = read('references/blocks/grid-card.md');
+  const removedGridCardSetting = ['column', 'Count'].join('');
+  assert.doesNotMatch(gridCardReference, new RegExp(removedGridCardSetting, 'i'));
+  assert.match(gridCardReference, /settings[\s\S]{0,120}"columns"|"columns"[\s\S]{0,120}settings/i);
+});
+
 test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel cues', () => {
   for (const relativePath of [
     'references/aliases.md',
@@ -1184,6 +1205,7 @@ test('duplicate same-title menu-group docs consistently require explicit routeId
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
+    'references/page-blueprint.md',
     'references/page-intent.md',
     'references/normative-contract.md',
     'references/ascii-preview.md',
@@ -1191,6 +1213,7 @@ test('duplicate same-title menu-group docs consistently require explicit routeId
     'references/tool-shapes.md',
   ]) {
     assertDuplicateMenuGroupNeedsRouteId(read(relativePath), relativePath);
+    assertNavigationGroupDocsDoNotKeepOldMetadataRules(relativePath);
   }
 });
 

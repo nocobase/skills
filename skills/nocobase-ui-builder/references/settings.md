@@ -284,10 +284,12 @@ When `add-block` creates a public `kanban`, keep collection binding in `resource
 
 Common settings that are suitable for direct inline use:
 
-- generic block: `title`, `displayTitle`, `height`, `heightMode`
+- generic card-like block: `title`, `displayTitle`, `height`, `heightMode`
 - `table`: `quickEdit`, `treeTable`, `defaultExpandAllRows`, `dragSort`, `dragSortBy`
 - `calendar`: `titleField`, `colorField`, `startField`, `endField`, `defaultView`, `quickCreateEvent`, `showLunar`, `weekStart`, `dataScope`, `linkageRules`, `quickCreatePopup`, `eventPopup`
 - form-like blocks: `labelWidth`, `labelWrap`, `layout`, `labelAlign`, `colon`
+
+Do not copy `displayTitle` into block families whose runtime configureOptions do not expose it. Known unsupported cases include `chart` and `tree`; chart blocks accept `title`, `height`, `heightMode`, `query`, `visual`, and `events` instead.
 
 Height settings:
 

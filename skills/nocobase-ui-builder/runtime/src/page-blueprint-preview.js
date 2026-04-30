@@ -79,6 +79,21 @@ const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'edi
 const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
+const CHART_BLOCK_TYPES = new Set(['chart']);
+const GRID_CARD_BLOCK_TYPES = new Set(['gridCard']);
+const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'height',
+  'heightMode',
+  'resource',
+  'columns',
+  'rowCount',
+  'dataScope',
+  'sort',
+  'sorting',
+  'layout',
+]);
 const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
   'today',
   'turnPages',
@@ -2366,6 +2381,31 @@ function isRecognizablePageBlueprint(blueprint) {
   return isPlainObject(blueprint) && Array.isArray(blueprint.tabs) && !!normalizeText(blueprint.mode);
 }
 
+function hasNavigationGroupMetadata(group) {
+  return ['title', 'icon', 'tooltip', 'hideInMenu'].some((key) => Object.prototype.hasOwnProperty.call(group, key));
+}
+
+function normalizeExistingNavigationGroupForWrite(blueprint, warnings = []) {
+  if (!isPlainObject(blueprint)) {
+    return blueprint;
+  }
+  const group = isPlainObject(blueprint?.navigation?.group) ? blueprint.navigation.group : null;
+  const routeId = group?.routeId;
+  if (!group || !normalizeText(routeId)) {
+    return blueprint;
+  }
+  if (hasNavigationGroupMetadata(group)) {
+    warnings.push('navigation.group.routeId has highest priority; title/icon/tooltip/hideInMenu are ignored for an existing menu group.');
+  }
+  return {
+    ...blueprint,
+    navigation: {
+      ...(blueprint.navigation || {}),
+      group: { routeId },
+    },
+  };
+}
+
 function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
   const maxPopupDepth =
     typeof options.maxPopupDepth === 'number' && Number.isFinite(options.maxPopupDepth)
@@ -2777,6 +2817,9 @@ function materializeBlockForWrite(block, options = {}) {
       nextBlock.fieldsLayout = synthesizedLayout;
     }
   }
+  delete nextBlock.pageSize;
+  delete nextBlock.sort;
+  delete nextBlock.sorting;
   return nextBlock;
 }
 
@@ -4734,6 +4777,36 @@ function validateKanbanMainBlockShape(block, path, state) {
   }
 }
 
+function validateChartBlockSettings(block, path, state) {
+  if (!CHART_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return;
+  }
+  if (!isPlainObject(block.settings) || !hasOwn(block.settings, 'displayTitle')) {
+    return;
+  }
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    `${path}.settings.displayTitle`,
+    'chart-display-title-unsupported',
+    'Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.',
+  );
+}
+
+function validateGridCardBlockSettings(block, path, state) {
+  if (!GRID_CARD_BLOCK_TYPES.has(normalizeText(block?.type)) || !isPlainObject(block.settings)) {
+    return;
+  }
+  validateAllowedObjectKeys(
+    block.settings,
+    `${path}.settings`,
+    GRID_CARD_ALLOWED_SETTINGS_KEYS,
+    state,
+    'grid-card-settings-unsupported',
+    'gridCard settings',
+  );
+}
+
 function validateBlock(block, path, state, parentContext = {}) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
@@ -4755,6 +4828,8 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
   validateDataSurfaceFilterActionSettings(block, path, state);
   validateBlockSettingsSortAlias(block, path, state);
+  validateChartBlockSettings(block, path, state);
+  validateGridCardBlockSettings(block, path, state);
   validateCalendarMainBlockShape(block, path, state);
   validateKanbanMainBlockShape(block, path, state);
   validateTreeConnectFields(block, path, state, parentContext.siblingBlocksByKey);
@@ -5154,7 +5229,10 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const rawBlueprint = normalizeBlueprintInput(input, warnings, normalizeErrors, {
     suppressLegacyWrapperWarning: isPrepareHelperEnvelope(input),
   });
-  const blueprint = normalizeSubmitActionReactionTargets(normalizeFieldLinkageStateTargets(rawBlueprint));
+  const blueprint = normalizeExistingNavigationGroupForWrite(
+    normalizeSubmitActionReactionTargets(normalizeFieldLinkageStateTargets(rawBlueprint)),
+    warnings,
+  );
   const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
   const facts = buildPrepareFacts(blueprint, expectedOuterTabs);
   const preparedBlueprint = recognizableBlueprint ? materializeBlueprintForWrite(blueprint) : null;

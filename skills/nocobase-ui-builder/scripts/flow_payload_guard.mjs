@@ -2050,13 +2050,13 @@ function inspectRawSetLayoutPayload(payload, mode, blockers, seen) {
       continue;
     }
 
-    const columnCount = descriptor.cells.length;
-    if (rowSizes.length === columnCount) {
+    const cellSlotTotal = descriptor.cells.length;
+    if (rowSizes.length === cellSlotTotal) {
       continue;
     }
 
     const isLikelyStackedVsColumnsMixup =
-      columnCount === 1
+      cellSlotTotal === 1
       && descriptor.cells[0]?.length > 1
       && rowSizes.length > 1;
     if (isLikelyStackedVsColumnsMixup) {
@@ -2069,7 +2069,7 @@ function inspectRawSetLayoutPayload(payload, mode, blockers, seen) {
         dedupeKey: `SET_LAYOUT_STACKED_CELL_MULTI_SIZE_MISMATCH:${rowKey}:${rowSizes.length}`,
         details: {
           rowKey,
-          columnCount,
+          cellSlotTotal,
           rowSizesLength: rowSizes.length,
           stackedCellLength: descriptor.cells[0]?.length || 0,
         },
@@ -2083,10 +2083,10 @@ function inspectRawSetLayoutPayload(payload, mode, blockers, seen) {
       message: `set-layout ${sizePath} must have the same number of entries as $.rows.${rowKey}. Each row size array must align with that row's column-cell count.`,
       path: sizePath,
       mode,
-      dedupeKey: `SET_LAYOUT_ROW_SIZE_COUNT_MISMATCH:${rowKey}:${columnCount}:${rowSizes.length}`,
+      dedupeKey: `SET_LAYOUT_ROW_SIZE_COUNT_MISMATCH:${rowKey}:${cellSlotTotal}:${rowSizes.length}`,
       details: {
         rowKey,
-        columnCount,
+        cellSlotTotal,
         rowSizesLength: rowSizes.length,
       },
     }));
