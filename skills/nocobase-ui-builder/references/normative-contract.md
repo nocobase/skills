@@ -8,6 +8,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
 - `nb-page-preview` and `nb-runjs` remain local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
 - Whole-page `prepare-write` is local/read-only. For the first real whole-page write, it is mandatory, and the sendable business object becomes `result.cliBody`.
+- Whole-page `prepare-write` may normalize shape and compatibility aliases, but it must not silently repair an invalid business-field binding by swapping in a different field. Invalid semantic bindings fail locally instead.
 
 ## 1. Precedence
 

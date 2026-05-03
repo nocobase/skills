@@ -92,6 +92,25 @@ const calendarCollectionMetadata = {
     },
   },
 };
+const largeCalendarCollectionMetadata = {
+  collections: {
+    users: {
+      ...calendarCollectionMetadata.collections.users,
+      fields: [
+        ...calendarCollectionMetadata.collections.users.fields,
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'input' },
+        { name: 'phone', type: 'string', interface: 'input' },
+        { name: 'bio', type: 'text', interface: 'textarea' },
+        { name: 'city', type: 'string', interface: 'input' },
+        { name: 'address', type: 'string', interface: 'input' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'timezone', type: 'string', interface: 'select' },
+        { name: 'locale', type: 'string', interface: 'select' },
+      ],
+    },
+  },
+};
 
 const oneCandidateCollectionMetadata = {
   collections: {
@@ -3151,7 +3170,7 @@ test('prepareApplyBlueprintRequest reports each missing default collection path 
   );
 });
 
-test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors once collectionMetadata is supplied', () => {
+test('prepareApplyBlueprintRequest auto-fills users fieldGroups defaults once collectionMetadata is supplied', () => {
   const largeUsersCollectionMetadata = {
     collections: {
       users: {
@@ -3198,9 +3217,9 @@ test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors on
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
               fields: ['nickname'],
-              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
             },
           ],
         },
@@ -3209,7 +3228,7 @@ test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors on
     { collectionMetadata: largeUsersCollectionMetadata },
   );
 
-  assert.equal(result.ok, false);
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.deepEqual(result.warnings, []);
   assert.deepEqual(result.defaultsRequirements, {
     collections: [
@@ -3222,11 +3241,66 @@ test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors on
     ],
     associations: [],
   });
+  assert.deepEqual(result.cliBody.defaults.collections.users.fieldGroups, [
+    {
+      title: 'Primary fields',
+      fields: [
+        'nickname',
+        'email',
+        'phone',
+        'status',
+        'bio',
+        'employeeCode',
+        'realName',
+        'city',
+        'country',
+        'postalCode',
+        'timezone',
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest rejects malformed collection default fieldGroups instead of auto-filling them', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      defaults: {
+        collections: {
+          roles: {
+            fieldGroups: 'auto-fill-me',
+            popups: buildFixedCollectionPopupDefaults('roles'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              fields: ['name'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
   assert.ok(
     result.errors.some(
-      (issue) => issue.ruleId === 'missing-default-field-groups' && issue.path === 'defaults.collections.users.fieldGroups',
+      (issue) =>
+        issue.ruleId === 'invalid-default-field-groups'
+        && issue.path === 'defaults.collections.roles.fieldGroups',
     ),
   );
+  assert.equal(result.cliBody, undefined);
 });
 
 test('prepareApplyBlueprintRequest reports missing popup values for the fixed defaults trio', () => {
@@ -3914,7 +3988,7 @@ test('prepareApplyBlueprintRequest does not require fieldGroups for small table 
   });
 });
 
-test('prepareApplyBlueprintRequest requires fieldGroups for large table collections without explicit addNew', () => {
+test('prepareApplyBlueprintRequest auto-fills fieldGroups for large table collections without explicit addNew', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
@@ -3948,7 +4022,7 @@ test('prepareApplyBlueprintRequest requires fieldGroups for large table collecti
     { collectionMetadata },
   );
 
-  assert.equal(result.ok, false);
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.deepEqual(result.defaultsRequirements, {
     collections: [
       {
@@ -3960,11 +4034,25 @@ test('prepareApplyBlueprintRequest requires fieldGroups for large table collecti
     ],
     associations: [],
   });
-  assert.ok(
-    result.errors.some(
-      (issue) => issue.ruleId === 'missing-default-field-groups' && issue.path === 'defaults.collections.roles.fieldGroups',
-    ),
-  );
+  assert.deepEqual(result.cliBody.defaults.collections.roles.fieldGroups, [
+    {
+      title: 'Primary fields',
+      fields: [
+        'id',
+        'name',
+        'title',
+        'description',
+        'scope',
+        'priority',
+        'status',
+        'category',
+        'color',
+        'code',
+        'sort',
+        'notes',
+      ],
+    },
+  ]);
 });
 
 test('prepareApplyBlueprintRequest rejects dotted collection default fieldGroups paths', () => {
@@ -7222,7 +7310,7 @@ test('prepareApplyBlueprintRequest removes settings.sort when it matches setting
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [{ field: 'createdAt', direction: 'desc' }]);
 });
 
-test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-table blocks and leaves calendar unchanged', () => {
+test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-table blocks and strips unsupported calendar sort', () => {
   for (const { type, settings, expected } of [
     {
       type: 'details',
@@ -7291,7 +7379,10 @@ test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-tabl
   }, { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false });
 
   assert.equal(calendar.ok, true, JSON.stringify(calendar.errors));
-  assert.deepEqual(calendar.cliBody.tabs[0].blocks[0].settings, { sort: ['-createdAt'] });
+  assert.equal(calendar.cliBody.tabs[0].blocks[0].settings.sort, undefined);
+  assert.equal(calendar.cliBody.tabs[0].blocks[0].settings.sorting, undefined);
+  assert.equal(calendar.cliBody.tabs[0].blocks[0].settings.quickCreatePopup.tryTemplate, true);
+  assert.equal(calendar.cliBody.tabs[0].blocks[0].settings.eventPopup.tryTemplate, true);
 });
 
 test('prepareApplyBlueprintRequest strips top-level pagination and sorting compatibility keys from cliBody', () => {
@@ -7520,6 +7611,86 @@ test('prepareApplyBlueprintRequest does not auto-upgrade nested popups to page m
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
   assert.equal(
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].fields[1].popup.mode,
+    undefined,
+  );
+});
+
+test('prepareApplyBlueprintRequest does not auto-upgrade nested calendar hidden popups to page mode', () => {
+  const nestedCalendarCollectionMetadata = {
+    collections: {
+      users: {
+        ...calendarCollectionMetadata.collections.users,
+        fields: [
+          ...calendarCollectionMetadata.collections.users.fields,
+          { name: 'email', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const nestedCalendarPopupBlocks = [
+    {
+      key: 'profile',
+      type: 'details',
+      title: 'Profile',
+      collection: 'users',
+      fields: ['nickname'],
+    },
+    {
+      key: 'status',
+      type: 'details',
+      title: 'Status',
+      collection: 'users',
+      fields: ['status'],
+    },
+    {
+      key: 'created',
+      type: 'details',
+      title: 'Created',
+      collection: 'users',
+      fields: ['createdAt'],
+    },
+    {
+      key: 'updated',
+      type: 'details',
+      title: 'Updated',
+      collection: 'users',
+      fields: ['updatedAt'],
+    },
+  ];
+  const result = prepareWithDirectCollectionDefaults(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: [
+        {
+          key: 'userCalendar',
+          type: 'calendar',
+          title: 'User calendar',
+          collection: 'users',
+          defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+          settings: {
+            titleField: 'nickname',
+            startField: 'createdAt',
+            eventPopup: {
+              title: 'Nested calendar event',
+              blocks: nestedCalendarPopupBlocks,
+              layout: {
+                rows: [
+                  [{ key: 'profile', span: 12 }, { key: 'status', span: 12 }],
+                  [{ key: 'created', span: 12 }, { key: 'updated', span: 12 }],
+                ],
+              },
+            },
+          },
+        },
+      ],
+    }),
+    { collections: ['users'], collectionMetadata: nestedCalendarCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].settings.eventPopup.mode,
     undefined,
   );
 });
@@ -8474,6 +8645,355 @@ test('page preview cli prepare-write only fetches missing collectionMetadata ent
   assert.deepEqual(fetched, ['roles']);
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, true);
+});
+
+test('page preview cli prepare-write fetches missing metadata from calendar hidden popup blocks', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Calendar popup metadata' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Schedule',
+            blocks: [
+              {
+                key: 'usersCalendar',
+                type: 'calendar',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+                settings: {
+                  titleField: 'nickname',
+                  startField: 'createdAt',
+                  quickCreatePopup: {
+                    title: 'Create role from calendar',
+                    blocks: [
+                      {
+                        key: 'roleCreateForm',
+                        type: 'createForm',
+                        collection: 'roles',
+                        fields: ['name'],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: calendarCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.tabs[0].blocks[0].settings.quickCreatePopup.blocks[0].collection, 'roles');
+});
+
+test('page preview cli prepare-write fetches missing metadata from calendar event popup blocks', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Calendar event popup metadata' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Schedule',
+            blocks: [
+              {
+                key: 'usersCalendar',
+                type: 'calendar',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+                settings: {
+                  titleField: 'nickname',
+                  startField: 'createdAt',
+                  eventPopup: {
+                    title: 'Role details from event',
+                    blocks: [
+                      {
+                        key: 'roleDetails',
+                        type: 'details',
+                        collection: 'roles',
+                        fields: ['name'],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: calendarCollectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.tabs[0].blocks[0].settings.eventPopup.blocks[0].collection, 'roles');
+  assert.deepEqual(
+    payload.defaultsRequirements.collections.map((entry) => entry.collection),
+    ['roles', 'users'],
+  );
+});
+
+test('page preview cli prepare-write reports missing metadata from calendar hidden popup blocks when auto metadata is disabled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar popup metadata required' },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                eventPopup: {
+                  title: 'Role details from event',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      collection: 'roles',
+                      fields: ['name'],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(
+    payload.errors.some(
+      (issue) => issue.ruleId === 'missing-collection-metadata'
+        && issue.path === 'collectionMetadata'
+        && issue.message.includes('tabs[0].blocks[0].settings.eventPopup.blocks[0]'),
+    ),
+  );
+});
+
+test('page preview cli prepare-write fetches missing metadata from kanban hidden popup blocks', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const fetched = [];
+  const stdin = createInputStream(
+    JSON.stringify({
+      blueprint: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Kanban popup metadata' },
+        defaults: {
+          collections: {
+            users: {
+              popups: buildFixedCollectionPopupDefaults('users'),
+            },
+            roles: {
+              popups: buildFixedCollectionPopupDefaults('roles'),
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Pipeline',
+            blocks: [
+              {
+                key: 'usersKanban',
+                type: 'kanban',
+                collection: 'users',
+                fields: ['nickname', 'status'],
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                settings: {
+                  cardPopup: {
+                    title: 'Role details from card',
+                    blocks: [
+                      {
+                        key: 'roleDetails',
+                        type: 'details',
+                        collection: 'roles',
+                        fields: ['name'],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata: {
+        collections: {
+          users: collectionMetadata.collections.users,
+        },
+      },
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async fetchCollectionMetadata(collectionName) {
+      fetched.push(collectionName);
+      assert.equal(collectionName, 'roles');
+      return minimalRoleCollectionMetadata;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  assert.deepEqual(fetched, ['roles']);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.tabs[0].blocks[0].settings.cardPopup.blocks[0].collection, 'roles');
+  assert.deepEqual(
+    payload.defaultsRequirements.collections.map((entry) => entry.collection),
+    ['roles', 'users'],
+  );
+});
+
+test('page preview cli prepare-write reports missing metadata from kanban hidden popup blocks when auto metadata is disabled', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban popup metadata required' },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              settings: {
+                cardPopup: {
+                  title: 'Role details from card',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      collection: 'roles',
+                      fields: ['name'],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, false);
+  assert.equal(payload.cliBody, undefined);
+  assert.ok(
+    payload.errors.some(
+      (issue) => issue.ruleId === 'missing-collection-metadata'
+        && issue.path === 'collectionMetadata'
+        && issue.message.includes('tabs[0].blocks[0].settings.cardPopup.blocks[0]'),
+    ),
+  );
 });
 
 test('page preview cli prepare-write resolves data-bound collections inside popups', async () => {
@@ -9588,6 +10108,1012 @@ test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilte
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].type, 'calendar');
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status']));
+});
+
+test('prepareApplyBlueprintRequest preserves calendar popup settings for hidden popup hosts', () => {
+  const quickCreatePopup = {
+    mode: 'dialog',
+    size: 'large',
+  };
+  const eventPopup = {
+    mode: 'drawer',
+    size: 'small',
+    template: {
+      uid: 'calendar-event-popup-template',
+      mode: 'reference',
+    },
+  };
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+                quickCreatePopup,
+                eventPopup,
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.quickCreatePopup, {
+    ...quickCreatePopup,
+    tryTemplate: true,
+  });
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.eventPopup, eventPopup);
+});
+
+test('prepareApplyBlueprintRequest normalizes calendar settings to backend-supported keys', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                colorField: 'status',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+                quickCreateEnabled: false,
+                quickCreatePopup: {
+                  tryTemplate: true,
+                },
+                eventPopup: {
+                  tryTemplate: true,
+                },
+                cardPopup: {
+                  tryTemplate: true,
+                },
+                enableCardClick: true,
+                groupField: 'workMode',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const settings = result.cliBody.tabs[0].blocks[0].settings;
+  assert.equal(settings.quickCreateEnabled, undefined);
+  assert.equal(settings.quickCreateEvent, false);
+  assert.equal(settings.cardPopup, undefined);
+  assert.equal(settings.enableCardClick, undefined);
+  assert.equal(settings.groupField, undefined);
+  assert.equal(settings.colorField, 'status');
+  assert.deepEqual(settings.quickCreatePopup, { tryTemplate: true });
+  assert.deepEqual(settings.eventPopup, { tryTemplate: true });
+});
+
+test('prepareApplyBlueprintRequest moves top-level calendar field bindings into settings before write', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              titleField: 'nickname',
+              colorField: 'nickname',
+              startField: 'createdAt',
+              endField: 'updatedAt',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                colorField: 'status',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const calendarBlock = result.cliBody.tabs[0].blocks[0];
+  assert.equal(calendarBlock.titleField, undefined);
+  assert.equal(calendarBlock.colorField, undefined);
+  assert.equal(calendarBlock.startField, undefined);
+  assert.equal(calendarBlock.endField, undefined);
+  assert.equal(calendarBlock.settings.titleField, 'nickname');
+  assert.equal(calendarBlock.settings.colorField, 'status');
+  assert.equal(calendarBlock.settings.startField, 'createdAt');
+  assert.equal(calendarBlock.settings.endField, 'updatedAt');
+});
+
+test('prepareApplyBlueprintRequest auto-adds hidden popup template fallback for calendar and kanban create blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar and kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          layout: {
+            rows: [['usersCalendar', 'usersKanban']],
+          },
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              title: 'User schedule',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
+            },
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              actions: ['filter', 'addNew', 'popup', 'refresh'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const [calendarBlock, kanbanBlock] = result.cliBody.tabs[0].blocks;
+  assert.equal(calendarBlock.settings.quickCreatePopup.tryTemplate, true);
+  assert.equal(calendarBlock.settings.eventPopup.tryTemplate, true);
+  assert.equal(calendarBlock.settings.titleField, 'nickname');
+  assert.equal(kanbanBlock.settings.quickCreatePopup.tryTemplate, true);
+  assert.equal(kanbanBlock.settings.cardPopup.tryTemplate, true);
+  assert.equal(kanbanBlock.settings.quickCreateEnabled, true);
+  assert.equal(kanbanBlock.settings.enableCardClick, true);
+});
+
+test('prepareApplyBlueprintRequest allows kanban blocks without groupField when the collection has no grouping candidates', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname']),
+              actions: ['filter', 'addNew', 'popup', 'refresh'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.groupField, undefined);
+});
+
+test('prepareApplyBlueprintRequest materializes prompt-like users calendar and kanban hidden popups', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: '日历测试12:34:56' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: '日历测试12:34:56',
+          layout: {
+            rows: [['usersCalendar', 'usersKanban']],
+          },
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              title: 'Users calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+            },
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'Users kanban',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const [calendarBlock, kanbanBlock] = result.cliBody.tabs[0].blocks;
+  assert.deepEqual(calendarBlock.settings.quickCreatePopup, { tryTemplate: true });
+  assert.deepEqual(calendarBlock.settings.eventPopup, { tryTemplate: true });
+  assert.deepEqual(kanbanBlock.settings.quickCreatePopup, { tryTemplate: true });
+  assert.deepEqual(kanbanBlock.settings.cardPopup, { tryTemplate: true });
+  assert.equal(kanbanBlock.settings.quickCreateEnabled, true);
+  assert.equal(kanbanBlock.settings.enableCardClick, true);
+  assert.deepEqual(
+    result.defaultsRequirements.collections.map((entry) => entry.collection),
+    ['users'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects unsupported prompt-like calendar and kanban grouping fields', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: '日历测试12:34:56' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: '日历测试12:34:56',
+          layout: {
+            rows: [['usersCalendar', 'usersKanban']],
+          },
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              title: 'Users calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'accountLevel', 'username']),
+              settings: {
+                titleField: 'nickname',
+                colorField: 'country',
+                startField: 'hireDate',
+                endField: 'lastLoginAt',
+              },
+            },
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'Users kanban',
+              collection: 'users',
+              fields: ['nickname', 'workMode', 'country'],
+              defaultFilter: defaultFilterGroup(['nickname', 'accountLevel', 'username']),
+              settings: {
+                titleField: 'nickname',
+                groupField: 'workMode',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'accountLevel', type: 'string', interface: 'select' },
+              { name: 'workMode', type: 'string', interface: 'radioGroup' },
+              { name: 'country', type: 'string', interface: 'input' },
+              { name: 'hireDate', type: 'datetime', interface: 'datetime' },
+              { name: 'lastLoginAt', type: 'datetime', interface: 'datetime' },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'calendar-field-binding-invalid'
+        && issue.path === 'tabs[0].blocks[0].settings.colorField',
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-group-field-invalid'
+        && issue.path === 'tabs[0].blocks[1].settings.groupField',
+    ),
+  );
+  assert.equal(result.cliBody, undefined);
+});
+
+test('prepareApplyBlueprintRequest auto-fills large prompt-like calendar and kanban defaults fieldGroups', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: '日历测试12:34:56' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: '日历测试12:34:56',
+          layout: {
+            rows: [['usersCalendar', 'usersKanban']],
+          },
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              title: 'Users calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'title', 'username']),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+            },
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'Users kanban',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(['nickname', 'title', 'username']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: largeCalendarCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(
+    result.defaultsRequirements.collections.find((entry) => entry.collection === 'users'),
+    {
+      collection: 'users',
+      popupActions: ['addNew', 'edit', 'view'],
+      requiresFieldGroups: true,
+      fieldGroupActions: ['addNew', 'edit', 'view'],
+    },
+  );
+  assert.deepEqual(result.cliBody.defaults.collections.users.fieldGroups, [
+    {
+      title: 'Primary fields',
+      fields: [
+        'id',
+        'nickname',
+        'status',
+        'createdAt',
+        'updatedAt',
+        'username',
+        'email',
+        'phone',
+        'bio',
+        'city',
+        'address',
+        'title',
+        'timezone',
+        'locale',
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest applies popup template defaults to calendar hidden popup hosts', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              title: 'User schedule',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+                quickCreatePopup: {
+                  mode: 'dialog',
+                  size: 'large',
+                  title: 'Create calendar user',
+                  blocks: [
+                    {
+                      key: 'calendarQuickCreateForm',
+                      type: 'createForm',
+                      collection: 'users',
+                      fields: ['nickname', 'status'],
+                    },
+                  ],
+                },
+                eventPopup: {
+                  mode: 'drawer',
+                  size: 'small',
+                  title: 'Calendar user details',
+                  template: {
+                    uid: 'calendar-event-popup-template',
+                    mode: 'reference',
+                  },
+                },
+              },
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const { quickCreatePopup, eventPopup } = result.cliBody.tabs[0].blocks[0].settings;
+  assert.equal(quickCreatePopup.mode, 'dialog');
+  assert.equal(quickCreatePopup.size, 'large');
+  assert.equal(quickCreatePopup.tryTemplate, true);
+  assert.equal(quickCreatePopup.saveAsTemplate.name, 'Create calendar user popup template');
+  assert.match(
+    quickCreatePopup.saveAsTemplate.description,
+    /Reusable popup template for action "quick create" on User schedule/i,
+  );
+  assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
+  assert.equal(eventPopup.mode, 'drawer');
+  assert.equal(eventPopup.size, 'small');
+  assert.deepEqual(eventPopup.template, {
+    uid: 'calendar-event-popup-template',
+    mode: 'reference',
+  });
+  assert.equal(Object.hasOwn(eventPopup, 'tryTemplate'), false);
+  assert.equal(Object.hasOwn(eventPopup, 'saveAsTemplate'), false);
+});
+
+test('prepareApplyBlueprintRequest preserves explicit hidden popup settings and kanban triggers', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Explicit popup page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          layout: {
+            rows: [['usersCalendar', 'usersKanban']],
+          },
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              title: 'User schedule',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                quickCreatePopup: {
+                  tryTemplate: false,
+                  size: 'small',
+                },
+                eventPopup: {
+                  template: {
+                    uid: 'calendar-event-popup-template',
+                    mode: 'reference',
+                  },
+                },
+              },
+            },
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                quickCreateEnabled: false,
+                enableCardClick: false,
+                quickCreatePopup: {
+                  tryTemplate: false,
+                  mode: 'dialog',
+                },
+                cardPopup: {
+                  template: {
+                    uid: 'kanban-card-popup-template',
+                    mode: 'reference',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const [calendarBlock, kanbanBlock] = result.cliBody.tabs[0].blocks;
+  assert.deepEqual(calendarBlock.settings.quickCreatePopup, { tryTemplate: false, size: 'small' });
+  assert.deepEqual(calendarBlock.settings.eventPopup, {
+    template: {
+      uid: 'calendar-event-popup-template',
+      mode: 'reference',
+    },
+  });
+  assert.equal(kanbanBlock.settings.quickCreateEnabled, false);
+  assert.equal(kanbanBlock.settings.enableCardClick, false);
+  assert.deepEqual(kanbanBlock.settings.quickCreatePopup, { tryTemplate: false, mode: 'dialog' });
+  assert.deepEqual(kanbanBlock.settings.cardPopup, {
+    template: {
+      uid: 'kanban-card-popup-template',
+      mode: 'reference',
+    },
+  });
+});
+
+test('prepareApplyBlueprintRequest applies popup template defaults to kanban hidden popup hosts', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban popup page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              fields: ['nickname', 'status'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              settings: {
+                quickCreatePopup: {
+                  mode: 'dialog',
+                  size: 'large',
+                  title: 'Create kanban user',
+                  blocks: [
+                    {
+                      key: 'kanbanQuickCreateForm',
+                      type: 'createForm',
+                      collection: 'users',
+                      fields: ['nickname', 'status'],
+                    },
+                  ],
+                },
+                cardPopup: {
+                  mode: 'drawer',
+                  size: 'small',
+                  title: 'Kanban user details',
+                  blocks: [
+                    {
+                      key: 'kanbanCardDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname', 'email'],
+                    },
+                  ],
+                },
+              },
+              actions: ['filter', 'addNew', 'popup', 'refresh'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const { quickCreatePopup, cardPopup } = result.cliBody.tabs[0].blocks[0].settings;
+  assert.equal(quickCreatePopup.tryTemplate, true);
+  assert.equal(quickCreatePopup.saveAsTemplate.name, 'Create kanban user popup template');
+  assert.match(
+    quickCreatePopup.saveAsTemplate.description,
+    /Reusable popup template for action "quick create" on User board/i,
+  );
+  assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
+  assert.equal(cardPopup.tryTemplate, true);
+  assert.equal(cardPopup.saveAsTemplate.name, 'Kanban user details popup template');
+  assert.match(
+    cardPopup.saveAsTemplate.description,
+    /Reusable popup template for action "card click\/view" on User board/i,
+  );
+  assert.equal(cardPopup.blocks[0].fieldsLayout.rows[0][1].key, 'email');
+});
+
+test('prepareApplyBlueprintRequest validates calendar hidden popup host template contract', () => {
+  const baseBlueprint = (popupSettings) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Calendar page' },
+    tabs: [
+      {
+        title: 'Schedule',
+        blocks: [
+          {
+            key: 'usersCalendar',
+            type: 'calendar',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+            settings: {
+              titleField: 'nickname',
+              startField: 'createdAt',
+              endField: 'updatedAt',
+              ...popupSettings,
+            },
+            actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
+          },
+        ],
+      },
+    ],
+  });
+  const prepareCalendar = (popupSettings) =>
+    prepareApplyBlueprintRequest(baseBlueprint(popupSettings), {
+      collectionMetadata: calendarCollectionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    });
+
+  const invalidTryTemplate = prepareCalendar({
+    quickCreatePopup: {
+      title: 'Create user',
+      tryTemplate: 'yes',
+    },
+  });
+  assert.equal(invalidTryTemplate.ok, false);
+  assert.ok(
+    invalidTryTemplate.errors.some(
+      (issue) =>
+        issue.ruleId === 'invalid-popup-try-template' &&
+        issue.path === 'tabs[0].blocks[0].settings.quickCreatePopup.tryTemplate',
+    ),
+  );
+
+  const invalidSaveAsTemplate = prepareCalendar({
+    eventPopup: {
+      title: 'Calendar user details',
+      blocks: [
+        {
+          key: 'calendarEventDetails',
+          type: 'details',
+          collection: 'users',
+          fields: ['nickname'],
+        },
+      ],
+      saveAsTemplate: {
+        name: '',
+        description: 'Save this popup as a reusable template.',
+      },
+    },
+  });
+  assert.equal(invalidSaveAsTemplate.ok, false);
+  assert.ok(
+    invalidSaveAsTemplate.errors.some(
+      (issue) =>
+        issue.ruleId === 'invalid-popup-save-as-template-name' &&
+        issue.path === 'tabs[0].blocks[0].settings.eventPopup.saveAsTemplate.name',
+    ),
+  );
+
+  const conflict = prepareCalendar({
+    eventPopup: {
+      title: 'Calendar user details',
+      template: {
+        uid: 'calendar-event-popup-template',
+        mode: 'reference',
+      },
+      saveAsTemplate: {
+        name: 'calendar-event-popup',
+        description: 'Save this popup as a reusable template.',
+      },
+    },
+  });
+  assert.equal(conflict.ok, false);
+  assert.ok(
+    conflict.errors.some(
+      (issue) =>
+        issue.ruleId === 'conflicting-popup-save-as-template' &&
+        issue.path === 'tabs[0].blocks[0].settings.eventPopup.saveAsTemplate',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest includes calendar hidden popup blocks in defaults requirements', () => {
+  const baseBlueprint = (defaults) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Calendar page' },
+    defaults,
+    tabs: [
+      {
+        title: 'Schedule',
+        blocks: [
+          {
+            key: 'usersCalendar',
+            type: 'calendar',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+            settings: {
+              titleField: 'nickname',
+              startField: 'createdAt',
+              quickCreatePopup: {
+                title: 'Create role from calendar',
+                blocks: [
+                  {
+                    key: 'roleCreateForm',
+                    type: 'createForm',
+                    collection: 'roles',
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+            actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
+          },
+        ],
+      },
+    ],
+  });
+  const collectionMetadata = {
+    collections: {
+      ...calendarCollectionMetadata.collections,
+      ...minimalRoleCollectionMetadata.collections,
+    },
+  };
+  const usersOnly = prepareApplyBlueprintRequest(
+    baseBlueprint({
+      collections: {
+        users: {
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+      },
+    }),
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(usersOnly.ok, false);
+  assert.ok(
+    usersOnly.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-collection' &&
+        issue.path === 'defaults.collections.roles',
+    ),
+  );
+
+  const complete = prepareApplyBlueprintRequest(
+    baseBlueprint({
+      collections: {
+        users: {
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+        roles: {
+          popups: buildFixedCollectionPopupDefaults('roles'),
+        },
+      },
+    }),
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(complete.ok, true, JSON.stringify(complete.errors));
+  assert.deepEqual(
+    complete.defaultsRequirements.collections.map((entry) => entry.collection),
+    ['roles', 'users'],
+  );
+});
+
+test('prepareApplyBlueprintRequest includes kanban hidden popup blocks in defaults requirements', () => {
+  const popupCollectionMetadata = {
+    collections: {
+      users: collectionMetadata.collections.users,
+      roles: minimalRoleCollectionMetadata.collections.roles,
+    },
+  };
+  const baseBlueprint = (defaults) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Kanban page' },
+    defaults,
+    tabs: [
+      {
+        title: 'Pipeline',
+        blocks: [
+          {
+            key: 'usersKanban',
+            type: 'kanban',
+            title: 'User board',
+            collection: 'users',
+            fields: ['nickname', 'status'],
+            defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+            settings: {
+              cardPopup: {
+                title: 'Role details from card',
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    collection: 'roles',
+                    fields: ['name'],
+                  },
+                ],
+              },
+            },
+            actions: ['filter', 'addNew', 'popup', 'refresh'],
+          },
+        ],
+      },
+    ],
+  });
+  const usersOnly = prepareApplyBlueprintRequest(
+    baseBlueprint({
+      collections: {
+        users: {
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+      },
+    }),
+    { collectionMetadata: popupCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(usersOnly.ok, false);
+  assert.ok(
+    usersOnly.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-collection' &&
+        issue.path === 'defaults.collections.roles',
+    ),
+  );
+
+  const complete = prepareApplyBlueprintRequest(
+    baseBlueprint({
+      collections: {
+        users: {
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+        roles: {
+          popups: buildFixedCollectionPopupDefaults('roles'),
+        },
+      },
+    }),
+    { collectionMetadata: popupCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(complete.ok, true, JSON.stringify(complete.errors));
+  assert.deepEqual(
+    complete.defaultsRequirements.collections.map((entry) => entry.collection),
+    ['roles', 'users'],
+  );
 });
 
 test('prepareApplyBlueprintRequest rejects fields fieldGroups and recordActions on calendar main blocks', () => {

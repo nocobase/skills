@@ -53,6 +53,7 @@ Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns t
 - `kanban` main blocks may use `fields[]`, but do not support `fieldGroups`, `fieldsLayout`, or `recordActions`. Card content stays on the main card field list; quick-create and card-view content belongs in hidden popup hosts.
 - For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - For whole-page inline popup specs, when no explicit `popup.template` is present, default to `popup.tryTemplate=true` as the write fallback. Local popup content may remain as the miss fallback. Keep `list-templates` as the planning truth source, and let the backend own the final relation-vs-non-relation popup-template match.
+- Calendar / kanban hidden popup hosts follow the same create-time template fallback: when direct non-template `calendar` / `kanban` blocks omit those hidden popup objects, prepare-write adds `tryTemplate=true` popup settings so backend default popup/template completion can run instead of leaving the opener empty. Keep helper-specific defaults, metadata discovery, and strict binding validation in [helper-contracts.md](./helper-contracts.md).
 - When the user explicitly wants the newly created local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on that inline popup instead of planning a separate save step. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - In this skill's prepare-write flow, explicit local inline popups with `popup.blocks` may auto-receive generated `popup.saveAsTemplate={ name, description }`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
@@ -144,6 +145,7 @@ Envelope boundary:
 - Every involved direct collection always uses top-level `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}`, and any `table` block always pulls that collection into the `addNew` threshold evaluation even when the blueprint omitted an explicit `addNew` opener.
 - Use top-level `defaults.collections.<collection>.fieldGroups` as collection-level candidate groups for backend-generated `details`, `createForm`, and `editForm` popup content only when one of those fixed popup scenes should still have more than 10 effective fields after scene filtering.
 - Generate these groups from live collection metadata only for large generated popups. For 10 or fewer effective fields, omit `defaults.collections.<collection>.fieldGroups` and let the backend keep a flat popup.
+- When using the prepare-write CLI with live metadata, prefer omitting `fieldGroups` for large generated popups unless you deliberately need custom groups; the helper can auto-generate complete collection-level groups from metadata. Do not hand-write partial `fieldGroups` just to satisfy the threshold, because caller-supplied groups are authoritative and must cover every required generated-popup field.
 - Keep `fieldGroups` keyed only by target collection. If multiple relation paths land on the same target collection, reuse one collection entry; do not create per-association or per-popup `fieldGroups` branches.
 - The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted, but a provided small `fieldGroups` payload can still force divider-style generated forms, so do not emit it for small scenes.
 - Use `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}` for the fixed collection record popup descriptor trio.
@@ -804,6 +806,8 @@ For `calendar` blocks:
 - allowed public actions are `today`, `turnPages`, `title`, `selectView`, plus applicable collection actions such as `filter`, `addNew`, `popup`, `refresh`, `js`, and `triggerWorkflow`
 - do not use `bulkDelete`, import/export, print, or record-level actions on the main calendar block
 - `settings.startField` and `settings.endField` must bind date-capable fields; `settings.titleField` and `settings.colorField` must bind non-association display fields
+- For generic prompts that only say “add a calendar block” and do not name a business date field, prefer date fields that are likely populated in existing data, such as `createdAt` / `updatedAt`, over optional business dates such as `birthday` / `hireDate`. This keeps event-click verification possible on existing records. Use optional business date fields only when the user asks for that calendar meaning or live data confirms those fields are populated.
+- quick-create and event click/view popups are configured through `settings.quickCreatePopup` and `settings.eventPopup` on the calendar block. Use the same popup/open-view shape as action popup settings, including `template`, `tryTemplate`, or `saveAsTemplate` when a popup template decision is required. In whole-page `create`, prepare-write auto-adds missing `quickCreatePopup` / `eventPopup` as `{ tryTemplate: true }`. Helper-only validation, metadata discovery, and strict field-binding behavior belong in [helper-contracts.md](./helper-contracts.md). Do not put `popup.template` on the calendar main block itself.
 - direct public calendar blocks use the same non-empty block-level `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a calendar host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
 
 For `kanban` blocks:
@@ -811,6 +815,7 @@ For `kanban` blocks:
 - allowed public main-block actions are `filter`, `addNew`, `popup`, `refresh`, and `js`
 - do not use `today`, `turnPages`, `bulkDelete`, `triggerWorkflow`, import/export, print, or record-level actions on the main kanban block
 - public main kanban blocks may keep `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`
+- quick-create and card click/view popups are configured through `settings.quickCreatePopup` and `settings.cardPopup`. In whole-page `create`, prepare-write auto-adds missing `quickCreatePopup` / `cardPopup` as `{ tryTemplate: true }` and defaults missing `settings.quickCreateEnabled` / `settings.enableCardClick` to `true`; explicit overrides are preserved. Helper-only popup materialization, defaults checks, metadata discovery, and explicit `groupField` validation belong in [helper-contracts.md](./helper-contracts.md).
 - direct public kanban blocks use the same non-empty block-level `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a kanban host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
 
 Required block-level `defaultFilter` plus optional filter action settings shape:
@@ -889,6 +894,14 @@ or
 ```json
 [{ "key": "employeesTable", "span": 12 }]
 ```
+
+For two blocks side by side in one row, use two cells in the same row:
+
+```json
+{ "rows": [["usersCalendar", "usersKanban"]] }
+```
+
+Do not wrap a cell in another array such as `[["usersCalendar", "usersKanban"]]` as a single cell; each row array contains cells directly.
 
 Public `applyBlueprint` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
