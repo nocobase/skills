@@ -1502,82 +1502,6 @@ function addFixedAssociationPopupRequirements(requirements, sourceCollection, as
   }
 }
 
-function buildDefaultCollectionFieldGroups(collectionMetadata, collectionName, requiredCoverageKeys = new Set()) {
-  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
-  if (!collectionMeta) return undefined;
-
-  const seen = new Set();
-  const fields = [];
-  const requiredKeys = requiredCoverageKeys instanceof Set
-    ? requiredCoverageKeys
-    : new Set(ensureArray(requiredCoverageKeys).map(getMetadataFieldCoverageKey).filter(Boolean));
-  for (const field of collectionMeta.fields) {
-    const fieldName = normalizeText(field?.name);
-    if (!fieldName || seen.has(fieldName)) continue;
-    const coverageKey = getMetadataFieldCoverageKey(fieldName);
-    if (requiredKeys.size > 0 && !requiredKeys.has(coverageKey)) continue;
-    if (!resolveCollectionDefaultFieldGroupField(collectionMetadata, collectionName, fieldName)) continue;
-    seen.add(fieldName);
-    fields.push(fieldName);
-  }
-
-  if (fields.length === 0) return undefined;
-  return [
-    {
-      title: 'Primary fields',
-      fields,
-    },
-  ];
-}
-
-function withGeneratedDefaultFieldGroups(blueprint, collectionMetadata, requirements) {
-  if (!isPlainObject(blueprint) || !requirements?.collections?.size) {
-    return blueprint;
-  }
-
-  let nextBlueprint = blueprint;
-  let nextCollections;
-  const ensureMutableCollections = () => {
-    if (nextBlueprint === blueprint) {
-      nextBlueprint = cloneSerializable(blueprint);
-    }
-    if (!isPlainObject(nextBlueprint.defaults)) {
-      nextBlueprint.defaults = {};
-    }
-    if (!isPlainObject(nextBlueprint.defaults.collections)) {
-      nextBlueprint.defaults.collections = {};
-    }
-    if (!nextCollections) {
-      nextCollections = nextBlueprint.defaults.collections;
-    }
-    return nextCollections;
-  };
-
-  for (const entry of requirements.collections.values()) {
-    if (!entry?.collection || entry.fieldGroupActions.size === 0) continue;
-    const collectionDefaults = isPlainObject(blueprint.defaults?.collections?.[entry.collection])
-      ? blueprint.defaults.collections[entry.collection]
-      : null;
-    if (
-      !collectionDefaults
-      || Array.isArray(collectionDefaults.fieldGroups)
-      || Object.hasOwn(collectionDefaults, 'fieldGroups')
-    ) continue;
-    const fieldGroups = buildDefaultCollectionFieldGroups(
-      collectionMetadata,
-      entry.collection,
-      entry.requiredFieldGroupCoverageKeys,
-    );
-    if (!fieldGroups) continue;
-    ensureMutableCollections()[entry.collection] = {
-      ...cloneSerializable(collectionDefaults),
-      fieldGroups,
-    };
-  }
-
-  return nextBlueprint;
-}
-
 function resolveAssociationRequirement(collectionMetadata, sourceCollection, associationField, expectedTargetCollection = '') {
   const normalizedSourceCollection = normalizeText(sourceCollection);
   const normalizedAssociationPath = normalizeText(associationField);
@@ -5446,13 +5370,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     recognizableBlueprint && hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
       ? validateDefaultsCompleteness(blueprint, { collections: collectionMetadata })
       : null;
-  const effectiveBlueprint = initialDefaultsCompleteness
-    ? withGeneratedDefaultFieldGroups(
-        blueprint,
-        { collections: collectionMetadata },
-        collectBlueprintDefaultsRequirements(blueprint, { collections: collectionMetadata }),
-      )
-    : blueprint;
+  const effectiveBlueprint = blueprint;
   const materializeOptions =
     hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
       ? { collectionMetadata: { collections: collectionMetadata } }

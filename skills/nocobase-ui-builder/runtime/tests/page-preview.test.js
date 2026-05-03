@@ -463,7 +463,7 @@ function buildDefaultCollectionFieldGroups(rawCollectionMetadata, collectionName
   if (fieldNames.length === 0) return undefined;
   return [
     {
-      title: 'Primary fields',
+      title: `${collectionName} generated popup fields`,
       fields: fieldNames,
     },
   ];
@@ -3170,7 +3170,7 @@ test('prepareApplyBlueprintRequest reports each missing default collection path 
   );
 });
 
-test('prepareApplyBlueprintRequest auto-fills users fieldGroups defaults once collectionMetadata is supplied', () => {
+test('prepareApplyBlueprintRequest rejects missing large generated-popup fieldGroups once collectionMetadata is supplied', () => {
   const largeUsersCollectionMetadata = {
     collections: {
       users: {
@@ -3228,7 +3228,7 @@ test('prepareApplyBlueprintRequest auto-fills users fieldGroups defaults once co
     { collectionMetadata: largeUsersCollectionMetadata },
   );
 
-  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.ok, false);
   assert.deepEqual(result.warnings, []);
   assert.deepEqual(result.defaultsRequirements, {
     collections: [
@@ -3241,27 +3241,92 @@ test('prepareApplyBlueprintRequest auto-fills users fieldGroups defaults once co
     ],
     associations: [],
   });
-  assert.deepEqual(result.cliBody.defaults.collections.users.fieldGroups, [
-    {
-      title: 'Primary fields',
-      fields: [
-        'nickname',
-        'email',
-        'phone',
-        'status',
-        'bio',
-        'employeeCode',
-        'realName',
-        'city',
-        'country',
-        'postalCode',
-        'timezone',
-      ],
-    },
-  ]);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-field-groups'
+        && issue.path === 'defaults.collections.users.fieldGroups',
+    ),
+  );
 });
 
-test('prepareApplyBlueprintRequest rejects malformed collection default fieldGroups instead of auto-filling them', () => {
+test('prepareApplyBlueprintRequest accepts explicit collection default fieldGroups for large generated popups', () => {
+  const largeUsersCollectionMetadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'email', type: 'string', interface: 'input' },
+          { name: 'phone', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'bio', type: 'text', interface: 'textarea' },
+          { name: 'employeeCode', type: 'string', interface: 'input' },
+          { name: 'realName', type: 'string', interface: 'input' },
+          { name: 'city', type: 'string', interface: 'input' },
+          { name: 'country', type: 'string', interface: 'input' },
+          { name: 'postalCode', type: 'string', interface: 'input' },
+          { name: 'timezone', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const fieldGroups = [
+    {
+      key: 'profile',
+      title: 'Profile',
+      fields: ['nickname', 'email', 'phone', 'status', 'bio', 'employeeCode'],
+    },
+    {
+      key: 'location',
+      title: 'Location',
+      fields: ['realName', 'city', 'country', 'postalCode', 'timezone'],
+    },
+  ];
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            fieldGroups,
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              fields: ['nickname'],
+              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: largeUsersCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.defaults.collections.users.fieldGroups, fieldGroups);
+});
+
+test('prepareApplyBlueprintRequest rejects malformed collection default fieldGroups', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
@@ -3270,7 +3335,7 @@ test('prepareApplyBlueprintRequest rejects malformed collection default fieldGro
       defaults: {
         collections: {
           roles: {
-            fieldGroups: 'auto-fill-me',
+            fieldGroups: 'invalid-field-groups',
             popups: buildFixedCollectionPopupDefaults('roles'),
           },
         },
@@ -3988,7 +4053,7 @@ test('prepareApplyBlueprintRequest does not require fieldGroups for small table 
   });
 });
 
-test('prepareApplyBlueprintRequest auto-fills fieldGroups for large table collections without explicit addNew', () => {
+test('prepareApplyBlueprintRequest rejects missing fieldGroups for large table collections without explicit addNew', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
@@ -4022,7 +4087,7 @@ test('prepareApplyBlueprintRequest auto-fills fieldGroups for large table collec
     { collectionMetadata },
   );
 
-  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.ok, false);
   assert.deepEqual(result.defaultsRequirements, {
     collections: [
       {
@@ -4034,25 +4099,14 @@ test('prepareApplyBlueprintRequest auto-fills fieldGroups for large table collec
     ],
     associations: [],
   });
-  assert.deepEqual(result.cliBody.defaults.collections.roles.fieldGroups, [
-    {
-      title: 'Primary fields',
-      fields: [
-        'id',
-        'name',
-        'title',
-        'description',
-        'scope',
-        'priority',
-        'status',
-        'category',
-        'color',
-        'code',
-        'sort',
-        'notes',
-      ],
-    },
-  ]);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-field-groups'
+        && issue.path === 'defaults.collections.roles.fieldGroups',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest rejects dotted collection default fieldGroups paths', () => {
@@ -10525,7 +10579,7 @@ test('prepareApplyBlueprintRequest rejects unsupported prompt-like calendar and 
   assert.equal(result.cliBody, undefined);
 });
 
-test('prepareApplyBlueprintRequest auto-fills large prompt-like calendar and kanban defaults fieldGroups', () => {
+test('prepareApplyBlueprintRequest rejects large prompt-like calendar and kanban defaults without fieldGroups', () => {
   const result = rawPrepareApplyBlueprintRequest(
     {
       version: '1',
@@ -10572,7 +10626,7 @@ test('prepareApplyBlueprintRequest auto-fills large prompt-like calendar and kan
     { collectionMetadata: largeCalendarCollectionMetadata },
   );
 
-  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.ok, false);
   assert.deepEqual(
     result.defaultsRequirements.collections.find((entry) => entry.collection === 'users'),
     {
@@ -10582,27 +10636,14 @@ test('prepareApplyBlueprintRequest auto-fills large prompt-like calendar and kan
       fieldGroupActions: ['addNew', 'edit', 'view'],
     },
   );
-  assert.deepEqual(result.cliBody.defaults.collections.users.fieldGroups, [
-    {
-      title: 'Primary fields',
-      fields: [
-        'id',
-        'nickname',
-        'status',
-        'createdAt',
-        'updatedAt',
-        'username',
-        'email',
-        'phone',
-        'bio',
-        'city',
-        'address',
-        'title',
-        'timezone',
-        'locale',
-      ],
-    },
-  ]);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-field-groups'
+        && issue.path === 'defaults.collections.users.fieldGroups',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest applies popup template defaults to calendar hidden popup hosts', () => {
