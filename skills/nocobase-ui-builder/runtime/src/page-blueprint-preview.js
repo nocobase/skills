@@ -91,6 +91,33 @@ const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
 const CALENDAR_FIELD_BINDING_KEYS = ['titleField', 'colorField', 'startField', 'endField'];
 const CHART_BLOCK_TYPES = new Set(['chart']);
+const CHART_VISUAL_LEGACY_BUILDER_KEYS = new Set([
+  'xField',
+  'yField',
+  'seriesField',
+  'sizeField',
+  'pieCategory',
+  'pieValue',
+  'doughnutCategory',
+  'doughnutValue',
+  'funnelCategory',
+  'funnelValue',
+]);
+const CHART_REQUIRED_VISUAL_MAPPINGS_BY_TYPE = {
+  line: ['x', 'y'],
+  area: ['x', 'y'],
+  bar: ['x', 'y'],
+  barHorizontal: ['x', 'y'],
+  scatter: ['x', 'y'],
+  pie: ['category', 'value'],
+  doughnut: ['category', 'value'],
+  funnel: ['category', 'value'],
+};
+const CHART_SUPPORTED_VISUAL_TYPES = new Set(Object.keys(CHART_REQUIRED_VISUAL_MAPPINGS_BY_TYPE));
+const CHART_BUILDER_QUERY_FORBIDDEN_KEYS = new Set(['collectionPath', 'sql', 'sqlDatasource']);
+const CHART_SQL_QUERY_FORBIDDEN_KEYS = new Set(['resource', 'collectionPath', 'measures', 'dimensions', 'filter', 'sorting', 'limit', 'offset']);
+const CHART_VISUAL_MODES = new Set(['basic', 'custom']);
+const CHART_CUSTOM_VISUAL_FORBIDDEN_KEYS = new Set(['type', 'mappings', 'style']);
 const GRID_CARD_BLOCK_TYPES = new Set(['gridCard']);
 const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
   'title',
@@ -3287,6 +3314,35 @@ function validateAllowedObjectKeys(input, path, allowedKeys, state, ruleId, labe
   }
 }
 
+function collectMatchingObjectKeys(input, keys) {
+  if (!isPlainObject(input)) return [];
+  return Object.keys(input).filter((key) => keys.has(key));
+}
+
+function validateForbiddenObjectKeys(input, path, forbiddenKeys, state, ruleId, buildMessage) {
+  const matchedKeys = collectMatchingObjectKeys(input, forbiddenKeys);
+  if (!matchedKeys.length) return;
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    ruleId,
+    buildMessage(matchedKeys),
+  );
+}
+
+function validateRequiredText(value, path, state, ruleId, message) {
+  if (normalizeText(value)) return false;
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    ruleId,
+    message,
+  );
+  return true;
+}
+
 function validateDefaultFieldGroups(fieldGroups, path, state) {
   if (typeof fieldGroups === 'undefined') return;
   if (!Array.isArray(fieldGroups) || !fieldGroups.length) {
@@ -4872,6 +4928,36 @@ function validateChartBlockSettings(block, path, state) {
   if (!CHART_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
   }
+
+  if (hasOwn(block, 'stepParams')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.stepParams`,
+      'chart-block-step-params-unsupported',
+      'Whole-page chart blocks must not include internal stepParams; put chart configuration under assets.charts and reference it from block.chart.',
+    );
+  }
+
+  const chartKey = normalizeText(block.chart);
+  if (!chartKey) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.chart`,
+      'chart-block-asset-reference-required',
+      'Whole-page chart blocks must reference one chart asset key with block.chart.',
+    );
+  } else if (!hasOwn(state.chartAssets, chartKey)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.chart`,
+      'chart-block-asset-reference-missing',
+      `Whole-page chart block references chart asset "${chartKey}", but assets.charts.${chartKey} is missing.`,
+    );
+  }
+
   if (!isPlainObject(block.settings) || !hasOwn(block.settings, 'displayTitle')) {
     return;
   }
@@ -4882,6 +4968,208 @@ function validateChartBlockSettings(block, path, state) {
     'chart-display-title-unsupported',
     'Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.',
   );
+}
+
+function validateChartAssetVisual(asset, path, state) {
+  if (!isPlainObject(asset)) return;
+  const visual = asset.visual;
+  if (!isPlainObject(visual)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual`,
+      'chart-visual-missing',
+      'Chart assets must include public visual settings.',
+    );
+    return;
+  }
+
+  validateForbiddenObjectKeys(
+    visual,
+    `${path}.visual`,
+    CHART_VISUAL_LEGACY_BUILDER_KEYS,
+    state,
+    'chart-visual-legacy-builder-keys-unsupported',
+    (keys) =>
+      `Chart asset visual must use public semantic mappings, not legacy builder keys: ${keys.join(', ')}. Use visual: { mode: "basic", type, mappings: { x, y } } for cartesian charts or mappings: { category, value } for pie-like charts.`,
+  );
+
+  const mode = normalizeText(visual.mode, 'basic');
+  if (!CHART_VISUAL_MODES.has(mode)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.mode`,
+      'chart-visual-mode-unsupported',
+      `Chart asset visual.mode="${mode}" is not supported by the public blueprint guard.`,
+    );
+    return;
+  }
+
+  if (mode === 'custom') {
+    validateRequiredText(
+      visual.raw,
+      `${path}.visual.raw`,
+      state,
+      'chart-custom-visual-raw-missing',
+      'Custom chart asset visual settings must include visual.raw that returns an ECharts option object.',
+    );
+    validateForbiddenObjectKeys(
+      visual,
+      `${path}.visual`,
+      CHART_CUSTOM_VISUAL_FORBIDDEN_KEYS,
+      state,
+      'chart-custom-visual-public-keys-unsupported',
+      (keys) => `Custom chart asset visual must not include basic visual keys: ${keys.join(', ')}.`,
+    );
+    return;
+  }
+
+  const type = normalizeText(visual.type);
+  if (!type) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.type`,
+      'chart-visual-type-missing',
+      'Basic chart asset visual settings must include visual.type.',
+    );
+  } else if (!CHART_SUPPORTED_VISUAL_TYPES.has(type)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.type`,
+      'chart-visual-type-unsupported',
+      `Basic chart asset visual.type="${type}" is not supported by the public blueprint guard.`,
+    );
+  }
+
+  if (!isPlainObject(visual.mappings)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.mappings`,
+      'chart-visual-mappings-missing',
+      'Basic chart asset visual settings must include one visual.mappings object.',
+    );
+    return;
+  }
+
+  const requiredMappings = CHART_REQUIRED_VISUAL_MAPPINGS_BY_TYPE[type];
+  if (!requiredMappings) return;
+
+  const mappings = visual.mappings;
+  const missingMappings = requiredMappings.filter((key) => !normalizeText(mappings[key]));
+  if (missingMappings.length) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.mappings`,
+      'chart-visual-required-mappings-missing',
+      `Chart asset visual.type="${type}" requires visual.mappings.${missingMappings.join(' and visual.mappings.')} for a renderable basic chart.`,
+    );
+  }
+}
+
+function validateBuilderChartAssetQuery(query, path, state) {
+  const resource = query.resource;
+  if (!isPlainObject(resource) || !normalizeText(resource.collectionName)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.query.resource`,
+      'chart-builder-query-resource-missing',
+      'Builder chart asset query settings must include query.resource.collectionName.',
+    );
+  }
+  if (!Array.isArray(query.measures) || query.measures.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.query.measures`,
+      'chart-builder-query-measures-missing',
+      'Builder chart asset query settings must include at least one measure.',
+    );
+  }
+  validateForbiddenObjectKeys(
+    query,
+    `${path}.query`,
+    CHART_BUILDER_QUERY_FORBIDDEN_KEYS,
+    state,
+    'chart-builder-query-forbidden-keys',
+    (keys) => `Builder chart asset query must not include SQL/internal keys: ${keys.join(', ')}.`,
+  );
+}
+
+function validateSqlChartAssetQuery(query, path, state) {
+  validateRequiredText(
+    query.sql,
+    `${path}.query.sql`,
+    state,
+    'chart-sql-query-text-missing',
+    'SQL chart asset query settings must include non-empty query.sql.',
+  );
+  validateForbiddenObjectKeys(
+    query,
+    `${path}.query`,
+    CHART_SQL_QUERY_FORBIDDEN_KEYS,
+    state,
+    'chart-sql-query-forbidden-builder-keys',
+    (keys) => `SQL chart asset query must not include builder query keys: ${keys.join(', ')}.`,
+  );
+}
+
+function validateChartAssetQuery(asset, path, state) {
+  if (!isPlainObject(asset)) return;
+  const query = asset.query;
+  if (!isPlainObject(query)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.query`,
+      'chart-query-missing',
+      'Chart assets must include public query settings.',
+    );
+    return;
+  }
+
+  const mode = normalizeText(query.mode, 'builder');
+  if (mode === 'builder') {
+    validateBuilderChartAssetQuery(query, path, state);
+    return;
+  }
+
+  if (mode === 'sql') {
+    validateSqlChartAssetQuery(query, path, state);
+    return;
+  }
+
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    `${path}.query.mode`,
+    'chart-query-mode-unsupported',
+    `Chart asset query.mode="${mode}" is not supported by the public blueprint guard.`,
+  );
+}
+
+function validateChartAssets(blueprint, state) {
+  const charts = blueprint?.assets?.charts;
+  if (!isPlainObject(charts)) return;
+  Object.entries(charts).forEach(([key, asset]) => {
+    if (!isPlainObject(asset)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `assets.charts.${key}`,
+        'chart-asset-invalid',
+        'Each chart asset under assets.charts must be one object.',
+      );
+      return;
+    }
+    validateChartAssetQuery(asset, `assets.charts.${key}`, state);
+    validateChartAssetVisual(asset, `assets.charts.${key}`, state);
+  });
 }
 
 function validateGridCardBlockSettings(block, path, state) {
@@ -5223,6 +5511,7 @@ function validateBlueprint(blueprint, options = {}) {
     reactionSlotKeys: new Set(),
     reactionTargetRegistry: buildReactionTargetRegistry(blueprint),
     collectionMetadata: options.collectionMetadata || {},
+    chartAssets: isPlainObject(blueprint?.assets?.charts) ? blueprint.assets.charts : {},
   };
 
   for (const key of BLUEPRINT_ILLEGAL_ROOT_KEYS) {
@@ -5259,6 +5548,7 @@ function validateBlueprint(blueprint, options = {}) {
 
   validateBlueprintDefaults(blueprint, state);
   validateCreateMenuIcons(blueprint, state);
+  validateChartAssets(blueprint, state);
 
   const expectedOuterTabs = getExpectedOuterTabs(options);
   if (!Array.isArray(blueprint.tabs) || blueprint.tabs.length !== expectedOuterTabs) {

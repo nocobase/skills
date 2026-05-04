@@ -18,7 +18,7 @@ Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns t
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking, and give each data block a clear `title`. A single non-filter block may omit its block `title`.
+- Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking, and give each non-template-backed data block a `title`; template-backed blocks are exempt. A single non-filter block may omit its block `title` unless the user explicitly asks for one.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - `fieldsLayout` is available only on `createForm`, `editForm`, `details`, and `filterForm` blocks. It uses the same `{ rows: [[...]] }` shape as page/popup layout, but references field keys inside that block.
 - For `createForm`, `editForm`, and `details`, once the block contains more than 10 real fields, switch to explicit `fieldGroups` instead of one flat `fields[]` list.

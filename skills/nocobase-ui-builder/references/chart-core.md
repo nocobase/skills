@@ -43,6 +43,10 @@ The priority is to stabilize both "card displays" and "chart renders". Do not ex
 
 Chart is also an example of the general public-settings pattern: when creating or reconfiguring, prefer public semantics such as `query / visual / events / title / height / heightMode`. Do not reverse internal `props / decoratorProps / stepParams` from readback into the next input template.
 
+For whole-page `applyBlueprint`, put chart configs under `assets.charts` and reference them from block `chart`. Do not put `stepParams` on the block. Public `visual` uses `mode / type / mappings`; do not write internal option-builder keys such as `xField`, `yField`, `pieCategory`, or `pieValue` as public input.
+
+Use canonical `query.resource.collectionName` in public chart input; do not use the deprecated alias `query.resource.collection`.
+
 ## Default Strategy
 
 1. Default to `query.mode = "builder"` first.
@@ -135,7 +139,8 @@ The safest minimum chart recipe is:
     ],
     "dimensions": [
       {
-        "field": "department.title"
+        "field": ["department", "title"],
+        "alias": "department_title"
       }
     ]
   },
@@ -143,7 +148,7 @@ The safest minimum chart recipe is:
     "mode": "basic",
     "type": "bar",
     "mappings": {
-      "x": "department.title",
+      "x": "department_title",
       "y": "employeeCount"
     }
   }
@@ -202,6 +207,7 @@ Valid:
 
 - `mode = "sql"`
 - `sql` is required
+- do not mix SQL mode with builder query keys such as `resource`, `measures`, `dimensions`, `filter`, or `sorting`
 - `sqlDatasource` is optional
 - SQL is additionally persisted into `flowSql`; whether it was truly saved cannot be judged from stepParams alone
 - SQL should only be a single read-only `SELECT` / `WITH`
@@ -255,7 +261,9 @@ Invalid:
 
 1. `chart.queryOutputs` returned by `context(path="chart")`
 2. aliases explicitly declared in builder query
-3. if a dimension has no alias, its field-path output directly, for example `department.title`
+3. direct scalar dimension names only when the dimension is not a relation path
+
+For relation dimensions, declare an alias on the array path, for example `["department", "title"]` with `alias: "department_title"`, then map `visual.mappings.*` to that alias. Do not map `visual.mappings.*` to a dotted relation path.
 
 `style` only exposes frequent parameters:
 
@@ -288,6 +296,7 @@ Valid:
 
 - `mode = "custom"`
 - `raw` is required, and the code must `return` an ECharts option object
+- do not mix custom visual mode with basic visual keys such as `type`, `mappings`, or `style`
 
 Invalid:
 

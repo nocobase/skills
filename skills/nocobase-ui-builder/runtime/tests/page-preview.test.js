@@ -232,6 +232,80 @@ const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar', 
 const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email'];
 const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
 
+function buildChartAsset(overrides = {}) {
+  return {
+    query: {
+      mode: 'builder',
+      resource: { dataSourceKey: 'main', collectionName: 'users' },
+      measures: [{ field: 'id', aggregation: 'count', alias: 'userCount' }],
+      dimensions: [{ field: 'nickname' }],
+      ...(isObjectRecord(overrides.query) ? overrides.query : {}),
+    },
+    visual: {
+      mode: 'basic',
+      type: 'bar',
+      mappings: { x: 'nickname', y: 'userCount' },
+      ...(isObjectRecord(overrides.visual) ? overrides.visual : {}),
+    },
+    ...(isObjectRecord(overrides.root) ? overrides.root : {}),
+  };
+}
+
+function buildChartBlueprint({ asset = buildChartAsset(), block = {} } = {}) {
+  return {
+    version: '1',
+    mode: 'create',
+    navigation: {
+      group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+      item: { title: 'Dashboard', icon: 'DashboardOutlined' },
+    },
+    page: { title: 'Dashboard' },
+    defaults: {
+      collections: {
+        users: {
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+      },
+    },
+    assets: {
+      charts: {
+        statusChart: asset,
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'statusChart',
+            type: 'chart',
+            title: 'Status chart',
+            chart: 'statusChart',
+            ...block,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function prepareChartBlueprint(options = {}) {
+  return rawPrepareApplyBlueprintRequest(
+    buildChartBlueprint(options),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+}
+
+function assertRejectsChartBlueprint(options, expectedRuleIds) {
+  const result = prepareChartBlueprint(options);
+  assert.equal(result.ok, false);
+  for (const ruleId of expectedRuleIds) {
+    assert.ok(result.errors.some((issue) => issue.ruleId === ruleId), `expected ${ruleId}`);
+  }
+  assert.equal(result.cliBody, undefined);
+  return result;
+}
+
 function defaultFilterGroup(fieldNames = commonUserDefaultFilterFieldNames) {
   const normalizedFieldNames = fieldNames.filter(Boolean);
   return {
@@ -2584,6 +2658,23 @@ test('prepareApplyBlueprintRequest defaults heightMode to specifyValue when bloc
       version: '1',
       mode: 'create',
       page: { title: 'Dashboard' },
+      assets: {
+        charts: {
+          heightChart: {
+            query: {
+              mode: 'builder',
+              resource: { dataSourceKey: 'main', collectionName: 'users' },
+              measures: [{ field: 'id', aggregation: 'count', alias: 'userCount' }],
+              dimensions: [{ field: 'nickname' }],
+            },
+            visual: {
+              mode: 'basic',
+              type: 'bar',
+              mappings: { x: 'nickname', y: 'userCount' },
+            },
+          },
+        },
+      },
       tabs: [
         {
           title: 'Overview',
@@ -2592,6 +2683,7 @@ test('prepareApplyBlueprintRequest defaults heightMode to specifyValue when bloc
               key: 'mainChart',
               type: 'chart',
               title: 'Main chart',
+              chart: 'heightChart',
               settings: { height: 500 },
               actions: [
                 {
@@ -2604,6 +2696,7 @@ test('prepareApplyBlueprintRequest defaults heightMode to specifyValue when bloc
                         key: 'popupChart',
                         type: 'chart',
                         title: 'Popup chart',
+                        chart: 'heightChart',
                         settings: { height: 360 },
                       },
                     ],
@@ -2615,6 +2708,7 @@ test('prepareApplyBlueprintRequest defaults heightMode to specifyValue when bloc
               key: 'fullHeightChart',
               type: 'chart',
               title: 'Full height chart',
+              chart: 'heightChart',
               settings: { height: 500, heightMode: 'fullHeight' },
             },
           ],
@@ -2624,7 +2718,7 @@ test('prepareApplyBlueprintRequest defaults heightMode to specifyValue when bloc
         },
       ],
     },
-    { injectDataSurfaceDefaultFilter: false },
+    { injectDataSurfaceDefaultFilter: false, collectionMetadata: minimalUserCollectionMetadata },
   );
 
   assert.equal(result.ok, true);
@@ -5135,6 +5229,43 @@ test('prepareApplyBlueprintRequest does not require block titles when filterForm
   });
 
   assert.equal(result.ok, true);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
+});
+
+test('prepareApplyBlueprintRequest does not require titles on template-backed blocks in multi-block scopes', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['usersTable', 'summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+            template: { uid: 'tpl-users-table', mode: 'reference' },
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            collection: 'users',
+            fields: ['nickname'],
+            template: { uid: 'tpl-users-details', mode: 'reference' },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
 });
 
@@ -8373,6 +8504,169 @@ test('prepareApplyBlueprintRequest rejects chart displayTitle before remote appl
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'chart-display-title-unsupported'));
   assert.equal(result.cliBody, undefined);
+});
+
+test('prepareApplyBlueprintRequest rejects legacy chart visual builder field keys in assets', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        visual: {
+          type: 'bar',
+          xField: 'nickname',
+          yField: 'userCount',
+        },
+      }),
+    },
+    ['chart-visual-legacy-builder-keys-unsupported'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects chart assets missing required visual mappings', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        visual: {
+          mode: 'basic',
+          type: 'pie',
+          mappings: {
+            category: 'nickname',
+          },
+        },
+      }),
+    },
+    ['chart-visual-required-mappings-missing'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects builder chart query without canonical collectionName', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        query: {
+          resource: { dataSourceKey: 'main', collection: 'users' },
+        },
+      }),
+    },
+    ['chart-builder-query-resource-missing'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects chart asset entries that are not objects', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: 'statusChart',
+    },
+    ['chart-asset-invalid'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects chart blocks that use internal stepParams or missing chart asset references', () => {
+  assertRejectsChartBlueprint(
+    {
+      block: {
+        chart: 'missingChart',
+        stepParams: {
+          chartSettings: {
+            configure: {},
+          },
+        },
+      },
+    },
+    ['chart-block-step-params-unsupported', 'chart-block-asset-reference-missing'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects basic chart assets without visual type or mappings object', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        visual: { mode: 'basic', type: undefined, mappings: undefined },
+      }),
+    },
+    ['chart-visual-type-missing', 'chart-visual-mappings-missing'],
+  );
+});
+
+test('prepareApplyBlueprintRequest accepts chart assets with public semantic visual mappings', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildChartBlueprint({
+      asset: buildChartAsset({
+        visual: {
+          mode: 'basic',
+          type: 'pie',
+          mappings: {
+            category: 'nickname',
+            value: 'userCount',
+          },
+        },
+      }),
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.assets.charts.statusChart.visual.mappings, {
+    category: 'nickname',
+    value: 'userCount',
+  });
+});
+
+test('prepareApplyBlueprintRequest rejects custom chart visual without raw option code', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        visual: { mode: 'custom', raw: '' },
+      }),
+    },
+    ['chart-custom-visual-raw-missing'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects custom chart visual mixed with basic visual keys', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        visual: {
+          mode: 'custom',
+          raw: 'return { series: [] };',
+          type: 'bar',
+          mappings: { x: 'nickname', y: 'userCount' },
+        },
+      }),
+    },
+    ['chart-custom-visual-public-keys-unsupported'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects sql chart query without SQL text', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        query: {
+          mode: 'sql',
+          resource: undefined,
+          measures: undefined,
+          dimensions: undefined,
+          sql: '',
+        },
+      }),
+    },
+    ['chart-sql-query-text-missing'],
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects sql chart query mixed with builder query keys', () => {
+  assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        query: {
+          mode: 'sql',
+          sql: 'select status, count(*) as count_orders from orders group by status',
+        },
+      }),
+    },
+    ['chart-sql-query-forbidden-builder-keys'],
+  );
 });
 
 test('page preview cli prepare-write resolves unique existing navigation group to routeId', async () => {
