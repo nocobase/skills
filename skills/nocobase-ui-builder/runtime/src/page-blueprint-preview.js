@@ -2556,12 +2556,12 @@ function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
 
 function validateMultiBlockDataTitles(blocks, path, state) {
   const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
-  if (countNonFilterBlocks(normalizedBlocks) <= 1) {
+  if (countNonFilterDataBlocks(normalizedBlocks) <= 1) {
     return;
   }
 
   normalizedBlocks.forEach((block, index) => {
-    if (!isDataBlock(block) || isFilterBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
+    if (!isPlainObject(block) || !isDataBlock(block) || isFilterBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
       return;
     }
     pushValidationError(
@@ -2576,6 +2576,10 @@ function validateMultiBlockDataTitles(blocks, path, state) {
 
 function countNonFilterBlocks(blocks) {
   return ensureArray(blocks).filter((block) => isPlainObject(block) && !isFilterBlock(block)).length;
+}
+
+function countNonFilterDataBlocks(blocks) {
+  return ensureArray(blocks).filter((block) => isPlainObject(block) && isDataBlock(block) && !isFilterBlock(block)).length;
 }
 
 function resolveBlueprintFieldLocalKey(field, index) {
@@ -2758,6 +2762,33 @@ function shouldDefaultPopupMode(popup, options = {}) {
   return countPopupDirectEffectiveFields(blocks) > POPUP_PAGE_MODE_FIELD_THRESHOLD;
 }
 
+function isTitleCleanupTargetBlock(block) {
+  return isPlainObject(block) && isDataBlock(block) && !isFilterBlock(block) && !isTemplateBackedBlock(block);
+}
+
+function stripSingleScopeDataBlockTitles(blocks) {
+  const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
+  if (countNonFilterDataBlocks(normalizedBlocks) !== 1) {
+    return blocks;
+  }
+
+  const block = normalizedBlocks.find(isTitleCleanupTargetBlock);
+  if (!block) {
+    return blocks;
+  }
+
+  delete block.title;
+  if (!isPlainObject(block.settings) || !hasOwn(block.settings, 'title')) {
+    return blocks;
+  }
+
+  delete block.settings.title;
+  if (Object.keys(block.settings).length === 0) {
+    delete block.settings;
+  }
+  return blocks;
+}
+
 function materializePopupForWrite(popup, options = {}) {
   if (!isPlainObject(popup)) {
     return popup;
@@ -2780,6 +2811,9 @@ function materializePopupForWrite(popup, options = {}) {
   }
   if (shouldDefaultPopupSaveAsTemplate(nextPopup, options)) {
     nextPopup.saveAsTemplate = buildAutoSaveTemplateMetadata(nextPopup, options);
+  }
+  if (hasOwn(nextPopup, 'blocks')) {
+    stripSingleScopeDataBlockTitles(nextPopup.blocks);
   }
   return nextPopup;
 }
@@ -3095,9 +3129,11 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
     if (!isPlainObject(tab)) {
       return tab;
     }
+    const blocks = ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, materializeOptions));
+    stripSingleScopeDataBlockTitles(blocks);
     return {
       ...tab,
-      blocks: ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, materializeOptions)),
+      blocks,
     };
   });
   return nextBlueprint;

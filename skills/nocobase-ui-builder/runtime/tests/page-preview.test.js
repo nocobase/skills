@@ -5199,6 +5199,74 @@ test('prepareApplyBlueprintRequest does not require a title when one tab has onl
   assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
 });
 
+test('prepareApplyBlueprintRequest strips root and settings titles from a single data block scope', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            settings: {
+              title: 'Employees settings title',
+              description: 'Keep this description',
+              height: 480,
+            },
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const block = result.cliBody.tabs[0].blocks[0];
+  assert.equal(Object.hasOwn(block, 'title'), false);
+  assert.equal(Object.hasOwn(block.settings, 'title'), false);
+  assert.equal(block.settings.description, 'Keep this description');
+  assert.equal(block.settings.height, 480);
+  assert.equal(block.settings.heightMode, 'specifyValue');
+  assert.equal(result.cliBody.page.title, 'Employees');
+  assert.equal(result.cliBody.tabs[0].title, 'Overview');
+});
+
+test('prepareApplyBlueprintRequest removes empty settings after stripping single data block settings title', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            settings: {
+              title: 'Settings-only title',
+            },
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0], 'settings'), false);
+});
+
 test('prepareApplyBlueprintRequest does not require block titles when filterForm is the only companion block', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
@@ -5230,6 +5298,51 @@ test('prepareApplyBlueprintRequest does not require block titles when filterForm
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
+});
+
+test('prepareApplyBlueprintRequest strips titles when filterForm is the only companion block', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            settings: {
+              title: 'Filter settings title',
+            },
+            fields: ['nickname', 'email'],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            settings: {
+              title: 'Employees settings title',
+            },
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const [filterBlock, dataBlock] = result.cliBody.tabs[0].blocks;
+  assert.equal(filterBlock.title, 'Filters');
+  assert.equal(filterBlock.settings.title, 'Filter settings title');
+  assert.equal(Object.hasOwn(dataBlock, 'title'), false);
+  assert.equal(Object.hasOwn(dataBlock, 'settings'), false);
 });
 
 test('prepareApplyBlueprintRequest does not require titles on template-backed blocks in multi-block scopes', () => {
@@ -5269,6 +5382,150 @@ test('prepareApplyBlueprintRequest does not require titles on template-backed bl
   assert.equal(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required'), false);
 });
 
+test('prepareApplyBlueprintRequest preserves normal titles when mixed with a template-backed data block', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['usersTable', 'summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            settings: {
+              title: 'Employees settings title',
+            },
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            collection: 'users',
+            fields: ['nickname'],
+            template: { uid: 'tpl-users-details', mode: 'reference' },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const [normalBlock, templateBackedBlock] = result.cliBody.tabs[0].blocks;
+  assert.equal(normalBlock.title, 'Employees table');
+  assert.equal(normalBlock.settings.title, 'Employees settings title');
+  assert.equal(Object.hasOwn(templateBackedBlock, 'title'), false);
+});
+
+test('prepareApplyBlueprintRequest requires normal data titles when mixed with a template-backed data block', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['usersTable', 'summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            collection: 'users',
+            fields: ['nickname'],
+            template: { uid: 'tpl-users-details', mode: 'reference' },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'multi-block-data-title-required' && issue.path === 'tabs[0].blocks[0].title',
+    ),
+  );
+  assert.equal(
+    result.errors.some(
+      (issue) => issue.ruleId === 'multi-block-data-title-required' && issue.path === 'tabs[0].blocks[1].title',
+    ),
+    false,
+  );
+});
+
+test('prepareApplyBlueprintRequest strips titles from a single popup data block scope', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Users table',
+            collection: 'users',
+            fields: ['nickname'],
+            actions: [defaultFilterAction()],
+            recordActions: [
+              {
+                type: 'view',
+                title: 'View',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      title: 'Profile',
+                      collection: 'users',
+                      settings: {
+                        title: 'Profile settings title',
+                        description: 'Keep popup block description',
+                      },
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const popup = result.cliBody.tabs[0].blocks[0].recordActions[0].popup;
+  const popupBlock = popup.blocks[0];
+  assert.equal(popup.title, 'User details');
+  assert.equal(Object.hasOwn(popupBlock, 'title'), false);
+  assert.equal(Object.hasOwn(popupBlock.settings, 'title'), false);
+  assert.equal(popupBlock.settings.description, 'Keep popup block description');
+});
+
 test('prepareApplyBlueprintRequest rejects explicit single-column multi-block layouts and missing data titles', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -5304,6 +5561,50 @@ test('prepareApplyBlueprintRequest rejects explicit single-column multi-block la
   assert.ok(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required' && issue.path === 'tabs[0].blocks[0].title'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required' && issue.path === 'tabs[0].blocks[1].title'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'single-column-multi-block-layout'));
+});
+
+test('prepareApplyBlueprintRequest preserves titles when multiple data blocks share one scope', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['mainTable', 'summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            settings: {
+              title: 'Employees settings title',
+            },
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            settings: {
+              title: 'Summary settings title',
+            },
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.tabs[0].blocks[0].title, 'Employees table');
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.title, 'Employees settings title');
+  assert.equal(result.cliBody.tabs[0].blocks[1].title, 'Employee summary');
+  assert.equal(result.cliBody.tabs[0].blocks[1].settings.title, 'Summary settings title');
 });
 
 test('prepareApplyBlueprintRequest requires explicit layout when multiple non-filter blocks share one tab', () => {
