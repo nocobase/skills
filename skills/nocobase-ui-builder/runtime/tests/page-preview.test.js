@@ -7796,6 +7796,194 @@ test('prepareApplyBlueprintRequest removes settings.sort when it matches setting
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.sorting, [{ field: 'createdAt', direction: 'desc' }]);
 });
 
+test('prepareApplyBlueprintRequest replaces invalid tree table dragSortBy with a compatible sort field', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              settings: { treeTable: true, dragSort: true, dragSortBy: 'sortOrder' },
+              fields: ['name'],
+              actions: [defaultFilterAction(['name'])],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['roles'],
+      collectionMetadata: {
+        collections: {
+          roles: {
+            titleField: 'name',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'name', type: 'string', interface: 'input' },
+              { name: 'sortOrder', type: 'integer', interface: 'integer' },
+              { name: 'sort', type: 'integer', interface: 'sort' },
+            ],
+          },
+        },
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.dragSortBy, 'sort');
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.dragSort, true);
+  assert.ok(result.warnings.includes('Replaced tree table dragSortBy "sortOrder" with sort field "sort".'));
+});
+
+test('prepareApplyBlueprintRequest removes invalid tree table dragSortBy when no compatible sort field exists', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              settings: { treeTable: true, dragSort: true, dragSortBy: 'sortOrder' },
+              fields: ['name'],
+              actions: [defaultFilterAction(['name'])],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['roles'],
+      collectionMetadata: {
+        collections: {
+          roles: {
+            titleField: 'name',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'name', type: 'string', interface: 'input' },
+              { name: 'sortOrder', type: 'integer', interface: 'integer' },
+            ],
+          },
+        },
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0].settings, 'dragSortBy'), false);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.dragSort, true);
+  assert.ok(
+    result.warnings.includes(
+      'Removed tree table dragSortBy "sortOrder" because no compatible interface=sort field exists.',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps valid tree table dragSortBy sort fields', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              settings: { treeTable: true, dragSort: true, dragSortBy: 'sort' },
+              fields: ['name'],
+              actions: [defaultFilterAction(['name'])],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['roles'],
+      collectionMetadata: {
+        collections: {
+          roles: {
+            titleField: 'name',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'name', type: 'string', interface: 'input' },
+              { name: 'sort', type: 'integer', interface: 'sort' },
+            ],
+          },
+        },
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.dragSortBy, 'sort');
+  assert.equal(result.warnings.some((warning) => warning.includes('tree table dragSortBy')), false);
+});
+
+test('prepareApplyBlueprintRequest does not rewrite invalid dragSortBy on ordinary tables', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              settings: { dragSort: true, dragSortBy: 'sortOrder' },
+              fields: ['name'],
+              actions: [defaultFilterAction(['name'])],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['roles'],
+      collectionMetadata: {
+        collections: {
+          roles: {
+            titleField: 'name',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'name', type: 'string', interface: 'input' },
+              { name: 'sortOrder', type: 'integer', interface: 'integer' },
+              { name: 'sort', type: 'integer', interface: 'sort' },
+            ],
+          },
+        },
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.dragSortBy, 'sortOrder');
+  assert.equal(result.warnings.some((warning) => warning.includes('tree table dragSortBy')), false);
+});
+
 test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-table blocks and strips unsupported calendar sort', () => {
   for (const { type, settings, expected } of [
     {

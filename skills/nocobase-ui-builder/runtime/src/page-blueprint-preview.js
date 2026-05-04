@@ -2938,6 +2938,54 @@ function normalizeBlockSettingsForWrite(settings, block, options = {}) {
   );
 }
 
+function isCompatibleDragSortField(fieldMeta) {
+  return isPlainObject(fieldMeta)
+    && fieldMeta.interface === 'sort'
+    && !normalizeText(fieldMeta.target)
+    && !normalizeText(fieldMeta.scopeKey);
+}
+
+function resolveCompatibleDragSortFieldName(collectionMetadata, collectionName) {
+  const collectionMeta = getPublicCollectionMeta(collectionMetadata, collectionName);
+  const fields = Array.isArray(collectionMeta?.fields) ? collectionMeta.fields : [];
+  const sortField = fields.find(isCompatibleDragSortField);
+  return normalizeText(sortField?.name);
+}
+
+function normalizeTreeTableDragSortByForWrite(settings, block, options = {}) {
+  if (!isPlainObject(settings)) return settings;
+  if (normalizeText(block?.type) !== 'table' || settings.treeTable !== true || !hasOwn(settings, 'dragSortBy')) {
+    return settings;
+  }
+
+  const collectionName = getCollectionLabel(block);
+  if (!collectionName || !isPlainObject(options.collectionMetadata)) {
+    return settings;
+  }
+
+  const currentFieldName = normalizeText(settings.dragSortBy);
+  const currentFieldMeta = getPublicCollectionFieldMeta(options.collectionMetadata, collectionName, currentFieldName);
+  if (isCompatibleDragSortField(currentFieldMeta)) {
+    return settings;
+  }
+
+  const replacementFieldName = resolveCompatibleDragSortFieldName(options.collectionMetadata, collectionName);
+  const nextSettings = { ...settings };
+  if (replacementFieldName) {
+    nextSettings.dragSortBy = replacementFieldName;
+    options.warnings?.push(
+      `Replaced tree table dragSortBy "${currentFieldName}" with sort field "${replacementFieldName}".`,
+    );
+    return nextSettings;
+  }
+
+  delete nextSettings.dragSortBy;
+  options.warnings?.push(
+    `Removed tree table dragSortBy "${currentFieldName}" because no compatible interface=sort field exists.`,
+  );
+  return nextSettings;
+}
+
 function materializeSettingsForWrite(block, options = {}) {
   const settings = block?.settings;
   let nextSettings = materializeHiddenPopupSettingsForWrite(settings, block, {
@@ -2950,6 +2998,7 @@ function materializeSettingsForWrite(block, options = {}) {
   if (isSortablePublicBlockType(block?.type) && hasOwn(nextSettings, 'sort')) {
     nextSettings = normalizeSortAliasInSettings(nextSettings);
   }
+  nextSettings = normalizeTreeTableDragSortByForWrite(nextSettings, block, options);
   if (!hasOwn(nextSettings, 'height') || hasOwn(nextSettings, 'heightMode')) {
     return nextSettings;
   }
@@ -5707,7 +5756,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const effectiveBlueprint = blueprint;
   const materializeOptions =
     hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
-      ? { collectionMetadata: { collections: collectionMetadata } }
+      ? { collectionMetadata: { collections: collectionMetadata }, warnings }
       : {};
   const preMaterializeValidationErrors = recognizableBlueprint
     ? validateBlueprint(effectiveBlueprint, {
