@@ -256,9 +256,9 @@ Create `createForm` and give it a title directly:
 
 When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Prefer 3 to 4 common business fields when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate instead. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
 
-When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block.
+When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block. Hidden quick-create / event popups live under `settings.quickCreatePopup` and `settings.eventPopup`.
 
-When `add-block` creates a public `kanban`, keep collection binding in `resourceInit`, keep card content on top-level `fields[]`, and keep grouped form/details content in quick-create or card-view popup hosts instead of main-block `fieldGroups` / `recordActions`.
+When `add-block` creates a public `kanban`, keep collection binding in `resourceInit`, keep card content on top-level `fields[]`, and keep grouped form/details content in `settings.quickCreatePopup` / `settings.cardPopup` instead of main-block `fieldGroups` / `recordActions`.
 
 ```json
 {
@@ -287,6 +287,7 @@ Common settings that are suitable for direct inline use:
 - generic card-like block: `title`, `displayTitle`, `height`, `heightMode`
 - `table`: `quickEdit`, `treeTable`, `defaultExpandAllRows`, `dragSort`, `dragSortBy`
 - `calendar`: `titleField`, `colorField`, `startField`, `endField`, `defaultView`, `quickCreateEvent`, `showLunar`, `weekStart`, `dataScope`, `linkageRules`, `quickCreatePopup`, `eventPopup`
+- `kanban`: `groupField`, `quickCreateEnabled`, `quickCreatePopup`, `enableCardClick`, `cardPopup`, `dataScope`, `linkageRules`
 - form-like blocks: `labelWidth`, `labelWrap`, `layout`, `labelAlign`, `colon`
 
 Do not copy `displayTitle` into block families whose runtime configureOptions do not expose it. Known unsupported cases include `chart` and `tree`; chart blocks accept `title`, `height`, `heightMode`, `query`, `visual`, and `events` instead.
@@ -302,6 +303,13 @@ Calendar reminders:
 - `settings.startField` and `settings.endField` must bind date-capable non-association fields.
 - `settings.titleField` and `settings.colorField` must bind existing non-association display fields.
 - Public main calendar blocks do not accept `fields`, `fieldGroups`, or `recordActions`; event forms/details belong in the quick-create and event-view popup hosts.
+- Whole-page `create` prepare-write auto-adds missing direct non-template calendar hidden popup settings as `{ tryTemplate: true }`. Keep helper-only popup materialization, metadata discovery, defaults completeness, and strict binding validation in [helper-contracts.md](./helper-contracts.md).
+
+Kanban reminders:
+
+- Public main kanban blocks may use `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`.
+- Quick-create content belongs in `settings.quickCreatePopup`; card click/view content belongs in `settings.cardPopup`.
+- Whole-page `create` prepare-write auto-adds missing direct non-template kanban hidden popup settings as `{ tryTemplate: true }`, defaults missing `quickCreateEnabled` / `enableCardClick` to `true`, and preserves explicit overrides. Keep helper-only metadata/defaults behavior and explicit `groupField` validation in [helper-contracts.md](./helper-contracts.md).
 
 ### `add-field`
 

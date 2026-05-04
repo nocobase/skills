@@ -15,6 +15,10 @@ const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
   'associationPathName',
   'associationField',
 ]);
+const HIDDEN_POPUP_SETTING_KEYS_BY_BLOCK_TYPE = new Map([
+  ['calendar', ['quickCreatePopup', 'eventPopup']],
+  ['kanban', ['quickCreatePopup', 'cardPopup']],
+]);
 
 function normalizeText(value) {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -242,6 +246,23 @@ function scanFieldGroupsForCollections(fieldGroups, blockContext, metadata, coll
   }
 }
 
+function scanHiddenPopupSettingsForCollections(block, blockContext, metadata, collectionNames) {
+  const settings = block?.settings;
+  if (!isPlainObject(settings)) return;
+  const popupKeys = HIDDEN_POPUP_SETTING_KEYS_BY_BLOCK_TYPE.get(normalizeText(block?.type)) || [];
+  for (const popupKey of popupKeys) {
+    if (!hasOwn(settings, popupKey)) continue;
+    scanPopupCollections(
+      settings[popupKey],
+      {
+        surfaceCollection: getTraversalSurfaceCollection(blockContext),
+      },
+      metadata,
+      collectionNames,
+    );
+  }
+}
+
 function scanBlockForCollections(block, parentContext, metadata, collectionNames) {
   if (!isPlainObject(block)) return;
   if (hasResourceBinding(block)) {
@@ -266,6 +287,7 @@ function scanBlockForCollections(block, parentContext, metadata, collectionNames
   scanFieldGroupsForCollections(block.fieldGroups, blockContext, metadata, collectionNames);
   scanActionsForCollections(block.actions, blockContext, metadata, collectionNames);
   scanActionsForCollections(block.recordActions, blockContext, metadata, collectionNames);
+  scanHiddenPopupSettingsForCollections(block, blockContext, metadata, collectionNames);
 }
 
 function scanBlocksForCollections(blocks, parentContext, metadata, collectionNames) {

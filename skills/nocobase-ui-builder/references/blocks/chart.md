@@ -1,6 +1,6 @@
 ---
 title: ChartBlockModel
-description: Chart 区块的稳定配置路径、mode 组合、最小可用 recipe 与常见误配。
+description: Chart 区块的 public blueprint 配置、basic visual mappings、query 规则与常见误配。
 ---
 
 # ChartBlockModel
@@ -21,93 +21,95 @@ description: Chart 区块的稳定配置路径、mode 组合、最小可用 reci
 
 如果请求带 `kanban / pipeline / 状态列 / 拖拽 / 泳道 / backlog / 看板区块` 这类明确 kanban cue，不要继续走 chart，改看 [kanban.md](kanban.md)。
 
-## 真正的配置路径
+## Whole-page public blueprint 写法
 
-Chart 的查询和 option 不走 `resourceSettings`，而是走：
-
-- `stepParams.chartSettings.configure.query`
-- `stepParams.chartSettings.configure.chart.option`
-- `stepParams.chartSettings.configure.chart.events.raw`
-
-最常见误配是把 collection 放进：
-
-- `stepParams.resourceSettings.init.collectionName`
-
-这对 chart 不是稳定查询入口。skill 应直接报错或回退，不要继续沿用 table/list 的思路。
-
-## 最小稳定 recipe
+在 `applyBlueprint` 里，chart block 不接受 `stepParams`。必须把图表配置放进 `assets.charts`，然后在 block 上用 `chart` 引用资产 key：
 
 ```json
 {
-  "use": "ChartBlockModel",
-  "stepParams": {
-    "chartSettings": {
-      "configure": {
+  "assets": {
+    "charts": {
+      "statusChart": {
         "query": {
           "mode": "builder",
-          "collectionPath": ["main", "assets"],
+          "resource": { "dataSourceKey": "main", "collectionName": "orders" },
           "measures": [
-            {
-              "field": "current_value",
-              "aggregation": "sum",
-              "alias": "sum_current_value"
-            }
+            { "field": "id", "aggregation": "count", "alias": "count_orders" }
           ],
           "dimensions": [
-            {
-              "field": "status"
-            }
+            { "field": "status" }
           ]
         },
-        "chart": {
-          "option": {
-            "mode": "basic",
-            "builder": {
-              "type": "pie",
-              "pieCategory": "status",
-              "pieValue": "sum_current_value"
-            }
+        "visual": {
+          "mode": "basic",
+          "type": "pie",
+          "mappings": {
+            "category": "status",
+            "value": "count_orders"
           }
         }
       }
+    }
+  },
+  "tabs": [
+    {
+      "blocks": [
+        {
+          "key": "statusChart",
+          "type": "chart",
+          "title": "Status distribution",
+          "chart": "statusChart"
+        }
+      ]
+    }
+  ]
+}
+```
+
+For localized `compose` / `add-block` / `configure`, put the same public groups under `settings` or `changes`:
+
+```json
+{
+  "type": "chart",
+  "settings": {
+    "title": "Status distribution",
+    "query": { "...": "..." },
+    "visual": {
+      "mode": "basic",
+      "type": "bar",
+      "mappings": { "x": "status", "y": "count_orders" }
     }
   }
 }
 ```
 
-这是 skill 默认应掌握的安全起点：
+## 必须避免的误配
 
-- `query.mode='builder'`
-- `chart.option.mode='basic'`
-- `query.collectionPath=['<dataSourceKey>', '<collectionName>']`
-- `query.measures` 至少 1 项
-- `chart.option.builder` 非空
+- 不要把 `stepParams.chartSettings.configure` 写进 public blueprint block；这是 readback / internal persisted shape，不是 `applyBlueprint` 输入。
+- 不要在 public `visual` 里写 `xField` / `yField` / `seriesField` / `pieCategory` / `pieValue` / `doughnutCategory` / `doughnutValue` / `funnelCategory` / `funnelValue`。这些是内部 option builder 字段，服务端可能只保留图表类型并丢失映射。
+- 不要把 collection 放进 `resourceSettings.init.collectionName`；chart 查询应使用 public `query.resource`，或服务端规范化后的 `query.collectionPath`。
+- 不要写 `query.resource.collection`；public blueprint 输入必须使用 canonical `query.resource.collectionName`。
+- `basic` visual 必须有足够 mappings，否则图表会落成半配置状态。
 
 ## Query modes
 
 ### `builder`
 
-必须显式提供：
+优先用 builder。最小配置：
 
-- `chartSettings.configure.query.mode='builder'`
-- `chartSettings.configure.query.collectionPath=['<dataSourceKey>', '<collectionName>']`
-- `chartSettings.configure.query.measures=[...]`
+- `query.mode = "builder"`
+- `query.resource = { dataSourceKey: "main", collectionName: "<collection>" }`
+- `query.measures[]` 至少 1 项
+- `query.dimensions[]` 按图表需要添加
 
-推荐同时提供：
-
-- `chartSettings.configure.query.dimensions=[...]`
-
-这是首选模式。只要用户说“总览 / 趋势 / 分布 / 报表”，且我们已经有 collection metadata，就优先用它。
+在 readback 里，服务端可能把 `query.resource` 规范化为 `query.collectionPath`。这属于正常现象。
 
 ### builder field contract
 
-`ChartBlockModel` 的 query 字段路径有一条额外契约，和 table/details/form/filter 不一样：
-
-- scalar 字段继续用字符串，例如 `"amount"`、`"status"`
-- relation 字段必须用数组路径，例如 `["category", "name"]`、`["customer", "name"]`
-- 不要在 chart query 里写 dotted relation string，例如 `"category.name"`；这会让服务端把它当成普通列名，而不会稳定补 join
-- `query.orders[].field` 同样遵守这条规则
-- `chart.option.builder` 里的 `xField` / `yField` / `pieCategory` / `pieValue` 仍然写最终 alias 或列名字符串，不改成数组
+- scalar 字段继续用字符串，例如 `"amount"`、`"status"`。
+- relation 字段在 chart query 里用数组路径，例如 `["customer", "name"]`，并加稳定 `alias`。
+- 不要在 chart query 里写 dotted relation string，例如 `"customer.name"`。
+- `visual.mappings.*` 写 query 输出 alias，例如 `"customer_name"`、`"count_orders"`。
 
 例子：
 
@@ -115,114 +117,84 @@ Chart 的查询和 option 不走 `resourceSettings`，而是走：
 {
   "query": {
     "mode": "builder",
-    "collectionPath": ["main", "orders"],
+    "resource": { "dataSourceKey": "main", "collectionName": "orders" },
     "measures": [
-      {
-        "field": "order_no",
-        "aggregation": "count",
-        "alias": "count_order_no"
-      }
+      { "field": "id", "aggregation": "count", "alias": "count_orders" }
     ],
     "dimensions": [
-      {
-        "field": ["customer", "name"],
-        "alias": "customer_name"
-      }
+      { "field": ["customer", "name"], "alias": "customer_name" }
     ]
   },
-  "chart": {
-    "option": {
-      "mode": "basic",
-      "builder": {
-        "type": "pie",
-        "pieCategory": "customer_name",
-        "pieValue": "count_order_no"
-      }
+  "visual": {
+    "mode": "basic",
+    "type": "bar",
+    "mappings": {
+      "x": "customer_name",
+      "y": "count_orders"
     }
   }
 }
 ```
 
-这条规则只影响 chart query。其它 block 的 `fieldPath` / `filterPaths` / metadata refs 仍然继续使用 dotted string。
-
 ### `sql`
 
-必须显式提供：
+只有用户明确要求 SQL，或 builder 明显不够表达时，才切到 `sql`。`query.sql` 必须是非空 SQL 文本，且 SQL mode 不要混用 `resource` / `measures` / `dimensions` 等 builder 查询键。SQL chart 的 `visual.mappings.*` 必须跟 `context(path="chart")` 返回的 query outputs 对齐；不要凭 SQL 字符串猜字段大小写。
 
-- `chartSettings.configure.query.mode='sql'`
-- `chartSettings.configure.query.sqlDatasource`
-- `chartSettings.configure.query.sql`
+## Visual rules
 
-只有用户明确要求 SQL，或 builder 明显不够表达时，才切到 `sql`。
+默认用 `visual.mode = "basic"`。
 
-## Option modes
+Required mappings:
 
-### `basic`
+| type | required mappings |
+| --- | --- |
+| `line`, `area`, `bar`, `barHorizontal` | `x`, `y` |
+| `scatter` | `x`, `y` |
+| `pie`, `doughnut`, `funnel` | `category`, `value` |
 
-最稳。默认用这个。
+可选 mappings:
 
-但 `basic` 不是只写 `mode` 就能渲染；还必须有：
+- `line` / `area` / `bar` / `barHorizontal`: `series`
+- `scatter`: `series`, `size`
 
-- `chartSettings.configure.chart.option.builder`
+`visual.mode = "custom"` 只在用户明确要求自定义 ECharts option 时使用；必须提供非空 `visual.raw`，且不要混用 `type` / `mappings` / `style`。
 
-### `custom`
+常用 visual examples:
 
-必须显式提供：
+```json
+{ "mode": "basic", "type": "line", "mappings": { "x": "eventDate", "y": "count_entries" } }
+```
 
-- `chartSettings.configure.chart.option.mode='custom'`
-- `chartSettings.configure.chart.option.raw`
-
-如果还要事件脚本，再加：
-
-- `chartSettings.configure.chart.events.raw`
-
-`custom` 只替换图表 option 生成方式，不豁免 query/dataSource/measures 约束。
-
-不要出现“有 `events.raw`，但没声明 `option.mode`”的半配置状态。
+```json
+{ "mode": "basic", "type": "pie", "mappings": { "category": "status", "value": "count_entries" } }
+```
 
 ## skill 默认策略
 
 1. 命中 `总览 / 趋势 / 分布 / 统计 / 占比 / dashboard / 分析看板` 时，把 `ChartBlockModel` 视为 `insight` 区首选块。
-2. 如果请求同时带 `交互 / 联动 / 说明 / 引导 / 叙事 / 自定义`，允许 `ChartBlockModel + JSBlockModel` 直接成为主表达组合，不必自动补 `Table/Details`。
-3. 优先生成 `builder + basic`。
-4. 用户明确说 `sql` 时，再生成 `sql + basic` 或 `sql + custom`。
+2. 优先生成 `builder + basic + mappings`。
+3. 对 relation 维度使用数组路径和 alias，再用 alias 绑定 `visual.mappings.*`。
+4. 用户明确说 `SQL` 时，再生成 `sql + basic` 或 `sql + custom`。
 5. 用户明确要求自定义 ECharts option / events 时，才生成 `custom`。
-6. 如果当前拿不到稳定 collection 或 query 配置，先把缺口暴露给 guard / compile artifact；只有写前仍无法满足 contract 时才回退，不要在 planner 阶段提前保守化。
 
 ## guard 关注点
 
 payload guard 应至少检查：
 
 - `CHART_QUERY_MODE_MISSING`
-- `CHART_OPTION_MODE_MISSING`
-- `CHART_BUILDER_COLLECTION_PATH_MISSING`
-- `CHART_COLLECTION_PATH_SHAPE_INVALID`
+- `CHART_BUILDER_RESOURCE_MISSING` / `CHART_BUILDER_COLLECTION_PATH_MISSING`
 - `CHART_BUILDER_MEASURES_MISSING`
-- `CHART_BASIC_OPTION_BUILDER_MISSING`
-- `CHART_SQL_DATASOURCE_MISSING`
-- `CHART_SQL_TEXT_MISSING`
-- `CHART_CUSTOM_OPTION_RAW_MISSING`
-- `CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS`
-- `CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING`
+- `CHART_VISUAL_TYPE_MISSING`
+- `CHART_VISUAL_MAPPINGS_MISSING`
+- `CHART_VISUAL_LEGACY_BUILDER_KEYS_UNSUPPORTED`
 - `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED`
 - `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED`
-
-`canonicalize-payload` 只允许自动补：
-
-- `query.mode='builder'`
-- `option.mode='basic'`
-- 单元素 chart field 数组归一化为标量字符串，例如 `["amount"] -> "amount"`
-- 在 metadata 可证明是稳定关联路径时，把 legacy dotted relation path 改成数组，例如 `"customer.name" -> ["customer", "name"]`
-
-不要自动猜：
-
-- `collectionPath`
-- `sqlDatasource`
-- `sql`
-- `option.raw`
+- `CHART_SQL_TEXT_MISSING`
+- `CHART_CUSTOM_OPTION_RAW_MISSING`
 
 ## 继续读
 
+- [../chart-core.md](../chart-core.md)
 - [../page-first-planning.md](../page-first-planning.md)
 - [grid-card.md](grid-card.md)
 - [../page-intent.md](../page-intent.md)

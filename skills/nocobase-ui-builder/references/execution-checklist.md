@@ -17,6 +17,7 @@ Use this checklist after the matching quick route is already clear. For global r
   - localized existing-surface edit
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
+- Agent orchestration rule: if multiple ordered page runs share the same menu group title, serialize the page runs yourself. On the first page, use `navigation.group.title` to create or resolve the group and capture the returned `routeId`; for subsequent pages, set `navigation.group` to `{ routeId }` and do not use title-only creation. Never start concurrent title-only group creates for the same shared group. Concurrent title-only shared-group creates are forbidden.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - Before any write or body-based read, confirm the transport shape:
@@ -55,7 +56,7 @@ Use this path when the user is describing one entire page.
    - no block contains `layout`
    - block `key` values are unique
    - any explicit `layout` references only real keyed blocks, places every keyed block exactly once, and does not duplicate one block across multiple cells
-   - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
+   - if one tab or popup contains multiple non-filter blocks, it has explicit `layout` and each non-template-backed data block has a `title`; template-backed blocks are exempt; a single non-filter block may omit its `title` unless the user explicitly asks for one
    - every chosen field has a non-empty live `interface`
    - any requested `table` / `list` / `gridCard` / `calendar` / `kanban` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`

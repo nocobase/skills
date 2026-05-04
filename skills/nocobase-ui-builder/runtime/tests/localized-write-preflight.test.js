@@ -97,6 +97,11 @@ function makeMetadata() {
           use: 'CalendarBlockModel',
           collectionName: 'calendar_events',
         },
+        'tasks-kanban-uid': {
+          uid: 'tasks-kanban-uid',
+          use: 'KanbanBlockModel',
+          collectionName: 'kanban_tasks',
+        },
         'chart-block-uid': {
           uid: 'chart-block-uid',
           use: 'ChartBlockModel',
@@ -1962,6 +1967,625 @@ test('runLocalizedWritePreflight rejects unsupported kanban main-block sections 
     assert.equal(result.ok, false);
     assertHasRule(result, item.ruleId, item.path);
   }
+});
+
+test('runLocalizedWritePreflight validates explicit calendar hidden popup settings when present', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'eventsCalendar',
+          type: 'calendar',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'calendar_events',
+          },
+          defaultFilter: makeDefaultFilter(['title', 'status']),
+          settings: {
+            quickCreatePopup: {
+              tryTemplate: 'yes',
+            },
+            eventPopup: {
+              saveAsTemplate: {
+                name: '',
+                description: 'Reusable event popup template.',
+              },
+            },
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'invalid-popup-try-template', '$.blocks[0].settings.quickCreatePopup.tryTemplate');
+  assertHasRule(result, 'invalid-popup-save-as-template-name', '$.blocks[0].settings.eventPopup.saveAsTemplate.name');
+});
+
+test('runLocalizedWritePreflight validates explicit kanban hidden popup settings without auto-filling missing ones', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'tasksKanban',
+          type: 'kanban',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'kanban_tasks',
+          },
+          fields: ['title'],
+          defaultFilter: makeDefaultFilter(['title']),
+          settings: {
+            cardPopup: {
+              template: {
+                uid: 'kanban-card-template',
+                mode: 'reference',
+              },
+              saveAsTemplate: {
+                name: 'duplicate-template',
+                description: 'Should conflict with template binding.',
+              },
+            },
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'conflicting-popup-save-as-template', '$.blocks[0].settings.cardPopup.saveAsTemplate');
+  assert.equal(Object.hasOwn(result.cliBody.blocks[0].settings, 'quickCreatePopup'), false);
+});
+
+test('runLocalizedWritePreflight validates hidden popup descendant blocks and required collections', () => {
+  const missingMetadata = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'eventsCalendar',
+          type: 'calendar',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'calendar_events',
+          },
+          defaultFilter: makeDefaultFilter(['title', 'status']),
+          settings: {
+            quickCreatePopup: {
+              blocks: [
+                {
+                  key: 'rolesTable',
+                  type: 'table',
+                  collection: 'roles',
+                  fields: ['name'],
+                  defaultFilter: makeDefaultFilter(['name']),
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    collectionMetadata: {
+      collections: {
+        calendar_events: makeMetadata().collections.calendar_events,
+      },
+    },
+  });
+
+  assert.equal(missingMetadata.ok, false);
+  assertHasRule(missingMetadata, 'missing-collection-metadata', '$.blocks[0].settings.quickCreatePopup.blocks[0].resource.collectionName');
+  assert.equal(missingMetadata.facts.requiredCollections.includes('roles'), true);
+
+  const missingDefaultFilter = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'eventsCalendar',
+          type: 'calendar',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'calendar_events',
+          },
+          defaultFilter: makeDefaultFilter(['title']),
+          settings: {
+            quickCreatePopup: {
+              blocks: [
+                {
+                  key: 'rolesTable',
+                  type: 'table',
+                  collection: 'roles',
+                  fields: ['name'],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(missingDefaultFilter.ok, false);
+  assertHasRule(missingDefaultFilter, 'public-data-surface-default-filter-required', '$.blocks[0].settings.quickCreatePopup.blocks[0].defaultFilter');
+});
+
+test('runLocalizedWritePreflight validates relation popup resources inside hidden popup descendants', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'tasksKanban',
+          type: 'kanban',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          fields: [
+            {
+              field: 'department',
+              popup: {
+                blocks: [
+                  {
+                    type: 'details',
+                    resource: {
+                      binding: 'currentRecord',
+                      collectionName: 'departments',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          defaultFilter: makeDefaultFilter(['nickname']),
+          settings: {
+            cardPopup: {
+              blocks: [
+                {
+                  key: 'nestedDetails',
+                  type: 'details',
+                  collection: 'users',
+                  fieldGroups: [
+                    {
+                      fields: [
+                        {
+                          field: 'department',
+                          popup: {
+                            blocks: [
+                              {
+                                key: 'wrongAssociatedTable',
+                                type: 'table',
+                                resource: {
+                                  binding: 'currentRecord',
+                                  associationField: 'department',
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(
+    result,
+    'relation-popup-associated-records-binding-required',
+    '$.blocks[0].settings.cardPopup.blocks[0].fieldGroups[0].fields[0].popup.blocks[0].resource.binding',
+  );
+});
+
+test('runLocalizedWritePreflight validates localized calendar and kanban semantic field bindings', () => {
+  const calendarInvalid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'eventsCalendar',
+          type: 'calendar',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'calendar_events',
+          },
+          defaultFilter: makeDefaultFilter(['title']),
+          settings: {
+            titleField: 'title',
+            endField: 'missingField',
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(calendarInvalid.ok, false);
+  assertHasRule(calendarInvalid, 'calendar-start-field-required', '$.blocks[0].settings.startField');
+  assertHasRule(calendarInvalid, 'calendar-field-binding-invalid', '$.blocks[0].settings.endField');
+
+  const kanbanInvalid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'tasksKanban',
+          type: 'kanban',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'kanban_tasks',
+          },
+          fields: ['title'],
+          defaultFilter: makeDefaultFilter(['title']),
+          settings: {
+            groupField: 'title',
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(kanbanInvalid.ok, false);
+  assertHasRule(kanbanInvalid, 'kanban-group-field-invalid', '$.blocks[0].settings.groupField');
+});
+
+test('runLocalizedWritePreflight validates configure calendar and kanban host rules using live target context', () => {
+  const calendarPopupContract = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          tryTemplate: 'yes',
+        },
+        eventPopup: {
+          saveAsTemplate: {
+            name: '',
+            description: 'Reusable event popup template.',
+          },
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(calendarPopupContract.ok, false);
+  assertHasRule(calendarPopupContract, 'invalid-popup-try-template', '$.changes.quickCreatePopup.tryTemplate');
+  assertHasRule(calendarPopupContract, 'invalid-popup-save-as-template-name', '$.changes.eventPopup.saveAsTemplate.name');
+
+  const calendarSemantic = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        titleField: 'title',
+        endField: 'missingField',
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(calendarSemantic.ok, false);
+  assertHasRule(calendarSemantic, 'calendar-start-field-required', '$.changes.startField');
+  assertHasRule(calendarSemantic, 'calendar-field-binding-invalid', '$.changes.endField');
+
+  const kanbanPopupContract = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'tasks-kanban-uid' },
+      changes: {
+        cardPopup: {
+          template: {
+            uid: 'kanban-card-template',
+            mode: 'reference',
+          },
+          saveAsTemplate: {
+            name: 'duplicate-template',
+            description: 'Should conflict with template binding.',
+          },
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(kanbanPopupContract.ok, false);
+  assertHasRule(kanbanPopupContract, 'conflicting-popup-save-as-template', '$.changes.cardPopup.saveAsTemplate');
+
+  const kanbanSemantic = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'tasks-kanban-uid' },
+      changes: {
+        groupField: 'title',
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(kanbanSemantic.ok, false);
+  assertHasRule(kanbanSemantic, 'kanban-group-field-invalid', '$.changes.groupField');
+});
+
+test('runLocalizedWritePreflight validates configure hidden popup descendants with live target context', () => {
+  const missingMetadata = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              fields: ['name'],
+              defaultFilter: makeDefaultFilter(['name']),
+            },
+          ],
+        },
+      },
+    },
+    collectionMetadata: {
+      collections: {
+        calendar_events: makeMetadata().collections.calendar_events,
+      },
+      liveTopology: makeMetadata().liveTopology,
+    },
+  });
+  assert.equal(missingMetadata.ok, false);
+  assertHasRule(missingMetadata, 'missing-collection-metadata', '$.changes.quickCreatePopup.blocks[0].resource.collectionName');
+  assert.equal(missingMetadata.facts.requiredCollections.includes('roles'), true);
+
+  const missingDefaultFilter = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              fields: ['name'],
+            },
+          ],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(missingDefaultFilter.ok, false);
+  assertHasRule(missingDefaultFilter, 'public-data-surface-default-filter-required', '$.changes.quickCreatePopup.blocks[0].defaultFilter');
+
+  const wrongRelationPopup = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fieldGroups: [
+                {
+                  fields: [
+                    {
+                      field: 'department',
+                      popup: {
+                        blocks: [
+                          {
+                            key: 'wrongAssociatedTable',
+                            type: 'table',
+                            resource: {
+                              binding: 'currentRecord',
+                              associationField: 'department',
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(wrongRelationPopup.ok, false);
+  assertHasRule(
+    wrongRelationPopup,
+    'relation-popup-associated-records-binding-required',
+    '$.changes.quickCreatePopup.blocks[0].fieldGroups[0].fields[0].popup.blocks[0].resource.binding',
+  );
+});
+
+test('runLocalizedWritePreflight validates configure main-block section and field-object restrictions', () => {
+  const calendarFields = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        fields: ['title'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(calendarFields.ok, false);
+  assertHasRule(calendarFields, 'calendar-main-fields-unsupported', '$.changes.fields');
+
+  const kanbanFieldGroups = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'tasks-kanban-uid' },
+      changes: {
+        fieldGroups: [
+          {
+            title: 'Task fields',
+            fields: ['title'],
+          },
+        ],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(kanbanFieldGroups.ok, false);
+  assertHasRule(kanbanFieldGroups, 'kanban-main-field-groups-unsupported', '$.changes.fieldGroups');
+
+  const kanbanFieldsLayout = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'tasks-kanban-uid' },
+      changes: {
+        fieldsLayout: {
+          rows: [['title']],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(kanbanFieldsLayout.ok, false);
+  assertHasRule(kanbanFieldsLayout, 'kanban-main-fields-layout-unsupported', '$.changes.fieldsLayout');
+
+  const internalFieldObject = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            fieldComponent: 'PopupSubTableFieldModel',
+          },
+        ],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(internalFieldObject.ok, false);
+  assertHasRule(internalFieldObject, 'internal-field-keys-not-public', '$.changes.fields[0]');
+});
+
+test('runLocalizedWritePreflight validates configure chart displayTitle against live target context', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'chart-block-uid' },
+      changes: {
+        title: 'Status chart',
+        displayTitle: true,
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'chart-display-title-unsupported', '$.changes.displayTitle');
+});
+
+test('runLocalizedWritePreflight validates hidden popup descendant main-block sections and chart displayTitle', () => {
+  const sectionResult = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              key: 'nestedKanban',
+              type: 'kanban',
+              collection: 'kanban_tasks',
+              fields: ['title'],
+              defaultFilter: makeDefaultFilter(['title', 'status']),
+              fieldGroups: [
+                {
+                  fields: ['title'],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(sectionResult.ok, false);
+  assertHasRule(sectionResult, 'kanban-main-field-groups-unsupported', '$.changes.quickCreatePopup.blocks[0].fieldGroups');
+
+  const chartResult = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              key: 'nestedChart',
+              type: 'chart',
+              settings: {
+                title: 'Nested chart',
+                displayTitle: true,
+              },
+            },
+          ],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(chartResult.ok, false);
+  assertHasRule(chartResult, 'chart-display-title-unsupported', '$.changes.quickCreatePopup.blocks[0].settings.displayTitle');
+});
+
+test('runLocalizedWritePreflight normalizes hidden popup descendant heightMode for configure', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-calendar-uid' },
+      changes: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              key: 'nestedChart',
+              type: 'chart',
+              settings: {
+                height: 320,
+              },
+            },
+          ],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.changes.quickCreatePopup.blocks[0].settings, {
+    height: 320,
+    heightMode: 'specifyValue',
+  });
 });
 
 test('nb-localized-write-preflight CLI returns stable localized shape for missing and empty defaultFilter failures', () => {

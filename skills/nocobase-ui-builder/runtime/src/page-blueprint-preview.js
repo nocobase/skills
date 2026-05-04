@@ -8,6 +8,16 @@ import {
   normalizeSortAliasInSettings,
   settingsSortValuesMatch,
 } from './sorting-alias.js';
+import { collectPopupDocumentContractIssues, hasTemplateDocument } from './popup-contract.js';
+import {
+  collectCalendarKanbanMainBlockSemanticIssues,
+  forEachBlockHiddenPopup,
+  getPublicCollectionFieldMeta,
+  getPublicCollectionMeta,
+  getHiddenPopupSettingsForBlockType,
+  isPublicAssociationFieldMeta,
+  resolvePublicFieldPathInCollectionMetadata,
+} from './public-block-contract.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
@@ -79,7 +89,35 @@ const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'edi
 const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set(['table', 'list', 'gridCard']);
 const CALENDAR_BLOCK_TYPES = new Set(['calendar']);
 const KANBAN_BLOCK_TYPES = new Set(['kanban']);
+const CALENDAR_FIELD_BINDING_KEYS = ['titleField', 'colorField', 'startField', 'endField'];
 const CHART_BLOCK_TYPES = new Set(['chart']);
+const CHART_VISUAL_LEGACY_BUILDER_KEYS = new Set([
+  'xField',
+  'yField',
+  'seriesField',
+  'sizeField',
+  'pieCategory',
+  'pieValue',
+  'doughnutCategory',
+  'doughnutValue',
+  'funnelCategory',
+  'funnelValue',
+]);
+const CHART_REQUIRED_VISUAL_MAPPINGS_BY_TYPE = {
+  line: ['x', 'y'],
+  area: ['x', 'y'],
+  bar: ['x', 'y'],
+  barHorizontal: ['x', 'y'],
+  scatter: ['x', 'y'],
+  pie: ['category', 'value'],
+  doughnut: ['category', 'value'],
+  funnel: ['category', 'value'],
+};
+const CHART_SUPPORTED_VISUAL_TYPES = new Set(Object.keys(CHART_REQUIRED_VISUAL_MAPPINGS_BY_TYPE));
+const CHART_BUILDER_QUERY_FORBIDDEN_KEYS = new Set(['collectionPath', 'sql', 'sqlDatasource']);
+const CHART_SQL_QUERY_FORBIDDEN_KEYS = new Set(['resource', 'collectionPath', 'measures', 'dimensions', 'filter', 'sorting', 'limit', 'offset']);
+const CHART_VISUAL_MODES = new Set(['basic', 'custom']);
+const CHART_CUSTOM_VISUAL_FORBIDDEN_KEYS = new Set(['type', 'mappings', 'style']);
 const GRID_CARD_BLOCK_TYPES = new Set(['gridCard']);
 const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
   'title',
@@ -113,8 +151,54 @@ const KANBAN_ALLOWED_ACTION_TYPES = new Set([
   'refresh',
   'js',
 ]);
-const CALENDAR_DATE_FIELD_INTERFACES = new Set(['datetime', 'datetimeNoTz', 'dateOnly', 'date']);
-const CALENDAR_DATE_FIELD_TYPES = new Set(['date', 'datetime', 'datetimeNoTz', 'dateOnly']);
+const CALENDAR_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'height',
+  'heightMode',
+  'resource',
+  'titleField',
+  'colorField',
+  'startField',
+  'endField',
+  'defaultView',
+  'quickCreateEvent',
+  'showLunar',
+  'weekStart',
+  'dataScope',
+  'linkageRules',
+  'quickCreatePopup',
+  'eventPopup',
+]);
+const KANBAN_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'height',
+  'heightMode',
+  'resource',
+  'groupField',
+  'groupTitleField',
+  'groupColorField',
+  'groupOptions',
+  'styleVariant',
+  'sorting',
+  'sort',
+  'dragEnabled',
+  'dragSortBy',
+  'quickCreateEnabled',
+  'quickCreatePopup',
+  'enableCardClick',
+  'cardPopup',
+  'cardLayout',
+  'cardLabelAlign',
+  'cardLabelWidth',
+  'cardLabelWrap',
+  'cardColon',
+  'pageSize',
+  'columnWidth',
+  'dataScope',
+  'linkageRules',
+]);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
 const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
@@ -133,8 +217,6 @@ const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
 const POPUP_PAGE_MODE_BLOCK_THRESHOLD = 3;
 const POPUP_PAGE_MODE_FIELD_THRESHOLD = 20;
 const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
-const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany', 'belongstoarray', 'onetoone']);
-const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'o2o', 'mbm', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
 const AUDIT_FIELD_NAMES = new Set([
   'id',
   'createdAt',
@@ -580,6 +662,68 @@ function normalizeFieldLinkageStateTargets(blueprint) {
   return nextBlueprint ?? blueprint;
 }
 
+function normalizeCalendarFieldBindingsOnBlock(block) {
+  if (!isPlainObject(block) || !CALENDAR_BLOCK_TYPES.has(normalizeText(block.type))) {
+    return false;
+  }
+
+  let changed = false;
+  const settings = isPlainObject(block.settings) ? block.settings : {};
+  let nextSettings = settings;
+
+  for (const key of CALENDAR_FIELD_BINDING_KEYS) {
+    if (!hasOwn(block, key)) continue;
+    if (!hasOwn(nextSettings, key)) {
+      if (nextSettings === settings) {
+        nextSettings = { ...settings };
+      }
+      nextSettings[key] = block[key];
+    }
+    delete block[key];
+    changed = true;
+  }
+
+  if (nextSettings !== settings || (changed && !isPlainObject(block.settings))) {
+    block.settings = nextSettings;
+  }
+
+  return changed;
+}
+
+function normalizeCalendarFieldBindingsOnBlocks(blocks) {
+  let changed = false;
+  for (const block of ensureArray(blocks)) {
+    if (!isPlainObject(block)) continue;
+    if (normalizeCalendarFieldBindingsOnBlock(block)) {
+      changed = true;
+    }
+    forEachBlockHiddenPopup(block.settings, block, (popup) => {
+      if (!isPlainObject(popup)) return;
+      if (normalizeCalendarFieldBindingsOnBlocks(popup.blocks)) {
+        changed = true;
+      }
+    });
+  }
+  return changed;
+}
+
+function normalizeCalendarFieldBindingsForWrite(blueprint) {
+  if (!isPlainObject(blueprint) || !Array.isArray(blueprint.tabs)) {
+    return blueprint;
+  }
+
+  const nextBlueprint = cloneSerializable(blueprint);
+  let changed = false;
+  for (const tab of ensureArray(nextBlueprint.tabs)) {
+    if (!isPlainObject(tab) || !Array.isArray(tab.blocks)) continue;
+    if (normalizeCalendarFieldBindingsOnBlocks(tab.blocks)) {
+      changed = true;
+    }
+  }
+
+  return changed ? nextBlueprint : blueprint;
+}
+
 function visitConditionItems(condition, basePath, visitor) {
   if (!isPlainObject(condition) || !Array.isArray(condition.items)) return;
 
@@ -926,10 +1070,6 @@ function getRealTemplateBinding(template) {
   return { uid, mode };
 }
 
-function hasTemplateDocument(template) {
-  return !!normalizeText(template?.uid);
-}
-
 function getIgnoredPopupLocalKeys(popup) {
   if (!isPlainObject(popup) || !hasTemplateDocument(popup.template)) return [];
   return ['mode', 'blocks', 'layout'].filter((key) => hasOwn(popup, key));
@@ -1001,6 +1141,9 @@ function collectTemplateBindingsFromBlock(block, path, bindings) {
   collectTemplateBindingsFromFieldGroups(block.fieldGroups, `${path}.fieldGroups`, bindings);
   collectTemplateBindingsFromPopupItems(block.actions, `${path}.actions`, bindings);
   collectTemplateBindingsFromPopupItems(block.recordActions, `${path}.recordActions`, bindings);
+  forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+    collectTemplateBindingsFromPopup(popup, `${path}.settings.${key}`, bindings);
+  });
 }
 
 function collectBlueprintTemplateBindings(blueprint) {
@@ -1149,40 +1292,16 @@ export function normalizeCollectionMetadataInput(rawMetadata) {
   };
 }
 
+function isAssociationFieldMeta(field) {
+  return isPublicAssociationFieldMeta(field);
+}
+
 function getCollectionMeta(collectionMetadata, collectionName) {
-  const normalizedCollectionName = normalizeText(collectionName);
-  if (!normalizedCollectionName) return null;
-  return collectionMetadata?.collections?.[normalizedCollectionName] || null;
-}
-
-function isCalendarDateFieldMeta(field) {
-  return !!field
-    && !isAssociationFieldMeta(field)
-    && (
-      CALENDAR_DATE_FIELD_INTERFACES.has(normalizeText(field.interface))
-      || CALENDAR_DATE_FIELD_TYPES.has(normalizeText(field.type))
-    );
-}
-
-function isCalendarBindableFieldMeta(field) {
-  return !!field
-    && !isAssociationFieldMeta(field)
-    && !!normalizeText(field.interface);
+  return getPublicCollectionMeta(collectionMetadata, collectionName);
 }
 
 function getCollectionFieldMeta(collectionMetadata, collectionName, fieldName) {
-  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
-  const normalizedFieldName = normalizeText(fieldName);
-  if (!collectionMeta || !normalizedFieldName) return null;
-  return collectionMeta.fieldsByName.get(normalizedFieldName) || null;
-}
-
-function isAssociationFieldMeta(field) {
-  if (!isPlainObject(field)) return false;
-  return (
-    ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
-    || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(field.interface))
-  );
+  return getPublicCollectionFieldMeta(collectionMetadata, collectionName, fieldName);
 }
 
 function getMetadataFieldCoverageKey(fieldPath) {
@@ -1236,7 +1355,7 @@ function getTraversalSurfaceCollection(context) {
 
 export function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
   const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
-  if (!isAssociationFieldMeta(associationMeta?.field)) return '';
+  if (!isPublicAssociationFieldMeta(associationMeta?.field)) return '';
   const targetCollection = normalizeText(associationMeta?.field?.target);
   return targetCollection || '';
 }
@@ -1261,34 +1380,7 @@ function normalizeAssociationPopupDefaultsMap(associations) {
 }
 
 function resolveFieldPathInCollectionMetadata(collectionMetadata, collectionName, fieldPath) {
-  const segments = normalizeText(fieldPath).split('.').filter(Boolean);
-  let currentCollectionName = normalizeText(collectionName);
-  let field = null;
-
-  if (!currentCollectionName || segments.length === 0) return null;
-
-  for (const [index, segment] of segments.entries()) {
-    const collectionMeta = getCollectionMeta(collectionMetadata, currentCollectionName);
-    if (!collectionMeta) {
-      return null;
-    }
-    field = collectionMeta.fieldsByName.get(segment) || null;
-    if (!field) {
-      return null;
-    }
-    if (index < segments.length - 1) {
-      if (!isAssociationFieldMeta(field) || !normalizeText(field.target)) {
-        return null;
-      }
-      currentCollectionName = normalizeText(field.target);
-      continue;
-    }
-  }
-
-  return {
-    collectionName: normalizeText(field?.target || currentCollectionName),
-    field,
-  };
+  return resolvePublicFieldPathInCollectionMetadata(collectionMetadata, collectionName, fieldPath);
 }
 
 function resolveCollectionDefaultFieldGroupField(collectionMetadata, collectionName, fieldPath) {
@@ -1296,7 +1388,7 @@ function resolveCollectionDefaultFieldGroupField(collectionMetadata, collectionN
   if (!normalizedFieldPath || normalizedFieldPath.includes('.')) {
     return null;
   }
-  return getCollectionFieldMeta(collectionMetadata, collectionName, normalizedFieldPath);
+  return getPublicCollectionFieldMeta(collectionMetadata, collectionName, normalizedFieldPath);
 }
 
 function chooseDefaultDisplayField(collectionMeta) {
@@ -1313,12 +1405,12 @@ function chooseDefaultDisplayField(collectionMeta) {
 
   for (const candidate of candidates) {
     const fieldMeta = collectionMeta.fieldsByName.get(candidate);
-    if (fieldMeta && normalizeText(fieldMeta.interface) && !isAssociationFieldMeta(fieldMeta)) {
+    if (fieldMeta && normalizeText(fieldMeta.interface) && !isPublicAssociationFieldMeta(fieldMeta)) {
       return candidate;
     }
   }
 
-  const scalarField = collectionMeta.fields.find((field) => normalizeText(field.interface) && !isAssociationFieldMeta(field));
+  const scalarField = collectionMeta.fields.find((field) => normalizeText(field.interface) && !isPublicAssociationFieldMeta(field));
   return normalizeText(scalarField?.name);
 }
 
@@ -1339,7 +1431,7 @@ function isWritableSceneMetadataField(field, collectionMeta) {
 }
 
 function buildDefaultPopupSceneFieldPaths(collectionMetadata, collectionName, action) {
-  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
+  const collectionMeta = getPublicCollectionMeta(collectionMetadata, collectionName);
   const normalizedAction = normalizePopupActionType(action);
   if (!collectionMeta || !normalizedAction) return [];
 
@@ -1348,8 +1440,8 @@ function buildDefaultPopupSceneFieldPaths(collectionMetadata, collectionName, ac
     if (!normalizeText(field.interface)) continue;
 
     if (normalizedAction === 'view') {
-      if (isAssociationFieldMeta(field) && normalizeText(field.target)) {
-        const targetCollection = getCollectionMeta(collectionMetadata, field.target);
+      if (isPublicAssociationFieldMeta(field) && normalizeText(field.target)) {
+        const targetCollection = getPublicCollectionMeta(collectionMetadata, field.target);
         const displayField = chooseDefaultDisplayField(targetCollection);
         fields.push(displayField ? `${field.name}.${displayField}` : field.name);
       } else {
@@ -1589,6 +1681,17 @@ function collectDefaultsRequirementsFromFieldGroups(fieldGroups, blockContext, r
   });
 }
 
+function collectDefaultsRequirementsFromHiddenPopupSettings(block, blockContext, requirements, pathPrefix) {
+  forEachBlockHiddenPopup(block?.settings, block, (popup, { key }) => {
+    collectDefaultsRequirementsFromPopup(
+      popup,
+      { surfaceCollection: getTraversalSurfaceCollection(blockContext) },
+      requirements,
+      `${pathPrefix}.${key}`,
+    );
+  });
+}
+
 function collectDefaultsRequirementsFromBlock(block, parentContext, requirements, path) {
   if (!isPlainObject(block)) return;
   const blockContext = buildBlockTraversalContext(block, parentContext, requirements.collectionMetadata);
@@ -1610,6 +1713,7 @@ function collectDefaultsRequirementsFromBlock(block, parentContext, requirements
   collectDefaultsRequirementsFromFieldGroups(block.fieldGroups, blockContext, requirements, `${path}.fieldGroups`);
   collectDefaultsRequirementsFromActions(block.actions, blockContext, requirements, `${path}.actions`);
   collectDefaultsRequirementsFromActions(block.recordActions, blockContext, requirements, `${path}.recordActions`);
+  collectDefaultsRequirementsFromHiddenPopupSettings(block, blockContext, requirements, `${path}.settings`);
 }
 
 function collectDefaultsRequirementsFromBlocks(blocks, parentContext, requirements, pathPrefix) {
@@ -1665,6 +1769,12 @@ function collectDataBoundBlockPathsFromFieldGroups(fieldGroups, pathPrefix, path
   });
 }
 
+function collectDataBoundBlockPathsFromHiddenPopupSettings(block, pathPrefix, paths) {
+  forEachBlockHiddenPopup(block?.settings, block, (popup, { key }) => {
+    collectDataBoundBlockPathsFromPopup(popup, `${pathPrefix}.${key}`, paths);
+  });
+}
+
 function collectDataBoundBlockPathsFromBlock(block, path, paths) {
   if (!isPlainObject(block)) return;
   if (isDataBlock(block)) {
@@ -1674,6 +1784,7 @@ function collectDataBoundBlockPathsFromBlock(block, path, paths) {
   collectDataBoundBlockPathsFromFieldGroups(block.fieldGroups, `${path}.fieldGroups`, paths);
   collectDataBoundBlockPathsFromActions(block.actions, `${path}.actions`, paths);
   collectDataBoundBlockPathsFromActions(block.recordActions, `${path}.recordActions`, paths);
+  collectDataBoundBlockPathsFromHiddenPopupSettings(block, `${path}.settings`, paths);
 }
 
 function collectDataBoundBlockPathsFromBlocks(blocks, pathPrefix, paths) {
@@ -2673,12 +2784,130 @@ function materializePopupForWrite(popup, options = {}) {
   return nextPopup;
 }
 
-function materializeSettingsForWrite(block) {
-  const settings = block?.settings;
-  if (!isPlainObject(settings)) {
+function shouldDefaultHiddenPopupSettingsForWrite(block, options = {}) {
+  return (
+    normalizeLowerText(options.mode) === 'create'
+    && getHiddenPopupSettingsForBlockType(block?.type).length > 0
+    && !isTemplateBackedBlock(block)
+  );
+}
+
+function materializeHiddenPopupSettingsForWrite(settings, block, options = {}) {
+  const hiddenPopupSettings = getHiddenPopupSettingsForBlockType(block?.type);
+  if (hiddenPopupSettings.length === 0) {
     return settings;
   }
+
+  const shouldDefaultHiddenPopups = shouldDefaultHiddenPopupSettingsForWrite(block, options);
+  if (!isPlainObject(settings) && !shouldDefaultHiddenPopups) {
+    return settings;
+  }
+
+  const baseSettings = isPlainObject(settings) ? settings : {};
   let nextSettings = settings;
+  const ensureMutableSettings = () => {
+    if (!isPlainObject(nextSettings) || nextSettings === settings) {
+      nextSettings = { ...baseSettings };
+    }
+    return nextSettings;
+  };
+
+  if (shouldDefaultHiddenPopups) {
+    for (const { key } of hiddenPopupSettings) {
+      if (hasOwn(baseSettings, key)) continue;
+      ensureMutableSettings()[key] = { tryTemplate: true };
+    }
+    if (KANBAN_BLOCK_TYPES.has(normalizeText(block?.type))) {
+      if (!hasOwn(baseSettings, 'quickCreateEnabled')) {
+        ensureMutableSettings().quickCreateEnabled = true;
+      }
+      if (!hasOwn(baseSettings, 'enableCardClick')) {
+        ensureMutableSettings().enableCardClick = true;
+      }
+    }
+  }
+
+  if (!isPlainObject(nextSettings)) {
+    return nextSettings;
+  }
+  const popupDepth = (Number.isInteger(options.popupDepth) && options.popupDepth > 0 ? options.popupDepth : 0) + 1;
+  forEachBlockHiddenPopup(nextSettings, block, (popup, { key, triggerLabel }) => {
+    if (!isPlainObject(popup)) return;
+    if (nextSettings === settings) {
+      nextSettings = { ...settings };
+    }
+    nextSettings[key] = materializePopupForWrite(popup, {
+      ...options,
+      popupDepth,
+      hostBlock: block,
+      triggerKind: 'action',
+      triggerLabel,
+    });
+  });
+  return nextSettings;
+}
+
+function normalizeCalendarSettingsForWrite(settings, block) {
+  if (!CALENDAR_BLOCK_TYPES.has(normalizeText(block?.type)) || !isPlainObject(settings)) {
+    return settings;
+  }
+
+  let nextSettings = settings;
+  const ensureMutableSettings = () => {
+    if (nextSettings === settings) {
+      nextSettings = { ...settings };
+    }
+    return nextSettings;
+  };
+
+  for (const key of Object.keys(settings)) {
+    if (key === 'quickCreateEnabled') {
+      const mutableSettings = ensureMutableSettings();
+      if (!hasOwn(mutableSettings, 'quickCreateEvent') && typeof settings.quickCreateEnabled === 'boolean') {
+        mutableSettings.quickCreateEvent = settings.quickCreateEnabled;
+      }
+      delete mutableSettings.quickCreateEnabled;
+      continue;
+    }
+    if (CALENDAR_ALLOWED_SETTINGS_KEYS.has(key)) continue;
+    delete ensureMutableSettings()[key];
+  }
+  return nextSettings;
+}
+
+function normalizeKanbanSettingsForWrite(settings, block) {
+  if (!KANBAN_BLOCK_TYPES.has(normalizeText(block?.type)) || !isPlainObject(settings)) {
+    return settings;
+  }
+
+  let nextSettings = settings;
+  for (const key of Object.keys(settings)) {
+    if (KANBAN_ALLOWED_SETTINGS_KEYS.has(key)) continue;
+    if (nextSettings === settings) {
+      nextSettings = { ...settings };
+    }
+    delete nextSettings[key];
+  }
+  return nextSettings;
+}
+
+function normalizeBlockSettingsForWrite(settings, block, options = {}) {
+  return normalizeKanbanSettingsForWrite(
+    normalizeCalendarSettingsForWrite(settings, block, options),
+    block,
+    options,
+  );
+}
+
+function materializeSettingsForWrite(block, options = {}) {
+  const settings = block?.settings;
+  let nextSettings = materializeHiddenPopupSettingsForWrite(settings, block, {
+    ...options,
+  });
+  if (!isPlainObject(nextSettings)) {
+    return settings;
+  }
+  nextSettings = normalizeBlockSettingsForWrite(nextSettings, block, options);
   if (isSortablePublicBlockType(block?.type) && hasOwn(nextSettings, 'sort')) {
     nextSettings = normalizeSortAliasInSettings(nextSettings);
   }
@@ -2774,8 +3003,12 @@ function materializeBlockForWrite(block, options = {}) {
     return block;
   }
   const nextBlock = cloneSerializable(block);
-  if (hasOwn(nextBlock, 'settings')) {
-    nextBlock.settings = materializeSettingsForWrite(nextBlock);
+  normalizeCalendarFieldBindingsOnBlock(nextBlock);
+  if (hasOwn(nextBlock, 'settings') || getHiddenPopupSettingsForBlockType(nextBlock.type).length > 0) {
+    const materializedSettings = materializeSettingsForWrite(nextBlock, options);
+    if (isPlainObject(materializedSettings) || hasOwn(nextBlock, 'settings')) {
+      nextBlock.settings = materializedSettings;
+    }
   }
   if (hasOwn(nextBlock, 'fields')) {
     nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
@@ -2823,7 +3056,7 @@ function materializeBlockForWrite(block, options = {}) {
   return nextBlock;
 }
 
-function materializeBlueprintForWrite(blueprint) {
+function materializeBlueprintForWrite(blueprint, options = {}) {
   if (!isPlainObject(blueprint)) {
     return blueprint;
   }
@@ -2854,7 +3087,8 @@ function materializeBlueprintForWrite(blueprint) {
       ),
     };
   }
-  const options = {
+  const materializeOptions = {
+    ...options,
     mode: nextBlueprint.mode,
   };
   nextBlueprint.tabs = ensureArray(nextBlueprint.tabs).map((tab) => {
@@ -2863,7 +3097,7 @@ function materializeBlueprintForWrite(blueprint) {
     }
     return {
       ...tab,
-      blocks: ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, options)),
+      blocks: ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, materializeOptions)),
     };
   });
   return nextBlueprint;
@@ -3078,6 +3312,35 @@ function validateAllowedObjectKeys(input, path, allowedKeys, state, ruleId, labe
       `${label} only accepts keys: ${Array.from(allowedKeys).join(', ')}; unsupported key "${key}".`,
     );
   }
+}
+
+function collectMatchingObjectKeys(input, keys) {
+  if (!isPlainObject(input)) return [];
+  return Object.keys(input).filter((key) => keys.has(key));
+}
+
+function validateForbiddenObjectKeys(input, path, forbiddenKeys, state, ruleId, buildMessage) {
+  const matchedKeys = collectMatchingObjectKeys(input, forbiddenKeys);
+  if (!matchedKeys.length) return;
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    ruleId,
+    buildMessage(matchedKeys),
+  );
+}
+
+function validateRequiredText(value, path, state, ruleId, message) {
+  if (normalizeText(value)) return false;
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    ruleId,
+    message,
+  );
+  return true;
 }
 
 function validateDefaultFieldGroups(fieldGroups, path, state) {
@@ -3332,90 +3595,16 @@ function getValidationPopupSurfaceContext(state, blockContext, fieldPath = '') {
 }
 
 function validatePopupDocument(popup, path, state, parentContext = {}) {
+  collectPopupDocumentContractIssues(popup, path, { normalizeText }).forEach((issue) => {
+    pushValidationError(state.errors, state.seenErrors, issue.path, issue.ruleId, issue.message);
+  });
+
   if (!isPlainObject(popup)) {
-    pushValidationError(state.errors, state.seenErrors, path, 'invalid-popup', 'Popup must be one object.');
     return;
-  }
-
-  if (hasOwn(popup, 'tryTemplate') && typeof popup.tryTemplate !== 'boolean') {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.tryTemplate`,
-      'invalid-popup-try-template',
-      'popup.tryTemplate must stay a boolean when present.',
-    );
-  }
-
-  const hasSaveAsTemplate = hasOwn(popup, 'saveAsTemplate');
-  if (hasSaveAsTemplate && !isPlainObject(popup.saveAsTemplate)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.saveAsTemplate`,
-      'invalid-popup-save-as-template',
-      'popup.saveAsTemplate must stay one object when present.',
-    );
-  }
-  if (isPlainObject(popup.saveAsTemplate) && !normalizeText(popup.saveAsTemplate.name)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.saveAsTemplate.name`,
-      'invalid-popup-save-as-template-name',
-      'popup.saveAsTemplate.name must stay a non-empty string.',
-    );
-  }
-  if (isPlainObject(popup.saveAsTemplate) && !normalizeText(popup.saveAsTemplate.description)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.saveAsTemplate.description`,
-      'invalid-popup-save-as-template-description',
-      'popup.saveAsTemplate.description must stay a non-empty string.',
-    );
-  }
-  if (hasSaveAsTemplate && hasTemplateDocument(popup.template)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.saveAsTemplate`,
-      'conflicting-popup-save-as-template',
-      'popup.saveAsTemplate cannot be combined with popup.template.',
-    );
-  }
-  if (hasSaveAsTemplate && ensureArray(popup.blocks).length === 0 && popup.tryTemplate !== true) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.saveAsTemplate`,
-      'popup-save-as-template-missing-blocks',
-      'popup.saveAsTemplate requires explicit local popup.blocks.',
-    );
   }
 
   if (hasTemplateDocument(popup.template)) {
     return;
-  }
-
-  if (hasOwn(popup, 'layout') && !isPlainObject(popup.layout)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.layout`,
-      'invalid-layout-object',
-      'layout must stay one object when present on a popup document.',
-    );
-  }
-
-  if (hasOwn(popup, 'blocks') && !Array.isArray(popup.blocks)) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.blocks`,
-      'invalid-popup-blocks',
-      'Popup blocks must stay one array when present.',
-    );
   }
 
   const popupBlockContext = {
@@ -4640,10 +4829,21 @@ function validateTreeConnectFields(block, path, state, siblingBlocksByKey = new 
   }
 }
 
+function validateHiddenPopupSettings(block, path, state, blockContext) {
+  const settings = isPlainObject(block?.settings) ? block.settings : {};
+  forEachBlockHiddenPopup(settings, block, (popup, { key }) => {
+    validatePopupDocument(popup, `${path}.settings.${key}`, state, blockContext);
+  });
+}
+
 function validateCalendarMainBlockShape(block, path, state) {
   if (!CALENDAR_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
   }
+
+  const calendarBlockContext = buildBlockTraversalContext(block, {}, state.collectionMetadata);
+  const settings = isPlainObject(block.settings) ? block.settings : {};
+  validateHiddenPopupSettings(block, path, state, calendarBlockContext);
 
   if (hasOwn(block, 'fields')) {
     pushValidationError(
@@ -4675,76 +4875,19 @@ function validateCalendarMainBlockShape(block, path, state) {
     );
   }
 
-  const collection = getCollectionLabel(block);
-  const collectionMetadata = state.collectionMetadata || {};
-  if (!collection || Object.keys(collectionMetadata).length === 0) {
-    return;
-  }
-
-  const collectionMeta = getCollectionMeta(collectionMetadata, collection);
-  if (!collectionMeta) {
-    return;
-  }
-
-  const settings = isPlainObject(block.settings) ? block.settings : {};
-  const hasAnyFieldBinding = ['titleField', 'colorField', 'startField', 'endField'].some((key) => hasOwn(settings, key));
-  const dateFieldCount = collectionMeta.fields.filter((field) => isCalendarDateFieldMeta(field)).length;
-
-  if (dateFieldCount === 0) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.collection`,
-      'calendar-date-fields-missing',
-      `calendar block collection ${collection} must expose at least one date-capable field.`,
-    );
-  }
-
-  const validateBoundField = (key, validator, messageSuffix) => {
-    if (!hasOwn(settings, key)) return;
-    const fieldPath = normalizeText(settings[key]);
-    if (!fieldPath) {
-      pushValidationError(
-        state.errors,
-        state.seenErrors,
-        `${path}.settings.${key}`,
-        'calendar-field-binding-required',
-        `calendar settings.${key} must be a non-empty field path.`,
-      );
-      return;
-    }
-    const resolved = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldPath);
-    if (!resolved?.field || !validator(resolved.field)) {
-      pushValidationError(
-        state.errors,
-        state.seenErrors,
-        `${path}.settings.${key}`,
-        'calendar-field-binding-invalid',
-        `calendar settings.${key} must reference ${messageSuffix}; got "${fieldPath}".`,
-      );
-    }
-  };
-
-  validateBoundField('titleField', isCalendarBindableFieldMeta, 'an existing non-association display field');
-  validateBoundField('colorField', isCalendarBindableFieldMeta, 'an existing non-association display field');
-  validateBoundField('startField', isCalendarDateFieldMeta, 'an existing date-capable field');
-  validateBoundField('endField', isCalendarDateFieldMeta, 'an existing date-capable field');
-
-  if (hasAnyFieldBinding && !hasOwn(settings, 'startField')) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.settings.startField`,
-      'calendar-start-field-required',
-      'calendar settings.startField is required when configuring a calendar block.',
-    );
-  }
+  collectCalendarKanbanMainBlockSemanticIssues(block, path, state.collectionMetadata || {}).forEach((issue) => {
+    pushValidationError(state.errors, state.seenErrors, issue.path, issue.ruleId, issue.message);
+  });
 }
 
 function validateKanbanMainBlockShape(block, path, state) {
   if (!KANBAN_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
   }
+
+  const kanbanBlockContext = buildBlockTraversalContext(block, {}, state.collectionMetadata);
+  const settings = isPlainObject(block.settings) ? block.settings : {};
+  validateHiddenPopupSettings(block, path, state, kanbanBlockContext);
 
   if (hasOwn(block, 'fieldGroups')) {
     pushValidationError(
@@ -4775,12 +4918,46 @@ function validateKanbanMainBlockShape(block, path, state) {
       'kanban blocks do not support recordActions[] on the main block; card view/edit content should be configured through hidden card-view or quick-create popup hosts.',
     );
   }
+
+  collectCalendarKanbanMainBlockSemanticIssues(block, path, state.collectionMetadata || {}).forEach((issue) => {
+    pushValidationError(state.errors, state.seenErrors, issue.path, issue.ruleId, issue.message);
+  });
 }
 
 function validateChartBlockSettings(block, path, state) {
   if (!CHART_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
   }
+
+  if (hasOwn(block, 'stepParams')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.stepParams`,
+      'chart-block-step-params-unsupported',
+      'Whole-page chart blocks must not include internal stepParams; put chart configuration under assets.charts and reference it from block.chart.',
+    );
+  }
+
+  const chartKey = normalizeText(block.chart);
+  if (!chartKey) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.chart`,
+      'chart-block-asset-reference-required',
+      'Whole-page chart blocks must reference one chart asset key with block.chart.',
+    );
+  } else if (!hasOwn(state.chartAssets, chartKey)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.chart`,
+      'chart-block-asset-reference-missing',
+      `Whole-page chart block references chart asset "${chartKey}", but assets.charts.${chartKey} is missing.`,
+    );
+  }
+
   if (!isPlainObject(block.settings) || !hasOwn(block.settings, 'displayTitle')) {
     return;
   }
@@ -4791,6 +4968,208 @@ function validateChartBlockSettings(block, path, state) {
     'chart-display-title-unsupported',
     'Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.',
   );
+}
+
+function validateChartAssetVisual(asset, path, state) {
+  if (!isPlainObject(asset)) return;
+  const visual = asset.visual;
+  if (!isPlainObject(visual)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual`,
+      'chart-visual-missing',
+      'Chart assets must include public visual settings.',
+    );
+    return;
+  }
+
+  validateForbiddenObjectKeys(
+    visual,
+    `${path}.visual`,
+    CHART_VISUAL_LEGACY_BUILDER_KEYS,
+    state,
+    'chart-visual-legacy-builder-keys-unsupported',
+    (keys) =>
+      `Chart asset visual must use public semantic mappings, not legacy builder keys: ${keys.join(', ')}. Use visual: { mode: "basic", type, mappings: { x, y } } for cartesian charts or mappings: { category, value } for pie-like charts.`,
+  );
+
+  const mode = normalizeText(visual.mode, 'basic');
+  if (!CHART_VISUAL_MODES.has(mode)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.mode`,
+      'chart-visual-mode-unsupported',
+      `Chart asset visual.mode="${mode}" is not supported by the public blueprint guard.`,
+    );
+    return;
+  }
+
+  if (mode === 'custom') {
+    validateRequiredText(
+      visual.raw,
+      `${path}.visual.raw`,
+      state,
+      'chart-custom-visual-raw-missing',
+      'Custom chart asset visual settings must include visual.raw that returns an ECharts option object.',
+    );
+    validateForbiddenObjectKeys(
+      visual,
+      `${path}.visual`,
+      CHART_CUSTOM_VISUAL_FORBIDDEN_KEYS,
+      state,
+      'chart-custom-visual-public-keys-unsupported',
+      (keys) => `Custom chart asset visual must not include basic visual keys: ${keys.join(', ')}.`,
+    );
+    return;
+  }
+
+  const type = normalizeText(visual.type);
+  if (!type) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.type`,
+      'chart-visual-type-missing',
+      'Basic chart asset visual settings must include visual.type.',
+    );
+  } else if (!CHART_SUPPORTED_VISUAL_TYPES.has(type)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.type`,
+      'chart-visual-type-unsupported',
+      `Basic chart asset visual.type="${type}" is not supported by the public blueprint guard.`,
+    );
+  }
+
+  if (!isPlainObject(visual.mappings)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.mappings`,
+      'chart-visual-mappings-missing',
+      'Basic chart asset visual settings must include one visual.mappings object.',
+    );
+    return;
+  }
+
+  const requiredMappings = CHART_REQUIRED_VISUAL_MAPPINGS_BY_TYPE[type];
+  if (!requiredMappings) return;
+
+  const mappings = visual.mappings;
+  const missingMappings = requiredMappings.filter((key) => !normalizeText(mappings[key]));
+  if (missingMappings.length) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.visual.mappings`,
+      'chart-visual-required-mappings-missing',
+      `Chart asset visual.type="${type}" requires visual.mappings.${missingMappings.join(' and visual.mappings.')} for a renderable basic chart.`,
+    );
+  }
+}
+
+function validateBuilderChartAssetQuery(query, path, state) {
+  const resource = query.resource;
+  if (!isPlainObject(resource) || !normalizeText(resource.collectionName)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.query.resource`,
+      'chart-builder-query-resource-missing',
+      'Builder chart asset query settings must include query.resource.collectionName.',
+    );
+  }
+  if (!Array.isArray(query.measures) || query.measures.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.query.measures`,
+      'chart-builder-query-measures-missing',
+      'Builder chart asset query settings must include at least one measure.',
+    );
+  }
+  validateForbiddenObjectKeys(
+    query,
+    `${path}.query`,
+    CHART_BUILDER_QUERY_FORBIDDEN_KEYS,
+    state,
+    'chart-builder-query-forbidden-keys',
+    (keys) => `Builder chart asset query must not include SQL/internal keys: ${keys.join(', ')}.`,
+  );
+}
+
+function validateSqlChartAssetQuery(query, path, state) {
+  validateRequiredText(
+    query.sql,
+    `${path}.query.sql`,
+    state,
+    'chart-sql-query-text-missing',
+    'SQL chart asset query settings must include non-empty query.sql.',
+  );
+  validateForbiddenObjectKeys(
+    query,
+    `${path}.query`,
+    CHART_SQL_QUERY_FORBIDDEN_KEYS,
+    state,
+    'chart-sql-query-forbidden-builder-keys',
+    (keys) => `SQL chart asset query must not include builder query keys: ${keys.join(', ')}.`,
+  );
+}
+
+function validateChartAssetQuery(asset, path, state) {
+  if (!isPlainObject(asset)) return;
+  const query = asset.query;
+  if (!isPlainObject(query)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.query`,
+      'chart-query-missing',
+      'Chart assets must include public query settings.',
+    );
+    return;
+  }
+
+  const mode = normalizeText(query.mode, 'builder');
+  if (mode === 'builder') {
+    validateBuilderChartAssetQuery(query, path, state);
+    return;
+  }
+
+  if (mode === 'sql') {
+    validateSqlChartAssetQuery(query, path, state);
+    return;
+  }
+
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    `${path}.query.mode`,
+    'chart-query-mode-unsupported',
+    `Chart asset query.mode="${mode}" is not supported by the public blueprint guard.`,
+  );
+}
+
+function validateChartAssets(blueprint, state) {
+  const charts = blueprint?.assets?.charts;
+  if (!isPlainObject(charts)) return;
+  Object.entries(charts).forEach(([key, asset]) => {
+    if (!isPlainObject(asset)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `assets.charts.${key}`,
+        'chart-asset-invalid',
+        'Each chart asset under assets.charts must be one object.',
+      );
+      return;
+    }
+    validateChartAssetQuery(asset, `assets.charts.${key}`, state);
+    validateChartAssetVisual(asset, `assets.charts.${key}`, state);
+  });
 }
 
 function validateGridCardBlockSettings(block, path, state) {
@@ -5132,6 +5511,7 @@ function validateBlueprint(blueprint, options = {}) {
     reactionSlotKeys: new Set(),
     reactionTargetRegistry: buildReactionTargetRegistry(blueprint),
     collectionMetadata: options.collectionMetadata || {},
+    chartAssets: isPlainObject(blueprint?.assets?.charts) ? blueprint.assets.charts : {},
   };
 
   for (const key of BLUEPRINT_ILLEGAL_ROOT_KEYS) {
@@ -5168,6 +5548,7 @@ function validateBlueprint(blueprint, options = {}) {
 
   validateBlueprintDefaults(blueprint, state);
   validateCreateMenuIcons(blueprint, state);
+  validateChartAssets(blueprint, state);
 
   const expectedOuterTabs = getExpectedOuterTabs(options);
   if (!Array.isArray(blueprint.tabs) || blueprint.tabs.length !== expectedOuterTabs) {
@@ -5187,6 +5568,37 @@ function validateBlueprint(blueprint, options = {}) {
   validateReaction(blueprint, state);
 
   return state.errors;
+}
+
+const PRE_MATERIALIZE_HARD_VALIDATION_RULE_IDS = new Set([
+  'settings-sort-sorting-conflict',
+]);
+const PRE_MATERIALIZE_HARD_CALENDAR_FIELD_KEYS = new Set(['titleField', 'startField', 'endField']);
+
+function getValidationErrorLeafKey(issue) {
+  const path = normalizeText(issue?.path);
+  if (!path) return '';
+  const match = path.match(/\.([^.[]+)$/);
+  return match ? match[1] : '';
+}
+
+function isPreMaterializeHardValidationError(issue) {
+  if (!isPlainObject(issue)) return false;
+  if (PRE_MATERIALIZE_HARD_VALIDATION_RULE_IDS.has(issue.ruleId)) return true;
+  if (!['calendar-field-binding-invalid', 'calendar-field-binding-required'].includes(issue.ruleId)) {
+    return false;
+  }
+  return PRE_MATERIALIZE_HARD_CALENDAR_FIELD_KEYS.has(getValidationErrorLeafKey(issue));
+}
+
+function uniqueValidationErrors(errors) {
+  const seen = new Set();
+  return errors.filter((issue) => {
+    const key = `${issue?.path || ''}::${issue?.ruleId || ''}::${issue?.message || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function buildPrepareFacts(blueprint, expectedOuterTabs) {
@@ -5230,13 +5642,12 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     suppressLegacyWrapperWarning: isPrepareHelperEnvelope(input),
   });
   const blueprint = normalizeExistingNavigationGroupForWrite(
-    normalizeSubmitActionReactionTargets(normalizeFieldLinkageStateTargets(rawBlueprint)),
+    normalizeCalendarFieldBindingsForWrite(
+      normalizeSubmitActionReactionTargets(normalizeFieldLinkageStateTargets(rawBlueprint)),
+    ),
     warnings,
   );
   const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
-  const facts = buildPrepareFacts(blueprint, expectedOuterTabs);
-  const preparedBlueprint = recognizableBlueprint ? materializeBlueprintForWrite(blueprint) : null;
-  const ascii = preparedBlueprint ? renderRecognizableBlueprintAscii(preparedBlueprint, warnings, options) : '';
   const { errors: templateDecisionErrors, summary: templateDecision } = validateTemplateDecision(templateDecisionInput);
   const {
     provided: hasCollectionMetadata,
@@ -5245,11 +5656,30 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   } = normalizeCollectionMetadataInput(collectionMetadataInput);
   const hasUsableCollectionMetadata = hasCollectionMetadata && Object.keys(collectionMetadata).length > 0;
   const dataBoundBlockPaths = recognizableBlueprint ? collectBlueprintDataBoundBlockPaths(blueprint) : [];
+  const initialDefaultsCompleteness =
+    recognizableBlueprint && hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
+      ? validateDefaultsCompleteness(blueprint, { collections: collectionMetadata })
+      : null;
+  const effectiveBlueprint = blueprint;
+  const materializeOptions =
+    hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
+      ? { collectionMetadata: { collections: collectionMetadata } }
+      : {};
+  const preMaterializeValidationErrors = recognizableBlueprint
+    ? validateBlueprint(effectiveBlueprint, {
+        expectedOuterTabs,
+        collectionMetadata: collectionMetadataErrors.length === 0 ? { collections: collectionMetadata } : {},
+      }).filter(isPreMaterializeHardValidationError)
+    : [];
+  const preparedBlueprint = recognizableBlueprint ? materializeBlueprintForWrite(effectiveBlueprint, materializeOptions) : null;
+  const validationBlueprint = preparedBlueprint || effectiveBlueprint;
+  const facts = buildPrepareFacts(validationBlueprint, expectedOuterTabs);
+  const ascii = preparedBlueprint ? renderRecognizableBlueprintAscii(preparedBlueprint, warnings, options) : '';
   const missingCollectionMetadataErrors =
     dataBoundBlockPaths.length > 0 && !hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
       ? [createMissingCollectionMetadataError(dataBoundBlockPaths)]
       : [];
-  const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, blueprint);
+  const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, validationBlueprint);
   const resolvedTemplateDecision = recognizableBlueprint && templateDecision && !templateDecisionConsistencyErrors.length
     ? cloneSerializable(templateDecision)
     : undefined;
@@ -5281,18 +5711,19 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     };
   }
 
-  errors = [
+  errors = uniqueValidationErrors([
     ...errors,
-    ...validateBlueprint(blueprint, {
+    ...preMaterializeValidationErrors,
+    ...validateBlueprint(validationBlueprint, {
       expectedOuterTabs,
       collectionMetadata: collectionMetadataErrors.length === 0 ? { collections: collectionMetadata } : {},
     }),
-  ];
+  ]);
   let defaultsRequirements;
   if (hasUsableCollectionMetadata && collectionMetadataErrors.length === 0) {
-    const completeness = validateDefaultsCompleteness(blueprint, { collections: collectionMetadata });
-    errors = [...errors, ...completeness.errors];
-    defaultsRequirements = completeness.defaultsRequirements;
+    const completeness = validateDefaultsCompleteness(validationBlueprint, { collections: collectionMetadata });
+    errors = uniqueValidationErrors([...errors, ...completeness.errors]);
+    defaultsRequirements = initialDefaultsCompleteness?.defaultsRequirements || completeness.defaultsRequirements;
   }
   const result = {
     ok: errors.length === 0,

@@ -344,6 +344,52 @@ function assertDuplicateMenuGroupNeedsRouteId(text, sourceLabel) {
   );
 }
 
+function assertSharedMenuGroupMultiPageRunsAreSerialized(text, sourceLabel) {
+  assert.match(
+    text,
+    /(?:multiple|several|multi-page|多个|多页面)[\s\S]{0,220}(?:same|shared|同一|共享)[\s\S]{0,160}(?:navigation\.group\.title|menu group|菜单组|group title)/i,
+    `${sourceLabel} should identify multi-page requests that share one menu group title`,
+  );
+  assert.match(
+    text,
+    /(?:serial|sequential|ordered|串行|顺序)[\s\S]{0,200}(?:applyBlueprint|single-page runs|page runs|页面)/i,
+    `${sourceLabel} should require serialized page creation for shared menu-group multi-page runs`,
+  );
+  assert.match(
+    text,
+    /(?:first|first page|第一页|首个页面)[\s\S]{0,220}(?:title|navigation\.group\.title)[\s\S]{0,260}(?:routeId|response|desktopRoutes|响应)/i,
+    `${sourceLabel} should allow the first shared-group page to create or resolve the group and capture routeId`,
+  );
+  assert.match(
+    text,
+    /(?:subsequent|later|remaining|后续|其余)[\s\S]{0,220}(?:navigation\.group[\s\S]{0,80}\{\s*["']?routeId|routeId)[\s\S]{0,220}(?:not|never|不要|不得|禁止)[\s\S]{0,120}(?:title-only|title only|只用 title|navigation\.group\.title)/i,
+    `${sourceLabel} should require later shared-group pages to use the captured routeId instead of title-only creation`,
+  );
+  assert.match(
+    text,
+    /(?:parallel|concurrent|并发|同时)[\s\S]{0,180}(?:title-only|navigation\.group\.title|same-title|同名|共享 group|共享菜单组)[\s\S]{0,180}(?:forbid|forbidden|prohibit|禁止|不得|do not|never)/i,
+    `${sourceLabel} should explicitly forbid concurrent title-only shared-group creates`,
+  );
+}
+
+function assertTitleOmissionRule(text, sourceLabel) {
+  assert.match(
+    text,
+    /multiple non-filter blocks[\s\S]{0,260}(?:non-template-backed|template-backed[\s\S]{0,80}exempt|each data block needs|each data block has|each data block should have)[\s\S]{0,160}`?title`?/i,
+    `${sourceLabel} should say multi-block scopes need non-template-backed data-block titles`,
+  );
+  assert.match(
+    text,
+    /template-backed blocks?[\s\S]{0,120}(?:exempt|exception|may omit|do not need|不需要|豁免)/i,
+    `${sourceLabel} should preserve the template-backed multi-block title exception`,
+  );
+  assert.match(
+    text,
+    /(?:single non-filter block|scope with only one non-filter block)[\s\S]{0,180}(?:may|can) omit[\s\S]{0,120}(?:its )?(?:block )?`?title`?[\s\S]{0,120}(?:unless|except when)[\s\S]{0,80}(?:user|explicitly)[\s\S]{0,80}(?:asks|asked|requests|requested)/i,
+    `${sourceLabel} should allow single-block scopes to omit the title while preserving the explicit user-request override`,
+  );
+}
+
 function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   assert.match(
     text,
@@ -1215,6 +1261,37 @@ test('duplicate same-title menu-group docs consistently require explicit routeId
     assertDuplicateMenuGroupNeedsRouteId(read(relativePath), relativePath);
     assertNavigationGroupDocsDoNotKeepOldMetadataRules(relativePath);
   }
+});
+
+test('multi-page shared menu-group docs require serialized routeId handoff', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/execution-checklist.md',
+  ]) {
+    assertSharedMenuGroupMultiPageRunsAreSerialized(read(relativePath), relativePath);
+  }
+});
+
+test('title omission docs keep single-block scopes title-optional and multi-block scopes titled', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/normative-contract.md',
+    'references/page-intent.md',
+    'references/execution-checklist.md',
+    'references/tool-shapes.md',
+  ]) {
+    assertTitleOmissionRule(read(relativePath), relativePath);
+  }
+
+  const openaiPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  assert.match(
+    openaiPrompt,
+    /multi-non-filter(?: explicit)? keyed layout\/titles[\s\S]{0,60}(?:except templates|template-backed exempt|templates exempt)[\s\S]{0,80}single non-filter(?: block)?(?: title)?[\s\S]{0,80}(?:optional|may omit title)[\s\S]{0,80}(?:unless user asks|unless explicitly asked|unless asked)/i,
+    'openai prompt should keep the multi-block template exception plus title-optional single-block rule and explicit-request override visible',
+  );
 });
 
 test('quick route docs stay discoverable and point to the deeper references', () => {

@@ -38,7 +38,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - tabs count matches the request
     - every `tab.blocks` is non-empty
     - no block contains `layout`
-    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
+    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout` and each non-template-backed data block has a `title`; template-backed blocks are exempt; a single non-filter block may omit its `title` unless the user explicitly asks for one
     - block `key` values are unique
     - any explicit `layout` references only real keyed blocks and places every keyed block exactly once
     - every chosen field has a non-empty live `interface`

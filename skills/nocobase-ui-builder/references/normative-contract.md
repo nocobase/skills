@@ -8,6 +8,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
 - `nb-page-preview` and `nb-runjs` remain local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
 - Whole-page `prepare-write` is local/read-only. For the first real whole-page write, it is mandatory, and the sendable business object becomes `result.cliBody`.
+- Whole-page `prepare-write` may normalize shape and compatibility aliases, but it must not silently repair an invalid business-field binding by swapping in a different field. Invalid semantic bindings fail locally instead.
 
 ## 1. Precedence
 
@@ -64,7 +65,7 @@ The public `applyBlueprint` payload is:
 - for `createForm`, `editForm`, and `details`, once a block contains more than 10 real fields, `fieldGroups` is mandatory instead of one flat `fields[]`
 - `fieldGroups` is supported only on `createForm`, `editForm`, and `details`; it must not be combined with `fields[]` or `fieldsLayout`, and manual `divider` items do not satisfy the grouping requirement
 - when the user asks to add filtering/search to a `table`, `list`, `gridCard`, `calendar`, or `kanban` host, use that host's block-level `filter` action by default; reserve `filterForm` for explicit block/form/query-area intent. For public `applyBlueprint`, `compose`, `add-block`, and `add-blocks` authoring, every direct non-template `table` / `list` / `gridCard` / `calendar` / `kanban` block must include a non-empty block-level `defaultFilter`; `{}`, `null`, and `{ logic: "$and", items: [] }` are rejected. Prefer 3 to 4 common business fields when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate instead. The `filter` action itself is optional. If `filterableFieldNames` is explicit, check coverage against action-level/defaultActionSettings `defaultFilter` when present, otherwise block-level `defaultFilter`
-- when multiple non-filter blocks share one tab or popup, explicit layout and data-block titles are required there; a scope with only one non-filter block may omit the block `title`
+- when multiple non-filter blocks share one tab or popup, explicit layout is required and each non-template-backed data block needs a `title` there; template-backed blocks are exempt; a scope with only one non-filter block may omit the block `title` unless the user explicitly asks for one
 - if `layout` is present, it must be an object
 - in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
 - when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
