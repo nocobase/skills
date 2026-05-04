@@ -10,6 +10,9 @@ import {
 } from './sorting-alias.js';
 import { collectPopupDocumentContractIssues, hasTemplateDocument } from './popup-contract.js';
 import {
+  collectBuilderChartRelationFieldIssues,
+} from './chart-query-validation.js';
+import {
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicCollectionFieldMeta,
@@ -1008,19 +1011,21 @@ function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
 
-function createValidationError(path, ruleId, message) {
+function createValidationError(path, ruleId, message, code = undefined, details = undefined) {
   return {
     path,
     ruleId,
     message,
+    ...(code ? { code } : {}),
+    ...(details ? { details } : {}),
   };
 }
 
-function pushValidationError(errors, seen, path, ruleId, message) {
+function pushValidationError(errors, seen, path, ruleId, message, code = undefined, details = undefined) {
   const key = `${path}::${ruleId}::${message}`;
   if (seen.has(key)) return;
   seen.add(key);
-  errors.push(createValidationError(path, ruleId, message));
+  errors.push(createValidationError(path, ruleId, message, code, details));
 }
 
 function isPositiveInteger(value) {
@@ -5135,6 +5140,9 @@ function validateBuilderChartAssetQuery(query, path, state) {
     'chart-builder-query-forbidden-keys',
     (keys) => `Builder chart asset query must not include SQL/internal keys: ${keys.join(', ')}.`,
   );
+  collectBuilderChartRelationFieldIssues(query, `${path}.query`).forEach((issue) => {
+    pushValidationError(state.errors, state.seenErrors, issue.path, issue.ruleId, issue.message, issue.code, issue.details);
+  });
 }
 
 function validateSqlChartAssetQuery(query, path, state) {

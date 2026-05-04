@@ -529,6 +529,64 @@ test('runLocalizedWritePreflight rejects chart settings displayTitle before remo
   assert.equal(result.cliBody.settings.displayTitle, true);
 });
 
+test('runLocalizedWritePreflight rejects add-block chart builder relation query paths', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'chart',
+      settings: {
+        title: 'Department chart',
+        query: {
+          mode: 'builder',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          measures: [{ field: 'id', aggregation: 'count', alias: 'user_count' }],
+          dimensions: [{ field: ['department', 'title'], alias: 'department_title' }],
+        },
+        visual: {
+          mode: 'basic',
+          type: 'bar',
+          mappings: { x: 'department_title', y: 'user_count' },
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'chart-builder-relation-field-runtime-unsupported', '$.settings.query.dimensions[0].field');
+});
+
+test('runLocalizedWritePreflight accepts scalar builder chart query paths', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'add-block',
+    body: {
+      target: { uid: 'grid-uid' },
+      type: 'chart',
+      settings: {
+        title: 'Department chart',
+        query: {
+          mode: 'builder',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          measures: [{ field: 'id', aggregation: 'count', alias: 'user_count' }],
+          dimensions: [{ field: 'department_id', alias: 'department_id' }],
+        },
+        visual: {
+          mode: 'basic',
+          type: 'bar',
+          mappings: { x: 'department_id', y: 'user_count' },
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.settings.query.dimensions, [
+    { field: 'department_id', alias: 'department_id' },
+  ]);
+});
+
 test('runLocalizedWritePreflight accepts gridCard settings.columns and rejects unsupported gridCard setting keys', () => {
   const responsiveColumns = { xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 4 };
   const addBlock = runLocalizedWritePreflight({
@@ -2503,6 +2561,27 @@ test('runLocalizedWritePreflight validates configure chart displayTitle against 
   });
   assert.equal(result.ok, false);
   assertHasRule(result, 'chart-display-title-unsupported', '$.changes.displayTitle');
+});
+
+test('runLocalizedWritePreflight rejects configure chart builder relation query paths against live target context', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'chart-block-uid' },
+      changes: {
+        query: {
+          mode: 'builder',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          measures: [{ field: 'id', aggregation: 'count', alias: 'user_count' }],
+          dimensions: [{ field: 'department.title', alias: 'department_title' }],
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'chart-builder-relation-field-runtime-unsupported', '$.changes.query.dimensions[0].field');
 });
 
 test('runLocalizedWritePreflight validates hidden popup descendant main-block sections and chart displayTitle', () => {

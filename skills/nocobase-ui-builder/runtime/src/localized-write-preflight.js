@@ -13,6 +13,7 @@ import {
   settingsSortValuesMatch,
 } from './sorting-alias.js';
 import { collectPopupDocumentContractIssues } from './popup-contract.js';
+import { collectBuilderChartRelationFieldIssues } from './chart-query-validation.js';
 import {
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
@@ -397,6 +398,63 @@ function collectLocalizedChartDisplayTitleErrors(payload, operation, metadata = 
   if (operation === 'add-blocks' || operation === 'compose') {
     ensureArray(payload.blocks).forEach((block, index) => {
       collectChartDisplayTitleErrorsFromBlock(block, `$.blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
+}
+
+function collectChartBuilderRelationFieldErrorsFromSettings(settings, path) {
+  if (!isObjectRecord(settings?.query)) {
+    return [];
+  }
+  const mode = normalizeText(settings.query.mode || 'builder').toLowerCase();
+  if (mode && mode !== 'builder') {
+    return [];
+  }
+  return collectBuilderChartRelationFieldIssues(settings.query, `${path}.query`);
+}
+
+function collectChartBuilderRelationFieldErrorsFromBlock(block, path) {
+  const errors = [];
+  if (!isObjectRecord(block)) {
+    return errors;
+  }
+  if (CHART_PUBLIC_BLOCK_TYPES.has(normalizeText(block.type))) {
+    collectChartBuilderRelationFieldErrorsFromSettings(block.settings, `${path}.settings`).forEach((issue) => errors.push(issue));
+  }
+  forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+    blocks.forEach((child, index) => {
+      collectChartBuilderRelationFieldErrorsFromBlock(child, `${blocksPath}[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  });
+  return errors;
+}
+
+function collectLocalizedChartBuilderRelationFieldErrors(payload, operation, metadata = {}) {
+  const errors = [];
+  if (!isObjectRecord(payload)) {
+    return errors;
+  }
+  if (operation === 'configure') {
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      if (context.block.type === 'chart') {
+        collectChartBuilderRelationFieldErrorsFromSettings(context.block.settings, context.path).forEach((issue) => errors.push(issue));
+      }
+      forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
+        blocks.forEach((child, index) => {
+          collectChartBuilderRelationFieldErrorsFromBlock(child, `${blocksPath}[${index}]`).forEach((issue) => errors.push(issue));
+        });
+      });
+    }
+    return errors;
+  }
+  if (operation === 'add-block') {
+    return collectChartBuilderRelationFieldErrorsFromBlock(payload, '$');
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      collectChartBuilderRelationFieldErrorsFromBlock(block, `$.blocks[${index}]`).forEach((issue) => errors.push(issue));
     });
   }
   return errors;
@@ -2266,6 +2324,7 @@ export function runLocalizedWritePreflight({
   collectLocalizedPublicDataSurfaceDefaultFilterErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedCalendarKanbanSemanticErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedChartBuilderRelationFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedGridCardSettingsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicFieldObjectErrorsForOperation(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);

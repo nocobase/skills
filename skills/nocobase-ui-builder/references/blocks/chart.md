@@ -107,9 +107,11 @@ For localized `compose` / `add-block` / `configure`, put the same public groups 
 ### builder field contract
 
 - scalar 字段继续用字符串，例如 `"amount"`、`"status"`。
-- relation 字段在 chart query 里用数组路径，例如 `["customer", "name"]`，并加稳定 `alias`。
-- 不要在 chart query 里写 dotted relation string，例如 `"customer.name"`。
-- `visual.mappings.*` 写 query 输出 alias，例如 `"customer_name"`、`"count_orders"`。
+- builder chart query 默认只使用宿主 collection 的 scalar 字段，例如 `"amount"`、`"status"`、`"employerGroupId"`。
+- 不要在 builder chart query 的 `measures[]` / `dimensions[]` / `sorting[]` / `orders[]` 里写 relation path：数组路径如 `["customer", "name"]` 或 dotted string 如 `"customer.name"` 都会被本地 helper 拦截。
+- 本地错误码是 `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED` / `chart-builder-relation-field-runtime-unsupported`。
+- 如果图表必须按 relation 的显示名称分组，改用 SQL chart 显式 join 并设置稳定 alias；只接受显示 ID 时，才用 scalar foreign key 作为 fallback。
+- `visual.mappings.*` 写 query 输出字段或 alias，例如 `"status"`、`"count_orders"`。
 
 例子：
 
@@ -122,14 +124,14 @@ For localized `compose` / `add-block` / `configure`, put the same public groups 
       { "field": "id", "aggregation": "count", "alias": "count_orders" }
     ],
     "dimensions": [
-      { "field": ["customer", "name"], "alias": "customer_name" }
+      { "field": "status" }
     ]
   },
   "visual": {
     "mode": "basic",
     "type": "bar",
     "mappings": {
-      "x": "customer_name",
+      "x": "status",
       "y": "count_orders"
     }
   }
@@ -138,7 +140,7 @@ For localized `compose` / `add-block` / `configure`, put the same public groups 
 
 ### `sql`
 
-只有用户明确要求 SQL，或 builder 明显不够表达时，才切到 `sql`。`query.sql` 必须是非空 SQL 文本，且 SQL mode 不要混用 `resource` / `measures` / `dimensions` 等 builder 查询键。SQL chart 的 `visual.mappings.*` 必须跟 `context(path="chart")` 返回的 query outputs 对齐；不要凭 SQL 字符串猜字段大小写。
+只有用户明确要求 SQL，builder 明显不够表达，或图表需要按 relation label 分组时，才切到 `sql`。`query.sql` 必须是非空 SQL 文本，且 SQL mode 不要混用 `resource` / `measures` / `dimensions` 等 builder 查询键。SQL chart 的 `visual.mappings.*` 必须跟 `context(path="chart")` 返回的 query outputs 对齐；不要凭 SQL 字符串猜字段大小写。
 
 ## Visual rules
 
@@ -173,8 +175,8 @@ Required mappings:
 
 1. 命中 `总览 / 趋势 / 分布 / 统计 / 占比 / dashboard / 分析看板` 时，把 `ChartBlockModel` 视为 `insight` 区首选块。
 2. 优先生成 `builder + basic + mappings`。
-3. 对 relation 维度使用数组路径和 alias，再用 alias 绑定 `visual.mappings.*`。
-4. 用户明确说 `SQL` 时，再生成 `sql + basic` 或 `sql + custom`。
+3. builder 图表只默认使用 scalar 字段；relation label 分组改用 SQL chart，或在用户接受 ID 时用 scalar FK fallback。
+4. 用户明确说 `SQL`，或 relation label 分组无法用 scalar 字段表达时，再生成 `sql + basic` 或 `sql + custom`。
 5. 用户明确要求自定义 ECharts option / events 时，才生成 `custom`。
 
 ## guard 关注点
@@ -187,6 +189,7 @@ payload guard 应至少检查：
 - `CHART_VISUAL_TYPE_MISSING`
 - `CHART_VISUAL_MAPPINGS_MISSING`
 - `CHART_VISUAL_LEGACY_BUILDER_KEYS_UNSUPPORTED`
+- `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED`
 - `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED`
 - `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED`
 - `CHART_SQL_TEXT_MISSING`

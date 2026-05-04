@@ -1750,6 +1750,29 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
   );
 });
 
+test('chart docs reject builder relation fields and point relation labels to SQL fallback', () => {
+  for (const relativePath of ['references/blocks/chart.md', 'references/chart-core.md', 'references/helper-contracts.md']) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED|chart-builder-relation-field-runtime-unsupported/i,
+      `${relativePath} should name the stable local validation rule`,
+    );
+    assert.match(
+      text,
+      /relation[\s\S]{0,160}(SQL chart|sql chart|query\.mode = "sql")/i,
+      `${relativePath} should route relation-label grouping to SQL chart fallback`,
+    );
+  }
+
+  const chartBlock = read('references/blocks/chart.md');
+  assert.doesNotMatch(
+    chartBlock,
+    /\{\s*"field"\s*:\s*\[\s*"customer"\s*,\s*"name"\s*\]\s*,\s*"alias"\s*:\s*"customer_name"\s*\}/i,
+    'chart block docs must not keep the old builder relation dimension example',
+  );
+});
+
 test('whole-page authoring docs keep menu, layout, and filter gates aligned with runtime', () => {
   const skill = read('SKILL.md');
   assert.match(

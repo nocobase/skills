@@ -139,8 +139,7 @@ The safest minimum chart recipe is:
     ],
     "dimensions": [
       {
-        "field": ["department", "title"],
-        "alias": "department_title"
+        "field": "status"
       }
     ]
   },
@@ -148,7 +147,7 @@ The safest minimum chart recipe is:
     "mode": "basic",
     "type": "bar",
     "mappings": {
-      "x": "department_title",
+      "x": "status",
       "y": "employeeCount"
     }
   }
@@ -159,6 +158,7 @@ When choosing default values, the skill should prefer this safe subset:
 
 - builder query
 - single measure
+- scalar dimensions only
 - basic visual
 - explicit mappings
 - no sorting generated in the first round
@@ -176,6 +176,8 @@ Valid:
 - `measures[].field` is required
 - `aggregation` only supports `sum | count | avg | max | min`
 - `dimensions` is optional
+- builder chart `measures[]`, `dimensions[]`, `sorting[]`, and `orders[]` should only use scalar fields on the host collection
+- relation field paths are blocked locally with `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED` / `chart-builder-relation-field-runtime-unsupported`; use SQL chart with an explicit join for relation-label grouping, or a scalar foreign-key field only when ID display is acceptable
 - `filter` is optional and should be a FilterGroup structure
 - `sorting` is optional; to maximize first-try success, the skill should not proactively generate sorting unless the user explicitly asks for it
 - If existing sorting needs to be cleared, pass `sorting: []` explicitly. Do not rely on omission
@@ -196,6 +198,7 @@ Invalid:
 - writing both `resource` and `collectionPath`
 - empty `measures`
 - empty-string `field`
+- relation field paths such as `["department", "title"]` or `"department.title"` in builder `measures[]`, `dimensions[]`, `sorting[]`, or `orders[]`
 - aggregate sorting that references an unselected field
 - aggregate sorting that still uses the original field name after introducing a custom alias, for example `sum(amount) as totalAmount` while still writing `sorting.field = "amount"`
 - empty-string `filter.items[].path`
@@ -263,7 +266,7 @@ Invalid:
 2. aliases explicitly declared in builder query
 3. direct scalar dimension names only when the dimension is not a relation path
 
-For relation dimensions, declare an alias on the array path, for example `["department", "title"]` with `alias: "department_title"`, then map `visual.mappings.*` to that alias. Do not map `visual.mappings.*` to a dotted relation path.
+For relation label grouping, do not use builder relation dimensions. Use `query.mode = "sql"` with an explicit join and map `visual.mappings.*` to the SQL output aliases returned by `context(path="chart")`. If the user accepts showing IDs, a scalar foreign-key field can stay in builder mode.
 
 `style` only exposes frequent parameters:
 

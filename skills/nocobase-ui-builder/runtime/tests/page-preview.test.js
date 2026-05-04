@@ -8852,6 +8852,49 @@ test('prepareApplyBlueprintRequest rejects builder chart query without canonical
   );
 });
 
+test('prepareApplyBlueprintRequest rejects builder chart relation field paths before remote queryData', () => {
+  const result = assertRejectsChartBlueprint(
+    {
+      asset: buildChartAsset({
+        query: {
+          measures: [{ field: 'id', aggregation: 'count', alias: 'userCount' }],
+          dimensions: [{ field: ['department', 'title'], alias: 'department_title' }],
+        },
+        visual: {
+          mappings: { x: 'department_title', y: 'userCount' },
+        },
+      }),
+    },
+    ['chart-builder-relation-field-runtime-unsupported'],
+  );
+
+  assert.deepEqual(
+    result.errors.find((issue) => issue.ruleId === 'chart-builder-relation-field-runtime-unsupported')?.path,
+    'assets.charts.statusChart.query.dimensions[0].field',
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps scalar builder chart dimensions valid', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildChartBlueprint({
+      asset: buildChartAsset({
+        query: {
+          dimensions: [{ field: 'department_id', alias: 'department_id' }],
+        },
+        visual: {
+          mappings: { x: 'department_id', y: 'userCount' },
+        },
+      }),
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.assets.charts.statusChart.query.dimensions, [
+    { field: 'department_id', alias: 'department_id' },
+  ]);
+});
+
 test('prepareApplyBlueprintRequest rejects chart asset entries that are not objects', () => {
   assertRejectsChartBlueprint(
     {
