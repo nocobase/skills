@@ -59,11 +59,14 @@ ctx.render(
 如果只是显示当前登录用户，优先直接使用 `ctx.user` 或 `ctx.auth?.user`，不要先写 `/auth:check`：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const currentUser = ctx.user ?? ctx.auth?.user ?? null;
 
 ctx.render(
   <Card size="small">
-    {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
+    <Typography.Text>
+      {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
+    </Typography.Text>
   </Card>
 );
 ```
@@ -71,6 +74,7 @@ ctx.render(
 如果只是发自定义端点或 request-only 的 HTTP 请求，才默认使用 `ctx.request()`：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const { data } = await ctx.request({
   url: '/app:getInfo',
   method: 'get',
@@ -80,7 +84,7 @@ const { data } = await ctx.request({
 const appName = data?.data?.name;
 ctx.render(
   <Card size="small">
-    {appName || ctx.t('Unnamed app')}
+    <Typography.Text>{appName || ctx.t('Unnamed app')}</Typography.Text>
   </Card>
 );
 ```
@@ -88,6 +92,7 @@ ctx.render(
 如果要读取 collection 的列表或单条记录，默认先初始化 resource：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 ctx.initResource('MultiRecordResource');
 ctx.resource.setResourceName('tasks');
 ctx.resource.setPageSize?.(10);

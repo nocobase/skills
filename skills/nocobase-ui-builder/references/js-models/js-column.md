@@ -92,7 +92,7 @@ ctx.element.innerHTML = '<span>...</span>';
     "jsSettings": {
       "runJs": {
         "version": "v2",
-        "code": \"const { Tag, Typography } = ctx.libs.antd;\\nconst status = (await ctx.getVar('ctx.record.status')) || 'unknown';\\nctx.render(\\n  <Tag color=\\\"green\\\">\\n    <Typography.Text>{String(status)}</Typography.Text>\\n  </Tag>,\\n);\"
+        "code": "const { Tag, Typography } = ctx.libs.antd;\\nconst status = (await ctx.getVar('ctx.record.status')) || 'unknown';\\nctx.render(\\n  <Tag color=\\\"green\\\">\\n    <Typography.Text>{String(status)}</Typography.Text>\\n  </Tag>,\\n);"
       }
     }
   }

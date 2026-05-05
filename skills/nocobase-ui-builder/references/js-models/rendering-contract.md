@@ -29,8 +29,6 @@ description: 渲染型 JS model 的统一约束：默认用 ctx.render()，ctx.e
 
 ## 默认模板
 
-### JSX
-
 ```jsx
 const { Card, Tag } = ctx.libs.antd;
 ctx.render(
@@ -40,13 +38,9 @@ ctx.render(
 );
 ```
 
-### DOM 节点
+## DOM 互操作
 
-```js
-const div = document.createElement('div');
-div.textContent = 'Hello';
-ctx.render(div);
-```
+只有在官方能力要求必须直接创建或接收 DOM 节点时，才使用 `ctx.render(domNode)` 作为兼容路径。它不是默认模板；默认模板仍然优先使用 `ctx.libs.antd` JSX。
 
 ## `ctx.element` 的定位
 

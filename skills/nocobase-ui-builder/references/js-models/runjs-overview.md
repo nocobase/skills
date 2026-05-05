@@ -31,7 +31,7 @@ RunJS 是 NocoBase 里给 JS 区块、JS 字段、JS 可编辑字段、JS 项、
 | 顶层异步 | `const mod = await ctx.importAsync(url)` |
 | ESM 模块 | `ctx.importAsync(url)` |
 | UMD / AMD 模块 | `ctx.requireAsync(url)` |
-| 页面内渲染 | `ctx.render(<div />)` 或 `ctx.render(<Card />)` |
+| 页面内渲染 | `ctx.render(<Card />)` |
 | HTTP 请求 | `await ctx.request({ url: '/app:getInfo', method: 'get' })` |
 | 结构化数据资源 | `ctx.initResource('MultiRecordResource')` 后使用 `ctx.resource` |
 | 国际化 | `ctx.t('...')` |
@@ -44,12 +44,15 @@ RunJS 是 NocoBase 里给 JS 区块、JS 字段、JS 可编辑字段、JS 项、
 如果只是需要当前登录用户，不要为了取用户信息再请求一次 `/auth:check`，优先直接使用上下文里的 `ctx.user` 或 `ctx.auth?.user`：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const currentUser = ctx.user ?? ctx.auth?.user ?? null;
 
 ctx.render(
-  <div style={{ padding: 12 }}>
-    {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
-  </div>
+  <Card size="small">
+    <Typography.Text>
+      {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
+    </Typography.Text>
+  </Card>
 );
 ```
 
@@ -63,6 +66,7 @@ ctx.render(
 JSBlock 列表示例：
 
 ```jsx
+const { Card, List, Typography } = ctx.libs.antd;
 ctx.initResource('MultiRecordResource');
 ctx.resource.setResourceName('tasks');
 ctx.resource.setPageSize?.(5);
@@ -76,11 +80,16 @@ await ctx.resource.refresh();
 
 const rows = ctx.resource.getData() || [];
 ctx.render(
-  <ul>
-    {rows.map((row) => (
-      <li key={row.id}>{row.title ?? row.name ?? `#${row.id}`}</li>
-    ))}
-  </ul>
+  <Card size="small">
+    <List
+      dataSource={rows}
+      renderItem={(row) => (
+        <List.Item key={row.id}>
+          <Typography.Text>{row.title ?? row.name ?? `#${row.id}`}</Typography.Text>
+        </List.Item>
+      )}
+    />
+  </Card>
 );
 ```
 
@@ -100,6 +109,7 @@ await fetch('/api/...');
 推荐写法：
 
 ```js
+const { Card, Typography } = ctx.libs.antd;
 const { data } = await ctx.request({
   url: '/app:getInfo',
   method: 'get',
@@ -108,9 +118,9 @@ const { data } = await ctx.request({
 
 const appName = data?.data?.name;
 ctx.render(
-  <div style={{ padding: 12 }}>
-    {appName || ctx.t('Unnamed app')}
-  </div>
+  <Card size="small">
+    <Typography.Text>{appName || ctx.t('Unnamed app')}</Typography.Text>
+  </Card>
 );
 ```
 
