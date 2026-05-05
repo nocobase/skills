@@ -132,7 +132,7 @@ Consult [Workflow HTTP API index](references/http-api/index.md) only when you ne
 - First-time setup or whole-surface replacement uses `flowSurfaces applyApprovalBlueprint`.
 - Localized approval edits require resolving the bound `approvalUid` or `taskCardUid` first, then using the localized `flowSurfaces` operations.
 - Ordinary Modern page, tab, popup, and route-backed surface work still belongs to `nocobase-ui-builder`.
-- Full route selection, payload, and verification guidance lives in [Approval UI authoring index](references/ui-config/approval/index.md). The per-surface FlowModel tree, owner config knobs, full block / action / field / configure constraint matrix, and the user-intent → operation scenario map (initiator submit / save-draft / withdraw, approver approve / reject / return / delegate / add-assignee, task cards) live in [Approval surfaces reference](references/ui-config/approval/surfaces.md).
+- Full route selection, payload, and verification guidance lives in [Approval UI authoring index](references/approval/ui-config/index.md). The per-surface FlowModel tree, owner config knobs, full block / action / field / configure constraint matrix, and the user-intent → operation scenario map (initiator submit / save-draft / withdraw, approver approve / reject / return / delegate / add-assignee, task cards) live in [Approval surfaces reference](references/approval/ui-config/surfaces.md).
 
 # Hard Rules
 
@@ -169,7 +169,7 @@ For approval UI requests, first decide whether the task is:
 - first-time setup or whole-surface replacement
 - a localized edit on an existing bound approval surface
 
-Then follow [Approval UI authoring index](references/ui-config/approval/index.md) for owner resolution, route selection, and verification.
+Then follow [Approval UI authoring index](references/approval/ui-config/index.md) for owner resolution, route selection, and verification.
 
 ## Creating a New Workflow
 
@@ -230,8 +230,8 @@ After completing any workflow operation, verify:
 
 # References
 
-- [Approval UI authoring index](references/ui-config/approval/index.md): use when the task is about approval initiator, approver, or task-card surfaces bound to workflow or approval-node config.
-- [Approval surfaces reference](references/ui-config/approval/surfaces.md): use when authoring or editing any approval block, action, or field — covers the per-surface FlowModel tree, every owner config knob, the singleton action map, the full `configure` payload schemas (`approvalReturn`, `assigneesScope`, `confirm`, `assignValues`, `fieldComponent`), and the scenario → operation table.
+- [Approval UI authoring index](references/approval/ui-config/index.md): use when the task is about approval initiator, approver, or task-card surfaces bound to workflow or approval-node config.
+- [Approval surfaces reference](references/approval/ui-config/surfaces.md): use when authoring or editing any approval block, action, or field — covers the per-surface FlowModel tree, every owner config knob, the singleton action map, the full `configure` payload schemas (`approvalReturn`, `assigneesScope`, `confirm`, `assignValues`, `fieldComponent`), and the scenario → operation table.
 - [Workflow architecture and data model](references/modeling/index.md): use when understanding the overall model structure, revision rules, status codes, or variable groups.
 - [Workflow data model - workflows](references/modeling/workflows.md): use when deciding sync mode, workflow field semantics, or workflow-level execution constraints.
 - [Workflow conventions](references/conventions/index.md): use when building `collection`, `filter`, `appends`, and variable expressions.

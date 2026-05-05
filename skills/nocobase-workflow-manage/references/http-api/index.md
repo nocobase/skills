@@ -72,7 +72,7 @@ Detailed parameters and examples: [jobs.md](jobs.md)
 
 ### flowSurfaces — Approval UI Authoring
 
-Use this only for workflow approval custom UI authoring. For blueprint vs incremental routing, owner resolution, and verification order, read [Approval UI authoring index](../ui-config/approval/index.md).
+Use this only for workflow approval custom UI authoring. For blueprint vs incremental routing, owner resolution, and verification order, read [Approval UI authoring index](../approval/ui-config/index.md).
 
 | Interface | Description |
 |---|---|

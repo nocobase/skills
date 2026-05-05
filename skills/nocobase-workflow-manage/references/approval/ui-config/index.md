@@ -77,4 +77,4 @@ This folder is the canonical source for approval UI route selection. Keep transp
 - API request/response shape and examples: FlowSurfaces Swagger / OpenAPI.
 - User-facing operation guide: `docs/docs/cn/plugins/@nocobase/plugin-workflow-approval/custom-ui.md`.
 - Server design truth: `plugin-flow-engine/src/server/flow-surfaces/approval/README.md`.
-- HTTP / MCP endpoint mapping only: `references/http-api/index.md`.
+- HTTP / MCP endpoint mapping only: [http-api/index.md](../../http-api/index.md).
