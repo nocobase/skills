@@ -9394,6 +9394,55 @@ test('prepare-write upgrades create to replace when same group and title already
   assert.equal(payload.cliBody.target.pageSchemaUid, 'page-88');
 });
 
+test('prepare-write preserves raw blueprint shape when same-page create becomes replace without auto collection metadata', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { routeId: 11 },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [
+              { id: 88, title: 'Users', type: 'flowPage', parentId: '11', schemaUid: 'page-88' },
+            ],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.mode, 'replace');
+  assert.equal(payload.cliBody.target.pageSchemaUid, 'page-88');
+  assert.equal(Object.hasOwn(payload.cliBody, 'blueprint'), false);
+});
+
 test('prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

@@ -116,6 +116,13 @@ function withResolvedNavigationGroup(payload, routeId) {
   return wrappedKey ? { ...payload, [wrappedKey]: nextBlueprint } : nextBlueprint;
 }
 
+function withPreparedBlueprint(payload, blueprint) {
+  if (!isObjectRecord(payload)) return payload;
+  if (isObjectRecord(payload.blueprint)) return { ...payload, blueprint };
+  if (isObjectRecord(payload.requestBody)) return { ...payload, requestBody: blueprint };
+  return blueprint;
+}
+
 function extractDesktopRouteRows(payload) {
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.rows)) return payload.rows;
@@ -336,10 +343,7 @@ export async function prepareApplyBlueprintWrite(payload, options = {}) {
           pageSchemaUid: identityResolution.pageSchemaUid,
         },
       };
-      writePayload = {
-        ...writePayload,
-        blueprint: nextBlueprint,
-      };
+      writePayload = withPreparedBlueprint(writePayload, nextBlueprint);
     }
   }
 
