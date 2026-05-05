@@ -13,7 +13,7 @@ This file defines the transport policy for `nocobase-ui-builder`.
 
 1. Check whether `nb` is available in the current environment.
 2. If it is available, use the wrapper `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`.
-3. If `nb` is available but its runtime/auth is not ready, stop and report the blocked command state.
+3. If `nb` is available but its runtime/auth is not ready, stop and report the blocked wrapper command state.
 4. If `nb` itself is unavailable, report that the task is blocked on a usable `nb` command.
 
 ## Required CLI Preparation

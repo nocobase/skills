@@ -1611,6 +1611,9 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(cliTransport, /nb-flow-surfaces\.mjs/i);
   assert.match(cliTransport, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
   assert.match(cliTransport, /do not probe bare PATH commands first/i);
+  assert.match(cliTransport, /blocked wrapper command state/i);
+  assert.match(cliTransport, /exact `?nb-flow-surfaces\.mjs <subcommand>`? wrapper command\/output/i);
+  assert.doesNotMatch(cliTransport, /blocked nb command state|chosen nb path|exact `?nb api \.\.\.`? command\/output/i);
 
   const executionChecklistLocalCli = read('references/execution-checklist.md');
   assert.match(executionChecklistLocalCli, /nb-flow-surfaces\.mjs apply-blueprint/i);
@@ -1618,6 +1621,8 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   const cliCommandSurface = read('references/cli-command-surface.md');
   assert.match(cliCommandSurface, /nb-flow-surfaces\.mjs/i);
   assert.match(cliCommandSurface, /internal `?prepare-write`?/i);
+  assert.match(cliCommandSurface, /unresolved `?nb-flow-surfaces\.mjs <subcommand>`? wrapper command/i);
+  assert.doesNotMatch(cliCommandSurface, /unresolved `?nb api \.\.\.`? command/i);
 
   const pageIntent = read('references/page-intent.md');
   assert.match(pageIntent, /nb-flow-surfaces\.mjs apply-blueprint/i);
@@ -1637,6 +1642,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
       text,
       /prepareApplyBlueprintRequest/i,
       `${relativePath} should not direct agents to call prepareApplyBlueprintRequest`,
+    );
+    assert.doesNotMatch(
+      text,
+      /localized existing-surface edits[\s\S]{0,160}(?:low-level\s+`?flow-surfaces`?|go through\s+`?flow-surfaces`?)/i,
+      `${relativePath} should not route localized edits through old low-level flow-surfaces wording`,
     );
   }
 
