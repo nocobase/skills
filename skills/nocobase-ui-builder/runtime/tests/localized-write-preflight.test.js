@@ -178,6 +178,10 @@ function assertHasRule(result, ruleId, path) {
   assert.equal(result.errors.some((issue) => issue.ruleId === ruleId && (!path || issue.path === path)), true);
 }
 
+function actionTypes(actions) {
+  return actions.map((action) => (typeof action === 'string' ? action : action?.type));
+}
+
 function makeDirectLocalizedBody(operation, {
   type = 'table',
   collectionName = 'users',
@@ -232,6 +236,66 @@ test('runLocalizedWritePreflight fails add-block data surfaces that omit block-l
   assert.equal(result.ok, false);
   assertHasRule(result, 'public-data-surface-default-filter-required');
   assert.equal(result.facts.requiredCollections.includes('users'), true);
+});
+
+test('runLocalizedWritePreflight defaults record actions for direct table blocks', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-table',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
+});
+
+test('runLocalizedWritePreflight preserves explicit table record actions and skips table select models', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-table',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          recordActions: [{ type: 'view' }],
+        },
+        {
+          key: 'users-selector',
+          type: 'table',
+          use: 'TableSelectModel',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view']);
+  assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
 });
 
 test('runLocalizedWritePreflight fails localized writes that use empty block-level defaultFilter on direct data surfaces', () => {

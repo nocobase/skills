@@ -894,6 +894,29 @@ function isDataBlock(block) {
   return hasResourceBinding(block);
 }
 
+function isTableRecordActionsDefaultTarget(block) {
+  if (!isPlainObject(block)) return false;
+  if (normalizeText(block.type) !== 'table') return false;
+  if (!isDataBlock(block) || isTemplateBackedBlock(block)) return false;
+  if (hasOwn(block, 'recordActions')) return false;
+
+  const blockUse = normalizeText(block.use);
+  if (blockUse === 'TableSelectModel') return false;
+  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
+
+  return true;
+}
+
+function materializeTableRecordActionsForWrite(block) {
+  if (!isTableRecordActionsDefaultTarget(block)) {
+    return block;
+  }
+  return {
+    ...block,
+    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
+  };
+}
+
 function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
@@ -2704,7 +2727,7 @@ function materializeBlockForWrite(block, options = {}) {
   if (!isPlainObject(block)) {
     return block;
   }
-  const nextBlock = cloneSerializable(block);
+  let nextBlock = cloneSerializable(block);
   normalizeCalendarFieldBindingsOnBlock(nextBlock);
   if (hasOwn(nextBlock, 'settings') || getHiddenPopupSettingsForBlockType(nextBlock.type).length > 0) {
     const materializedSettings = materializeSettingsForWrite(nextBlock, options);
@@ -2745,6 +2768,11 @@ function materializeBlockForWrite(block, options = {}) {
         recordActions: true,
       }),
     );
+  } else {
+    const nextWithDefaultRecordActions = materializeTableRecordActionsForWrite(nextBlock);
+    if (nextWithDefaultRecordActions !== nextBlock) {
+      nextBlock = nextWithDefaultRecordActions;
+    }
   }
   if (!hasOwn(nextBlock, 'fieldsLayout')) {
     const synthesizedLayout = buildDefaultFieldsLayout(nextBlock);

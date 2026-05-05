@@ -377,6 +377,10 @@ function defaultFilterAction(fieldNames = commonUserDefaultFilterFieldNames) {
   };
 }
 
+function actionTypes(actions) {
+  return actions.map((action) => (typeof action === 'string' ? action : action?.type));
+}
+
 function assertMissingCollectionMetadata(result, expectedPath) {
   assert.equal(result.ok, false);
   assert.equal(result.cliBody, undefined);
@@ -1071,6 +1075,7 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
             fields: ['nickname', 'email'],
             defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
             actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+            recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
           },
         ],
       },
@@ -10750,6 +10755,129 @@ test('prepare-write returns normalized cli body json', async () => {
   assert.deepEqual(payload.warnings, []);
   assert.equal(payload.facts.expectedOuterTabs, 1);
   assert.equal(payload.cliBody.target.pageSchemaUid, 'users-page-schema');
+});
+
+test('prepare-write defaults record actions for direct table blocks', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'replace',
+        target: { pageSchemaUid: 'users-page-schema' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                fields: ['nickname', 'email'],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.deepEqual(actionTypes(payload.cliBody.tabs[0].blocks[0].recordActions), ['view', 'edit', 'delete']);
+});
+
+test('prepare-write preserves explicit table record actions and skips table select models', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'replace',
+        target: { pageSchemaUid: 'users-page-schema' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            layout: {
+              rows: [[{ key: 'usersTable', span: 12 }, { key: 'usersSelector', span: 12 }]],
+            },
+            blocks: [
+              {
+                key: 'usersTable',
+                title: 'Users table',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                fields: ['nickname'],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+                recordActions: [{ type: 'view' }],
+              },
+              {
+                key: 'usersSelector',
+                title: 'Users selector',
+                type: 'table',
+                use: 'TableSelectModel',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                fields: ['nickname'],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  const [explicitTable, tableSelect] = payload.cliBody.tabs[0].blocks;
+  assert.deepEqual(actionTypes(explicitTable.recordActions), ['view']);
+  assert.equal(Object.hasOwn(tableSelect, 'recordActions'), false);
 });
 
 test('prepare-write accepts helper envelope with templateDecision', async () => {

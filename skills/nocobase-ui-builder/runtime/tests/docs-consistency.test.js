@@ -96,6 +96,24 @@ function extractJsFenceAfterH2(markdown, heading) {
   return match[2];
 }
 
+function extractH2Section(markdown, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const headingMatch = markdown.match(new RegExp(`^##\\s+${escaped}\\s*$`, 'm'));
+  assert.ok(headingMatch, `should find h2 section "${heading}"`);
+  const bodyStart = headingMatch.index + headingMatch[0].length;
+  const remaining = markdown.slice(bodyStart);
+  const nextHeading = remaining.match(/^##\s+/m);
+  return nextHeading ? remaining.slice(0, nextHeading.index) : remaining;
+}
+
+function extractFences(markdown, language) {
+  return [...markdown.matchAll(new RegExp(`^\\\`\\\`\\\`${language}\\n([\\s\\S]*?)\\n\\\`\\\`\\\``, 'gm'))].map((match) => match[1]);
+}
+
+function extractCodeFences(markdown) {
+  return [...markdown.matchAll(/^```(?:js|javascript|jsx|json)\n([\s\S]*?)\n```/gm)].map((match) => match[1]);
+}
+
 function validateRunjsSnippet(model, code) {
   const cliPath = path.join(skillRoot, 'runtime/bin/nb-runjs.mjs');
   const result = spawnSync(process.execPath, [cliPath, 'validate', '--stdin-json', '--skill-mode'], {
@@ -817,6 +835,53 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
       surface.recommendedSnippetIds,
       `${surface.id} surface doc should keep first-hop snippets in exact manifest order`,
     );
+  }
+});
+
+test('legacy js-model render docs keep Ant Design-first defaults', () => {
+  const renderLeafDefaults = [
+    ['references/js-models/js-block.md', '默认写法'],
+    ['references/js-models/js-column.md', '默认写法'],
+    ['references/js-models/js-field.md', '只读默认写法'],
+    ['references/js-models/js-editable-field.md', '默认写法'],
+    ['references/js-models/js-item.md', '默认写法'],
+    ['references/js-models/rendering-contract.md', '默认模板'],
+  ];
+
+  for (const [relativePath, heading] of renderLeafDefaults) {
+    const defaultSection = extractH2Section(read(relativePath), heading);
+    const defaultExamples = extractCodeFences(defaultSection);
+    assert.ok(defaultExamples.length > 0, `${relativePath} default render section should include code examples`);
+    assert.equal(
+      defaultExamples.some((example) => /ctx\.libs\.antd|ctx\.libs\.antdIcons/.test(example)),
+      true,
+      `${relativePath} default render section should use Ant Design libraries`,
+    );
+    for (const defaultExample of defaultExamples) {
+      assert.doesNotMatch(defaultExample, /ctx\.render\s*\(\s*(?:'|"|`)\s*</, `${relativePath} default render example should not render an HTML string`);
+      assert.doesNotMatch(defaultExample, /\b(?:document\.createElement|ctx\.element\.innerHTML)\b/, `${relativePath} default render example should not default to DOM construction`);
+    }
+  }
+
+  const runjsOverview = read('references/js-models/runjs-overview.md');
+  assert.match(
+    runjsOverview,
+    /渲染型 JS model 默认优先使用 `ctx\.libs\.antd` \/ `ctx\.libs\.antdIcons`/,
+    'runjs overview should state the Ant Design-first render policy',
+  );
+  assert.doesNotMatch(
+    runjsOverview,
+    /页面内渲染\s*\|\s*`ctx\.render\(<div \/>`\s*或/i,
+    'runjs overview should not keep bare div rendering as a default table entry',
+  );
+
+  for (const relativePath of walkMarkdownFiles('references/js-models')) {
+    for (const jsonFence of extractFences(read(relativePath), 'json')) {
+      assert.doesNotThrow(
+        () => JSON.parse(jsonFence),
+        `${relativePath} should keep json fences parseable`,
+      );
+    }
   }
 });
 
