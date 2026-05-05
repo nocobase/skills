@@ -29,17 +29,15 @@ description: 渲染型 JS model 的统一约束：默认用 ctx.render()，ctx.e
 
 ## 默认模板
 
-### HTML 字符串
-
-```js
-ctx.render('<div style="padding:12px">Hello</div>');
-```
-
 ### JSX
 
 ```jsx
-const { Tag } = ctx.libs.antd;
-ctx.render(<Tag color="green">OK</Tag>);
+const { Card, Tag } = ctx.libs.antd;
+ctx.render(
+  <Card size="small" title="Summary">
+    <Tag color="green">OK</Tag>
+  </Card>,
+);
 ```
 
 ### DOM 节点
@@ -81,6 +79,7 @@ ctx.element.innerHTML = '<div>...</div>';
 ## 正确示例
 
 ```js
+const { Typography } = ctx.libs.antd;
 const value = (await ctx.getVar('ctx.record.status')) || '-';
-ctx.render(`<span>${value}</span>`);
+ctx.render(<Typography.Text>{value}</Typography.Text>);
 ```

@@ -25,7 +25,7 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
     "jsSettings": {
       "runJs": {
         "version": "v2",
-        "code": "ctx.render('<div/>');"
+        "code": "const { Card } = ctx.libs.antd;\\nctx.render(<Card title={ctx.t('Summary')} />);"
       }
     }
   }
@@ -45,17 +45,11 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
 
 ## 默认写法
 
-```js
-ctx.render('<div style="padding:12px">Custom block</div>');
-```
-
-或：
-
 ```jsx
-const { Card } = ctx.libs.antd;
+const { Card, Typography } = ctx.libs.antd;
 ctx.render(
   <Card title={ctx.t('Summary')}>
-    <div>{ctx.t('Content')}</div>
+    <Typography.Text>{ctx.t('Content')}</Typography.Text>
   </Card>
 );
 ```
@@ -68,9 +62,9 @@ ctx.render(
 const currentUser = ctx.user ?? ctx.auth?.user ?? null;
 
 ctx.render(
-  <div style={{ padding: 12 }}>
+  <Card size="small">
     {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
-  </div>
+  </Card>
 );
 ```
 
@@ -85,9 +79,9 @@ const { data } = await ctx.request({
 
 const appName = data?.data?.name;
 ctx.render(
-  <div style={{ padding: 12 }}>
+  <Card size="small">
     {appName || ctx.t('Unnamed app')}
-  </div>
+  </Card>
 );
 ```
 
@@ -106,11 +100,11 @@ await ctx.resource.refresh();
 
 const rows = ctx.resource.getData() || [];
 ctx.render(
-  <div style={{ padding: 12 }}>
+  <Card size="small">
     {rows.map((row) => (
-      <div key={row.id}>{row.title ?? row.name ?? `#${row.id}`}</div>
+      <Typography.Text key={row.id}>{row.title ?? row.name ?? `#${row.id}`}</Typography.Text>
     ))}
-  </div>
+  </Card>
 );
 ```
 

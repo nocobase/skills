@@ -27,9 +27,14 @@ description: 面向 builder 的 JSItemModel 约束，覆盖表单中的非字段
 ## 默认写法
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const values = ctx.formValues || {};
 const total = Number(values.price || 0) * Number(values.quantity || 1);
-ctx.render(<div>Total: {total}</div>);
+ctx.render(
+  <Card size="small">
+    <Typography.Text>{`Total: ${total}`}</Typography.Text>
+  </Card>,
+);
 ```
 
 ## CLI 创建
