@@ -14,6 +14,7 @@ Use this before the first real whole-page write.
 - returns: normalized prepare-write result including prepared `cliBody` plus the ASCII preview
 - treat the normalized write body as authoritative local write shape; expected helper-added or helper-normalized fields should be kept as-is instead of being locally undone
 - once this helper has run successfully, the first whole-page write must consume `result.cliBody` rather than reusing the original draft blueprint
+- the usual agent-facing path is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`; that wrapper is expected to consume this helper result and send only `result.cliBody` to backend `nb api flow-surfaces apply-blueprint`
 - this helper is local/read-only for page writes; it never performs the remote `apply-blueprint` write for you
 - by default, in `create` mode it also resolves `navigation.group.title` against live `desktopRoutes`: zero matches keep `title + icon` for new-group creation, one match rewrites the prepared `cliBody` to `navigation.group.routeId`, and multiple matches fail locally requiring explicit `routeId`
 - by default, the CLI path auto-resolves missing `collectionMetadata` entries before validation: it normalizes supplied metadata, scans data-bound blocks, ordinary popups, and calendar/kanban hidden popup hosts, resolves association targets from known metadata for up to 5 rounds, fetches only missing collections with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`, and falls back to `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`
@@ -34,14 +35,14 @@ Use this before the first real whole-page write.
 
 ## `nb-localized-write-preflight`
 
-Use this when you want a local validation pass for one localized `compose`, `add-block`, `add-blocks`, or `configure` body before the later explicit `nb api flow-surfaces ...` write.
+Use this when you want a local validation pass for one localized `compose`, `add-block`, `add-blocks`, or `configure` body before the later backend `nb api flow-surfaces ...` write.
 
 - CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs --operation <compose|add-block|add-blocks|configure> --stdin-json`
 - If your current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs`; do not probe the bare `nb-localized-write-preflight` command first.
 - input: one localized write body object, or helper envelope `{ body, collectionMetadata? }`
 - returns: stable localized preflight result with `ok`, `errors`, `warnings`, `facts`, and normalized `cliBody`
 - use it for: local validation of localized public low-level `compose` / `add-block` / `add-blocks` / `configure` bodies before the later explicit `nb api flow-surfaces ...` call
-- this helper is local/read-only: it validates and canonicalizes one payload, but does not execute `nb` and does not wrap the transport for you
+- this helper is local/read-only: it validates and canonicalizes one payload, but does not execute `nb` and does not wrap the transport by itself; the usual agent-facing path is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <compose|add-block|add-blocks|configure>`
 - `collectionMetadata` stays caller-supplied; this helper does not fetch it for you
 - for any data-bound localized payload, missing or empty metadata fails with stable helper rule id `missing-collection-metadata`
 - direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks still fail closed here when block-level `defaultFilter` is missing or empty; this stricter requirement belongs to the skill preflight layer, not the backend runtime compatibility contract
@@ -58,7 +59,7 @@ Use this when you want a local validation pass for one localized `compose`, `add
 - calendar and kanban hidden popup template choices follow the hidden popup rules in [page-blueprint.md](./page-blueprint.md): use calendar `settings.quickCreatePopup` / `settings.eventPopup` and kanban `settings.quickCreatePopup` / `settings.cardPopup`, not main-block `popup.template`; localized preflight validates those hidden popup settings when present, but it does not auto-fill missing calendar / kanban hidden popup objects with `tryTemplate=true`
 - localized preflight also recurses into explicit hidden popup `blocks`, so nested public data-surface blocks, relation field popups, metadata requirements, and `calendar` / `kanban` semantic field bindings are validated there too
 - hidden popup validation here still stops short of whole-page-only popup materialization, defaults completeness, or metadata auto-discovery behavior.
-- once this helper succeeds, keep the later write explicit; send only `result.cliBody` as the real low-level nb body
+- once this helper succeeds, keep the later backend write explicit; send only `result.cliBody` as the real low-level nb body
 
 ## `prepareApplyBlueprintRequest(...)`
 
@@ -68,7 +69,7 @@ Use this helper in local JS code when you need the same prepare-write behavior w
 - returns: normalized prepare-write result with prepared `cliBody`, preview, and local validation output
 - accept expected helper-added and helper-normalized output as-is instead of trying to undo it locally
 - use it for: prewrite validation, preview generation, template-decision normalization, data-bound `collectionMetadata` checks, and defaults completeness checks
-- do not treat it as a transport wrapper; if it succeeds, persist/inspect `result.cliBody` if needed and send only that prepared object in the later `nb api flow-surfaces apply-blueprint` call
+- do not treat it as the user-facing transport; if it succeeds, persist/inspect `result.cliBody` if needed and send only that prepared object in the later backend `nb api flow-surfaces apply-blueprint` call, typically through `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`
 - do not use it as a schema-aware planner; recompute involved collections and rebuild `defaults.collections` before calling it
 - unlike the CLI, this JS helper does not auto-fetch missing metadata; pass resolved metadata explicitly when calling it directly
 

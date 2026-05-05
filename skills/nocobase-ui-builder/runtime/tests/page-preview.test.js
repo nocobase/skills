@@ -1261,6 +1261,38 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
+test('prepareApplyBlueprintRequest normalizes literal escaped newlines in JS code before write', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Employees' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'jsBlock',
+            type: 'js',
+            use: 'JSBlockModel',
+            stepParams: {
+              jsSettings: {
+                runJs: {
+                  version: 'v2',
+                  code: 'const title = String(ctx.formValues?.title || "");\\nreturn title.trim();',
+                },
+              },
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].stepParams.jsSettings.runJs.code.includes('\\n'), false);
+  assert.equal(result.cliBody.tabs[0].blocks[0].stepParams.jsSettings.runJs.code.includes('\n'), true);
+});
+
 test('prepareApplyBlueprintRequest accepts public blueprint envelope with metadata', () => {
   const result = prepareApplyBlueprintRequest({
     blueprint: {
@@ -10906,6 +10938,77 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
   );
 
   const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--expected-outer-tabs', '2'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.facts.expectedOuterTabs, 2);
+  assert.equal(payload.facts.outerTabCount, 2);
+});
+
+test('page preview cli prepare-write accepts inline equals flags for numeric options', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Users' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'List',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                fields: ['nickname'],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+              },
+            ],
+          },
+          {
+            title: 'Detail',
+            blocks: [
+              {
+                key: 'usersDetail',
+                type: 'details',
+                collection: 'users',
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli([
+    '--stdin-json',
+    '--prepare-write',
+    '--expected-outer-tabs=2',
+    '--max-popup-depth=1',
+  ], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,

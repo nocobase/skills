@@ -1,6 +1,6 @@
-# nb Command Surface
+# Flow Surfaces Wrapper Command Surface
 
-This file maps UI Builder tasks to the canonical `nb` command families.
+This file maps UI Builder tasks to the canonical wrapper entry and backend `nb` families.
 
 Use it together with:
 
@@ -15,34 +15,34 @@ Before first use of a subcommand in the current task:
 
 ```bash
 nb api flow-surfaces --help
-nb api flow-surfaces <subcommand> --help
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help
 ```
 
 For complex writes, prefer `--body-file`; for example, `--body-file <json-file>` is usually better than long inline JSON flags.
 
 ## Canonical Families
 
-| Task | Canonical nb family |
+| Task | Agent-facing wrapper | Backend nb family |
 | --- | --- |
-| inspect one page/tab/popup | `nb api flow-surfaces get` |
-| richer structural readback | `nb api flow-surfaces describe-surface` |
-| capability discovery | `nb api flow-surfaces catalog` |
-| whole-page create / replace | `nb api flow-surfaces apply-blueprint` |
-| localized content edit | `nb api flow-surfaces compose` / `configure` / `update-settings` / `add-*` / `move-*` / `remove-*` |
-| menu lifecycle | `nb api flow-surfaces create-menu` / `update-menu` / `create-page` / `destroy-page` |
-| tab lifecycle | `nb api flow-surfaces add-tab` / `update-tab` / `move-tab` / `remove-tab` |
-| popup-tab lifecycle | `nb api flow-surfaces add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` |
-| event-flow replacement | `nb api flow-surfaces set-event-flows` |
-| reaction discovery | `nb api flow-surfaces get-reaction-meta` |
-| reaction write | `nb api flow-surfaces set-field-value-rules` / `set-field-linkage-rules` / `set-block-linkage-rules` / `set-action-linkage-rules` |
+| inspect one page/tab/popup | `nb-flow-surfaces.mjs get` | `nb api flow-surfaces get` |
+| richer structural readback | `nb-flow-surfaces.mjs describe-surface` | `nb api flow-surfaces describe-surface` |
+| capability discovery | `nb-flow-surfaces.mjs catalog` | `nb api flow-surfaces catalog` |
+| whole-page create / replace | `nb-flow-surfaces.mjs apply-blueprint` | `nb api flow-surfaces apply-blueprint` |
+| localized content edit | `nb-flow-surfaces.mjs compose` / `configure` / `update-settings` / `add-*` / `move-*` / `remove-*` | `nb api flow-surfaces compose` / `configure` / `update-settings` / `add-*` / `move-*` / `remove-*` |
+| menu lifecycle | `nb-flow-surfaces.mjs create-menu` / `update-menu` / `create-page` / `destroy-page` | `nb api flow-surfaces create-menu` / `update-menu` / `create-page` / `destroy-page` |
+| tab lifecycle | `nb-flow-surfaces.mjs add-tab` / `update-tab` / `move-tab` / `remove-tab` | `nb api flow-surfaces add-tab` / `update-tab` / `move-tab` / `remove-tab` |
+| popup-tab lifecycle | `nb-flow-surfaces.mjs add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | `nb api flow-surfaces add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` |
+| event-flow replacement | `nb-flow-surfaces.mjs set-event-flows` | `nb api flow-surfaces set-event-flows` |
+| reaction discovery | `nb-flow-surfaces.mjs get-reaction-meta` | `nb api flow-surfaces get-reaction-meta` |
+| reaction write | `nb-flow-surfaces.mjs set-field-value-rules` / `set-field-linkage-rules` / `set-block-linkage-rules` / `set-action-linkage-rules` | `nb api flow-surfaces set-field-value-rules` / `set-field-linkage-rules` / `set-block-linkage-rules` / `set-action-linkage-rules` |
 
 ## Practical Routing
 
-- Whole-page page-building still starts from one draft page blueprint JSON plus the local `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` gate before the first remote write.
-- For the first real whole-page write, keep `prepare-write` and the remote write as separate steps: run `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` from the repo root first, then send only the prepared `result.cliBody` to `nb api flow-surfaces apply-blueprint`.
-- Localized edits still use the same backend families documented in `runtime-playbook.md`; the canonical front door is always `nb api ...`.
-- Existing-surface event-flow replacement routes through `nb api flow-surfaces set-event-flows`; keep the full `flowRegistry` shape from live readback instead of inventing a partial patch.
-- Reaction work still starts from `get-reaction-meta`, then writes the matching `set-*` rules command.
+- Whole-page page-building still starts from one draft page blueprint JSON plus the local `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` gate before the first backend write.
+- For the first real whole-page write, keep `prepare-write` and the backend write as separate steps: run `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` from the repo root first, then send only the prepared `result.cliBody` to backend `nb api flow-surfaces apply-blueprint`, usually via `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`.
+- Localized edits still use the same backend families documented in `runtime-playbook.md`; the agent-facing front door is `nb-flow-surfaces.mjs`.
+- Existing-surface event-flow replacement routes through `nb-flow-surfaces.mjs set-event-flows`; keep the full `flowRegistry` shape from live readback instead of inventing a partial patch.
+- Reaction work still starts from `get-reaction-meta`, then writes the matching `set-*` rules command through the wrapper.
 - If you need the compact command list for the same family, open [transport-crosswalk.md](./transport-crosswalk.md). This file stays focused on practical routing.
 
 ## Payload Rule

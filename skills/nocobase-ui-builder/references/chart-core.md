@@ -4,7 +4,7 @@ Read [chart.md](./chart.md) first for chart tasks. Read this file only after you
 
 If you need to verify complex contracts, negative cases, or regression matrices, continue with [chart-validation.md](./chart-validation.md). This file only keeps the runtime main path.
 
-Canonical front door is `nb api flow-surfaces`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to nb API families and raw nb bodies; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
+Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to wrapper commands over backend `nb api flow-surfaces` families and the same raw nb bodies; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
 
 ## Contents
 

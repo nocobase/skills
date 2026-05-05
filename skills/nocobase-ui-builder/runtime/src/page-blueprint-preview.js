@@ -12,6 +12,7 @@ import { collectPopupDocumentContractIssues, hasTemplateDocument } from './popup
 import {
   collectBuilderChartRelationFieldIssues,
 } from './chart-query-validation.js';
+import { canonicalizeRunJSPayload } from '../../scripts/runjs_guard.mjs';
 import {
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
@@ -5740,6 +5741,18 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     ),
     warnings,
   );
+  const runjsCanonicalize = canonicalizeRunJSPayload({ payload: blueprint });
+  if (runjsCanonicalize?.payload && runjsCanonicalize.payload !== blueprint) {
+    Object.assign(blueprint, runjsCanonicalize.payload);
+  }
+  if (Array.isArray(runjsCanonicalize?.transforms) && runjsCanonicalize.transforms.length > 0) {
+    warnings.push(
+      ...runjsCanonicalize.transforms.map((item) => {
+        const message = item?.message || 'RunJS code normalized before prepare-write.';
+        return message;
+      }),
+    );
+  }
   const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
   const { errors: templateDecisionErrors, summary: templateDecision } = validateTemplateDecision(templateDecisionInput);
   const {

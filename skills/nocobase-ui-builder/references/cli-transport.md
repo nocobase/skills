@@ -4,15 +4,15 @@ This file defines the transport policy for `nocobase-ui-builder`.
 
 ## Canonical Front Door
 
-- Use `nb api flow-surfaces` whenever it is available.
-- Treat the retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the backend contract and payload reference, not as a separate user-facing transport.
-- Keep `nb-page-preview` and `nb-runjs` as local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
-- `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` is a local/read-only gate: it prepares `result.cliBody`, but the remote write still happens in a separate `nb api flow-surfaces apply-blueprint` step.
+- Use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs` as the agent-facing front door for `flow-surfaces` work.
+- The wrapper routes to backend `nb api flow-surfaces`; treat the retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the backend contract and payload reference, not as a separate user-facing transport.
+- Keep `nb-page-preview`, `nb-runjs`, and `nb-localized-write-preflight` as local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
+- `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` is a local/read-only gate: it prepares `result.cliBody`, but the remote write still happens in a separate backend `nb api flow-surfaces apply-blueprint` step, usually through `nb-flow-surfaces.mjs apply-blueprint`.
 
 ## Selection Rule
 
 1. Check whether `nb` is available in the current environment.
-2. If it is available, use `nb api flow-surfaces`.
+2. If it is available, use the wrapper `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`.
 3. If `nb` is available but its runtime/auth is not ready, stop and report the blocked command state.
 4. If `nb` itself is unavailable, report that the task is blocked on a usable `nb` command.
 
@@ -22,7 +22,7 @@ Before the first runtime command in a task:
 
 1. `nb --help`
 2. `nb api flow-surfaces --help`
-3. Before first use of a specific subcommand, run `nb api flow-surfaces <subcommand> --help`
+3. Before first use of a specific subcommand, run `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help`
 
 ## Stop Conditions
 
