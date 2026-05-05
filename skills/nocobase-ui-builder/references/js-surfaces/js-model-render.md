@@ -10,6 +10,8 @@ Use this surface for JS models whose main job is to render content in a block, f
 - `ctx.render(...)` is required.
 - Do not rely on top-level `return` for rendering.
 - Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, or `JSColumnModel`.
+- Default UI library policy: render React JSX with Ant Design components from `ctx.libs.antd` / `ctx.libs.antdIcons`.
+- Use external UI libraries only when the requested UI needs capabilities Ant Design does not provide.
 
 ## Minimal examples
 
@@ -24,8 +26,12 @@ Example:
 ```js
 const record = (await ctx.getVar('ctx.record')) || {};
 const text = String(record.title ?? record.name ?? '-');
-ctx.render(text);
+const { Typography } = ctx.libs.antd;
+
+ctx.render(<Typography.Text>{text}</Typography.Text>);
 ```
+
+Prefer Ant Design components such as `Typography`, `Tag`, `Space`, `List`, `Card`, `Alert`, `Empty`, `Statistic`, and `Table` before raw HTML strings or custom-styled DOM.
 
 ## Record Context
 

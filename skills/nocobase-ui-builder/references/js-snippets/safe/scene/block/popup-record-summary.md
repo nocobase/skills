@@ -10,6 +10,7 @@ The JS code belongs to an inner table/list row, details field, grid-card item, o
 - `js-model.render`
 
 ## Required ctx roots
+- `ctx.libs`
 - `ctx.getVar`
 - `ctx.render`
 - `ctx.t`
@@ -23,13 +24,19 @@ The JS code belongs to an inner table/list row, details field, grid-card item, o
 ## Normalized snippet
 
 ```js
+const { Card, Typography } = ctx.libs.antd;
 const record = (await ctx.getVar('ctx.popup.record')) || {};
 const name = String(record.username ?? record.nickname ?? record.name ?? ctx.t('Untitled'));
-ctx.render(name);
+
+ctx.render(
+  <Card size="small">
+    <Typography.Text strong>{name}</Typography.Text>
+  </Card>,
+);
 ```
 
 ## Editable slots
 - Replace `username`, `nickname`, and `name` with the popup opener record fields to display.
 
 ## Skill-mode notes
-Use this for `recordSemantic = popup-opener-record`. Do not replace it with `ctx.record` unless live context proves the JS model is hosted by an inner row, field, or record action.
+Use this for `recordSemantic = popup-opener-record`. Keep the output Ant Design based, and do not replace it with `ctx.record` unless live context proves the JS model is hosted by an inner row, field, or record action.

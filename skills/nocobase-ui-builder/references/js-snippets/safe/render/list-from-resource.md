@@ -10,6 +10,7 @@ The host already has a table/list block that can render the collection natively.
 - `js-model.render`
 
 ## Required ctx roots
+- `ctx.libs`
 - `ctx.initResource`
 - `ctx.resource`
 - `ctx.render`
@@ -24,16 +25,31 @@ The host already has a table/list block that can render the collection natively.
 ## Normalized snippet
 
 ```js
+const { Empty, List, Typography } = ctx.libs.antd;
+
 ctx.initResource?.('MultiRecordResource');
 ctx.resource?.setResourceName?.('tasks');
 ctx.resource?.setPageSize?.(5);
 await ctx.resource?.refresh?.();
 
 const rows = ctx.resource?.getData?.() || [];
-const text = rows.length
-  ? rows.map((row) => String(row.title || row.name || row.id)).join(', ')
-  : ctx.t('No data');
-ctx.render(text);
+if (!rows.length) {
+  ctx.render(<Empty description={ctx.t('No data')} />);
+  return;
+}
+
+const dataSource = rows.map((row) => String(row.title || row.name || row.id));
+ctx.render(
+  <List
+    size="small"
+    dataSource={dataSource}
+    renderItem={(item) => (
+      <List.Item>
+        <Typography.Text>{item}</Typography.Text>
+      </List.Item>
+    )}
+  />,
+);
 ```
 
 ## Editable slots
@@ -41,4 +57,4 @@ ctx.render(text);
 - Replace title/name/id display field fallback.
 
 ## Skill-mode notes
-Prefer native data blocks for normal lists. Use this only for compact JS block summaries.
+Prefer native data blocks for normal lists. Use this only for compact Ant Design JS block summaries.

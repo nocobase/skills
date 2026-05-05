@@ -1406,6 +1406,7 @@
         "render-helper"
       ],
       "ctxRoots": [
+        "libs",
         "getVar",
         "render"
       ],
@@ -1451,6 +1452,7 @@
         "render-helper"
       ],
       "ctxRoots": [
+        "libs",
         "getVar",
         "render"
       ],
@@ -1495,6 +1497,7 @@
         "render-helper"
       ],
       "ctxRoots": [
+        "libs",
         "value",
         "getVar",
         "render"
@@ -1539,6 +1542,7 @@
         "render-helper"
       ],
       "ctxRoots": [
+        "libs",
         "formValues",
         "form",
         "render",
@@ -1583,6 +1587,7 @@
         "request-data"
       ],
       "ctxRoots": [
+        "libs",
         "initResource",
         "resource",
         "render",
@@ -1863,6 +1868,7 @@
         ]
       },
       "ctxRoots": [
+        "libs",
         "getVar",
         "render",
         "t"
@@ -1907,6 +1913,7 @@
         ]
       },
       "ctxRoots": [
+        "libs",
         "getVar",
         "render",
         "t"
@@ -1949,6 +1956,7 @@
         ]
       },
       "ctxRoots": [
+        "libs",
         "initResource",
         "resource",
         "render",
@@ -1991,6 +1999,7 @@
         ]
       },
       "ctxRoots": [
+        "libs",
         "value",
         "getVar",
         "render"
@@ -2032,6 +2041,7 @@
         ]
       },
       "ctxRoots": [
+        "libs",
         "value",
         "getVar",
         "render",

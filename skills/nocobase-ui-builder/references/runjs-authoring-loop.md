@@ -22,6 +22,7 @@ Use this for every JS / RunJS write before code is produced.
 - `contextEvidence`: the live context readback, catalog target, or planned host position proving the selected ctx root.
 - `requiredCtxRoots`: exact `ctx.*` roots needed by the chosen snippet.
 - `modelUse`: one validator model from the snippet's `modelUses[surface]`.
+- `uiLibraryPolicy`: `antd-built-in` by default for render-style JS model UI; use `external-library` only when Ant Design lacks the requested capability.
 - `forbiddenPatterns`: copied from the snippet contract and validator feedback.
 - `preferredSnippetIds`: one to three catalog IDs, with one final choice.
 
@@ -44,6 +45,12 @@ If both `popup.record` and `record` are available, do not guess from the word "c
 - `action`: side effects are allowed; top-level `return` is optional.
 - `value`: top-level `return` is required; `ctx.render(...)` is forbidden.
 - `render`: `ctx.render(...)` is required for render models.
+
+## UI Library Policy
+
+- `antd-built-in`: default for `js-model.render`; render React JSX with `ctx.libs.antd` / `ctx.libs.antdIcons`.
+- `external-library`: allowed only for capabilities such as specialized charts, maps, calendars, Gantt views, drag-and-drop engines, or other UI that Ant Design does not provide.
+- When `external-library` is selected, keep loading, error, empty, labels, and surrounding actions in Ant Design where practical.
 
 ## Stop Conditions
 

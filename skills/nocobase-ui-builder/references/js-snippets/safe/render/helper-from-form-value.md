@@ -10,6 +10,7 @@ The task is to update another form field; use linkage snippets.
 - `js-model.render`
 
 ## Required ctx roots
+- `ctx.libs`
 - `ctx.formValues`
 - `ctx.form`
 - `ctx.render`
@@ -24,13 +25,18 @@ The task is to update another form field; use linkage snippets.
 ## Normalized snippet
 
 ```js
+const { Typography } = ctx.libs.antd;
 const role = ctx.formValues?.role || ctx.form?.getFieldValue?.('role');
 if (!role) {
   ctx.render(null);
   return;
 }
 
-ctx.render(ctx.t('Selected role: {{role}}', { role: String(role) }));
+ctx.render(
+  <Typography.Text type="secondary">
+    {ctx.t('Selected role: {{role}}', { role: String(role) })}
+  </Typography.Text>,
+);
 ```
 
 ## Editable slots
@@ -38,4 +44,4 @@ ctx.render(ctx.t('Selected role: {{role}}', { role: String(role) }));
 - Replace the helper message.
 
 ## Skill-mode notes
-This is for render-only helper text in form JS items. It should not call `ctx.setValue(...)`.
+This is for render-only Ant Design helper text in form JS items. It should not call `ctx.setValue(...)`.
