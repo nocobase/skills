@@ -647,6 +647,28 @@ test('docs keep canonical nb boundaries', () => {
   assert.match(pageBlueprint, /nb raw body/i);
   assert.match(pageBlueprint, /Do not wrap that object again/i);
 
+  const normativeContract = read('references/normative-contract.md');
+  assert.match(normativeContract, /Agent-facing front door: `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
+  assert.match(normativeContract, /Backend transport contract: `nb api flow-surfaces`/);
+  assert.match(normativeContract, /wrapper `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
+
+  const templates = read('references/templates.md');
+  assert.match(templates, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
+  assert.match(templates, /Backend transport contract remains `nb api flow-surfaces`/);
+  assert.match(templates, /backend nb raw body/i);
+
+  const reaction = read('references/reaction.md');
+  assert.match(reaction, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
+  assert.match(reaction, /Backend transport contract remains `nb api flow-surfaces`/);
+  assert.match(reaction, /nb-flow-surfaces\.mjs apply-blueprint/);
+  assert.match(reaction, /nb-flow-surfaces\.mjs get-reaction-meta/);
+
+  const settings = read('references/settings.md');
+  assert.match(settings, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
+  assert.match(settings, /Backend transport contract remains `nb api flow-surfaces`/);
+  assert.match(settings, /nb-flow-surfaces\.mjs set-layout/);
+  assert.match(settings, /nb-flow-surfaces\.mjs set-event-flows/);
+
   const toolShapes = read('references/tool-shapes.md');
   assert.match(toolShapes, /Do not wrap it again/i);
   assert.match(toolShapes, /`nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body/i);
@@ -1588,15 +1610,12 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /real write|prewrite-validation/i);
   assert.match(helperContracts, /common-case drafting|not the default first stop/i);
   assert.match(helperContracts, /prepare-write/i);
-  assert.match(helperContracts, /prepareApplyBlueprintRequest/i);
   assert.match(helperContracts, /nb-runjs/i);
   assert.match(helperContracts, /nb-localized-write-preflight/i);
   assert.match(helperContracts, /does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
-  assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-page-preview\b/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
 
   const cliTransport = read('references/cli-transport.md');
@@ -1605,17 +1624,35 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(cliTransport, /do not probe bare PATH commands first/i);
 
   const executionChecklistLocalCli = read('references/execution-checklist.md');
-  assert.match(executionChecklistLocalCli, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
+  assert.match(executionChecklistLocalCli, /nb-flow-surfaces\.mjs apply-blueprint/i);
 
   const cliCommandSurface = read('references/cli-command-surface.md');
   assert.match(cliCommandSurface, /nb-flow-surfaces\.mjs/i);
-  assert.match(cliCommandSurface, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs --prepare-write/i);
+  assert.match(cliCommandSurface, /internal `?prepare-write`?/i);
 
   const pageIntent = read('references/page-intent.md');
-  assert.match(pageIntent, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-page-preview\.mjs/i);
+  assert.match(pageIntent, /nb-flow-surfaces\.mjs apply-blueprint/i);
 
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+
+  for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
+    const text = read(relativePath);
+    assert.doesNotMatch(text, /nb-page-preview/i, `${relativePath} should not expose nb-page-preview`);
+    assert.doesNotMatch(
+      text,
+      /prepareApplyBlueprintRequest/i,
+      `${relativePath} should not direct agents to call prepareApplyBlueprintRequest`,
+    );
+  }
+
+  const runtimePackage = read('runtime/package.json');
+  assert.doesNotMatch(runtimePackage, /nb-page-preview/i, 'runtime package should not publish nb-page-preview');
+  assert.equal(
+    existsSync(path.join(skillRoot, 'runtime/bin/nb-page-preview.mjs')),
+    false,
+    'runtime bin should not keep nb-page-preview.mjs',
+  );
 
   const localEditQuickHelper = read('references/local-edit-quick.md');
   assert.match(localEditQuickHelper, /nb-localized-write-preflight/i);
@@ -2069,9 +2106,8 @@ test('helper contracts document prepare-write collectionMetadata auto-resolution
   assert.match(helperContracts, /missing-collection-metadata/i);
   assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
   assert.match(helperContracts, /caller-supplied[\s\S]{0,80}wins/i);
-  assert.match(helperContracts, /does not auto-fetch missing metadata/i);
+  assert.match(helperContracts, /wrapper path auto-resolves missing `?collectionMetadata`? entries/i);
   assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
-  assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });
 
 test('localized preflight docs keep explicit helper-vs-transport boundary', () => {

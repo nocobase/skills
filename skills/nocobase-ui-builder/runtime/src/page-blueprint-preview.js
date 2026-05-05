@@ -14,12 +14,16 @@ import {
 } from './chart-query-validation.js';
 import { canonicalizeRunJSPayload } from '../../scripts/runjs_guard.mjs';
 import {
+  buildPublicRelationFieldTitleFieldRequiredMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicCollectionFieldMeta,
   getPublicCollectionMeta,
+  getPublicRelationFieldObjectPath,
+  getPublicRelationFieldTitleFieldRequirement,
   getHiddenPopupSettingsForBlockType,
   isPublicAssociationFieldMeta,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
 
@@ -3768,6 +3772,57 @@ function validatePublicFieldGroupObjects(fieldGroups, path, state) {
   });
 }
 
+function validateRelationFieldExplicitTitleFieldRequirement(items, blockContext, path, state) {
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!Object.keys(collectionMetadata).length) {
+    return;
+  }
+
+  const sourceCollection = getTraversalSurfaceCollection(blockContext);
+  if (!sourceCollection) {
+    return;
+  }
+
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'fieldType')) {
+      continue;
+    }
+
+    const fieldPath = getPublicRelationFieldObjectPath(item);
+    if (!fieldPath || normalizeText(item.titleField)) {
+      continue;
+    }
+
+    const requirement = getPublicRelationFieldTitleFieldRequirement(
+      collectionMetadata,
+      sourceCollection,
+      fieldPath,
+    );
+    if (!requirement) {
+      continue;
+    }
+
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}[${index}].titleField`,
+      PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+      buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, requirement.targetCollection),
+    );
+  }
+}
+
+function validateRelationFieldGroupExplicitTitleFieldRequirement(fieldGroups, blockContext, path, state) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    validateRelationFieldExplicitTitleFieldRequirement(
+      group.fields,
+      blockContext,
+      `${path}[${groupIndex}].fields`,
+      state,
+    );
+  });
+}
+
 function resolveDisplayAssociationFieldMeta(collectionMetadata, blockContext, fieldPath) {
   const normalizedFieldPath = normalizeText(fieldPath);
   if (!normalizedFieldPath || normalizedFieldPath.includes('.')) return null;
@@ -5338,6 +5393,8 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateDisplayAssociationFieldGroupPopupRequirement(block.fieldGroups, block, blockContext, `${path}.fieldGroups`, state);
   validatePublicFieldObjects(block.fields, `${path}.fields`, state);
   validatePublicFieldGroupObjects(block.fieldGroups, `${path}.fieldGroups`, state);
+  validateRelationFieldExplicitTitleFieldRequirement(block.fields, blockContext, `${path}.fields`, state);
+  validateRelationFieldGroupExplicitTitleFieldRequirement(block.fieldGroups, blockContext, `${path}.fieldGroups`, state);
   validateFieldPopups(block.fields, `${path}.fields`, state, blockContext);
   validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state, blockContext);
   validateActions(block.actions, `${path}.actions`, state, { recordActions: false, blockContext });

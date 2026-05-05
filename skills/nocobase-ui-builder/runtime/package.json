@@ -9,7 +9,6 @@
   },
   "bin": {
     "nb-runjs": "./bin/nb-runjs.mjs",
-    "nb-page-preview": "./bin/nb-page-preview.mjs",
     "nb-localized-write-preflight": "./bin/nb-localized-write-preflight.mjs",
     "nb-template-decision": "./bin/nb-template-decision.mjs"
   },

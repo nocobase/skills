@@ -38,8 +38,8 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 
 ## Practical Routing
 
-- Whole-page page-building still starts from one draft page blueprint JSON plus the local `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` gate before the first backend write.
-- For the first real whole-page write, keep `prepare-write` and the backend write as separate steps: run `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` from the repo root first, then send only the prepared `result.cliBody` to backend `nb api flow-surfaces apply-blueprint`, usually via `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`.
+- Whole-page page-building starts from one draft page blueprint JSON sent through `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`.
+- For the first real whole-page write, the wrapper runs internal `prepare-write` first, then sends only the prepared `result.cliBody` to backend `nb api flow-surfaces apply-blueprint`.
 - Localized edits still use the same backend families documented in `runtime-playbook.md`; the agent-facing front door is `nb-flow-surfaces.mjs`.
 - Existing-surface event-flow replacement routes through `nb-flow-surfaces.mjs set-event-flows`; keep the full `flowRegistry` shape from live readback instead of inventing a partial patch.
 - Reaction work still starts from `get-reaction-meta`, then writes the matching `set-*` rules command through the wrapper.

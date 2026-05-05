@@ -376,6 +376,7 @@ test('runLocalizedWritePreflight accepts flat relation fieldType and rejects int
       },
       roles: {
         name: 'roles',
+        titleField: 'name',
         fields: [
           { name: 'title', interface: 'input' },
           { name: 'name', interface: 'input' },
@@ -428,6 +429,405 @@ test('runLocalizedWritePreflight accepts flat relation fieldType and rejects int
   });
   assert.equal(invalid.ok, false);
   assert.equal(invalid.errors.some((item) => item.ruleId === 'internal-field-keys-not-public'), true);
+});
+
+test('runLocalizedWritePreflight requires explicit titleField for relation fieldType objects when target collection titleField is id', () => {
+  const metadata = makeMetadata();
+  metadata.collections.roles.titleField = 'id';
+
+  const composeMissing = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fields: [
+            {
+              field: 'roles',
+              fieldType: 'popupSubTable',
+              fields: ['name', 'title'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeMissing.ok, false);
+  assertHasRule(
+    composeMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.blocks[0].fields[0].titleField',
+  );
+
+  const composeExplicitReadable = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fields: [
+            {
+              field: 'roles',
+              fieldType: 'popupSubTable',
+              titleField: 'name',
+              fields: ['name', 'title'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeExplicitReadable.ok, true, JSON.stringify(composeExplicitReadable.errors));
+
+  const configureMissing = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            fieldType: 'popupSubTable',
+            fields: ['name', 'title'],
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(configureMissing.ok, false);
+  assertHasRule(
+    configureMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.changes.fields[0].titleField',
+  );
+
+  const explicitId = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            fieldType: 'popupSubTable',
+            titleField: 'id',
+            fields: ['name', 'title'],
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(explicitId.ok, true, JSON.stringify(explicitId.errors));
+});
+
+test('runLocalizedWritePreflight requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {
+  const metadata = makeMetadata();
+
+  const composeMissing = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fields: [
+            {
+              field: 'roles',
+              fieldType: 'popupSubTable',
+              fields: ['name', 'title'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeMissing.ok, false);
+  assertHasRule(
+    composeMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.blocks[0].fields[0].titleField',
+  );
+
+  const configureExplicitId = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            fieldType: 'popupSubTable',
+            titleField: 'id',
+            fields: ['name', 'title'],
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(configureExplicitId.ok, true, JSON.stringify(configureExplicitId.errors));
+});
+
+test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context', () => {
+  const metadata = makeMetadata();
+  metadata.collections.departments.titleField = 'id';
+  metadata.collections.roles.fields.push({
+    name: 'department',
+    interface: 'm2o',
+    type: 'belongsTo',
+    target: 'departments',
+  });
+
+  const composeMissing = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    resource: { binding: 'currentRecord' },
+                    fields: [
+                      {
+                        field: 'department',
+                        fieldType: 'popupSubTable',
+                        fields: ['title'],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeMissing.ok, false);
+  assertHasRule(
+    composeMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.blocks[0].fields[0].popup.blocks[0].fields[0].titleField',
+  );
+
+  const composeExplicitReadable = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    resource: { binding: 'currentRecord' },
+                    fields: [
+                      {
+                        field: 'department',
+                        fieldType: 'popupSubTable',
+                        titleField: 'title',
+                        fields: ['title'],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeExplicitReadable.ok, true, JSON.stringify(composeExplicitReadable.errors));
+
+  const configureMissing = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            popup: {
+              blocks: [
+                {
+                  key: 'roleDetails',
+                  type: 'details',
+                  resource: { binding: 'currentRecord' },
+                  fields: [
+                    {
+                      field: 'department',
+                      fieldType: 'popupSubTable',
+                      fields: ['title'],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(configureMissing.ok, false);
+  assertHasRule(
+    configureMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.changes.fields[0].popup.blocks[0].fields[0].titleField',
+  );
+
+  const configureExplicitId = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            popup: {
+              blocks: [
+                {
+                  key: 'roleDetails',
+                  type: 'details',
+                  resource: { binding: 'currentRecord' },
+                  fields: [
+                    {
+                      field: 'department',
+                      fieldType: 'popupSubTable',
+                      titleField: 'id',
+                      fields: ['title'],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(configureExplicitId.ok, true, JSON.stringify(configureExplicitId.errors));
+});
+
+test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context when target titleField falls back to id', () => {
+  const metadata = makeMetadata();
+  metadata.collections.roles.fields.push({
+    name: 'department',
+    interface: 'm2o',
+    type: 'belongsTo',
+    target: 'departments',
+  });
+
+  const composeMissing = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    resource: { binding: 'currentRecord' },
+                    fields: [
+                      {
+                        field: 'department',
+                        fieldType: 'popupSubTable',
+                        fields: ['title'],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeMissing.ok, false);
+  assertHasRule(
+    composeMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.blocks[0].fields[0].popup.blocks[0].fields[0].titleField',
+  );
+
+  const configureExplicitId = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            popup: {
+              blocks: [
+                {
+                  key: 'roleDetails',
+                  type: 'details',
+                  resource: { binding: 'currentRecord' },
+                  fields: [
+                    {
+                      field: 'department',
+                      fieldType: 'popupSubTable',
+                      titleField: 'id',
+                      fields: ['title'],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(configureExplicitId.ok, true, JSON.stringify(configureExplicitId.errors));
 });
 
 test('runLocalizedWritePreflight preserves canonicalized cliBody and localized facts', () => {

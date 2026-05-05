@@ -14,7 +14,7 @@ Turn business intent into:
 
 1. one executable draft page blueprint document
 2. one ASCII-first preview rendered from that same draft blueprint
-3. one prepared nb raw body (`result.cliBody`) for `nb api flow-surfaces apply-blueprint`
+3. one `nb-flow-surfaces.mjs apply-blueprint` call that internally prepares and sends `result.cliBody`
 
 ## Route
 
@@ -33,7 +33,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 9. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the execution fallback. Local popup content may remain as the fallback when present.
 10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 11. Assemble the final blueprint using [page-blueprint.md](./page-blueprint.md).
-12. Before the real write, run the local prepare-write gate (`node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` from the repo root, or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+12. Before invoking the wrapper write, confirm the draft can satisfy the internal prepare-write gate:
     - in `create`, every newly created `navigation.group` / `navigation.item` carries one semantic Ant Design icon
     - tabs count matches the request
     - every `tab.blocks` is non-empty
@@ -48,7 +48,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - data-bound blocks have resolved `collectionMetadata`; the CLI auto-fills missing collection entries by default, while `--no-auto-collection-metadata` keeps the `missing-collection-metadata` fail-closed path
     - with resolved `collectionMetadata`, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
-14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the nb raw body. Keep the local `prepare-write` gate and the later `nb api flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Do not wrap that prepared object again.
+14. Then open [tool-shapes.md](./tool-shapes.md) and invoke `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint` with the draft or wrapper envelope. The wrapper must send only internal `prepare-write` output `result.cliBody` as the backend nb raw body. Do not wrap that prepared object again.
 
 ## Heuristics
 

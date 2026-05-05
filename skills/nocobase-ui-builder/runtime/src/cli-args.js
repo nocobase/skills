@@ -15,13 +15,14 @@ export function parseCliArgs(argv, options = {}) {
     const hasInlineValue = equalIndex > 2;
     const key = hasInlineValue ? token.slice(2, equalIndex) : token.slice(2);
     const inlineValue = hasInlineValue ? token.slice(equalIndex + 1) : undefined;
+    const hasEmptyInlineValue = hasInlineValue && inlineValue === '';
     const next = argv[index + 1];
     const hasNextValue = typeof next === 'string' && !next.startsWith('--');
     const hasValue = hasInlineValue || hasNextValue;
     const value = hasInlineValue ? inlineValue : next;
 
     if (valueFlags.has(key)) {
-      if (!hasValue) {
+      if (hasEmptyInlineValue || !hasValue) {
         throw new Error(`Missing value for --${key}.`);
       }
       args[key] = value;
@@ -30,6 +31,9 @@ export function parseCliArgs(argv, options = {}) {
     }
 
     if (booleanValueFlags.has(key)) {
+      if (hasEmptyInlineValue) {
+        throw new Error(`Missing value for --${key}.`);
+      }
       if (hasInlineValue) {
         args[key] = inlineValue;
         continue;

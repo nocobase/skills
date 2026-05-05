@@ -440,6 +440,7 @@ test('prepareApplyBlueprintRequest accepts flat relation fieldType objects and r
       },
       roles: {
         name: 'roles',
+        titleField: 'name',
         fields: [
           { name: 'title', interface: 'input' },
           { name: 'name', interface: 'input' },
@@ -497,6 +498,222 @@ test('prepareApplyBlueprintRequest accepts flat relation fieldType objects and r
   }, { collectionMetadata });
   assert.equal(invalid.ok, false);
   assert.equal(invalid.errors.some((item) => item.ruleId === 'internal-field-keys-not-public'), true);
+});
+
+test('prepareApplyBlueprintRequest requires explicit titleField for relation fieldType objects when target collection titleField is id', () => {
+  const collectionMetadata = {
+    collections: {
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [
+          { name: 'nickname', interface: 'input' },
+          { name: 'roles', interface: 'm2m', target: 'roles' },
+        ],
+      },
+      roles: {
+        name: 'roles',
+        titleField: 'id',
+        fields: [
+          { name: 'id', interface: 'number' },
+          { name: 'name', interface: 'input' },
+          { name: 'code', interface: 'input' },
+        ],
+      },
+    },
+  };
+
+  const missing = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation titleField required page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'popupSubTable',
+                fields: ['name', 'code'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+
+  assert.equal(missing.ok, false);
+  assert.equal(
+    missing.errors.some(
+      (item) =>
+        item.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
+        && item.path === 'tabs[0].blocks[0].fields[0].titleField'
+        && /roles/.test(item.message)
+        && /"id"/.test(item.message)
+        && /name/.test(item.message)
+        && /title/.test(item.message)
+        && /code/.test(item.message),
+    ),
+    true,
+  );
+
+  const explicitReadable = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation titleField explicit page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'popupSubTable',
+                titleField: 'name',
+                fields: ['name', 'code'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+
+  assert.equal(explicitReadable.ok, true, JSON.stringify(explicitReadable.errors));
+
+  const explicitId = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation titleField explicit id page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'popupSubTable',
+                titleField: 'id',
+                fields: ['name', 'code'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+
+  assert.equal(explicitId.ok, true, JSON.stringify(explicitId.errors));
+});
+
+test('prepareApplyBlueprintRequest requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {
+  const collectionMetadata = {
+    collections: {
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [
+          { name: 'nickname', interface: 'input' },
+          { name: 'roles', interface: 'm2m', target: 'roles' },
+        ],
+      },
+      roles: {
+        name: 'roles',
+        fields: [
+          { name: 'id', interface: 'number' },
+          { name: 'name', interface: 'input' },
+          { name: 'code', interface: 'input' },
+        ],
+      },
+    },
+  };
+
+  const missing = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation titleField implicit id page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'popupSubTable',
+                fields: ['name', 'code'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+
+  assert.equal(missing.ok, false);
+  assert.equal(
+    missing.errors.some(
+      (item) =>
+        item.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
+        && item.path === 'tabs[0].blocks[0].fields[0].titleField',
+    ),
+    true,
+  );
+
+  const explicitId = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation titleField implicit explicit id page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'popupSubTable',
+                titleField: 'id',
+                fields: ['name', 'code'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+
+  assert.equal(explicitId.ok, true, JSON.stringify(explicitId.errors));
 });
 
 function buildFixedCollectionPopupDefaults(collectionName) {
@@ -1154,6 +1371,28 @@ test('page preview cli returns a stable JSON error when --input is missing its v
   assert.deepEqual(JSON.parse(stderr.read()), {
     ok: false,
     error: 'Missing value for --input.',
+    usage: {
+      command:
+        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
+    },
+  });
+});
+
+test('page preview cli returns a stable JSON error when a numeric inline equals flag is empty', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--expected-outer-tabs='], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.deepEqual(JSON.parse(stderr.read()), {
+    ok: false,
+    error: 'Missing value for --expected-outer-tabs.',
     usage: {
       command:
         'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
@@ -7504,6 +7743,87 @@ test('prepareApplyBlueprintRequest rejects relation field details popup with mis
     result.errors.some(
       (issue) => issue.ruleId === 'relation-popup-current-record-target-mismatch'
         && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].resource.collectionName',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps relation titleField guard inside inherited relation popup surface context when target titleField falls back to id', () => {
+  const nestedRelationCollectionMetadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+        ],
+      },
+      roles: {
+        titleField: 'name',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments' },
+        ],
+      },
+      departments: {
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'title', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+
+  const missing = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      key: 'roleDetails',
+                      type: 'details',
+                      resource: { binding: 'currentRecord' },
+                      fields: [
+                        {
+                          field: 'department',
+                          fieldType: 'popupSubTable',
+                          fields: ['title'],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+  }, { collectionMetadata: nestedRelationCollectionMetadata });
+
+  assert.equal(missing.ok, false);
+  assert.ok(
+    missing.errors.some(
+      (issue) => issue.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
+        && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].fields[0].titleField',
     ),
   );
 });

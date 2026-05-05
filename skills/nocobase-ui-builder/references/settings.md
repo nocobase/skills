@@ -2,7 +2,7 @@
 
 Read this file first when you already know you are creating a block / field / action / record action, and the user also requires frequent public attributes such as title, label, required, or button style. The goal is to inline public semantic `settings` directly into `add*`, rather than creating an empty node first and then mechanically adding a separate `configure`. Whether `catalog` is mandatory is governed by [normative-contract.md](./normative-contract.md).
 
-Canonical front door is `nb api flow-surfaces`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below use the nb raw body. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
+Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. Backend transport contract remains `nb api flow-surfaces`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below use the backend nb raw body that the wrapper eventually sends. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
 
 ## Contents
 
@@ -49,7 +49,7 @@ Use `set-layout` when the target grid already exists and the user explicitly acc
 
 Core rules:
 
-- Preferred CLI family is `nb api flow-surfaces set-layout`.
+- Preferred agent entry is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-layout`. Backend CLI family remains `nb api flow-surfaces set-layout`.
 - Low-level `set-layout` is **not** the public page/popup/fields layout contract. Do not reuse `{ rows: [[{ key, span }]] }` here.
 - `target.uid` must be the live grid uid from readback, not a page/popup block `key`.
 - `rows` is `Record<string, string[][]>`: each row value is an array of column cells, and each cell is an array of stacked live child `uid`s.
@@ -100,7 +100,7 @@ Use `set-event-flows` when the target already exists and the user explicitly acc
 
 Core rules:
 
-- Preferred CLI family is `nb api flow-surfaces set-event-flows`.
+- Preferred agent entry is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-event-flows`. Backend CLI family remains `nb api flow-surfaces set-event-flows`.
 - Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
 - For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.

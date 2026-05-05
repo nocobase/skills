@@ -47,23 +47,20 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 - deeper nested popup entries should stay visible only as an entry label such as `nested popup omitted`
 - if deeper popup content is omitted, mention that omission in warnings or surrounding explanation
 
-## 5. Runtime helper
+## 5. Runtime support
 
-Use the zero-dependency preview helper for deterministic output:
+Use deterministic preview output as a review artifact for whole-page authoring:
 
 - module: `renderPageBlueprintAsciiPreview(blueprint)`
-- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json`
-- prepare-write helper: `prepareApplyBlueprintRequest(blueprint)`
-- prepare-write CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
-- If the current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs`; do not probe the bare `nb-page-preview` command first.
+- real write path: `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`
 
-The helper should prefer a bare inner page blueprint object. `--prepare-write` also accepts the public helper envelope described below.
+The preview should prefer a bare inner page blueprint object. The wrapper write path also accepts the public envelope described below.
 
-For local helper usage, `prepare-write` may also receive one outer helper envelope like `{ blueprint, templateDecision?, collectionMetadata? }`. This helper envelope is official and should not emit the legacy outer-wrapper warning. Keep `collectionMetadata` in that envelope or call options, never inside the blueprint root. When `templateDecision` is present and valid, the helper should return the normalized `templateDecision` object only after the blueprint is already recognizable, even if other blueprint gates later fail. If that `templateDecision` contradicts the actual bound template uid/mode in the blueprint, reject it with `inconsistent-template-decision` instead of returning a misleading summary. When the CLI receives data-bound blocks, it fills missing metadata entries by fetching only the missing collections, while caller-supplied metadata wins. `--no-auto-collection-metadata` restores the fail-closed path where missing or empty metadata fails `prepare-write` with `missing-collection-metadata`. With resolved metadata, the helper validates defaults completeness against the blueprint. The ASCII wireframe itself still stays reason-free.
+For wrapper usage, `prepare-write` may receive one outer envelope like `{ blueprint, templateDecision?, collectionMetadata? }`. This envelope is official and should not emit the legacy outer-wrapper warning. Keep `collectionMetadata` in that envelope or call options, never inside the blueprint root. When `templateDecision` is present and valid, internal prepare-write should return the normalized `templateDecision` object only after the blueprint is already recognizable, even if other blueprint gates later fail. If that `templateDecision` contradicts the actual bound template uid/mode in the blueprint, reject it with `inconsistent-template-decision` instead of returning a misleading summary. When the wrapper receives data-bound blocks, it fills missing metadata entries by fetching only the missing collections, while caller-supplied metadata wins. `--no-auto-collection-metadata` restores the fail-closed path where missing or empty metadata fails `prepare-write` with `missing-collection-metadata`. With resolved metadata, internal prepare-write validates defaults completeness against the blueprint. The ASCII wireframe itself still stays reason-free.
 
-Preview-only `renderPageBlueprintAsciiPreview(...)` / the skill-local preview CLI should render the bare blueprint. Use `--prepare-write` when `templateDecision` or `collectionMetadata` is part of the local helper input.
+Preview-only `renderPageBlueprintAsciiPreview(...)` should render the bare blueprint. Use the wrapper write path when `templateDecision` or `collectionMetadata` is part of the runtime input.
 
-For the **first real write**, the prepare-write helper/CLI is mandatory rather than preview-only mode. It should use the same draft blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return a normalized prepare-write result that includes the sendable `result.cliBody` only when the gate passes. That helper stays local/read-only: the later remote write is still a separate `nb api flow-surfaces apply-blueprint` call, and after `prepare-write` the only valid first-write body is `result.cliBody`, not the original draft blueprint. Do not wrap that prepared object again.
+For the **first real write**, `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint` must run internal prepare-write before backend mutation. It should use the same draft blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and pass a normalized prepare-write result that includes the sendable `result.cliBody` only when the gate passes. After `prepare-write`, the only valid backend first-write body is `result.cliBody`, not the original draft blueprint. Do not wrap that prepared object again.
 
 The local prepare-write gate should reject at least:
 
@@ -74,8 +71,6 @@ The local prepare-write gate should reject at least:
 - non-object `tab.layout` / `popup.layout`
 - requested `table` / `list` / `gridCard` / `calendar` / `kanban` filter/search actions landing on the wrong host
 - custom `edit` popups that do not contain exactly one `editForm`
-
-If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same blueprint rather than skipping the preview.
 
 Do **not** skip the preview just because execution is going to continue immediately afterward.
 
