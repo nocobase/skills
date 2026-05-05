@@ -55,6 +55,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 - Users may describe blocks, relations, and actions in business language only. Infer the minimum executable structure instead of expanding into a rigid pseudo-spec.
 - Prefer `navigation.group.routeId` when the destination group is already known.
 - If visible same-title groups already exist and title lookup would hit multiple groups, stop and require explicit `navigation.group.routeId`; do not reuse one locally and do not create another same-title group just to disambiguate.
+- For page identity, compare menu group routeId before page title: `(navigation.group.routeId, page.title)` is the same-page key after unique group-title resolution. In `create`, same group + same page title may become `replace`; different group + same page title should not merge, reuse, or auto-replace another page.
 - If the user says clicking a shown record or relation record opens details, prefer a field popup rather than inventing a button.
 - Keep `fields[]` as simple strings unless a field object is actually needed.
 - Omit `layout` only when the tab/popup contains at most one non-filter block. Otherwise decide the layout explicitly instead of relying on default vertical stacking.

@@ -372,6 +372,24 @@ function assertSharedMenuGroupMultiPageRunsAreSerialized(text, sourceLabel) {
   );
 }
 
+function assertSameGroupSameTitlePageIdentityRule(text, sourceLabel) {
+  assert.match(
+    text,
+    /(?:page identity|same page|duplicate page|same-title page|页面身份|同一个页面|重复页面)[\s\S]{0,220}(?:navigation\.group\.routeId|menu group routeId|group routeId|菜单组[\s\S]{0,40}routeId)[\s\S]{0,220}(?:page\.title|page title|页面标题)/i,
+    `${sourceLabel} should define page identity as menu group routeId plus page title`,
+  );
+  assert.match(
+    text,
+    /(?:same group|same menu group|同一菜单组|同组)[\s\S]{0,160}(?:same title|same page title|同名|相同标题)[\s\S]{0,220}(?:replace|`replace`|mode[\s\S]{0,40}replace|自动替换)/i,
+    `${sourceLabel} should say same-group same-title create upgrades to replace`,
+  );
+  assert.match(
+    text,
+    /(?:different group|different menu group|跨菜单组|不同菜单组|不同组)[\s\S]{0,180}(?:same title|same page title|同名|相同标题)[\s\S]{0,220}(?:not|do not|does not|不要|不应|不能)[\s\S]{0,100}(?:replace|merge|合并|替换|reuse|复用)/i,
+    `${sourceLabel} should say different-group same-title pages do not auto-replace or merge`,
+  );
+}
+
 function assertTitleOmissionRule(text, sourceLabel) {
   assert.match(
     text,
@@ -449,6 +467,16 @@ function assertOpenAIGuardrails(text) {
     text,
     /Duplicate group titles[\s\S]{0,40}routeId|same-title[\s\S]{0,80}routeId/i,
     'openai prompt should require explicit routeId for duplicate same-title groups',
+  );
+  assert.match(
+    text,
+    /same-group[\s\S]{0,80}same-title[\s\S]{0,80}replace|page identity[\s\S]{0,80}routeId[\s\S]{0,80}page title/i,
+    'openai prompt should keep same-group same-title page replacement guidance visible',
+  );
+  assert.match(
+    text,
+    /different-group[\s\S]{0,80}same-title[\s\S]{0,80}(?:not|no)[\s\S]{0,80}(?:replace|merge|reuse)/i,
+    'openai prompt should keep different-group same-title non-merge guidance visible',
   );
   assert.match(
     text,
@@ -1289,6 +1317,20 @@ test('multi-page shared menu-group docs require serialized routeId handoff', () 
     'references/execution-checklist.md',
   ]) {
     assertSharedMenuGroupMultiPageRunsAreSerialized(read(relativePath), relativePath);
+  }
+});
+
+test('same-group same-title page docs require replace and cross-group isolation', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/page-intent.md',
+    'references/normative-contract.md',
+    'references/execution-checklist.md',
+    'references/verification.md',
+  ]) {
+    assertSameGroupSameTitlePageIdentityRule(read(relativePath), relativePath);
   }
 });
 

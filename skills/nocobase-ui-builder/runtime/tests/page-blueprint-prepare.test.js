@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import {
   prepareApplyBlueprintRequest as rawPrepareApplyBlueprintRequest,
@@ -7,6 +10,7 @@ import {
 import { prepareApplyBlueprintWrite } from '../src/apply-blueprint-prepare.js';
 import { buildSuggestedDefaultFilterGroup } from '../src/default-filter-candidates.js';
 import { fetchCollectionMetadata } from '../src/collection-metadata-resolver.js';
+import { savePageIdentityRegistry } from '../../scripts/opaque_uid.mjs';
 
 function createMemoryStream() {
   const stream = new PassThrough();
@@ -57,6 +61,9 @@ async function runPrepareWriteForTest(args, io = {}) {
     const expectedOuterTabs = parseFlagValue(args, 'expected-outer-tabs');
     const result = await prepareApplyBlueprintWrite(payload, {
       cwd: io.cwd || process.cwd(),
+      sessionId: io.sessionId,
+      sessionRoot: io.sessionRoot,
+      registryPath: io.registryPath,
       autoCollectionMetadata: !hasBooleanFlag(args, 'no-auto-collection-metadata'),
       ...(expectedOuterTabs ? { expectedOuterTabs: Number(expectedOuterTabs) } : {}),
       ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
@@ -9320,6 +9327,71 @@ test('prepare-write resolves navigation group even when auto collection metadata
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, true);
   assert.deepEqual(payload.cliBody.navigation.group, { routeId: 42 });
+});
+
+test('prepare-write upgrades create to replace when same group and title already exist', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const sessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'page-identity-prepare-'));
+  const registryPath = path.join(sessionRoot, 'pages.v1.json');
+  savePageIdentityRegistry(registryPath, { version: 1 }, {
+    pages: [
+      {
+        pageSchemaUid: 'page-88',
+        pageUid: 'page-live-88',
+        title: 'Users',
+        menuGroupTitle: 'Workspace',
+        groupRouteId: '11',
+        groupRouteLabel: '',
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+  });
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Users', icon: 'TeamOutlined' },
+      },
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [{ key: 'note', type: 'markdown', content: 'Hello' }],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    sessionRoot,
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    async execFileImpl(command, args) {
+      if (args[0] === 'api' && args[1] === 'resource' && args[2] === 'list' && args.includes('desktopRoutes')) {
+        return {
+          stdout: JSON.stringify({
+            data: [
+              { id: 11, title: 'Workspace', type: 'group' },
+              { id: 88, title: 'Users', type: 'flowPage', parentId: '11', schemaUid: 'page-88' },
+            ],
+          }),
+        };
+      }
+      throw new Error(`unexpected command: ${[command, ...args].join(' ')}`);
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.cliBody.mode, 'replace');
+  assert.equal(payload.cliBody.target.pageSchemaUid, 'page-88');
 });
 
 test('prepare-write does not fetch when complete collectionMetadata is supplied', async () => {

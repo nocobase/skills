@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { runLocalizedWritePreflight } from './localized-write-preflight.js';
 import { prepareApplyBlueprintWrite } from './apply-blueprint-prepare.js';
 import { getFlowSurfacesCommandPolicy } from './flow-surfaces-command-policy.js';
+import { resolveSessionPaths } from '../../scripts/session_state.mjs';
 import {
   upsertPageIdentityRecord,
 } from '../../scripts/opaque_uid.mjs';
@@ -41,6 +42,13 @@ function normalizeText(value) {
 
 function isObjectRecord(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function extractPrepareBlueprint(payload) {
+  if (!isObjectRecord(payload)) return payload;
+  if (isObjectRecord(payload.blueprint)) return payload.blueprint;
+  if (isObjectRecord(payload.requestBody)) return payload.requestBody;
+  return payload;
 }
 
 function findFlag(args, flagName) {
@@ -295,6 +303,11 @@ async function runPreparedFlowSurfacesWrite(subcommand, args, io) {
   const stdout = io.stdout || process.stdout;
   const stderr = io.stderr || process.stderr;
   const policy = getFlowSurfacesCommandPolicy(subcommand);
+  const sessionPaths = resolveSessionPaths({
+    cwd,
+    sessionId: io.sessionId,
+    sessionRoot: io.sessionRoot,
+  });
 
   if (policy === 'whole_page_prepare') {
     const body = await loadBodyFromArgs(args, cwd);
@@ -304,6 +317,9 @@ async function runPreparedFlowSurfacesWrite(subcommand, args, io) {
       rawPreparePayload,
       {
         cwd,
+        sessionId: sessionPaths.sessionId,
+        sessionRoot: sessionPaths.sessionRoot,
+        registryPath: sessionPaths.registryPath,
         autoCollectionMetadata: !hasFlag(args, 'no-auto-collection-metadata'),
         expectedOuterTabs: parseOptionalPositiveIntegerFlag(args, 'expected-outer-tabs'),
         maxPopupDepth: parseOptionalNumberFlag(args, 'max-popup-depth'),
@@ -332,14 +348,10 @@ async function runPreparedFlowSurfacesWrite(subcommand, args, io) {
           normalizeText(extractPrepareBlueprint(rawPreparePayload)?.page?.title),
         );
         if (pageIdentity) {
-          const sessionOptions = {
-            sessionRoot: io.cwd || process.cwd(),
-          };
-          const pageIdentityRegistryPath = io.pageIdentityRegistryPath || io.registryPath || '';
           upsertPageIdentityRecord(pageIdentity, {
-            ...(pageIdentityRegistryPath ? { registryPath: pageIdentityRegistryPath } : {}),
-            ...(io.sessionId ? { sessionId: io.sessionId } : {}),
-            ...(io.sessionRoot ? { sessionRoot: io.sessionRoot } : sessionOptions),
+            registryPath: sessionPaths.registryPath,
+            sessionId: sessionPaths.sessionId,
+            sessionRoot: sessionPaths.sessionRoot,
           });
         }
       } catch {

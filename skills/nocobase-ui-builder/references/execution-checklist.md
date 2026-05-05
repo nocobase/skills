@@ -17,6 +17,7 @@ Use this checklist after the matching quick route is already clear. For global r
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
 - Agent orchestration rule: if multiple ordered page runs share the same menu group title, serialize the page runs yourself. On the first page, use `navigation.group.title` to create or resolve the group and capture the returned `routeId`; for subsequent pages, set `navigation.group` to `{ routeId }` and do not use title-only creation. Never start concurrent title-only group creates for the same shared group. Concurrent title-only shared-group creates are forbidden.
+- Page identity for duplicate-page prevention is `(navigation.group.routeId, page.title)` after any unique group-title resolution. Same group + same page title may auto-upgrade `create` to `replace`; different group + same page title must not merge, reuse, or auto-replace another page.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - Before any write or body-based read, confirm the transport shape:

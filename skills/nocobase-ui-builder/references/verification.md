@@ -22,6 +22,7 @@ For template-mode semantics and localized existing-reference edit routing, keep 
 A page-blueprint draft is good when:
 
 - create vs replace is clear
+- page identity uses menu group routeId plus page title: same group + same page title may mean `replace`, while different group + same page title should not merge, reuse, or auto-replace another page
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
 - if duplicate same-title menu groups existed, the summary/readback states that explicit `routeId` was required before write and no extra same-title group was created unless the user explicitly asked for one

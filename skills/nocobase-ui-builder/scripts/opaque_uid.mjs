@@ -245,9 +245,16 @@ export function loadPageIdentityRegistry(registryPath, options = {}) {
 }
 
 export function savePageIdentityRegistry(registryPath, rawRegistry, pageIdentityRegistry) {
-  const nextRaw = rawRegistry && typeof rawRegistry === 'object' && !Array.isArray(rawRegistry)
-    ? { ...rawRegistry, pageIdentity: pageIdentityRegistry }
-    : { pageIdentity: pageIdentityRegistry };
+  const baseRegistry = rawRegistry && typeof rawRegistry === 'object' && !Array.isArray(rawRegistry)
+    ? { ...rawRegistry }
+    : createEmptyRegistry();
+  const nextRaw = {
+    ...baseRegistry,
+    version: REGISTRY_VERSION,
+    pages: Array.isArray(baseRegistry.pages) ? baseRegistry.pages : [],
+    groups: Array.isArray(baseRegistry.groups) ? baseRegistry.groups : [],
+    pageIdentity: pageIdentityRegistry,
+  };
   ensureParentDir(registryPath);
   const tmpPath = `${registryPath}.tmp-${process.pid}-${Date.now()}`;
   fs.writeFileSync(tmpPath, `${JSON.stringify(nextRaw, null, 2)}\n`, 'utf8');
