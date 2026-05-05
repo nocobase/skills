@@ -2,6 +2,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { prepareApplyBlueprintRequest } from './page-blueprint-prepare.js';
 import { resolveMissingCollectionMetadataForBlueprint } from './collection-metadata-resolver.js';
+import {
+  findPageIdentityByGroupRouteIdAndTitle,
+  loadPageIdentityRegistry,
+} from '../../scripts/opaque_uid.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -119,6 +123,105 @@ function extractDesktopRouteRows(payload) {
   return [];
 }
 
+function getPreparePageTitle(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  return normalizeText(
+    blueprint?.page?.title
+    || blueprint?.navigation?.item?.title
+    || blueprint?.target?.pageSchemaUid,
+  );
+}
+
+function getPreparePageMenuGroupRouteId(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  return normalizeText(blueprint?.navigation?.group?.routeId);
+}
+
+function getPreparePageMenuGroupTitle(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  return normalizeText(blueprint?.navigation?.group?.title);
+}
+
+async function resolvePageIdentityFromLiveRoutes(payload, options = {}) {
+  const title = getPreparePageTitle(payload);
+  const groupRouteId = getPreparePageMenuGroupRouteId(payload);
+  if (!title || !groupRouteId) {
+    return null;
+  }
+
+  let rows = [];
+  try {
+    const response = await execNbJson([
+      'api',
+      'resource',
+      'list',
+      '--resource',
+      'desktopRoutes',
+      '--filter',
+      JSON.stringify({ title, type: 'flowPage' }),
+      '--fields',
+      'id',
+      '--fields',
+      'title',
+      '--fields',
+      'type',
+      '--fields',
+      'schemaUid',
+      '--fields',
+      'parentId',
+      '-j',
+    ], options);
+    rows = extractDesktopRouteRows(response);
+  } catch {
+    const pageIdentityRegistryPath = options.registryPath || '';
+    if (!pageIdentityRegistryPath) {
+      return null;
+    }
+    const { registry } = loadPageIdentityRegistry(pageIdentityRegistryPath, options);
+    const localMatch = findPageIdentityByGroupRouteIdAndTitle(registry, groupRouteId, title);
+    if (localMatch) {
+      return localMatch;
+    }
+    return null;
+  }
+
+  const matches = rows.filter((row) => normalizeText(row?.title) === title
+    && normalizeText(row?.type) === 'flowPage'
+    && normalizeText(String(row?.parentId ?? '')) === groupRouteId);
+
+  if (matches.length === 0) {
+    return null;
+  }
+  if (matches.length > 1) {
+    return {
+      error: {
+        path: 'target.pageSchemaUid',
+        ruleId: 'page-identity-ambiguous',
+        message: `navigation.group.routeId "${groupRouteId}" already has multiple flow pages titled "${title}"; pass target.pageSchemaUid explicitly before applyBlueprint.`,
+      },
+    };
+  }
+
+  const match = matches[0];
+  if (!normalizeText(match?.schemaUid)) {
+    return {
+      error: {
+        path: 'target.pageSchemaUid',
+        ruleId: 'page-identity-missing-schema-uid',
+        message: `Existing flow page "${title}" under navigation.group.routeId "${groupRouteId}" is missing schemaUid; pass target.pageSchemaUid explicitly before applyBlueprint.`,
+      },
+    };
+  }
+
+  return {
+    pageSchemaUid: normalizeText(match.schemaUid),
+    pageUid: normalizeText(match.id),
+    title,
+    menuGroupTitle: getPreparePageMenuGroupTitle(payload),
+    groupRouteId,
+  };
+}
+
 async function resolvePrepareNavigationGroup(payload, options = {}) {
   if (options.autoNavigationGroup === false) {
     return { payload, resolverErrors: [] };
@@ -213,7 +316,34 @@ async function resolvePrepareWritePayload(payload, options = {}) {
 export async function prepareApplyBlueprintWrite(payload, options = {}) {
   const collectionPreparePayload = await resolvePrepareWritePayload(payload, options);
   const navigationPreparePayload = await resolvePrepareNavigationGroup(collectionPreparePayload.payload, options);
-  const result = prepareApplyBlueprintRequest(navigationPreparePayload.payload, options);
+  let writePayload = navigationPreparePayload.payload;
+  const draftBlueprint = extractPrepareBlueprint(writePayload);
+  const normalizedMode = normalizeText(draftBlueprint?.mode).toLowerCase();
+  if (normalizedMode === 'create') {
+    const identityResolution = await resolvePageIdentityFromLiveRoutes(writePayload, options);
+    if (identityResolution?.error) {
+      return {
+        ok: false,
+        warnings: uniqueStrings([...(Array.isArray(navigationPreparePayload.warnings) ? navigationPreparePayload.warnings : [])]),
+        errors: [identityResolution.error],
+      };
+    }
+    if (identityResolution?.pageSchemaUid) {
+      const nextBlueprint = {
+        ...draftBlueprint,
+        mode: 'replace',
+        target: {
+          pageSchemaUid: identityResolution.pageSchemaUid,
+        },
+      };
+      writePayload = {
+        ...writePayload,
+        blueprint: nextBlueprint,
+      };
+    }
+  }
+
+  const result = prepareApplyBlueprintRequest(writePayload, options);
   const resolverErrors = [
     ...(collectionPreparePayload.resolverErrors || []),
     ...(navigationPreparePayload.resolverErrors || []),

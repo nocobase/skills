@@ -79,6 +79,12 @@ export function createEmptyRegistry() {
   };
 }
 
+function createEmptyPageIdentityIndex() {
+  return {
+    pages: [],
+  };
+}
+
 export function loadRegistry(registryPath, options = {}) {
   const resolvedRegistryPath = resolveRegistryPath(registryPath, options);
   if (!fs.existsSync(resolvedRegistryPath)) {
@@ -149,6 +155,171 @@ function findGroupByReservationKey(registry, reservationKey) {
 
 function findTitleMatches(registry, title) {
   return registry.pages.filter((page) => page.title === title || page.aliases.includes(title));
+}
+
+function normalizePageRouteId(value) {
+  const normalized = normalizeOptionalText(String(value ?? ''));
+  return normalized;
+}
+
+function normalizePageTitle(value) {
+  return normalizeOptionalText(value);
+}
+
+function normalizeMenuGroupTitle(value) {
+  return normalizeOptionalText(value);
+}
+
+function getPageIdentityGroupRouteId(page) {
+  return normalizePageRouteId(page?.groupRouteId || page?.menuGroupRouteId || page?.routeId);
+}
+
+function getPageIdentityPageSchemaUid(page) {
+  return normalizePageRouteId(page?.pageSchemaUid || page?.schemaUid);
+}
+
+function getPageIdentityPageUid(page) {
+  return normalizePageRouteId(page?.pageUid || page?.pageId);
+}
+
+function getPageIdentityTitle(page) {
+  return normalizePageTitle(page?.title || page?.pageTitle);
+}
+
+function getPageIdentityMenuGroupTitle(page) {
+  return normalizeMenuGroupTitle(page?.menuGroupTitle || page?.groupTitle);
+}
+
+function getPageIdentityRouteLabel(page) {
+  return normalizePageRouteId(page?.groupRouteLabel || page?.menuGroupRouteLabel);
+}
+
+function normalizePageIdentityRecord(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) {
+    return null;
+  }
+  const pageSchemaUid = getPageIdentityPageSchemaUid(record);
+  const title = getPageIdentityTitle(record);
+  const groupRouteId = getPageIdentityGroupRouteId(record);
+  if (!pageSchemaUid || !title || !groupRouteId) {
+    return null;
+  }
+  return {
+    pageSchemaUid,
+    pageUid: getPageIdentityPageUid(record),
+    title,
+    menuGroupTitle: getPageIdentityMenuGroupTitle(record),
+    groupRouteId,
+    groupRouteLabel: getPageIdentityRouteLabel(record),
+    updatedAt: nowIso(),
+  };
+}
+
+function ensurePageIdentityRegistry(registry) {
+  if (!registry || typeof registry !== 'object' || Array.isArray(registry)) {
+    return createEmptyPageIdentityIndex();
+  }
+  if (!Array.isArray(registry.pages)) {
+    registry.pages = [];
+  }
+  return registry;
+}
+
+export function loadPageIdentityRegistry(registryPath, options = {}) {
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, options);
+  if (!fs.existsSync(resolvedRegistryPath)) {
+    return {
+      registryPath: resolvedRegistryPath,
+      registry: createEmptyPageIdentityIndex(),
+    };
+  }
+
+  const raw = fs.readFileSync(resolvedRegistryPath, 'utf8');
+  const parsed = JSON.parse(raw);
+  const identityRegistry = ensurePageIdentityRegistry(parsed.pageIdentity);
+  return {
+    registryPath: resolvedRegistryPath,
+    registry: identityRegistry,
+    raw: parsed,
+  };
+}
+
+export function savePageIdentityRegistry(registryPath, rawRegistry, pageIdentityRegistry) {
+  const nextRaw = rawRegistry && typeof rawRegistry === 'object' && !Array.isArray(rawRegistry)
+    ? { ...rawRegistry, pageIdentity: pageIdentityRegistry }
+    : { pageIdentity: pageIdentityRegistry };
+  ensureParentDir(registryPath);
+  const tmpPath = `${registryPath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(nextRaw, null, 2)}\n`, 'utf8');
+  fs.renameSync(tmpPath, registryPath);
+}
+
+export function recordPageIdentity(registry, record) {
+  const nextRecord = normalizePageIdentityRecord(record);
+  if (!nextRecord) {
+    return { created: false, page: null };
+  }
+  const existing = registry.pages.find((page) =>
+    page.pageSchemaUid === nextRecord.pageSchemaUid
+    || (page.title === nextRecord.title && page.groupRouteId === nextRecord.groupRouteId),
+  );
+  if (existing) {
+    let changed = false;
+    for (const [key, value] of Object.entries(nextRecord)) {
+      if (typeof value === 'undefined' || value === '') continue;
+      if (existing[key] === value) continue;
+      existing[key] = value;
+      changed = true;
+    }
+    if (changed) {
+      existing.updatedAt = nowIso();
+    }
+    return { created: false, page: existing };
+  }
+  registry.pages.push(nextRecord);
+  return { created: true, page: nextRecord };
+}
+
+export function findPageIdentityBySchemaUid(registry, schemaUid) {
+  const normalizedSchemaUid = normalizePageRouteId(schemaUid);
+  if (!normalizedSchemaUid) return null;
+  return registry.pages.find((page) => page.pageSchemaUid === normalizedSchemaUid) ?? null;
+}
+
+export function findPageIdentitiesByGroupRouteId(registry, groupRouteId) {
+  const normalizedGroupRouteId = normalizePageRouteId(groupRouteId);
+  if (!normalizedGroupRouteId) return [];
+  return registry.pages.filter((page) => page.groupRouteId === normalizedGroupRouteId);
+}
+
+export function findPageIdentityByGroupRouteIdAndTitle(registry, groupRouteId, title) {
+  const normalizedGroupRouteId = normalizePageRouteId(groupRouteId);
+  const normalizedTitle = normalizePageTitle(title);
+  if (!normalizedGroupRouteId || !normalizedTitle) return null;
+  return registry.pages.find((page) => page.groupRouteId === normalizedGroupRouteId && page.title === normalizedTitle) ?? null;
+}
+
+export function resolvePageIdentityRecord({ registryPath, sessionId, sessionRoot, title, schemaUid, groupRouteId }) {
+  const { registry } = loadPageIdentityRegistry(registryPath, { sessionId, sessionRoot });
+  if (schemaUid) {
+    return findPageIdentityBySchemaUid(registry, schemaUid);
+  }
+  if (groupRouteId && title) {
+    return findPageIdentityByGroupRouteIdAndTitle(registry, groupRouteId, title);
+  }
+  return null;
+}
+
+export function upsertPageIdentityRecord(record, { registryPath, sessionId, sessionRoot } = {}) {
+  const loaded = loadPageIdentityRegistry(registryPath, { sessionId, sessionRoot });
+  const nextState = loaded.registry;
+  const result = recordPageIdentity(nextState, record);
+  savePageIdentityRegistry(loaded.registryPath, loaded.raw, nextState);
+  return {
+    registryPath: loaded.registryPath,
+    page: result.page,
+    created: result.created,
+  };
 }
 
 function ensureTitleAvailable(registry, title, exceptSchemaUid = null) {

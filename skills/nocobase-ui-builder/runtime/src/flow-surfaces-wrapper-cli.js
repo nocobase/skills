@@ -5,6 +5,9 @@ import { promisify } from 'node:util';
 import { runLocalizedWritePreflight } from './localized-write-preflight.js';
 import { prepareApplyBlueprintWrite } from './apply-blueprint-prepare.js';
 import { getFlowSurfacesCommandPolicy } from './flow-surfaces-command-policy.js';
+import {
+  upsertPageIdentityRecord,
+} from '../../scripts/opaque_uid.mjs';
 
 const execFileAsync = promisify(execFile);
 const MAX_BUFFER = 10 * 1024 * 1024;
@@ -187,6 +190,47 @@ function buildApplyBlueprintPreparePayload(body, collectionMetadata) {
   };
 }
 
+function extractApplyBlueprintPageIdentity(preparedBody, responseBody, fallbackTitle = '') {
+  const title = normalizeText(
+    responseBody?.page?.pageTitle
+    || responseBody?.pageTitle
+    || preparedBody?.page?.title
+    || preparedBody?.navigation?.item?.title
+    || fallbackTitle,
+  );
+  const pageSchemaUid = normalizeText(
+    responseBody?.target?.pageSchemaUid
+    || responseBody?.page?.pageSchemaUid
+    || preparedBody?.target?.pageSchemaUid,
+  );
+  const pageUid = normalizeText(
+    responseBody?.target?.pageUid
+    || responseBody?.page?.pageUid,
+  );
+  const menuGroupTitle = normalizeText(
+    responseBody?.page?.menuGroupTitle
+    || responseBody?.menuGroupTitle
+    || preparedBody?.navigation?.group?.title,
+  );
+  const groupRouteId = normalizeText(
+    responseBody?.page?.menuGroupRouteId
+    || responseBody?.page?.routeId
+    || preparedBody?.navigation?.group?.routeId,
+  );
+
+  if (!pageSchemaUid || !title || !groupRouteId) {
+    return null;
+  }
+
+  return {
+    pageSchemaUid,
+    pageUid,
+    title,
+    menuGroupTitle,
+    groupRouteId,
+  };
+}
+
 function buildLocalizedPreflightPayload(body, collectionMetadata) {
   if (isObjectRecord(body) && Object.prototype.hasOwnProperty.call(body, 'body')) {
     if (typeof collectionMetadata === 'undefined') {
@@ -255,8 +299,9 @@ async function runPreparedFlowSurfacesWrite(subcommand, args, io) {
   if (policy === 'whole_page_prepare') {
     const body = await loadBodyFromArgs(args, cwd);
     const collectionMetadata = await loadOptionalCollectionMetadataFromArgs(args, cwd);
+    const rawPreparePayload = buildApplyBlueprintPreparePayload(body, collectionMetadata);
     const prepareResult = await prepareApplyBlueprintWrite(
-      buildApplyBlueprintPreparePayload(body, collectionMetadata),
+      rawPreparePayload,
       {
         cwd,
         autoCollectionMetadata: !hasFlag(args, 'no-auto-collection-metadata'),
@@ -278,6 +323,29 @@ async function runPreparedFlowSurfacesWrite(subcommand, args, io) {
     const execResult = await execNb(['api', 'flow-surfaces', subcommand, ...nextArgs], io);
     writeText(stdout, execResult.stdout);
     writeText(stderr, execResult.stderr);
+    if (execResult.exitCode === 0) {
+      try {
+        const responseBody = JSON.parse(execResult.stdout || '{}');
+        const pageIdentity = extractApplyBlueprintPageIdentity(
+          prepareResult.cliBody,
+          responseBody,
+          normalizeText(extractPrepareBlueprint(rawPreparePayload)?.page?.title),
+        );
+        if (pageIdentity) {
+          const sessionOptions = {
+            sessionRoot: io.cwd || process.cwd(),
+          };
+          const pageIdentityRegistryPath = io.pageIdentityRegistryPath || io.registryPath || '';
+          upsertPageIdentityRecord(pageIdentity, {
+            ...(pageIdentityRegistryPath ? { registryPath: pageIdentityRegistryPath } : {}),
+            ...(io.sessionId ? { sessionId: io.sessionId } : {}),
+            ...(io.sessionRoot ? { sessionRoot: io.sessionRoot } : sessionOptions),
+          });
+        }
+      } catch {
+        // best-effort registry writeback only
+      }
+    }
     return execResult.exitCode;
   }
 
