@@ -5,7 +5,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 ## 0. Canonical Transport
 
 - Agent-facing front door: `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`
-- Backend transport contract: `nb api flow-surfaces`
+- Backend transport contract: flow-surfaces behind the wrapper
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
 - `nb-runjs`, `nb-template-decision`, and `nb-localized-write-preflight` remain local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
 - Whole-page `prepare-write` is local/read-only. For the first real whole-page write, it is mandatory, and the sendable business object becomes `result.cliBody`.
@@ -15,7 +15,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 
 Rule precedence is always:
 
-1. live wrapper help / command behavior and live `nb api flow-surfaces --help` / live generated CLI behavior
+1. live wrapper help / command behavior and live generated CLI behavior
 2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level flow-surfaces write contracts
 3. this `Normative Contract` for global transport, request-shape, and authoring rules
 4. [templates.md](./templates.md) for template-selection semantics
@@ -39,9 +39,9 @@ This file keeps backend action names because they are still the stable payload f
 ### Whole-page first-write rule
 
 - Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
-- Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write in the whole-page route must be `applyBlueprint` through the wrapper `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`, which then sends only the prepared `result.cliBody` to backend `nb api flow-surfaces apply-blueprint`.
+- Pre-write reads, metadata fetch, and `prepare-write` are allowed, but the first mutating write in the whole-page route must be `applyBlueprint` through the wrapper `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`, which then sends only the prepared `result.cliBody` to backend `apply-blueprint`.
 - Before one whole-page `applyBlueprint` succeeds, do not use low-level mutating commands such as `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
-- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / preview / error evidence.
+- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / error evidence.
 - After a successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and must stay narrowly scoped.
 
 ### What the public page blueprint is
@@ -83,7 +83,7 @@ The public `applyBlueprint` payload is:
 
 For actual execution in this skill, the wrapper is the public entry, and the bullets below describe the raw backend body shape that the wrapper eventually sends:
 
-- `nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body
+- wrapper `get` is the common exception: it uses top-level locator flags and no JSON body
 - most other body-based `flow-surfaces` commands expect the raw business object through CLI `--body` / `--body-file`
 - for a first whole-page write that already ran `prepare-write`, that raw business object is `result.cliBody`, not the original draft blueprint
 - do **not** stringify the JSON document
@@ -93,7 +93,7 @@ For actual execution in this skill, the wrapper is the public entry, and the bul
 
 Important exception:
 
-- `nb api flow-surfaces get` uses top-level locator flags derived from `pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`
+- wrapper `get` uses top-level locator flags derived from `pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`
 - for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `page-blueprint.md` focuses on the inner page document, not command flags
 
 Correct nb body:
@@ -277,11 +277,11 @@ Field addability rule:
 
 Do not use UI-builder skill docs to invent missing schema. If the requested fields/relations do not exist, hand off to `nocobase-data-modeling`.
 
-## 4. Prewrite Preview + Confirmation Threshold
+## 4. Prewrite Gate + Confirmation Threshold
 
-For any whole-page `applyBlueprint` authoring run, show one ASCII-first preview from the same blueprint before the first write. This preview is mandatory even when execution continues immediately afterward.
+For any whole-page `applyBlueprint` authoring run, the first mutating write must go through the wrapper so the internal prepare-write gate can normalize and validate the draft before backend execution.
 
-Stop after that preview for confirmation when any of the following is true:
+Stop for confirmation before the write when any of the following is true:
 
 - the request is ambiguous
 - the request is destructive or high-impact
@@ -289,7 +289,7 @@ Stop after that preview for confirmation when any of the following is true:
 - data source / popup / tab structure still depends on assumptions
 - the user explicitly asks to review the structure first
 
-Direct execution after the preview is allowed only when all are true:
+Direct execution is allowed only when all are true:
 
 - the target is unique
 - the structure is clear enough to serialize into one page blueprint or one localized low-level write plan

@@ -4,7 +4,7 @@ Read [chart.md](./chart.md) first for chart tasks. Read this file only after you
 
 If you need to verify complex contracts, negative cases, or regression matrices, continue with [chart-validation.md](./chart-validation.md). This file only keeps the runtime main path.
 
-Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to wrapper commands over backend `nb api flow-surfaces` families and the same raw nb bodies; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
+Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to wrapper commands over flow-surfaces families and the same raw business objects; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
 
 ## Contents
 
@@ -25,7 +25,7 @@ Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-
 
 ## Public Blueprint
 
-For chart, `nb api flow-surfaces configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
+For chart, wrapper `configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
 
 ```json
 {
@@ -51,7 +51,7 @@ Use canonical `query.resource.collectionName` in public chart input; do not use 
 
 1. Default to `query.mode = "builder"` first.
 2. Default to `visual.mode = "basic"` first.
-3. When reconfiguring an existing chart, default to the `safeDefaults` returned by `nb api flow-surfaces context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
+3. When reconfiguring an existing chart, default to the `safeDefaults` returned by wrapper `context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
 4. If you hit `riskyPatterns`, do not forbid the path outright. You may continue, but you must mark the result as risky and add `readback`.
 5. If you hit `unsupportedPatterns`, do not invent a payload. Rewrite it into a safe subset or tell the user clearly that the current contract does not support it.
 6. Only upgrade under the following conditions:
@@ -68,7 +68,7 @@ The most stable execution order for a chart block is not a one-shot blind write.
 3. Run `configure(changes={ query, title?, height?, heightMode? })` first
 4. Then read `context(path="chart")`
 5. Based on `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns`, run `configure(changes={ visual, events? })`
-6. Use `nb api flow-surfaces get --uid <chart-uid>` for canonical readback
+6. Use wrapper `get --uid <chart-uid>` for canonical readback
 7. If a risky pattern is hit, state clearly in the result that this is a risky path, and confirm persistence through readback
 
 When reconfiguring an existing chart, you may skip the initial block-creation step and continue directly from "read `path="chart"` / clear stale query state / reconfigure visual". If you want to clear old builder state, especially residue such as `sorting` / `filter`, do not rely on omission and hope the server clears it. Pass explicit empties instead, for example:
@@ -370,7 +370,7 @@ Key points:
 Two different context types must be distinguished here:
 
 1. **FlowSurfaces stable context**
-   - fields stably exposed to the skill by `nb api flow-surfaces context`
+   - fields stably exposed to the skill by wrapper `context`
    - for chart, the currently stable fields are:
      - `collection`
      - `chart.queryOutputs`
@@ -383,7 +383,7 @@ Two different context types must be distinguished here:
 2. **frontend runtime assumptions**
    - variables typically available at runtime to `ChartBlockModel` / `ChartOptionModel` / `ChartEventsModel`
    - they are appropriate for writing `visual.raw` / `events.raw`
-   - do not mistake them for fields that `nb api flow-surfaces context` is guaranteed to return
+   - do not mistake them for fields that wrapper `context` is guaranteed to return
 
 ### `visual.raw`
 

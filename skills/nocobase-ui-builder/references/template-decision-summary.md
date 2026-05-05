@@ -2,7 +2,7 @@
 
 Read this file when the skill needs to state the final template path to the user after selection is already done. This file does **not** define template selection. Selection semantics stay in [templates.md](./templates.md).
 
-Use this contract for final user-visible preview/summary lines that claim a template outcome.
+Use this contract for final user-visible summary lines that claim a template outcome.
 
 For local runtime enforcement, this contract is also the normalized `templateDecision` shape checked during the wrapper's internal prepare-write when helper input includes template decision data.
 
@@ -44,10 +44,8 @@ Use the official helper envelope `{ blueprint, templateDecision?, collectionMeta
   - `not-repeat-eligible`
   - `no-usable-template`
 
-## Preview Boundary
+## Summary Boundary
 
-- The default ASCII preview should expose template identity + `mode` only when the blueprint already contains them.
-- The ASCII preview does not need to invent a reason.
 - The final user-visible summary should use this contract whenever it says a template ended as `reference`, `copy`, discovery-only, or non-template.
 - When `template.name` is present, prefer that readable name in the summary sentence; fall back to `template.uid` only when no readable name is available.
 

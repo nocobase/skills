@@ -2,7 +2,7 @@
 
 Use this file only once whole-page routing is already settled and the task has reached the real write or local prewrite-validation stage.
 
-If the task only needs local blueprint / preview artifacts or common-case drafting, stay in [whole-page-quick.md](./whole-page-quick.md) and do not open runtime source files.
+If the task only needs local blueprint artifacts or common-case drafting, stay in [whole-page-quick.md](./whole-page-quick.md) and do not open runtime source files.
 
 ## `nb-flow-surfaces.mjs apply-blueprint` internal prepare-write
 
@@ -10,10 +10,10 @@ Use this contract for the internal gate that runs before the first real whole-pa
 
 - agent-facing write path: `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`
 - wrapper input: one page blueprint JSON document, or the wrapper envelope `{ blueprint, templateDecision?, collectionMetadata? }`; keep `collectionMetadata` outside the blueprint root
-- internal result: normalized prepare-write result including prepared `cliBody` plus the ASCII preview
+- internal result: normalized prepare-write result including prepared `cliBody`
 - treat the normalized write body as authoritative local write shape; expected helper-added or helper-normalized fields should be kept as-is instead of being locally undone
 - once internal prepare-write succeeds, the wrapper must consume `result.cliBody` rather than reusing the original draft blueprint
-- the wrapper sends only `result.cliBody` to backend `nb api flow-surfaces apply-blueprint`
+- the wrapper sends only `result.cliBody` to backend `apply-blueprint`
 - by default, in `create` mode it also resolves `navigation.group.title` against live `desktopRoutes`: zero matches keep `title + icon` for new-group creation, one match rewrites the prepared `cliBody` to `navigation.group.routeId`, and multiple matches fail locally requiring explicit `routeId`
 - by default, the wrapper path auto-resolves missing `collectionMetadata` entries before validation: it normalizes supplied metadata, scans data-bound blocks, ordinary popups, and calendar/kanban hidden popup hosts, resolves association targets from known metadata for up to 5 rounds, fetches only missing collections with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`, and falls back to `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`
 - caller-supplied `collectionMetadata` wins; fetched metadata only fills missing collection entries and is not emitted in `result.cliBody`
@@ -34,13 +34,13 @@ Use this contract for the internal gate that runs before the first real whole-pa
 
 ## `nb-localized-write-preflight`
 
-Use this when you want a local validation pass for one localized `compose`, `add-block`, `add-blocks`, or `configure` body before the later backend `nb api flow-surfaces ...` write.
+Use this when you want a local validation pass for one localized `compose`, `add-block`, `add-blocks`, or `configure` body before the later wrapper write.
 
 - CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs --operation <compose|add-block|add-blocks|configure> --stdin-json`
 - If your current directory is not the repo root, use the absolute path to `skills/nocobase-ui-builder/runtime/bin/nb-localized-write-preflight.mjs`; do not probe the bare `nb-localized-write-preflight` command first.
 - input: one localized write body object, or helper envelope `{ body, collectionMetadata? }`
 - returns: stable localized preflight result with `ok`, `errors`, `warnings`, `facts`, and normalized `cliBody`
-- use it for: local validation of localized public low-level `compose` / `add-block` / `add-blocks` / `configure` bodies before the later explicit `nb api flow-surfaces ...` call
+- use it for: local validation of localized public low-level `compose` / `add-block` / `add-blocks` / `configure` bodies before the later explicit wrapper call
 - this helper is local/read-only: it validates and canonicalizes one payload, but does not execute `nb` and does not wrap the transport by itself; the usual agent-facing path is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <compose|add-block|add-blocks|configure>`
 - `collectionMetadata` stays caller-supplied; this helper does not fetch it for you
 - for any data-bound localized payload, missing or empty metadata fails with stable helper rule id `missing-collection-metadata`

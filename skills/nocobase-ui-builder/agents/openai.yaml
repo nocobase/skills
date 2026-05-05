@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "Route Modern page work by intent: whole-page blueprint, localized flow-surfaces edit, or reaction authoring"
-  default_prompt: "Front door: `nb-flow-surfaces.mjs` over `nb api flow-surfaces`. Intent-first: wholePage=1 tab|complex multi-block|nested popup|multi-reaction=>apply-blueprint;localized edits `flow-surfaces`;get-reaction-meta. first write=applyBlueprint;reads/metadata/preview/prepare-write ok;no createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rules;fail->repair+prepare/preview+retry<=5;report;after success only explicit local/live gap repair. Repeat-eligible must contextual list-templates;keyword-only search=discovery-only;template source;local customization;page wording≠local-only intent;backend order;ask, not copy. same-title routeId->pageSchemaUid;navigation.group+navigation.item AntDesign icon;multi-non-filter explicit keyed layout/titles except templates;single non-filter title optional unless asked;setLayout string[][] number[] [[a],[b]]=2col [[a,b]]=stack uid not key. hostBound搜索/filter sameHost filterAction optional;searchPage≠filter;filter/search block=>filterForm;filter row 1;filterForm 4+ fields collapse. table/list/gridCard/calendar/kanban defaultFilter required;local preflight;cliBody only;分析看板=chart/grid-card;kanban/pipeline/status columns=Kanban;associatedRecords+associationField;1 editForm;popup.tryTemplate;popup.saveAsTemplate;openView.tryTemplate"
+  default_prompt: "Front door: `nb-flow-surfaces.mjs`. Intent-first: wholePage=1 tab|complex multi-block|nested popup|multi-reaction=>apply-blueprint;localized edits flow-surfaces wrapper;get-reaction-meta. first write=applyBlueprint;reads/metadata/prepare-write ok;no createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rules;fail->repair+prepare-write+retry<=5;report;after success only explicit local/live gap repair. Repeat-eligible must contextual list-templates;keyword-only search=discovery-only;template source;local customization;page wording≠local-only intent;backend order;ask, not copy. same-title routeId->pageSchemaUid;navigation.group+navigation.item AntDesign icon;multi-non-filter explicit keyed layout/titles except templates;single non-filter title optional unless asked;setLayout string[][] number[] [[a],[b]]=2col [[a,b]]=stack uid not key. hostBound搜索/filter sameHost filterAction optional;searchPage≠filter;filter/search block=>filterForm;filter row 1;filterForm 4+ fields collapse. table/list/gridCard/calendar/kanban defaultFilter required;local preflight;cliBody only;分析看板=chart/grid-card;kanban/pipeline/status columns=Kanban;associatedRecords+associationField;1 editForm;popup.tryTemplate;popup.saveAsTemplate;openView.tryTemplate"
 
 # Long-form guardrails kept here for docs-consistency checks and human review:
 # rebuild defaults.collections from scratch via live metadata
@@ -14,7 +14,7 @@ dependencies:
   tools:
     - type: "cli"
       value: "nb"
-      description: "Use nb api flow-surfaces for Modern-page UI operations"
+      description: "Use nb-flow-surfaces wrapper for Modern-page UI operations"
 
 policy:
   allow_implicit_invocation: true

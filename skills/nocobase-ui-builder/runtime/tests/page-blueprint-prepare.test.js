@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import {
   prepareApplyBlueprintRequest as rawPrepareApplyBlueprintRequest,
-  renderPageBlueprintAsciiPreview,
-} from '../src/page-blueprint-preview.js';
+} from '../src/page-blueprint-prepare.js';
+import { prepareApplyBlueprintWrite } from '../src/apply-blueprint-prepare.js';
 import { buildSuggestedDefaultFilterGroup } from '../src/default-filter-candidates.js';
-import { runPagePreviewCli } from '../src/page-preview-cli.js';
 import { fetchCollectionMetadata } from '../src/collection-metadata-resolver.js';
 
 function createMemoryStream() {
@@ -27,6 +26,48 @@ function createInputStream(text) {
   const stream = new PassThrough();
   stream.end(text);
   return stream;
+}
+
+async function readStreamText(stream) {
+  let output = '';
+  for await (const chunk of stream) {
+    output += chunk.toString('utf8');
+  }
+  return output;
+}
+
+function parseFlagValue(args, name) {
+  const prefix = `--${name}=`;
+  const inline = args.find((arg) => String(arg).startsWith(prefix));
+  if (inline) return inline.slice(prefix.length);
+  const index = args.indexOf(`--${name}`);
+  return index === -1 ? undefined : args[index + 1];
+}
+
+function hasBooleanFlag(args, name) {
+  return args.some((arg) => arg === `--${name}` || arg === `--${name}=true`);
+}
+
+async function runPrepareWriteForTest(args, io = {}) {
+  const stdout = io.stdout || process.stdout;
+  const stderr = io.stderr || process.stderr;
+  try {
+    const rawInput = await readStreamText(io.stdin || process.stdin);
+    const payload = JSON.parse(rawInput || '{}');
+    const expectedOuterTabs = parseFlagValue(args, 'expected-outer-tabs');
+    const result = await prepareApplyBlueprintWrite(payload, {
+      cwd: io.cwd || process.cwd(),
+      autoCollectionMetadata: !hasBooleanFlag(args, 'no-auto-collection-metadata'),
+      ...(expectedOuterTabs ? { expectedOuterTabs: Number(expectedOuterTabs) } : {}),
+      ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
+      ...(io.fetchCollectionMetadata ? { fetchCollectionMetadata: io.fetchCollectionMetadata } : {}),
+    });
+    stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return result.ok ? 0 : 1;
+  } catch (error) {
+    stderr.write(`${JSON.stringify({ ok: false, error: error?.message || String(error) }, null, 2)}\n`);
+    return 2;
+  }
 }
 
 const collectionMetadata = {
@@ -931,475 +972,6 @@ function buildPopupModeBlueprint(popup) {
   };
 }
 
-test('renderPageBlueprintAsciiPreview renders row grouping, block summaries, and one popup layer', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    version: '1',
-    mode: 'create',
-    navigation: {
-      group: { title: 'Workspace' },
-      item: { title: 'Employees' },
-    },
-    page: {
-      title: 'Employees',
-    },
-    tabs: [
-      {
-        title: 'Overview',
-        layout: {
-          rows: [[{ key: 'mainTable', span: 16 }, { key: 'summary', span: 8 }]],
-        },
-        blocks: [
-          {
-            key: 'mainTable',
-            type: 'table',
-            collection: 'employees',
-            fields: ['nickname', 'email', 'phone', 'status', 'department'],
-            recordActions: [
-              {
-                type: 'view',
-                title: 'View',
-                popup: {
-                  title: 'Employee details',
-                  blocks: [
-                    {
-                      type: 'details',
-                      collection: 'employees',
-                      fields: [
-                        'nickname',
-                        {
-                          field: 'manager',
-                          popup: {
-                            title: 'Manager details',
-                            blocks: [{ type: 'details', collection: 'employees', fields: ['nickname'] }],
-                          },
-                        },
-                        'email',
-                      ],
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-          {
-            key: 'summary',
-            type: 'details',
-            collection: 'employees',
-            fields: ['nickname', 'status'],
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /^PAGE: Employees \(create\)/m);
-  assert.match(result.ascii, /MENU: Workspace \/ Employees/);
-  assert.match(result.ascii, /Row 1: \[mainTable span=16\] \[summary span=8\]/);
-  assert.match(result.ascii, /Fields: nickname, email, phone, status, \+1 more/);
-  assert.match(result.ascii, /Record actions: \[View\]/);
-  assert.match(result.ascii, /Popup: Employee details/);
-  assert.match(result.ascii, /Popup from field "manager": nested popup omitted/);
-  assert.deepEqual(result.warnings, ['Popup from field "manager" was omitted because preview expands popups only 1 level(s).']);
-});
-
-test('renderPageBlueprintAsciiPreview shows template mode for block and popup templates', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    version: '1',
-    mode: 'create',
-    page: {
-      title: 'Templated page',
-    },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            key: 'profileForm',
-            type: 'details',
-            template: {
-              uid: 'employee-form-template',
-              mode: 'reference',
-              usage: 'fields',
-            },
-          },
-          {
-            key: 'employeeTable',
-            type: 'table',
-            collection: 'employees',
-            fields: ['nickname'],
-            recordActions: [
-              {
-                type: 'view',
-                popup: {
-                  title: 'Employee details',
-                  template: {
-                    uid: 'employee-popup-template',
-                    mode: 'copy',
-                  },
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /Template: employee-form-template \[mode=reference, usage=fields\]/);
-  assert.match(result.ascii, /Template: employee-popup-template \[mode=copy\]/);
-});
-
-test('renderPageBlueprintAsciiPreview shows popup.tryTemplate auto-selection intent when no explicit template is bound', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    version: '1',
-    mode: 'create',
-    page: {
-      title: 'Templated page',
-    },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            key: 'employeeTable',
-            type: 'table',
-            collection: 'employees',
-            fields: ['nickname'],
-            recordActions: [
-              {
-                type: 'view',
-                popup: {
-                  title: 'Employee details',
-                  tryTemplate: true,
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
-  assert.doesNotMatch(result.ascii, /Default popup content/);
-});
-
-test('renderPageBlueprintAsciiPreview shows popup.saveAsTemplate intent for explicit local popup content', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    version: '1',
-    mode: 'create',
-    page: {
-      title: 'Templated page',
-    },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            key: 'employeeTable',
-            type: 'table',
-            collection: 'employees',
-            fields: ['nickname'],
-            recordActions: [
-              {
-                type: 'view',
-                popup: {
-                  title: 'Employee details',
-                  blocks: [
-                    {
-                      key: 'employeePopupDetails',
-                      type: 'details',
-                      collection: 'employees',
-                      fields: ['nickname'],
-                    },
-                  ],
-                  saveAsTemplate: {
-                    name: 'employee-popup-template',
-                    description: 'Save this popup as a reusable template.',
-                  },
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /Template: save as "employee-popup-template" \[description provided\]/);
-});
-
-test('renderPageBlueprintAsciiPreview keeps popup template binding and warns that local popup content is ignored', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    version: '1',
-    mode: 'create',
-    page: {
-      title: 'Templated page',
-    },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            key: 'employeeTable',
-            type: 'table',
-            collection: 'employees',
-            fields: ['nickname'],
-            recordActions: [
-              {
-                type: 'view',
-                popup: {
-                  title: 'Employee details',
-                  template: {
-                    uid: 'employee-popup-template',
-                    mode: 'reference',
-                  },
-                  mode: 'drawer',
-                  layout: {
-                    rows: [['ignoredPopupBlock']],
-                  },
-                  blocks: [
-                    {
-                      key: 'ignoredPopupBlock',
-                      type: 'details',
-                      title: 'Ignored popup block',
-                      collection: 'employees',
-                      fields: ['nickname'],
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /Template: employee-popup-template \[mode=reference\]/);
-  assert.match(result.ascii, /Ignored local popup keys: mode, blocks, layout/);
-  assert.doesNotMatch(result.ascii, /Ignored popup block/);
-  assert.deepEqual(result.warnings, ['Popup "Employee details" will ignore local popup keys: mode, blocks, layout.']);
-});
-
-test('renderPageBlueprintAsciiPreview does not invent template mode when the blueprint omitted it', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    version: '1',
-    mode: 'create',
-    page: {
-      title: 'Templated page',
-    },
-    tabs: [
-      {
-        title: 'Overview',
-        blocks: [
-          {
-            key: 'profileForm',
-            type: 'details',
-            template: {
-              uid: 'employee-form-template',
-              usage: 'fields',
-            },
-          },
-        ],
-      },
-    ],
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /Template: employee-form-template \[usage=fields\]/);
-  assert.doesNotMatch(result.ascii, /\[mode=/);
-});
-
-test('renderPageBlueprintAsciiPreview falls back for unknown block types and wrapper inputs', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    requestBody: {
-      version: '1',
-      mode: 'replace',
-      target: { pageSchemaUid: 'employees-page-schema' },
-      tabs: [
-        {
-          title: 'Overview',
-          blocks: [
-            {
-              key: 'mystery',
-              type: 'customThing',
-              title: 'Mystery block',
-            },
-          ],
-        },
-      ],
-    },
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /^PAGE: employees-page-schema \(replace\)/m);
-  assert.match(result.ascii, /TARGET: employees-page-schema/);
-  assert.match(result.ascii, /customThing "Mystery block" \[mystery\]/);
-  assert.deepEqual(result.warnings, ['Received outer requestBody wrapper; preview unwrapped the inner page blueprint.']);
-});
-
-test('renderPageBlueprintAsciiPreview keeps wrapper warning for prepare-write helper envelope on preview-only path', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    requestBody: {
-      version: '1',
-      mode: 'create',
-      page: { title: 'Employees' },
-      tabs: [
-        {
-          title: 'Overview',
-          blocks: [
-            {
-              key: 'usersTable',
-              type: 'table',
-              collection: 'users',
-              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
-              fields: ['nickname'],
-              actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
-            },
-          ],
-        },
-      ],
-    },
-    templateDecision: {
-      kind: 'discovery-only',
-      template: {
-        uid: 'employee-popup-template',
-      },
-      reasonCode: 'missing-live-context',
-    },
-  });
-
-  assert.equal(result.ok, true);
-  assert.match(result.ascii, /^PAGE: Employees \(create\)/m);
-  assert.deepEqual(result.warnings, ['Received outer requestBody wrapper; preview unwrapped the inner page blueprint.']);
-  assert.doesNotMatch(result.ascii, /the current opener\/host\/planning context was insufficient/i);
-});
-
-test('renderPageBlueprintAsciiPreview rejects invalid inputs', () => {
-  const result = renderPageBlueprintAsciiPreview({
-    mode: 'create',
-    page: { title: 'Broken' },
-  });
-
-  assert.equal(result.ok, false);
-  assert.match(result.error, /recognizable inner page blueprint object/i);
-  assert.equal(result.ascii, '');
-});
-
-test('page preview cli reads stdin json and returns ascii output', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const stdin = createInputStream(
-    JSON.stringify({
-      version: '1',
-      mode: 'create',
-      page: { title: 'Projects' },
-      tabs: [
-        {
-          title: 'Overview',
-          blocks: [
-            {
-              type: 'table',
-              collection: 'projects',
-              fields: ['name', 'status'],
-              actions: ['create'],
-            },
-          ],
-        },
-      ],
-    }),
-  );
-
-  const exitCode = await runPagePreviewCli(['--stdin-json'], {
-    cwd: process.cwd(),
-    stdin,
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 0);
-  assert.equal(stderr.read(), '');
-  const payload = JSON.parse(stdout.read());
-  assert.equal(payload.ok, true);
-  assert.match(payload.ascii, /^PAGE: Projects \(create\)/m);
-  assert.match(payload.ascii, /Actions: \[create\]/);
-});
-
-test('page preview cli returns ok=false for invalid blueprint payload', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const stdin = createInputStream(
-    JSON.stringify({
-      version: '1',
-      mode: 'create',
-      page: { title: 'Broken' },
-    }),
-  );
-
-  const exitCode = await runPagePreviewCli(['--stdin-json'], {
-    cwd: process.cwd(),
-    stdin,
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 1);
-  assert.equal(stderr.read(), '');
-  const payload = JSON.parse(stdout.read());
-  assert.equal(payload.ok, false);
-  assert.match(payload.error, /recognizable inner page blueprint object/i);
-});
-
-test('page preview cli returns a stable JSON error when --input is missing its value', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-
-  const exitCode = await runPagePreviewCli(['--input'], {
-    cwd: process.cwd(),
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 2);
-  assert.equal(stdout.read(), '');
-  assert.deepEqual(JSON.parse(stderr.read()), {
-    ok: false,
-    error: 'Missing value for --input.',
-    usage: {
-      command:
-        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
-    },
-  });
-});
-
-test('page preview cli returns a stable JSON error when a numeric inline equals flag is empty', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--expected-outer-tabs='], {
-    cwd: process.cwd(),
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 2);
-  assert.equal(stdout.read(), '');
-  assert.deepEqual(JSON.parse(stderr.read()), {
-    ok: false,
-    error: 'Missing value for --expected-outer-tabs.',
-    usage: {
-      command:
-        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
-    },
-  });
-});
-
 test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normalized cli body', () => {
   const result = prepareApplyBlueprintRequest({
     requestBody: {
@@ -1441,7 +1013,6 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 
   assert.equal(result.ok, true);
-  assert.match(result.ascii, /^PAGE: Employees \(create\)/m);
   assert.deepEqual(result.warnings, []);
   assert.deepEqual(result.errors, []);
   assert.deepEqual(result.defaultsRequirements, {
@@ -2510,7 +2081,7 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   assert.equal(actionDefaultFilterExactTwoCandidateCoverage.ok, true);
 });
 
-test('prepareApplyBlueprintRequest accepts and previews tree connectFields targets', () => {
+test('prepareApplyBlueprintRequest accepts tree connectFields targets', () => {
   const result = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -2555,7 +2126,6 @@ test('prepareApplyBlueprintRequest accepts and previews tree connectFields targe
   assert.deepEqual(result.cliBody.tabs[0].blocks[0].settings.connectFields, {
     targets: [{ target: 'usersTable' }],
   });
-  assert.match(result.ascii, /Connects:\s*usersTable/i);
 
   const mapAndComments = prepareWithDirectCollectionDefaults(
     {
@@ -2601,7 +2171,6 @@ test('prepareApplyBlueprintRequest accepts and previews tree connectFields targe
   );
 
   assert.equal(mapAndComments.ok, true);
-  assert.match(mapAndComments.ascii, /Connects:\s*usersMap,\s*usersComments/i);
 
   const duplicateTarget = prepareWithDirectCollectionDefaults(
     {
@@ -2726,7 +2295,6 @@ test('prepareApplyBlueprintRequest validates tree connectFields target metadata'
   );
 
   assert.equal(withFilterPaths.ok, true);
-  assert.match(withFilterPaths.ascii, /Connects:\s*usersTable via department\.id/i);
 });
 
 test('prepareApplyBlueprintRequest rejects tree connectFields whose filterPaths type does not match the tree key', () => {
@@ -2907,7 +2475,6 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.errors, []);
-  assert.match(result.ascii, /^DEFAULTS: users\(fieldGroups,popups\), roles\(fieldGroups\)$/m);
   assert.equal(result.cliBody.defaults.collections.users.popups.associations.roles.edit.name, 'Edit user role');
   assert.deepEqual(result.defaultsRequirements, {
     collections: [
@@ -4579,7 +4146,6 @@ test('prepareApplyBlueprintRequest returns normalized templateDecision when prov
     reason: 'standard reuse',
     summary: 'Template employee-popup-template via reference: standard reuse.',
   });
-  assert.doesNotMatch(result.ascii, /standard reuse/i);
 });
 
 test('prepareApplyBlueprintRequest rejects selected templateDecision values that do not match a bound blueprint template', () => {
@@ -5059,7 +4625,6 @@ test('prepareApplyBlueprintRequest omits normalized templateDecision when the bl
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.ascii, '');
   assert.equal(result.templateDecision, undefined);
   assert.equal(result.cliBody, undefined);
   assert.deepEqual(result.errors, [
@@ -5341,7 +4906,6 @@ test('prepareApplyBlueprintRequest rejects high-risk first-write blueprint mista
 
   assert.equal(result.ok, false);
   assert.equal(result.cliBody, undefined);
-  assert.match(result.ascii, /^PAGE: Broken users page \(create\)/m);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'unexpected-outer-tab-count'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'block-layout-not-allowed'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'illegal-tab-key' && issue.path === 'tabs[1].pageSchemaUid'));
@@ -6570,11 +6134,29 @@ test('prepareApplyBlueprintRequest requires collapse action on filter blocks wit
   assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-collapse-required' && issue.path === 'tabs[0].blocks[0].actions'));
 });
 
-test('renderPageBlueprintAsciiPreview shows field group summaries on large field-grid blocks', () => {
-  const result = renderPageBlueprintAsciiPreview({
+test('prepareApplyBlueprintRequest accepts field groups on large field-grid blocks without ascii output', () => {
+  const result = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          popups: {
+            view: { name: 'User details', description: 'View one user record.' },
+            addNew: { name: 'Create user', description: 'Create one user record.' },
+            edit: { name: 'Edit user', description: 'Edit one user record.' },
+            associations: {
+              department: {
+                view: { name: 'Department details', description: 'View one department record.' },
+                addNew: { name: 'Create department', description: 'Create one department record.' },
+                edit: { name: 'Edit department', description: 'Edit one department record.' },
+              },
+            },
+          },
+        },
+      },
+    },
     tabs: [
       {
         title: 'Overview',
@@ -6598,11 +6180,10 @@ test('renderPageBlueprintAsciiPreview shows field group summaries on large field
         ],
       },
     ],
-  });
+  }, { collectionMetadata });
 
   assert.equal(result.ok, true);
-  assert.match(result.ascii, /Field groups: Basic info \(6\), Assignments \(5\)/);
-  assert.match(result.ascii, /Fields: username, nickname, email, phone, \+7 more/);
+  assert.equal(Object.hasOwn(result, 'ascii'), false);
 });
 
 test('prepareApplyBlueprintRequest rejects large createForm blocks that skip fieldGroups', () => {
@@ -6757,7 +6338,7 @@ test('prepareApplyBlueprintRequest accepts fieldGroups on large editForm blocks 
   assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
 });
 
-test('prepareApplyBlueprintRequest preserves grouped field popups in preview and cliBody', () => {
+test('prepareApplyBlueprintRequest preserves grouped field popups in cliBody', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
@@ -6807,8 +6388,6 @@ test('prepareApplyBlueprintRequest preserves grouped field popups in preview and
   });
 
   assert.equal(result.ok, true);
-  assert.match(result.ascii, /Popup from field "manager\.nickname":/);
-  assert.match(result.ascii, /Popup: Manager details/);
   assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].fields[1].popup.title, 'Manager details');
   assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].fields[1].popup.blocks[0].key, 'managerDetails');
 });
@@ -7250,7 +6829,6 @@ test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', ()
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.ascii, '');
   assert.deepEqual(result.errors, [
     {
       path: 'requestBody',
@@ -8478,7 +8056,6 @@ test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
-  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
   assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.tryTemplate, true);
 });
 
@@ -8519,8 +8096,6 @@ test('prepareApplyBlueprintRequest defaults inline create-time popups to popup.t
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
-  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
-  assert.match(result.ascii, /Template: save as "User details popup template" \[description provided\]/);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].key, 'userPopupDetails');
   assert.equal(
@@ -8545,7 +8120,6 @@ test('prepareApplyBlueprintRequest defaults first-layer popups with more than th
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, 'page');
-  assert.match(result.ascii, /Popup: User details[\s\S]*Mode: page/);
 });
 
 test('prepareApplyBlueprintRequest defaults first-layer popups with more than twenty direct effective fields to page mode', () => {
@@ -8567,7 +8141,6 @@ test('prepareApplyBlueprintRequest defaults first-layer popups with more than tw
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, 'page');
-  assert.match(result.ascii, /Popup: User data explorer[\s\S]*Mode: page/);
 });
 
 test('prepareApplyBlueprintRequest keeps popup mode unset at the auto-page thresholds', () => {
@@ -8754,7 +8327,7 @@ test('prepareApplyBlueprintRequest does not auto-add page mode when a popup temp
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
-  assert.deepEqual(result.warnings, ['Popup "User details" will ignore local popup keys: blocks, layout.']);
+  assert.deepEqual(result.warnings, []);
 });
 
 test('prepareApplyBlueprintRequest preserves an explicit popup.tryTemplate=false override on create-time inline popups', () => {
@@ -8795,7 +8368,6 @@ test('prepareApplyBlueprintRequest preserves an explicit popup.tryTemplate=false
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
-  assert.doesNotMatch(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, false);
   assert.equal(
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name,
@@ -8844,8 +8416,6 @@ test('prepareApplyBlueprintRequest accepts popup.saveAsTemplate and keeps it in 
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
-  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
-  assert.match(result.ascii, /Template: save as "user-popup-template" \[description provided\]/);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name, 'user-popup-template');
   assert.equal(
@@ -9184,8 +8754,6 @@ test('prepareApplyBlueprintRequest ignores local popup blocks for write shape wh
     ],
     associations: [],
   });
-  assert.match(result.ascii, /Template: user-edit-popup-template \[mode=reference\]/);
-  assert.match(result.ascii, /Ignored local popup keys: mode, blocks, layout/);
   assert.deepEqual(result.templateDecision, {
     kind: 'selected-reference',
     mode: 'reference',
@@ -9196,10 +8764,10 @@ test('prepareApplyBlueprintRequest ignores local popup blocks for write shape wh
     reason: 'standard reuse',
     summary: 'Template user-edit-popup-template via reference: standard reuse.',
   });
-  assert.deepEqual(result.warnings, ['Popup "Edit user" will ignore local popup keys: mode, blocks, layout.']);
+  assert.deepEqual(result.warnings, []);
 });
 
-test('page preview cli prepare-write fails when data-bound blocks are missing collectionMetadata', async () => {
+test('prepare-write fails when data-bound blocks are missing collectionMetadata', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -9225,7 +8793,7 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9248,7 +8816,7 @@ test('page preview cli prepare-write fails when data-bound blocks are missing co
   );
 });
 
-test('page preview cli prepare-write auto-resolves collectionMetadata when it is missing', async () => {
+test('prepare-write auto-resolves collectionMetadata when it is missing', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -9281,7 +8849,7 @@ test('page preview cli prepare-write auto-resolves collectionMetadata when it is
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9553,7 +9121,7 @@ test('prepareApplyBlueprintRequest rejects sql chart query mixed with builder qu
   );
 });
 
-test('page preview cli prepare-write resolves unique existing navigation group to routeId', async () => {
+test('prepare-write resolves unique existing navigation group to routeId', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -9590,7 +9158,7 @@ test('page preview cli prepare-write resolves unique existing navigation group t
   );
   const calls = [];
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9623,7 +9191,7 @@ test('page preview cli prepare-write resolves unique existing navigation group t
   assert.equal(calls.some((call) => call.includes('--base-url')), false);
 });
 
-test('page preview prepare-write ignores navigation group metadata when routeId is present', () => {
+test('prepare-write ignores navigation group metadata when routeId is present', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
@@ -9660,7 +9228,7 @@ test('page preview prepare-write ignores navigation group metadata when routeId 
   );
 });
 
-test('page preview cli prepare-write fails before applyBlueprint for ambiguous navigation group title', async () => {
+test('prepare-write fails before applyBlueprint for ambiguous navigation group title', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -9681,7 +9249,7 @@ test('page preview cli prepare-write fails before applyBlueprint for ambiguous n
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9709,7 +9277,7 @@ test('page preview cli prepare-write fails before applyBlueprint for ambiguous n
   assert.ok(payload.errors.some((issue) => issue.ruleId === 'navigation-group-title-ambiguous'));
 });
 
-test('page preview cli prepare-write resolves navigation group even when auto collection metadata is disabled', async () => {
+test('prepare-write resolves navigation group even when auto collection metadata is disabled', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -9730,7 +9298,7 @@ test('page preview cli prepare-write resolves navigation group even when auto co
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9754,7 +9322,7 @@ test('page preview cli prepare-write resolves navigation group even when auto co
   assert.deepEqual(payload.cliBody.navigation.group, { routeId: 42 });
 });
 
-test('page preview cli prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
+test('prepare-write does not fetch when complete collectionMetadata is supplied', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -9790,7 +9358,7 @@ test('page preview cli prepare-write does not fetch when complete collectionMeta
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9809,7 +9377,7 @@ test('page preview cli prepare-write does not fetch when complete collectionMeta
   assert.equal(payload.cliBody.collectionMetadata, undefined);
 });
 
-test('page preview cli prepare-write only fetches missing collectionMetadata entries', async () => {
+test('prepare-write only fetches missing collectionMetadata entries', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -9860,7 +9428,7 @@ test('page preview cli prepare-write only fetches missing collectionMetadata ent
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9879,7 +9447,7 @@ test('page preview cli prepare-write only fetches missing collectionMetadata ent
   assert.equal(payload.ok, true);
 });
 
-test('page preview cli prepare-write fetches missing metadata from calendar hidden popup blocks', async () => {
+test('prepare-write fetches missing metadata from calendar hidden popup blocks', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -9932,7 +9500,7 @@ test('page preview cli prepare-write fetches missing metadata from calendar hidd
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -9952,7 +9520,7 @@ test('page preview cli prepare-write fetches missing metadata from calendar hidd
   assert.equal(payload.cliBody.tabs[0].blocks[0].settings.quickCreatePopup.blocks[0].collection, 'roles');
 });
 
-test('page preview cli prepare-write fetches missing metadata from calendar event popup blocks', async () => {
+test('prepare-write fetches missing metadata from calendar event popup blocks', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10005,7 +9573,7 @@ test('page preview cli prepare-write fetches missing metadata from calendar even
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10029,7 +9597,7 @@ test('page preview cli prepare-write fetches missing metadata from calendar even
   );
 });
 
-test('page preview cli prepare-write reports missing metadata from calendar hidden popup blocks when auto metadata is disabled', async () => {
+test('prepare-write reports missing metadata from calendar hidden popup blocks when auto metadata is disabled', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10068,7 +9636,7 @@ test('page preview cli prepare-write reports missing metadata from calendar hidd
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10089,7 +9657,7 @@ test('page preview cli prepare-write reports missing metadata from calendar hidd
   );
 });
 
-test('page preview cli prepare-write fetches missing metadata from kanban hidden popup blocks', async () => {
+test('prepare-write fetches missing metadata from kanban hidden popup blocks', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10145,7 +9713,7 @@ test('page preview cli prepare-write fetches missing metadata from kanban hidden
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10169,7 +9737,7 @@ test('page preview cli prepare-write fetches missing metadata from kanban hidden
   );
 });
 
-test('page preview cli prepare-write reports missing metadata from kanban hidden popup blocks when auto metadata is disabled', async () => {
+test('prepare-write reports missing metadata from kanban hidden popup blocks when auto metadata is disabled', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10207,7 +9775,7 @@ test('page preview cli prepare-write reports missing metadata from kanban hidden
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10228,7 +9796,7 @@ test('page preview cli prepare-write reports missing metadata from kanban hidden
   );
 });
 
-test('page preview cli prepare-write resolves data-bound collections inside popups', async () => {
+test('prepare-write resolves data-bound collections inside popups', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10285,7 +9853,7 @@ test('page preview cli prepare-write resolves data-bound collections inside popu
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10304,7 +9872,7 @@ test('page preview cli prepare-write resolves data-bound collections inside popu
   assert.equal(payload.ok, true);
 });
 
-test('page preview cli prepare-write recursively resolves association target collection metadata', async () => {
+test('prepare-write recursively resolves association target collection metadata', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10363,7 +9931,7 @@ test('page preview cli prepare-write recursively resolves association target col
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10382,7 +9950,7 @@ test('page preview cli prepare-write recursively resolves association target col
   assert.equal(payload.ok, true);
 });
 
-test('page preview cli prepare-write resolves associatedRecords targets over multiple metadata rounds', async () => {
+test('prepare-write resolves associatedRecords targets over multiple metadata rounds', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10443,7 +10011,7 @@ test('page preview cli prepare-write resolves associatedRecords targets over mul
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10463,7 +10031,7 @@ test('page preview cli prepare-write resolves associatedRecords targets over mul
   assert.equal(payload.ok, true);
 });
 
-test('page preview cli prepare-write resolves multi-hop association field paths over multiple metadata rounds', async () => {
+test('prepare-write resolves multi-hop association field paths over multiple metadata rounds', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10515,7 +10083,7 @@ test('page preview cli prepare-write resolves multi-hop association field paths 
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10535,7 +10103,7 @@ test('page preview cli prepare-write resolves multi-hop association field paths 
   assert.equal(payload.ok, true);
 });
 
-test('page preview cli prepare-write resolves associatedRecords targets from associationPathName', async () => {
+test('prepare-write resolves associatedRecords targets from associationPathName', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10600,7 +10168,7 @@ test('page preview cli prepare-write resolves associatedRecords targets from ass
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10620,7 +10188,7 @@ test('page preview cli prepare-write resolves associatedRecords targets from ass
   assert.equal(payload.cliBody.collectionMetadata, undefined);
 });
 
-test('page preview cli prepare-write keeps fail-closed behavior with no-auto metadata flag', async () => {
+test('prepare-write keeps fail-closed behavior with no-auto metadata flag', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const fetched = [];
@@ -10646,7 +10214,7 @@ test('page preview cli prepare-write keeps fail-closed behavior with no-auto met
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--no-auto-collection-metadata'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10669,7 +10237,7 @@ test('page preview cli prepare-write keeps fail-closed behavior with no-auto met
   assert.ok(payload.errors.some((issue) => issue.ruleId === 'missing-collection-metadata'));
 });
 
-test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata fetch fails', async () => {
+test('prepare-write falls back to missing collectionMetadata when auto metadata fetch fails', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10694,7 +10262,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10714,7 +10282,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
   assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
-test('page preview cli prepare-write falls back to missing collectionMetadata when explicit empty metadata cannot be auto-filled', async () => {
+test('prepare-write falls back to missing collectionMetadata when explicit empty metadata cannot be auto-filled', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10742,7 +10310,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10761,7 +10329,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
   assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
-test('page preview cli prepare-write falls back to missing collectionMetadata when partial metadata cannot be auto-filled', async () => {
+test('prepare-write falls back to missing collectionMetadata when partial metadata cannot be auto-filled', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10811,7 +10379,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10835,7 +10403,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
   );
 });
 
-test('page preview cli prepare-write preserves invalid explicit collectionMetadata errors', async () => {
+test('prepare-write preserves invalid explicit collectionMetadata errors', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10863,7 +10431,7 @@ test('page preview cli prepare-write preserves invalid explicit collectionMetada
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -10963,7 +10531,7 @@ test('fetchCollectionMetadata fails when nb responses do not include the request
   assert.equal(calls[1].includes('--base-url'), false);
 });
 
-test('page preview cli prepare-write falls back to missing collectionMetadata when auto metadata fetch returns no collection entry', async () => {
+test('prepare-write falls back to missing collectionMetadata when auto metadata fetch returns no collection entry', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -10988,7 +10556,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -11007,7 +10575,7 @@ test('page preview cli prepare-write falls back to missing collectionMetadata wh
   assert.equal(payload.errors.some((issue) => issue.ruleId === 'collection-metadata-fetch-failed'), false);
 });
 
-test('page preview cli prepare-write returns normalized cli body json', async () => {
+test('prepare-write returns normalized cli body json', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11047,7 +10615,7 @@ test('page preview cli prepare-write returns normalized cli body json', async ()
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -11063,7 +10631,7 @@ test('page preview cli prepare-write returns normalized cli body json', async ()
   assert.equal(payload.cliBody.target.pageSchemaUid, 'users-page-schema');
 });
 
-test('page preview cli prepare-write accepts helper envelope with templateDecision', async () => {
+test('prepare-write accepts helper envelope with templateDecision', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11110,7 +10678,7 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -11131,10 +10699,9 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
     reason: 'the current opener/host/planning context was insufficient',
     summary: 'Template employee-popup-template stayed discovery-only: the current opener/host/planning context was insufficient.',
   });
-  assert.doesNotMatch(payload.ascii, /the current opener\/host\/planning context was insufficient/i);
 });
 
-test('page preview cli prepare-write accepts bootstrap-before-bind templateDecision without forcing convert', async () => {
+test('prepare-write accepts bootstrap-before-bind templateDecision without forcing convert', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11181,7 +10748,7 @@ test('page preview cli prepare-write accepts bootstrap-before-bind templateDecis
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -11203,10 +10770,9 @@ test('page preview cli prepare-write accepts bootstrap-before-bind templateDecis
     summary:
       'Template 角色表格 stayed discovery-only: the first repeated scene must be written and saved before later instances can bind it; convert is preferred only when supported.',
   });
-  assert.doesNotMatch(payload.ascii, /convert is preferred only when supported/i);
 });
 
-test('page preview cli prepare-write accepts explicit expected outer tab count', async () => {
+test('prepare-write accepts explicit expected outer tab count', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11257,7 +10823,7 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
     }),
   );
 
-  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--expected-outer-tabs', '2'], {
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write', '--expected-outer-tabs', '2'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -11272,7 +10838,7 @@ test('page preview cli prepare-write accepts explicit expected outer tab count',
   assert.equal(payload.facts.outerTabCount, 2);
 });
 
-test('page preview cli prepare-write accepts inline equals flags for numeric options', async () => {
+test('prepare-write accepts inline equals flags for numeric options', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11323,7 +10889,7 @@ test('page preview cli prepare-write accepts inline equals flags for numeric opt
     }),
   );
 
-  const exitCode = await runPagePreviewCli([
+  const exitCode = await runPrepareWriteForTest([
     '--stdin-json',
     '--prepare-write',
     '--expected-outer-tabs=2',

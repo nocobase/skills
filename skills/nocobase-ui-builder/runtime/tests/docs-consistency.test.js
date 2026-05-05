@@ -403,7 +403,7 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}preview[\s\S]{0,80}prepare-write[\s\S]{0,80}(?:allowed|ok)/i,
+    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}prepare-write[\s\S]{0,80}(?:allowed|ok)/i,
     `${sourceLabel} should allow read-only prep work before the first mutating write`,
   );
   assert.match(
@@ -413,8 +413,8 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,80}preview[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,120}prepare-write[\s\S]{0,80}preview[\s\S]{0,120}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
-    `${sourceLabel} should repair the blueprint, rerun prepare-write/preview, and retry up to 5 rounds on pre-success applyBlueprint failure`,
+    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
+    `${sourceLabel} should repair the blueprint, rerun prepare-write, and retry up to 5 rounds on pre-success applyBlueprint failure`,
   );
   assert.match(
     text,
@@ -436,8 +436,8 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
 function assertOpenAIGuardrails(text) {
   assert.match(
     text,
-    /localized edits[\s\S]{0,80}(?:low-level )?`flow-surfaces`/i,
-    'openai prompt should keep localized low-level flow-surfaces routing visible',
+    /localized edits[\s\S]{0,80}(?:flow-surfaces wrapper|wrapper|nb-flow-surfaces)/i,
+    'openai prompt should keep localized wrapper routing visible',
   );
   assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
   assert.match(
@@ -529,7 +529,7 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /reads\/metadata\/preview\/prepare-write ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}preview[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
+    /reads\/metadata\/prepare-write ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
     'openai prompt should allow read-only prep before the first mutating write',
   );
   assert.match(
@@ -539,8 +539,8 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /fail->repair\+prepare\/preview\+retry<=5/i,
-    'openai prompt should repair, rerun prepare-write/preview, and retry up to 5 rounds on applyBlueprint failure',
+    /fail->repair\+prepare-write\+retry<=5/i,
+    'openai prompt should repair, rerun prepare-write, and retry up to 5 rounds on applyBlueprint failure',
   );
   assert.match(
     text,
@@ -560,7 +560,6 @@ test('required docs and relative links stay valid', () => {
     'SKILL.md',
     'agents/openai.yaml',
     'references/aliases.md',
-    'references/ascii-preview.md',
     'references/boundary-quick.md',
     'references/blocks/chart.md',
     'references/blocks/index.md',
@@ -635,7 +634,7 @@ test('upstream js snapshot relative links stay valid', () => {
 test('docs keep canonical nb boundaries', () => {
   const skill = read('SKILL.md');
   assert.match(skill, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(skill, /Backend transport contract remains `nb api flow-surfaces`/);
+  assert.match(skill, /Internal backend transport contract remains `?flow-surfaces`?/);
   assert.match(skill, /nb-flow-surfaces\.mjs apply-blueprint/);
   assert.match(skill, /nb-flow-surfaces\.mjs get-reaction-meta/);
   assert.match(skill, /prepare-write/i);
@@ -643,35 +642,31 @@ test('docs keep canonical nb boundaries', () => {
 
   const pageBlueprint = read('references/page-blueprint.md');
   assert.match(pageBlueprint, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
-  assert.match(pageBlueprint, /Backend transport contract remains `nb api flow-surfaces apply-blueprint`/);
-  assert.match(pageBlueprint, /nb raw body/i);
+  assert.match(pageBlueprint, /wrapper raw body/i);
   assert.match(pageBlueprint, /Do not wrap that object again/i);
 
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /Agent-facing front door: `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(normativeContract, /Backend transport contract: `nb api flow-surfaces`/);
+  assert.match(normativeContract, /Backend transport contract: flow-surfaces behind the wrapper/);
   assert.match(normativeContract, /wrapper `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
 
   const templates = read('references/templates.md');
   assert.match(templates, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(templates, /Backend transport contract remains `nb api flow-surfaces`/);
-  assert.match(templates, /backend nb raw body/i);
+  assert.match(templates, /raw business object/i);
 
   const reaction = read('references/reaction.md');
   assert.match(reaction, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(reaction, /Backend transport contract remains `nb api flow-surfaces`/);
   assert.match(reaction, /nb-flow-surfaces\.mjs apply-blueprint/);
   assert.match(reaction, /nb-flow-surfaces\.mjs get-reaction-meta/);
 
   const settings = read('references/settings.md');
   assert.match(settings, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(settings, /Backend transport contract remains `nb api flow-surfaces`/);
   assert.match(settings, /nb-flow-surfaces\.mjs set-layout/);
   assert.match(settings, /nb-flow-surfaces\.mjs set-event-flows/);
 
   const toolShapes = read('references/tool-shapes.md');
   assert.match(toolShapes, /Do not wrap it again/i);
-  assert.match(toolShapes, /`nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body/i);
+  assert.match(toolShapes, /wrapper `?get`? is the common exception: it uses top-level locator flags and no JSON body/i);
   assert.doesNotMatch(toolShapes, /MCP fallback|requestBody|flow_surfaces_|collections:get/i);
   assert.doesNotMatch(
     toolShapes,
@@ -679,10 +674,10 @@ test('docs keep canonical nb boundaries', () => {
     'tool-shapes should not present wrapped { blueprint: ... } bodies as canonical nb request bodies',
   );
 
-  const asciiPreview = read('references/ascii-preview.md');
-  assert.match(asciiPreview, /\{\s*blueprint,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
-  assert.match(asciiPreview, /normalized `templateDecision`/i);
-  assert.doesNotMatch(asciiPreview, /requestBody|tool-call envelope/i);
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /\{\s*blueprint,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
+  assert.match(helperContracts, /prepared `?cliBody`?/i);
+  assert.doesNotMatch(helperContracts, /requestBody|tool-call envelope/i);
 });
 
 test('public ui-builder docs do not expose old ctl or MCP transport contracts', () => {
@@ -889,7 +884,7 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
-  assert.match(crosswalk, /nb api flow-surfaces set-event-flows/i, 'transport-crosswalk should expose nb command for set-event-flows');
+  assert.match(crosswalk, /set-event-flows/i, 'transport-crosswalk should expose the wrapper subcommand for set-event-flows');
 
   const settings = read('references/settings.md');
   assert.match(settings, /Event-flow Replacement/i, 'settings.md should document event-flow replacement explicitly');
@@ -1000,7 +995,8 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /Front door: `nb-flow-surfaces\.mjs` over `nb api flow-surfaces`/);
+  assert.match(defaultPrompt, /Front door: `nb-flow-surfaces\.mjs`/);
+  assert.doesNotMatch(defaultPrompt, /nb api flow-surfaces/i);
   assert.match(defaultPrompt, /Intent-first/i);
   assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
@@ -1255,7 +1251,7 @@ test('whole-page satellite docs do not preserve pre-success low-level fallback w
     );
     assert.match(
       text,
-      /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:repair|修正|修复)[\s\S]{0,120}(?:prepare-write|preview)[\s\S]{0,120}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:repair|修正|修复)[\s\S]{0,120}(?:prepare-write|preview)[\s\S]{0,120}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
+      /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:repair|修正|修复)[\s\S]{0,120}prepare-write[\s\S]{0,120}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:repair|修正|修复)[\s\S]{0,120}prepare-write[\s\S]{0,120}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
       `${relativePath} should repair and retry up to 5 rounds on pre-success applyBlueprint failure`,
     );
     assert.match(
@@ -1278,7 +1274,6 @@ test('duplicate same-title menu-group docs consistently require explicit routeId
     'references/page-blueprint.md',
     'references/page-intent.md',
     'references/normative-contract.md',
-    'references/ascii-preview.md',
     'references/verification.md',
     'references/tool-shapes.md',
   ]) {
@@ -1344,7 +1339,6 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(wholePageQuick, /\[template-quick\.md\]/i);
   assert.match(wholePageQuick, /\.artifacts\/nocobase-ui-builder/i);
   assert.match(wholePageQuick, /blueprint\.json/i);
-  assert.match(wholePageQuick, /prewrite-preview\.txt/i);
   assert.match(wholePageQuick, /readback-checklist\.md/i);
   assert.match(
     wholePageQuick,
@@ -1355,11 +1349,6 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     wholePageQuick,
     /blueprint\.json[\s\S]{0,160}(?:must be|is)[\s\S]{0,160}(?:bare|direct|root)[\s\S]{0,160}`?tabs\[\]`?/i,
     'whole-page-quick should require artifact-only blueprint.json to be the direct blueprint root with tabs[]',
-  );
-  assert.match(
-    wholePageQuick,
-    /preview-policy\.json[\s\S]{0,160}"prepareWriteRequired"\s*:\s*false[\s\S]{0,160}"previewSource"\s*:\s*"draft-blueprint"/i,
-    'whole-page-quick should document the artifact-only preview policy shape',
   );
   assert.match(
     wholePageQuick,
@@ -1398,7 +1387,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,80}preview[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
+    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
     'whole-page-quick should keep the first-write and post-success repair policy visible',
   );
   assert.match(
@@ -1641,6 +1630,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     assert.doesNotMatch(text, /nb-page-preview/i, `${relativePath} should not expose nb-page-preview`);
     assert.doesNotMatch(
       text,
+      /\bnb\s+api\s+flow-surfaces\b/i,
+      `${relativePath} should not expose raw nb api flow-surfaces; use nb-flow-surfaces.mjs`,
+    );
+    assert.doesNotMatch(
+      text,
       /prepareApplyBlueprintRequest/i,
       `${relativePath} should not direct agents to call prepareApplyBlueprintRequest`,
     );
@@ -1657,7 +1651,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   const localEditQuickHelper = read('references/local-edit-quick.md');
   assert.match(localEditQuickHelper, /nb-localized-write-preflight/i);
   assert.match(localEditQuickHelper, /runLocalizedWritePreflight/i);
-  assert.match(localEditQuickHelper, /does not wrap or execute the nb transport|explicit `?nb api flow-surfaces/i);
+  assert.match(localEditQuickHelper, /does not wrap or execute the nb transport|wrapper\/backend write/i);
 
 });
 
@@ -1853,18 +1847,6 @@ test('whole-page authoring docs keep menu, layout, and filter gates aligned with
     pageIntent,
     /Omit `?layout` when it is not essential or not fully decided/i,
     'page-intent should no longer allow generic layout omission for multi-block scopes',
-  );
-
-  const asciiPreview = read('references/ascii-preview.md');
-  assert.match(
-    asciiPreview,
-    /at most one non-filter block[\s\S]{0,120}vertical order/i,
-    'ascii-preview should limit vertical-order fallback to valid single-block scopes',
-  );
-  assert.match(
-    asciiPreview,
-    /prepare-write validation failure|validation failure/i,
-    'ascii-preview should treat missing multi-block layout as a gate failure, not a valid default',
   );
 
   const normative = read('references/normative-contract.md');
@@ -2120,7 +2102,7 @@ test('localized preflight docs keep explicit helper-vs-transport boundary', () =
   assert.match(helperContracts, /local\/read-only/i);
   assert.match(helperContracts, /does not execute `?nb`?/i);
   assert.match(helperContracts, /does not wrap the transport by itself|does not wrap the transport/i);
-  assert.match(helperContracts, /later explicit `?nb api flow-surfaces/i);
+  assert.match(helperContracts, /later explicit wrapper call|later wrapper write/i);
 
   const localEditQuick = read('references/local-edit-quick.md');
   assert.match(localEditQuick, /later wrapper\/backend write|through `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
@@ -2134,7 +2116,7 @@ test('localized preflight docs keep explicit helper-vs-transport boundary', () =
 
 test('prepare-write helper-envelope docs explain collectionMetadata requirements', () => {
   for (const relativePath of [
-    'references/ascii-preview.md',
+    'references/helper-contracts.md',
     'references/template-decision-summary.md',
   ]) {
     const text = read(relativePath);

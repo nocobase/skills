@@ -28,12 +28,12 @@ For artifact-only localized reaction drafting, stay on this file. Do not enumera
 Whole-page-first rule:
 
 - do not split a newly created page into a separate live reaction phase just because the page has more blocks, more popups, or more reaction families
-- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds; do not switch to localized `get-reaction-meta` + `set*Rules` during those pre-success retries; after 5 failed rounds, report the latest blueprint / preview / error evidence
+- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds; do not switch to localized `get-reaction-meta` + `set*Rules` during those pre-success retries; after 5 failed rounds, report the latest blueprint / error evidence
 - after one successful whole-page `applyBlueprint`, use localized `get-reaction-meta` + `set*Rules` repair only for an explicit residual local/live gap, and keep that repair narrowly scoped
 
 ### Existing live page
 
-1. `nb api flow-surfaces get-reaction-meta`
+1. `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs get-reaction-meta`
 2. choose the returned capability by `kind`
 3. reuse its `fingerprint`
 4. call the matching `set-*` rules command
@@ -41,7 +41,7 @@ Whole-page-first rule:
 When extracting fingerprints from CLI JSON, do not pipe the meta through `rg` and then copy the nearest fingerprint. A single target can expose `fieldValue`, `blockLinkage`, and `fieldLinkage` at once, and their fingerprints are not interchangeable. Select by `kind`:
 
 ```bash
-nb api flow-surfaces get-reaction-meta -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs get-reaction-meta -e <env> -j \
   --target '{"uid":"<target-uid>"}' > /tmp/reaction-meta.json
 
 jq -r '.data.capabilities[] | select(.kind=="fieldLinkage") | .fingerprint' /tmp/reaction-meta.json
@@ -234,7 +234,7 @@ For a form-scoped helper item, use this exact decision order:
 Verified CLI shape for a form-scoped helper item:
 
 ```bash
-nb api flow-surfaces add-field -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-field -e <env> -j \
   --target '{"uid":"<create-form-uid>"}' \
   --type jsItem \
   --settings '{"label":"Helper","showLabel":false,"version":"v2","code":"const roles = ctx.formValues?.roles;\nconst selected = Array.isArray(roles)\n  ? roles.length > 0\n  : Boolean(roles);\n\nif (!selected) {\n  ctx.render(null);\n  return;\n}\n\nctx.render(\"Helper content is now visible.\");"}'

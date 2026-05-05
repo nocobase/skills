@@ -25,11 +25,11 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when one of those fixed backend-generated popup scenes should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
    - Keep `fieldGroups` collection-only on the target collection; do not create per-association `fieldGroups`. Keep relation-field popup descriptors under `popups.associations.<associationField>.<action>` with the same fixed `view` / `addNew` / `edit` `{ name, description }` contract, keyed only by the first relation segment.
    - Keep defaults collection-level only: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
-4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Pre-write reads, metadata fetch, preview, and `prepare-write` are allowed, but the first mutating write must be `applyBlueprint`.
+4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Pre-write reads, metadata fetch, and `prepare-write` are allowed, but the first mutating write must be `applyBlueprint`.
    - Before one whole-page `applyBlueprint` succeeds, do not call `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
-   - If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / preview / error evidence.
+   - If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / error evidence.
    - Agent orchestration rule: if one request spans multiple pages and they share the same menu group title, serialize the page runs yourself. On the first page, use `navigation.group.title` to create or resolve the shared group and capture the returned `routeId`; for subsequent pages, set `navigation.group` to `{ routeId }` and do not use title-only creation. Do not start concurrent title-only group creates for the same shared group. Concurrent title-only shared-group creates are forbidden.
-5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
+5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local prepare-write gate can prove whether that live target is already third-level or deeper.
 6. If visible same-title menu groups already exist, do not pick one locally and do not create another same-title group just to disambiguate. Require explicit `navigation.group.routeId` before the write whenever title lookup would hit multiple groups.
    - The real-write prepare helper resolves `navigation.group.title` against live `desktopRoutes` when possible. If exactly one same-title group exists, use the prepared `cliBody` with `navigation.group.routeId`; if more than one exists, stop on the local error and ask for the routeId.
 7. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
@@ -80,12 +80,12 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - custom edit popup -> keep exactly one `editForm` block in that popup
 14. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
    - keep menu placement on `routeId` only
-   - use `pageSchemaUid` for `nb api flow-surfaces get`
+   - use `pageSchemaUid` for wrapper `get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
    - after one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and should stay narrow
 15. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
-16. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
+16. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the blueprint/checklist directly from the request. Open it only when preparing a real write or running the local prewrite gate.
 17. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body or nb helper envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact nb body becomes `result.cliBody`, not the original draft blueprint.
 18. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
@@ -111,7 +111,7 @@ These are still whole-page requests, not a separate route.
 - For computed defaults, autofill, block visibility, or action guards that belong to the page being created now, prefer top-level `reaction.items[]` in that same blueprint rather than a second live-edit phase.
 - If a create/edit form helper depends on `formValues.*`, prefer a helper host that belongs to that same form scene. If the live scene exposes `fields` / `actions` / `node` but not `blocks`, model the helper as a `jsItem` or other field-like helper rather than a separate sibling block.
 - A first-pass miss is not enough to abandon whole-page authoring. Treat it as a blueprint-generation bug or whole-page contract problem to report, not as permission to switch routes mid-phase.
-- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of dropping into low-level writes before success. After 5 failed rounds, report the latest blueprint / preview / error evidence.
+- If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds instead of dropping into low-level writes before success. After 5 failed rounds, report the latest blueprint / error evidence.
 - Only after one successful whole-page `applyBlueprint` may localized `add*` or `set*Rules` repair address an explicit residual local/live gap, and that repair should stay narrowly scoped.
 
 ## Default artifact-only output
@@ -125,10 +125,7 @@ For artifact-only drafting, write only under:
 Leave exactly:
 
 - `blueprint.json`
-- `prewrite-preview.txt`
 - `readback-checklist.md`
-
-If the prompt asks for `preview-policy.json` instead of `readback-checklist.md`, leave that requested three-file set. The policy shape is `{ "prepareWriteRequired": false, "previewSource": "draft-blueprint" }`.
 
 For every artifact-only whole-page bundle, `blueprint.json` must be the bare blueprint root with top-level `tabs[]`; do not wrap it under `page`, `draft`, `blueprint`, `scenario`, `metadata`, or any explanatory envelope.
 
@@ -140,7 +137,7 @@ For artifact-only locator boundary handoffs, use `locator-map.json` with direct 
 
 Keep `liveTargets[].uid` as a non-empty placeholder when live readback has not happened yet, not `null`; it records the source class and still blocks downstream writes until real readback.
 
-The checklist can stay short. It only needs to confirm create vs replace, one real tab by default, non-empty `tabs[]`, field truth from live `interface` facts when relevant, and that the preview came from the same blueprint draft.
+The checklist can stay short. It only needs to confirm create vs replace, one real tab by default, non-empty `tabs[]`, and field truth from live `interface` facts when relevant.
 
 ## Minimal common-case blueprint
 
@@ -205,13 +202,12 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
 - [whole-page-recipes.md](./whole-page-recipes.md) for reusable whole-page blueprint patterns with paired blocks, nested popups, and top-level reactions
 - [page-archetypes.md](./page-archetypes.md) if none of the common page shapes fits cleanly
 - [page-blueprint.md](./page-blueprint.md) for the full page grammar, uncommon block shapes, or exact field / action structures
-- [ascii-preview.md](./ascii-preview.md) for preview-only rendering details
 - [helper-contracts.md](./helper-contracts.md) for real-write or prepare-write helper details
 - [template-quick.md](./template-quick.md) if popup / block / fields reuse, existing template references, or `copy` vs `reference` is actually in scope
 - [reaction-quick.md](./reaction-quick.md) if the page needs detailed reaction payload recipes
 - [js.md](./js.md) if JS, charts, or `ctx.*` enters the page
 
-For artifact-only drafting, you usually do not need [page-blueprint.md](./page-blueprint.md), [ascii-preview.md](./ascii-preview.md), [helper-contracts.md](./helper-contracts.md), or [tool-shapes.md](./tool-shapes.md).
+For artifact-only drafting, you usually do not need [page-blueprint.md](./page-blueprint.md), [helper-contracts.md](./helper-contracts.md), or [tool-shapes.md](./tool-shapes.md).
 For benchmark-style management pages with paired filters / tables / forms, you usually also do not need [page-blueprint.md](./page-blueprint.md) or [tool-shapes.md](./tool-shapes.md) before the first draft. Stay on this file plus [blocks/filter-form.md](./blocks/filter-form.md), [popup.md](./popup.md), and [reaction-quick.md](./reaction-quick.md) unless one concrete shape is still unresolved.
 
 ## Switch away when

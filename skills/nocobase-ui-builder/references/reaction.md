@@ -8,7 +8,7 @@ Use this file for interaction logic:
 - block show / hide
 - action visible / enabled / disabled
 
-Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. Backend transport contract remains `nb api flow-surfaces`. Use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help` first; use `nb api flow-surfaces --help` when you need to confirm the live backend surface directly. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
+Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. Use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help` first. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
 
 For localized writes, the wrapper ultimately sends the raw business object through backend `--body` / `--body-file`. Do not wrap that object again.
 
@@ -23,7 +23,7 @@ If the interaction logic belongs to the page you are building now:
 - each item accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
 - target blocks/actions by stable same-run keys or public paths
 - keep structure, popup, and reaction in one blueprint when possible
-- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of switching to a separate live reaction phase during those pre-success retries; after 5 failed rounds, report the latest blueprint / preview / error evidence
+- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds instead of switching to a separate live reaction phase during those pre-success retries; after 5 failed rounds, report the latest blueprint / error evidence
 - after one successful whole-page `applyBlueprint`, use a separate live reaction phase only for an explicit residual local/live gap, and keep that repair narrowly scoped
 
 ### Localized edit on an existing live page

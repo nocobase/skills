@@ -6,15 +6,15 @@ Do not open this file until you are preparing the real nb body. For the common l
 
 Use it with:
 
-- [cli-command-surface.md](./cli-command-surface.md) for canonical nb API families
-- [transport-crosswalk.md](./transport-crosswalk.md) for the nb API family
+- [cli-command-surface.md](./cli-command-surface.md) for canonical wrapper families
+- [transport-crosswalk.md](./transport-crosswalk.md) for the wrapper family
 - [page-blueprint.md](./page-blueprint.md), [reaction.md](./reaction.md), and [templates.md](./templates.md) for business-object rules and template planning
 
-Canonical front door is `nb api flow-surfaces`. Use this file for the nb request body / locator shape you actually send.
+Canonical front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. Use this file for the raw business object / locator shape passed through the wrapper.
 
 ## 0. Global Rule
 
-- `nb api flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body.
+- wrapper `get` is the common exception: it uses top-level locator flags and no JSON body.
 - Most other body-based `flow-surfaces` commands take the raw business object through CLI `--body` / `--body-file`.
 - Never stringify the business object.
 - Never add an outer `{ values: ... }` wrapper.
@@ -37,13 +37,13 @@ Canonical front door is `nb api flow-surfaces`. Use this file for the nb request
 Safe mental model:
 
 1. author the inner business object
-2. send that same prepared object as raw JSON through CLI `--body` / `--body-file`, or use locator flags when the command is bodyless
+2. send that same prepared object through `nb-flow-surfaces.mjs --body` / `--body-file`, or use locator flags when the command is bodyless
 3. do not wrap that object again
 4. never transform the business object into a stringified nested wrapper
 
 Common wrong shapes:
 
-Wrong nb body:
+Wrong wrapper body:
 
 ```json
 {
@@ -54,7 +54,7 @@ Wrong nb body:
 }
 ```
 
-Correct nb body for `configure`:
+Correct body for wrapper `configure`:
 
 ```json
 {

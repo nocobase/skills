@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { prepareApplyBlueprintRequest } from './page-blueprint-preview.js';
+import { prepareApplyBlueprintRequest } from './page-blueprint-prepare.js';
 import { resolveMissingCollectionMetadataForBlueprint } from './collection-metadata-resolver.js';
 
 const execFileAsync = promisify(execFile);

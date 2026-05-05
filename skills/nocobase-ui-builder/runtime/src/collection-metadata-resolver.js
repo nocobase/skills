@@ -4,7 +4,7 @@ import { ensureArray, isPlainObject } from './utils.js';
 import {
   normalizeCollectionMetadataInput,
   resolveAssociationTargetCollection,
-} from './page-blueprint-preview.js';
+} from './page-blueprint-prepare.js';
 
 const execFileAsync = promisify(execFile);
 const MAX_METADATA_RESOLUTION_ROUNDS = 5;

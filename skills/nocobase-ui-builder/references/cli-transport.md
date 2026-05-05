@@ -5,9 +5,9 @@ This file defines the transport policy for `nocobase-ui-builder`.
 ## Canonical Front Door
 
 - Use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs` as the agent-facing front door for `flow-surfaces` work.
-- The wrapper routes to backend `nb api flow-surfaces`; treat the retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the backend contract and payload reference, not as a separate user-facing transport.
+- The wrapper routes to backend flow-surfaces transport; treat the retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the backend contract and payload reference, not as a separate user-facing transport.
 - Keep `nb-runjs`, `nb-template-decision`, and `nb-localized-write-preflight` as local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
-- `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint` runs internal prepare-write before backend `nb api flow-surfaces apply-blueprint` and sends only the prepared `result.cliBody` to the backend.
+- `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint` runs internal prepare-write before backend execution and sends only the prepared `result.cliBody` to the backend.
 
 ## Selection Rule
 
@@ -21,8 +21,7 @@ This file defines the transport policy for `nocobase-ui-builder`.
 Before the first runtime command in a task:
 
 1. `nb --help`
-2. `nb api flow-surfaces --help`
-3. Before first use of a specific subcommand, run `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help`
+2. Before first use of a specific subcommand, run `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help`
 
 ## Stop Conditions
 
@@ -40,7 +39,7 @@ When blocked, report the exact `nb api ...` command/output that failed. Do not s
 - The retained UI Builder docs in this repo still define:
   - page blueprint authoring rules
   - reaction semantics
-  - preview/self-check rules
+  - local self-check rules
   - payload invariants
   - readback/verification rules
 
