@@ -52,4 +52,4 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 
 ## Failure Rule
 
-If a command family is missing, report the unresolved `nb api ...` command and the missing family. Do not switch transports or document environment-management steps inside this skill.
+If a command family is missing, report the unresolved `nb-flow-surfaces.mjs <subcommand>` wrapper command and the missing family. Do not switch transports or document environment-management steps inside this skill.

@@ -33,7 +33,7 @@ description: >-
 # Router
 
 - whole-page authoring goes through `applyBlueprint`, `nb-flow-surfaces.mjs apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
-- localized existing-surface edits go through low-level `flow-surfaces` and [local-edit-quick.md](./references/local-edit-quick.md)
+- localized existing-surface edits go through `nb-flow-surfaces.mjs` subcommands such as `compose`, `configure`, `update-settings`, `add-*`, `move-*`, and `remove-*`, plus [local-edit-quick.md](./references/local-edit-quick.md)
 - localized existing-surface reaction work starts with `get-reaction-meta`, `nb-flow-surfaces.mjs get-reaction-meta`, writes through `set*Rules`, and [reaction-quick.md](./references/reaction-quick.md); first-pass whole-page reactions stay in `reaction.items[]` with no live `get-reaction-meta`; artifact-only localized reaction drafts record the planned `get-reaction-meta` probe
 - partial-match or boundary-only requests go through [boundary-quick.md](./references/boundary-quick.md) first
 - After that route is clear, if template / reference / `copy` routing is truly in scope, read [template-quick.md](./references/template-quick.md) first and then [templates.md](./references/templates.md) for the full decision matrix.

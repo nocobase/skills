@@ -274,8 +274,8 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /localized existing-surface edits[\s\S]{0,160}(?:low-level )?`flow-surfaces`[\s\S]{0,120}\[local-edit-quick\.md\]/i,
-    'SKILL.md should route localized edits through low-level flow-surfaces commands and local-edit-quick.md',
+    /localized existing-surface edits[\s\S]{0,160}`nb-flow-surfaces\.mjs`[\s\S]{0,160}(?:`compose`|`configure`|`add-\*`)[\s\S]{0,160}\[local-edit-quick\.md\]/i,
+    'SKILL.md should route localized edits through nb-flow-surfaces.mjs wrapper subcommands and local-edit-quick.md',
   );
   assert.match(
     text,

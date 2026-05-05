@@ -25,13 +25,13 @@ Before the first runtime command in a task:
 
 ## Stop Conditions
 
-Stop and report the blocked nb command state when:
+Stop and report the blocked wrapper command state when:
 
 - `nb` exists but cannot authenticate to the target app
 - the required `flow-surfaces` family or generated subcommand is missing
-- the chosen nb path returns auth failures such as `401`, `403`, or equivalent token errors
+- the chosen wrapper command returns auth failures such as `401`, `403`, or equivalent token errors
 
-When blocked, report the exact `nb api ...` command/output that failed. Do not switch transports inside this skill.
+When blocked, report the exact `nb-flow-surfaces.mjs <subcommand>` wrapper command/output that failed. Do not switch transports inside this skill.
 
 ## Why the Docs Stay
 
