@@ -10880,6 +10880,100 @@ test('prepare-write preserves explicit table record actions and skips table sele
   assert.equal(Object.hasOwn(tableSelect, 'recordActions'), false);
 });
 
+test('prepareApplyBlueprintRequest skips template-backed and popup subtable model table defaults', () => {
+  const metadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'nickname', type: 'string', interface: 'input' },
+        ],
+      },
+      roles: {
+        titleField: 'name',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'replace',
+    target: { pageSchemaUid: 'users-page-schema' },
+    defaults: {
+      collections: {
+        users: {
+          popups: {
+            view: { name: 'User details', description: 'View one user record.' },
+            addNew: { name: 'Create user', description: 'Create one user record.' },
+            edit: { name: 'Edit user', description: 'Edit one user record.' },
+          },
+        },
+        roles: {
+          popups: {
+            view: { name: 'Role details', description: 'View one role record.' },
+            addNew: { name: 'Create role', description: 'Create one role record.' },
+            edit: { name: 'Edit role', description: 'Edit one role record.' },
+          },
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [[
+            { key: 'templateTable', span: 8 },
+            { key: 'popupSubtableField', span: 8 },
+            { key: 'popupSubtableActions', span: 8 },
+          ]],
+        },
+        blocks: [
+          {
+            key: 'templateTable',
+            title: 'Template table',
+            type: 'table',
+            template: { uid: 'users-table-template' },
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'popupSubtableField',
+            title: 'Popup subtable field',
+            type: 'table',
+            use: 'PopupSubTableFieldModel',
+            collection: 'roles',
+            defaultFilter: defaultFilterGroup(['name', 'title']),
+            fields: ['name'],
+            actions: [defaultFilterAction(['name', 'title'])],
+          },
+          {
+            key: 'popupSubtableActions',
+            title: 'Popup subtable actions',
+            type: 'table',
+            use: 'PopupSubTableActionsColumnModel',
+            collection: 'roles',
+            defaultFilter: defaultFilterGroup(['name', 'title']),
+            fields: ['name'],
+            actions: [defaultFilterAction(['name', 'title'])],
+          },
+        ],
+      },
+    ],
+  }, { collectionMetadata: metadata });
+
+  assert.equal(result.ok, true);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[0], 'recordActions'), false);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[1], 'recordActions'), false);
+  assert.equal(Object.hasOwn(result.cliBody.tabs[0].blocks[2], 'recordActions'), false);
+});
+
 test('prepare-write accepts helper envelope with templateDecision', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

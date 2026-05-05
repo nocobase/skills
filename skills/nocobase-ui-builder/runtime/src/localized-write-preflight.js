@@ -159,6 +159,44 @@ function normalizeSortAliasInBlock(block) {
   return settings === block.settings ? block : { ...block, settings };
 }
 
+function hasLocalizedResourceBinding(block) {
+  if (!isObjectRecord(block)) return false;
+  if (isObjectRecord(block.resource) && Object.keys(block.resource).length > 0) {
+    return true;
+  }
+  if (isObjectRecord(block.resourceInit) && Object.keys(block.resourceInit).length > 0) {
+    return true;
+  }
+  return Boolean(
+    normalizeText(block.collection)
+    || normalizeText(block.binding)
+    || normalizeText(block.dataSourceKey)
+    || normalizeText(block.associationPathName)
+    || normalizeText(block.associationField),
+  );
+}
+
+function isTableRecordActionsDefaultTarget(block) {
+  if (!isObjectRecord(block)) return false;
+  if (normalizeText(block.type) !== 'table') return false;
+  if (!hasLocalizedResourceBinding(block) || block.template) return false;
+  if (Object.prototype.hasOwnProperty.call(block, 'recordActions')) return false;
+
+  const blockUse = normalizeText(block.use);
+  if (blockUse === 'TableSelectModel') return false;
+  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
+
+  return true;
+}
+
+function materializeTableRecordActionsForWrite(block) {
+  if (!isTableRecordActionsDefaultTarget(block)) return block;
+  return {
+    ...block,
+    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
+  };
+}
+
 function normalizeHeightSettingsInPopup(popup, options = {}) {
   if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
     return popup;
@@ -306,28 +344,7 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
     if (changed) nextBlock = { ...nextBlock, fieldGroups };
   }
 
-  return nextBlock;
-}
-
-function shouldDefaultTableRecordActions(block) {
-  if (!isObjectRecord(block)) return false;
-  if (normalizeText(block.type) !== 'table') return false;
-  if (!normalizeText(getBlockCollectionName(block))) return false;
-  if (Object.prototype.hasOwnProperty.call(block, 'recordActions')) return false;
-
-  const blockUse = normalizeText(block.use);
-  if (blockUse === 'TableSelectModel') return false;
-  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
-
-  return true;
-}
-
-function materializeTableRecordActionsForWrite(block) {
-  if (!shouldDefaultTableRecordActions(block)) return block;
-  return {
-    ...block,
-    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
-  };
+  return materializeTableRecordActionsForWrite(nextBlock);
 }
 
 function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
@@ -351,18 +368,14 @@ function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
   }
 
   if (operation === 'add-block') {
-    return materializeTableRecordActionsForWrite(
-      normalizeHeightSettingsInBlock(payload, { metadata }),
-    );
+    return normalizeHeightSettingsInBlock(payload, { metadata });
   }
 
   if (operation === 'add-blocks' || operation === 'compose') {
     if (!Array.isArray(payload.blocks)) return payload;
     let changed = false;
     const blocks = payload.blocks.map((block) => {
-      const normalizedBlock = materializeTableRecordActionsForWrite(
-        normalizeHeightSettingsInBlock(block, { metadata }),
-      );
+      const normalizedBlock = normalizeHeightSettingsInBlock(block, { metadata });
       if (normalizedBlock !== block) changed = true;
       return normalizedBlock;
     });

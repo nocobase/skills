@@ -262,6 +262,48 @@ test('runLocalizedWritePreflight defaults record actions for direct table blocks
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
+test('runLocalizedWritePreflight defaults record actions for nested popup table blocks', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-details',
+          type: 'details',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          fields: ['nickname', 'email'],
+          actions: [
+            {
+              type: 'popup',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roles-table',
+                    type: 'table',
+                    resource: {
+                      dataSourceKey: 'main',
+                      collectionName: 'roles',
+                    },
+                    defaultFilter: makeDefaultFilter(['name', 'title']),
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions[0].popup.blocks[0].recordActions), ['view', 'edit', 'delete']);
+});
+
 test('runLocalizedWritePreflight preserves explicit table record actions and skips table select models', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',
@@ -296,6 +338,52 @@ test('runLocalizedWritePreflight preserves explicit table record actions and ski
   assert.equal(result.ok, true);
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view']);
   assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
+});
+
+test('runLocalizedWritePreflight skips template-backed and popup subtable model table defaults', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'template-table',
+          type: 'table',
+          template: { uid: 'users-table-template' },
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+        },
+        {
+          key: 'popup-subtable-field',
+          type: 'table',
+          use: 'PopupSubTableFieldModel',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'roles',
+          },
+          defaultFilter: makeDefaultFilter(['name', 'title']),
+        },
+        {
+          key: 'popup-subtable-actions',
+          type: 'table',
+          use: 'PopupSubTableActionsColumnModel',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'roles',
+          },
+          defaultFilter: makeDefaultFilter(['name', 'title']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(Object.hasOwn(result.cliBody.blocks[0], 'recordActions'), false);
+  assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
+  assert.equal(Object.hasOwn(result.cliBody.blocks[2], 'recordActions'), false);
 });
 
 test('runLocalizedWritePreflight fails localized writes that use empty block-level defaultFilter on direct data surfaces', () => {
