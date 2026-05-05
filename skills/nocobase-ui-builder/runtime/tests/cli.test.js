@@ -498,6 +498,21 @@ test('validate command returns a stable JSON error when --code-file is missing i
   assert.match(JSON.parse(stderr.read()).error, /Missing value for --code-file\./);
 });
 
+test('validate command returns a stable JSON error when --skill-mode has an empty inline value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode='], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.match(JSON.parse(stderr.read()).error, /Missing value for --skill-mode\./);
+});
+
 test('batch command applies --skill-mode to tasks and counts blocked results', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

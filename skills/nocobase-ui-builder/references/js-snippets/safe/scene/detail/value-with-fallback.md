@@ -10,6 +10,7 @@ The empty state should hide the field entirely; use a `render/null-when-empty` s
 - `js-model.render`
 
 ## Required ctx roots
+- `ctx.libs`
 - `ctx.value`
 - `ctx.getVar`
 - `ctx.render`
@@ -24,18 +25,19 @@ The empty state should hide the field entirely; use a `render/null-when-empty` s
 ## Normalized snippet
 
 ```js
+const { Typography } = ctx.libs.antd;
 const currentRecord = await ctx.getVar('ctx.record');
 const rawValue = ctx.value ?? currentRecord?.description;
 if (rawValue == null || String(rawValue).trim() === '') {
-  ctx.render(ctx.t('No value'));
+  ctx.render(<Typography.Text type="secondary">{ctx.t('No value')}</Typography.Text>);
   return;
 }
 
-ctx.render(String(rawValue));
+ctx.render(<Typography.Text>{String(rawValue)}</Typography.Text>);
 ```
 
 ## Editable slots
 - Replace `description` and the fallback text.
 
 ## Skill-mode notes
-This keeps the detail field readable without leaving the render contract or reaching for DOM APIs.
+This keeps the detail field readable with Ant Design JSX without leaving the render contract or reaching for DOM APIs.

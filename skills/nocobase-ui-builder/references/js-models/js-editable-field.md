@@ -34,16 +34,14 @@ description: 面向 builder 的 JSEditableFieldModel 约束，覆盖可编辑字
 ## 默认写法
 
 ```jsx
-function InputView() {
-  return (
-    <input
-      defaultValue={String(ctx.getValue?.() ?? ctx.value ?? '')}
-      onInput={(e) => ctx.setValue?.(e.currentTarget.value)}
-    />
-  );
-}
+const { Input } = ctx.libs.antd;
 
-ctx.render(<InputView />);
+ctx.render(
+  <Input
+    value={String(ctx.getValue?.() ?? ctx.value ?? '')}
+    onChange={(e) => ctx.setValue?.(e.target.value)}
+  />,
+);
 ```
 
 ## 常见辅助上下文
@@ -55,18 +53,15 @@ ctx.render(<InputView />);
 例如：
 
 ```jsx
-function InputView() {
-  const disabled = !!ctx.disabled || !!ctx.readOnly;
-  return (
-    <input
-      disabled={disabled}
-      defaultValue={String(ctx.getValue?.() ?? '')}
-      onInput={(e) => ctx.setValue?.(e.currentTarget.value)}
-    />
-  );
-}
+const { Input } = ctx.libs.antd;
 
-ctx.render(<InputView />);
+ctx.render(
+  <Input
+    disabled={!!ctx.disabled || !!ctx.readOnly}
+    value={String(ctx.getValue?.() ?? ctx.value ?? '')}
+    onChange={(e) => ctx.setValue?.(e.target.value)}
+  />,
+);
 ```
 
 ## 不要默认这么写

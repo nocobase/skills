@@ -320,3 +320,53 @@ export function resolvePublicFieldPathInCollectionMetadata(collectionMetadata, c
 export function isPublicAssociationFieldMeta(field) {
   return isAssociationFieldMeta(field);
 }
+
+export const PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID = 'relation-field-title-field-required-when-collection-title-is-id';
+
+export function getPublicRelationFieldObjectPath(item) {
+  if (typeof item === 'string') {
+    return normalizeText(item);
+  }
+  return normalizeText(item?.field || item?.fieldPath);
+}
+
+export function buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, targetCollection) {
+  const normalizedFieldPath = normalizeText(fieldPath) || '(unknown field)';
+  const normalizedTargetCollection = normalizeText(targetCollection) || '(unknown collection)';
+  return `Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose default titleField is "id". You must explicitly set titleField on this relation field object. A readable field such as "name", "title", or "code" is recommended when available.`;
+}
+
+export function getPublicRelationFieldTitleFieldRequirement(collectionMetadata, sourceCollectionName, fieldPath) {
+  const normalizedSourceCollectionName = normalizeText(sourceCollectionName);
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedSourceCollectionName || !normalizedFieldPath || normalizedFieldPath.includes('.')) {
+    return null;
+  }
+
+  const resolved = resolveFieldPathInCollectionMetadata(
+    collectionMetadata,
+    normalizedSourceCollectionName,
+    normalizedFieldPath,
+  );
+  if (!isAssociationFieldMeta(resolved?.field)) {
+    return null;
+  }
+
+  const targetCollection = normalizeText(resolved?.field?.target);
+  if (!targetCollection) {
+    return null;
+  }
+
+  const targetCollectionMeta = getCollectionMeta(collectionMetadata, targetCollection);
+  const effectiveTargetCollectionTitleField = normalizeLowerText(targetCollectionMeta?.titleField) || 'id';
+  if (effectiveTargetCollectionTitleField !== 'id') {
+    return null;
+  }
+
+  return {
+    sourceCollection: normalizedSourceCollectionName,
+    relationField: normalizeText(resolved?.field?.name) || normalizedFieldPath,
+    targetCollection,
+    targetCollectionTitleField: normalizeText(targetCollectionMeta?.titleField) || 'id',
+  };
+}

@@ -27,9 +27,14 @@ description: 面向 builder 的 JSItemModel 约束，覆盖表单中的非字段
 ## 默认写法
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const values = ctx.formValues || {};
 const total = Number(values.price || 0) * Number(values.quantity || 1);
-ctx.render(<div>Total: {total}</div>);
+ctx.render(
+  <Card size="small">
+    <Typography.Text>{`Total: ${total}`}</Typography.Text>
+  </Card>,
+);
 ```
 
 ## CLI 创建
@@ -37,7 +42,7 @@ ctx.render(<div>Total: {total}</div>);
 在表单里创建非字段绑定辅助项时，用 `flow-surfaces add-field --type jsItem`，不要传 `fieldPath`。当前 `settings` 支持 `label`、`tooltip`、`extra`、`showLabel`、`labelWidth`、`labelWrap`、`code`、`version`，不支持 `title`。
 
 ```bash
-nb api flow-surfaces add-field -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-field -e <env> -j \
   --target '{"uid":"<create-form-uid>"}' \
   --type jsItem \
   --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}'

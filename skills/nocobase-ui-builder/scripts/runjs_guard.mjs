@@ -2164,8 +2164,13 @@ export function canonicalizeRunJSPayload({ payload, snapshotPath } = {}) {
       return;
     }
 
+    const writeNormalization = normalizeRunJSCodeForWrite(item.code);
+    if (writeNormalization.changed) {
+      item.setCode?.(writeNormalization.code);
+    }
+
     const result = canonicalizeRunJSCode({
-      code: item.code,
+      code: writeNormalization.code,
       modelUse: policy.modelUse,
       findingModelUse: policy.findingModelUse,
       version: item.version,
@@ -2174,13 +2179,19 @@ export function canonicalizeRunJSPayload({ payload, snapshotPath } = {}) {
     if (result.changed) {
       item.setCode?.(result.code);
     }
-    autoRewriteCount += result.semantic?.autoRewriteCount || 0;
-    semanticBlockerCount += result.semantic?.blockerCount || 0;
-    semanticWarningCount += result.semantic?.warningCount || 0;
+    autoRewriteCount += (writeNormalization.semantic?.autoRewriteCount || 0) + (result.semantic?.autoRewriteCount || 0);
+    semanticBlockerCount += (writeNormalization.semantic?.blockerCount || 0) + (result.semantic?.blockerCount || 0);
+    semanticWarningCount += (writeNormalization.semantic?.warningCount || 0) + (result.semantic?.warningCount || 0);
     addSurfaceStats(policy.surface, {
-      blockerCount: result.semantic?.blockerCount || 0,
-      warningCount: result.semantic?.warningCount || 0,
+      blockerCount: (writeNormalization.semantic?.blockerCount || 0) + (result.semantic?.blockerCount || 0),
+      warningCount: (writeNormalization.semantic?.warningCount || 0) + (result.semantic?.warningCount || 0),
     });
+    for (const transform of writeNormalization.transforms || []) {
+      transforms.push({
+        ...transform,
+        path: item.path,
+      });
+    }
     for (const transform of result.transforms || []) {
       transforms.push({
         ...transform,
@@ -3622,6 +3633,88 @@ function walkPayload(value, visitor, currentPath = '$', context = { nearestUse: 
 
 function normalizeRunJSVersion(version) {
   return typeof version === 'string' && version.trim() ? version.trim() : 'v1';
+}
+
+function normalizeRunJSCodeForWrite(code) {
+  const src = String(code ?? '');
+  if (!src.includes('\\n') || src.includes('\n')) {
+    return {
+      code: src,
+      changed: false,
+      transforms: [],
+      unresolved: [],
+      semantic: {
+        blockerCount: 0,
+        warningCount: 0,
+        autoRewriteCount: 0,
+      },
+    };
+  }
+
+  const masked = maskJavaScriptSource(src);
+  let candidate = '';
+  let changed = false;
+  for (let index = 0; index < src.length; index += 1) {
+    if (masked[index] === '\\' && src[index] === '\\' && src[index + 1] === 'n') {
+      candidate += '\n';
+      index += 1;
+      changed = true;
+      continue;
+    }
+    if (masked[index] === '\\' && src[index] === '\\' && src[index + 1] === 'r' && src[index + 2] === '\\' && src[index + 3] === 'n') {
+      candidate += '\n';
+      index += 3;
+      changed = true;
+      continue;
+    }
+    candidate += src[index];
+  }
+  if (!changed) {
+    return {
+      code: src,
+      changed: false,
+      transforms: [],
+      unresolved: [],
+      semantic: {
+        blockerCount: 0,
+        warningCount: 0,
+        autoRewriteCount: 0,
+      },
+    };
+  }
+  try {
+    parseRunJSSourceForSyntax(candidate);
+  } catch {
+    return {
+      code: src,
+      changed: false,
+      transforms: [],
+      unresolved: [],
+      semantic: {
+        blockerCount: 0,
+        warningCount: 0,
+        autoRewriteCount: 0,
+      },
+    };
+  }
+
+  return {
+    code: candidate,
+    changed: candidate !== src,
+    transforms: [
+      {
+        code: 'RUNJS_NEWLINE_LITERAL_NORMALIZED',
+        message: 'RunJS code literal \\n escape sequences were normalized to real line breaks before write.',
+        path: '$',
+      },
+    ],
+    unresolved: [],
+    semantic: {
+      blockerCount: 0,
+      warningCount: 0,
+      autoRewriteCount: 1,
+    },
+  };
 }
 
 function isRunJSValueObject(node) {

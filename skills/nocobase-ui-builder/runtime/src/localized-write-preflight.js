@@ -13,13 +13,18 @@ import {
   settingsSortValuesMatch,
 } from './sorting-alias.js';
 import { collectPopupDocumentContractIssues } from './popup-contract.js';
+import { collectBuilderChartRelationFieldIssues } from './chart-query-validation.js';
 import {
+  buildPublicRelationFieldTitleFieldRequiredMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicBlockCollectionName,
   getPublicBlockTypeFromLiveUse,
   getPublicCollectionMeta,
+  getPublicRelationFieldObjectPath,
+  getPublicRelationFieldTitleFieldRequirement,
   isPublicDataSurfaceBlockType,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
 
@@ -152,6 +157,44 @@ function normalizeSortAliasInBlock(block) {
   }
   const settings = normalizeSortAliasInSettings(block.settings);
   return settings === block.settings ? block : { ...block, settings };
+}
+
+function hasLocalizedResourceBinding(block) {
+  if (!isObjectRecord(block)) return false;
+  if (isObjectRecord(block.resource) && Object.keys(block.resource).length > 0) {
+    return true;
+  }
+  if (isObjectRecord(block.resourceInit) && Object.keys(block.resourceInit).length > 0) {
+    return true;
+  }
+  return Boolean(
+    normalizeText(block.collection)
+    || normalizeText(block.binding)
+    || normalizeText(block.dataSourceKey)
+    || normalizeText(block.associationPathName)
+    || normalizeText(block.associationField),
+  );
+}
+
+function isTableRecordActionsDefaultTarget(block) {
+  if (!isObjectRecord(block)) return false;
+  if (normalizeText(block.type) !== 'table') return false;
+  if (!hasLocalizedResourceBinding(block) || block.template) return false;
+  if (Object.prototype.hasOwnProperty.call(block, 'recordActions')) return false;
+
+  const blockUse = normalizeText(block.use);
+  if (blockUse === 'TableSelectModel') return false;
+  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
+
+  return true;
+}
+
+function materializeTableRecordActionsForWrite(block) {
+  if (!isTableRecordActionsDefaultTarget(block)) return block;
+  return {
+    ...block,
+    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
+  };
 }
 
 function normalizeHeightSettingsInPopup(popup, options = {}) {
@@ -301,7 +344,7 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
     if (changed) nextBlock = { ...nextBlock, fieldGroups };
   }
 
-  return nextBlock;
+  return materializeTableRecordActionsForWrite(nextBlock);
 }
 
 function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
@@ -397,6 +440,63 @@ function collectLocalizedChartDisplayTitleErrors(payload, operation, metadata = 
   if (operation === 'add-blocks' || operation === 'compose') {
     ensureArray(payload.blocks).forEach((block, index) => {
       collectChartDisplayTitleErrorsFromBlock(block, `$.blocks[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  }
+  return errors;
+}
+
+function collectChartBuilderRelationFieldErrorsFromSettings(settings, path) {
+  if (!isObjectRecord(settings?.query)) {
+    return [];
+  }
+  const mode = normalizeText(settings.query.mode || 'builder').toLowerCase();
+  if (mode && mode !== 'builder') {
+    return [];
+  }
+  return collectBuilderChartRelationFieldIssues(settings.query, `${path}.query`);
+}
+
+function collectChartBuilderRelationFieldErrorsFromBlock(block, path) {
+  const errors = [];
+  if (!isObjectRecord(block)) {
+    return errors;
+  }
+  if (CHART_PUBLIC_BLOCK_TYPES.has(normalizeText(block.type))) {
+    collectChartBuilderRelationFieldErrorsFromSettings(block.settings, `${path}.settings`).forEach((issue) => errors.push(issue));
+  }
+  forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+    blocks.forEach((child, index) => {
+      collectChartBuilderRelationFieldErrorsFromBlock(child, `${blocksPath}[${index}]`).forEach((issue) => errors.push(issue));
+    });
+  });
+  return errors;
+}
+
+function collectLocalizedChartBuilderRelationFieldErrors(payload, operation, metadata = {}) {
+  const errors = [];
+  if (!isObjectRecord(payload)) {
+    return errors;
+  }
+  if (operation === 'configure') {
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      if (context.block.type === 'chart') {
+        collectChartBuilderRelationFieldErrorsFromSettings(context.block.settings, context.path).forEach((issue) => errors.push(issue));
+      }
+      forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
+        blocks.forEach((child, index) => {
+          collectChartBuilderRelationFieldErrorsFromBlock(child, `${blocksPath}[${index}]`).forEach((issue) => errors.push(issue));
+        });
+      });
+    }
+    return errors;
+  }
+  if (operation === 'add-block') {
+    return collectChartBuilderRelationFieldErrorsFromBlock(payload, '$');
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      collectChartBuilderRelationFieldErrorsFromBlock(block, `$.blocks[${index}]`).forEach((issue) => errors.push(issue));
     });
   }
   return errors;
@@ -951,6 +1051,10 @@ function getLocalizedBlockCollectionName(block, parentCollectionName = '') {
   return getBlockCollectionName(block) || normalizeText(parentCollectionName);
 }
 
+function getLocalizedTraversalSurfaceCollection(context) {
+  return normalizeText(context?.surfaceCollection || context?.currentCollection);
+}
+
 function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fieldPath) {
   const canonicalAssociationField = getDefaultsAssociationFieldKey(fieldPath);
   if (!sourceCollectionName || !canonicalAssociationField) return null;
@@ -972,6 +1076,43 @@ function resolveAssociationFieldMetadata(metadata, sourceCollectionName, fieldPa
   return {
     associationField: canonicalAssociationField,
     targetCollection: normalizeText(resolved?.field?.target),
+  };
+}
+
+function buildLocalizedBlockTraversalContext(block, parentContext, metadata) {
+  const binding = getNodeBinding(block);
+  const directCollection = getBlockCollectionName(block);
+  const inheritedSurfaceCollection = getLocalizedTraversalSurfaceCollection(parentContext);
+  const normalizedDirectCollection = normalizeText(directCollection);
+  let surfaceCollection = normalizedDirectCollection || inheritedSurfaceCollection;
+  let associationRequirement = null;
+
+  if (binding === 'associatedrecords') {
+    associationRequirement = resolveAssociationFieldRequirement(
+      metadata,
+      inheritedSurfaceCollection,
+      getNodeAssociationField(block),
+    );
+    surfaceCollection = normalizedDirectCollection || associationRequirement?.targetCollection || '';
+  } else if (binding === 'currentrecord' && normalizedDirectCollection) {
+    surfaceCollection = normalizedDirectCollection;
+  }
+
+  return {
+    surfaceCollection,
+    associationRequirement,
+    binding,
+  };
+}
+
+function getLocalizedFieldPopupSurfaceContext(metadata, blockContext, fieldPath = '') {
+  const associationRequirement = resolveAssociationFieldRequirement(
+    metadata,
+    getLocalizedTraversalSurfaceCollection(blockContext),
+    fieldPath,
+  );
+  return {
+    surfaceCollection: associationRequirement?.targetCollection || getLocalizedTraversalSurfaceCollection(blockContext),
   };
 }
 
@@ -1433,6 +1574,113 @@ function collectLocalizedPublicFieldObjectErrorsForOperation(payload, operation,
       return [...errors, ...extra];
     }
   }
+  return errors;
+}
+
+function collectLocalizedRelationFieldExplicitTitleFieldErrors(payload, operation = 'compose', metadata = {}) {
+  const errors = [];
+
+  const push = (path, ruleId, message, code, details) => {
+    errors.push({
+      path,
+      ruleId,
+      message,
+      code,
+      ...(details ? { details } : {}),
+    });
+  };
+
+  const visitPopup = (popup, path, parentContext = {}) => {
+    if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) return;
+    popup.blocks.forEach((block, index) => visitBlock(block, `${path}.blocks[${index}]`, parentContext));
+  };
+
+  const visitFields = (fields, path, blockContext) => {
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field, index) => {
+      const fieldPath = getPublicRelationFieldObjectPath(field);
+      if (isObjectRecord(field) && Object.hasOwn(field, 'fieldType') && fieldPath && !normalizeText(field.titleField)) {
+        const sourceCollection = getLocalizedTraversalSurfaceCollection(blockContext);
+        if (sourceCollection) {
+          const requirement = getPublicRelationFieldTitleFieldRequirement(metadata, sourceCollection, fieldPath);
+          if (requirement) {
+            push(
+              `${path}[${index}].titleField`,
+              PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+              buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, requirement.targetCollection),
+              'RELATION_FIELD_TITLE_FIELD_REQUIRED_WHEN_COLLECTION_TITLE_IS_ID',
+              { fieldPath, targetCollection: requirement.targetCollection },
+            );
+          }
+        }
+      }
+      if (isObjectRecord(field) && isObjectRecord(field.popup)) {
+        visitPopup(
+          field.popup,
+          `${path}[${index}].popup`,
+          getLocalizedFieldPopupSurfaceContext(metadata, blockContext, fieldPath),
+        );
+      }
+    });
+  };
+
+  const visitFieldGroups = (fieldGroups, path, blockContext) => {
+    if (!Array.isArray(fieldGroups)) return;
+    fieldGroups.forEach((group, groupIndex) => {
+      visitFields(group?.fields, `${path}[${groupIndex}].fields`, blockContext);
+    });
+  };
+
+  const visitActionPopups = (items, path, blockContext) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (!isObjectRecord(item) || !isObjectRecord(item.popup)) {
+        return;
+      }
+      visitPopup(
+        item.popup,
+        `${path}[${index}].popup`,
+        { surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext) },
+      );
+    });
+  };
+
+  const visitBlock = (block, path, parentContext = {}, { directSettingsPath = false } = {}) => {
+    if (!isObjectRecord(block)) return;
+    const blockContext = buildLocalizedBlockTraversalContext(block, parentContext, metadata);
+    visitFields(block.fields, `${path}.fields`, blockContext);
+    visitFieldGroups(block.fieldGroups, `${path}.fieldGroups`, blockContext);
+
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => {
+        visitBlock(child, `${path}.blocks[${index}]`, { surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext) });
+      });
+    }
+    if (isObjectRecord(block.popup)) {
+      visitPopup(block.popup, `${path}.popup`, { surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext) });
+    }
+    forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      const popupPath = directSettingsPath ? `${path}.${key}` : `${path}.settings.${key}`;
+      visitPopup(popup, popupPath, { surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext) });
+    });
+    visitActionPopups(block.actions, `${path}.actions`, blockContext);
+    visitActionPopups(block.recordActions, `${path}.recordActions`, blockContext);
+  };
+
+  if (operation === 'configure') {
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      visitBlock(context.block, context.path, {}, { directSettingsPath: true });
+    }
+    return errors;
+  }
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+    return errors;
+  }
+
+  visitBlock(payload, '$');
   return errors;
 }
 
@@ -2266,8 +2514,10 @@ export function runLocalizedWritePreflight({
   collectLocalizedPublicDataSurfaceDefaultFilterErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedCalendarKanbanSemanticErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedChartBuilderRelationFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedGridCardSettingsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicFieldObjectErrorsForOperation(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedRelationFieldExplicitTitleFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedAssignValuesErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);

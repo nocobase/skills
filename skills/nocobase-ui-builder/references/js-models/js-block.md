@@ -25,7 +25,7 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
     "jsSettings": {
       "runJs": {
         "version": "v2",
-        "code": "ctx.render('<div/>');"
+        "code": "const { Card } = ctx.libs.antd;\\nctx.render(<Card title={ctx.t('Summary')} />);"
       }
     }
   }
@@ -45,17 +45,11 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
 
 ## 默认写法
 
-```js
-ctx.render('<div style="padding:12px">Custom block</div>');
-```
-
-或：
-
 ```jsx
-const { Card } = ctx.libs.antd;
+const { Card, Typography } = ctx.libs.antd;
 ctx.render(
   <Card title={ctx.t('Summary')}>
-    <div>{ctx.t('Content')}</div>
+    <Typography.Text>{ctx.t('Content')}</Typography.Text>
   </Card>
 );
 ```
@@ -65,18 +59,22 @@ ctx.render(
 如果只是显示当前登录用户，优先直接使用 `ctx.user` 或 `ctx.auth?.user`，不要先写 `/auth:check`：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const currentUser = ctx.user ?? ctx.auth?.user ?? null;
 
 ctx.render(
-  <div style={{ padding: 12 }}>
-    {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
-  </div>
+  <Card size="small">
+    <Typography.Text>
+      {currentUser ? (currentUser.nickname ?? currentUser.username ?? `#${currentUser.id}`) : ctx.t('Anonymous')}
+    </Typography.Text>
+  </Card>
 );
 ```
 
 如果只是发自定义端点或 request-only 的 HTTP 请求，才默认使用 `ctx.request()`：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 const { data } = await ctx.request({
   url: '/app:getInfo',
   method: 'get',
@@ -85,15 +83,16 @@ const { data } = await ctx.request({
 
 const appName = data?.data?.name;
 ctx.render(
-  <div style={{ padding: 12 }}>
-    {appName || ctx.t('Unnamed app')}
-  </div>
+  <Card size="small">
+    <Typography.Text>{appName || ctx.t('Unnamed app')}</Typography.Text>
+  </Card>
 );
 ```
 
 如果要读取 collection 的列表或单条记录，默认先初始化 resource：
 
 ```jsx
+const { Card, Typography } = ctx.libs.antd;
 ctx.initResource('MultiRecordResource');
 ctx.resource.setResourceName('tasks');
 ctx.resource.setPageSize?.(10);
@@ -106,11 +105,11 @@ await ctx.resource.refresh();
 
 const rows = ctx.resource.getData() || [];
 ctx.render(
-  <div style={{ padding: 12 }}>
+  <Card size="small">
     {rows.map((row) => (
-      <div key={row.id}>{row.title ?? row.name ?? `#${row.id}`}</div>
+      <Typography.Text key={row.id}>{row.title ?? row.name ?? `#${row.id}`}</Typography.Text>
     ))}
-  </div>
+  </Card>
 );
 ```
 

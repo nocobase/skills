@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   canonicalizeRunJSCode,
+  canonicalizeRunJSPayload,
   collectRunJSNodes,
   inspectRunJSCode,
   inspectRunJSPayloadStatic,
@@ -798,6 +799,32 @@ root.innerHTML = '<div>Preview</div>';`,
   });
   assert.equal(refReadyResult.changed, true);
   assert.equal(refReadyResult.code.includes('ctx.render(html);'), true);
+});
+
+test('canonicalizeRunJSPayload normalizes literal escaped newlines in write payloads', () => {
+  const payload = {
+    use: 'BlockGridModel',
+    subModels: {
+      items: [
+        {
+          use: 'JSBlockModel',
+          stepParams: {
+            jsSettings: {
+              runJs: {
+                code: 'const title = String(ctx.formValues?.title || "");\\nreturn title.trim();',
+                version: 'v2',
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const result = canonicalizeRunJSPayload({ payload });
+  assert.equal(result.transforms.some((item) => item.code === 'RUNJS_NEWLINE_LITERAL_NORMALIZED'), true);
+  assert.equal(payload.subModels.items[0].stepParams.jsSettings.runJs.code.includes('\\n'), false);
+  assert.equal(payload.subModels.items[0].stepParams.jsSettings.runJs.code.includes('\n'), true);
 });
 
 test('inspectRunJSCode blocks innerHTML writes that still depend on DOM after rendering', async () => {

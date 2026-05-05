@@ -11,6 +11,7 @@ The block is standalone popup content reading the record that opened the popup; 
 - `js-model.render`
 
 ## Required ctx roots
+- `ctx.libs`
 - `ctx.getVar`
 - `ctx.render`
 - `ctx.t`
@@ -24,14 +25,23 @@ The block is standalone popup content reading the record that opened the popup; 
 ## Normalized snippet
 
 ```js
+const { Card, Space, Typography } = ctx.libs.antd;
 const currentRecord = await ctx.getVar('ctx.record');
 const title = String(currentRecord?.title ?? currentRecord?.name ?? ctx.t('Untitled'));
 const owner = String(currentRecord?.owner?.nickname ?? currentRecord?.owner?.name ?? ctx.t('Unassigned'));
-ctx.render(`${title} · ${owner}`);
+
+ctx.render(
+  <Card size="small">
+    <Space direction="vertical" size={2}>
+      <Typography.Text strong>{title}</Typography.Text>
+      <Typography.Text type="secondary">{owner}</Typography.Text>
+    </Space>
+  </Card>,
+);
 ```
 
 ## Editable slots
 - Replace the displayed record fields and fallback text.
 
 ## Skill-mode notes
-Keep this block-scoped and render-only. Use it only when the host has a real `ctx.record`; popup-level blocks should choose the popup record snippet instead.
+Keep this block-scoped, render-only, and Ant Design based. Use it only when the host has a real `ctx.record`; popup-level blocks should choose the popup record snippet instead.

@@ -2,9 +2,9 @@
 
 Read this file when the skill needs to state the final template path to the user after selection is already done. This file does **not** define template selection. Selection semantics stay in [templates.md](./templates.md).
 
-Use this contract for final user-visible preview/summary lines that claim a template outcome.
+Use this contract for final user-visible summary lines that claim a template outcome.
 
-For local runtime enforcement, this contract is also the normalized `templateDecision` shape returned by `prepareApplyBlueprintRequest(...)` / `node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --prepare-write` when helper input includes template decision data.
+For local runtime enforcement, this contract is also the normalized `templateDecision` shape checked during the wrapper's internal prepare-write when helper input includes template decision data.
 
 Use the official helper envelope `{ blueprint, templateDecision?, collectionMetadata? }` for that path. A valid `templateDecision` may still be returned when other blueprint gates fail after the blueprint is already recognizable, but it must stay semantically consistent with the blueprint's real template bindings. For data-bound blueprints, `collectionMetadata` belongs in the helper envelope or call options, not in the blueprint root; the CLI fills missing metadata entries by default and `--no-auto-collection-metadata` restores `missing-collection-metadata` fail-closed behavior. It does not change the template-decision contract itself. If the blueprint is not recognizable yet, the helper should omit the normalized summary. If the summary claims `selected-reference` / `selected-copy`, the blueprint must bind at least one matching template uid/mode for that current decision. `discovery-only` / `inline-non-template` only describe that this decision did not bind a template; mixed pages may still contain other bound templates elsewhere. If this consistency check fails, runtime validation should surface `inconsistent-template-decision`.
 
@@ -44,10 +44,8 @@ Use the official helper envelope `{ blueprint, templateDecision?, collectionMeta
   - `not-repeat-eligible`
   - `no-usable-template`
 
-## Preview Boundary
+## Summary Boundary
 
-- The default ASCII preview should expose template identity + `mode` only when the blueprint already contains them.
-- The ASCII preview does not need to invent a reason.
 - The final user-visible summary should use this contract whenever it says a template ended as `reference`, `copy`, discovery-only, or non-template.
 - When `template.name` is present, prefer that readable name in the summary sentence; fall back to `template.uid` only when no readable name is available.
 

@@ -1,4 +1,4 @@
-import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
+import { cloneSerializable, ensureArray, isPlainObject, unique } from './utils.js';
 import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
 import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
@@ -10,17 +10,24 @@ import {
 } from './sorting-alias.js';
 import { collectPopupDocumentContractIssues, hasTemplateDocument } from './popup-contract.js';
 import {
+  collectBuilderChartRelationFieldIssues,
+} from './chart-query-validation.js';
+import { canonicalizeRunJSPayload } from '../../scripts/runjs_guard.mjs';
+import {
+  buildPublicRelationFieldTitleFieldRequiredMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicCollectionFieldMeta,
   getPublicCollectionMeta,
+  getPublicRelationFieldObjectPath,
+  getPublicRelationFieldTitleFieldRequirement,
   getHiddenPopupSettingsForBlockType,
   isPublicAssociationFieldMeta,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
-const DEFAULT_MAX_POPUP_DEPTH = 1;
 const DEFAULT_EXPECTED_OUTER_TABS = 1;
 const MAX_LABEL_LENGTH = 24;
 const MAX_HEADER_TEXT = 48;
@@ -830,59 +837,6 @@ function buildAutoSaveTemplateMetadata(popup, options = {}) {
   };
 }
 
-function padRight(value, width) {
-  const source = String(value ?? '');
-  return source.length >= width ? source : `${source}${' '.repeat(width - source.length)}`;
-}
-
-function indentLines(lines, prefix = '  ') {
-  return ensureArray(lines).map((line) => `${prefix}${line}`);
-}
-
-function makeBox(title, bodyLines = []) {
-  const safeTitle = normalizeText(title, 'Untitled');
-  const normalizedBody = ensureArray(bodyLines).map((line) => String(line ?? ''));
-  const innerWidth = Math.max(safeTitle.length, ...normalizedBody.map((line) => line.length), 1);
-  const border = `+${'-'.repeat(innerWidth + 2)}+`;
-  const lines = [border, `| ${padRight(safeTitle, innerWidth)} |`];
-
-  if (normalizedBody.length) {
-    lines.push(`|${'-'.repeat(innerWidth + 2)}|`);
-    for (const line of normalizedBody) {
-      lines.push(`| ${padRight(line, innerWidth)} |`);
-    }
-  }
-
-  lines.push(border);
-  return lines;
-}
-
-function summarizeList(labels, { maxItems = DEFAULT_MAX_SUMMARY_ITEMS, formatter = (value) => value } = {}) {
-  const normalized = labels.map((label) => formatter(label)).filter(Boolean);
-  if (!normalized.length) return '';
-  const visible = normalized.slice(0, maxItems);
-  const hiddenCount = normalized.length - visible.length;
-  return hiddenCount > 0 ? `${visible.join(', ')}, +${hiddenCount} more` : visible.join(', ');
-}
-
-function describeTreeConnectFields(settings) {
-  if (!isPlainObject(settings?.connectFields) || !Array.isArray(settings.connectFields.targets)) {
-    return '';
-  }
-  const labels = settings.connectFields.targets
-    .filter((target) => isPlainObject(target))
-    .map((target) => {
-      const targetLabel = normalizeText(target.target || target.targetId || target.targetBlockUid);
-      if (!targetLabel) return '';
-      const filterPaths = ensureArray(target.filterPaths)
-        .map((fieldPath) => normalizeText(fieldPath))
-        .filter(Boolean);
-      return filterPaths.length ? `${targetLabel} via ${filterPaths.join('+')}` : targetLabel;
-    })
-    .filter(Boolean);
-  return summarizeList(labels, { formatter: (value) => value });
-}
-
 function getMenuPath(blueprint) {
   const groupTitle = normalizeText(blueprint?.navigation?.group?.title);
   const groupRouteId = blueprint?.navigation?.group?.routeId;
@@ -894,32 +848,6 @@ function getMenuPath(blueprint) {
 
   if (itemTitle) parts.push(itemTitle);
   return parts.join(' / ');
-}
-
-function summarizeBlueprintDefaults(defaults) {
-  if (!isPlainObject(defaults?.collections)) return '';
-  const collectionSummaries = Object.entries(defaults.collections).flatMap(([collectionName, collectionDefaults]) => {
-    const normalizedCollectionName = normalizeText(collectionName);
-    if (!normalizedCollectionName || !isPlainObject(collectionDefaults)) return [];
-    const parts = [];
-    if (Array.isArray(collectionDefaults.fieldGroups) && collectionDefaults.fieldGroups.length) {
-      parts.push('fieldGroups');
-    }
-    if (isPlainObject(collectionDefaults.popups) && Object.keys(collectionDefaults.popups).length) {
-      parts.push('popups');
-    }
-    return parts.length ? [`${normalizedCollectionName}(${parts.join(',')})`] : [];
-  });
-  return summarizeList(collectionSummaries);
-}
-
-function getPageTitle(blueprint) {
-  return (
-    normalizeText(blueprint?.page?.title) ||
-    normalizeText(blueprint?.navigation?.item?.title) ||
-    normalizeText(blueprint?.target?.pageSchemaUid) ||
-    'Untitled page'
-  );
 }
 
 function getFactsPageTitle(blueprint) {
@@ -966,61 +894,48 @@ function isDataBlock(block) {
   return hasResourceBinding(block);
 }
 
-function describeResource(node) {
-  if (!isPlainObject(node?.resource)) return '';
-  const binding = normalizeText(node.resource.binding || node.resource.resourceBinding);
-  const associationField = normalizeText(node.resource.associationField || node.resource.associationPathName);
-  const collectionName = normalizeText(node.resource.collectionName || node.resource.collection);
-  const parts = [];
-  if (binding) parts.push(binding);
-  if (associationField) parts.push(`assoc=${associationField}`);
-  if (collectionName) parts.push(`<${collectionName}>`);
-  return parts.length ? `Resource: ${parts.join(' ')}` : '';
+function isTableRecordActionsDefaultTarget(block) {
+  if (!isPlainObject(block)) return false;
+  if (normalizeText(block.type) !== 'table') return false;
+  if (!isDataBlock(block) || isTemplateBackedBlock(block)) return false;
+  if (hasOwn(block, 'recordActions')) return false;
+
+  const blockUse = normalizeText(block.use);
+  if (blockUse === 'TableSelectModel') return false;
+  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
+
+  return true;
 }
 
-function describeTemplateReference(template) {
-  if (!isPlainObject(template)) return '';
-  const uid = normalizeText(template.uid);
-  if (!uid) return '';
-  const mode = normalizeText(template.mode);
-  const usage = normalizeText(template.usage);
-  const suffix = [];
-  if (mode) suffix.push(`mode=${mode}`);
-  if (usage) suffix.push(`usage=${usage}`);
-  return suffix.length ? `Template: ${uid} [${suffix.join(', ')}]` : `Template: ${uid}`;
-}
-
-function describePopupTryTemplate(popup) {
-  return popup?.tryTemplate === true ? 'Template: auto-select [tryTemplate=true]' : '';
-}
-
-function describePopupSaveAsTemplate(popup) {
-  if (!isPlainObject(popup?.saveAsTemplate)) return '';
-  const name = normalizeText(popup.saveAsTemplate.name);
-  if (!name) return '';
-  const label = trimLabel(name, MAX_HEADER_TEXT);
-  return normalizeText(popup.saveAsTemplate.description)
-    ? `Template: save as "${label}" [description provided]`
-    : `Template: save as "${label}"`;
+function materializeTableRecordActionsForWrite(block) {
+  if (!isTableRecordActionsDefaultTarget(block)) {
+    return block;
+  }
+  return {
+    ...block,
+    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
+  };
 }
 
 function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
 
-function createValidationError(path, ruleId, message) {
+function createValidationError(path, ruleId, message, code = undefined, details = undefined) {
   return {
     path,
     ruleId,
     message,
+    ...(code ? { code } : {}),
+    ...(details ? { details } : {}),
   };
 }
 
-function pushValidationError(errors, seen, path, ruleId, message) {
+function pushValidationError(errors, seen, path, ruleId, message, code = undefined, details = undefined) {
   const key = `${path}::${ruleId}::${message}`;
   if (seen.has(key)) return;
   seen.add(key);
-  errors.push(createValidationError(path, ruleId, message));
+  errors.push(createValidationError(path, ruleId, message, code, details));
 }
 
 function isPositiveInteger(value) {
@@ -1984,72 +1899,10 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
   };
 }
 
-function summarizeFieldGroups(fieldGroups) {
-  const labels = [];
-  forEachFieldGroup(fieldGroups, (group) => {
-    const title = trimLabel(normalizeText(group.title || group.key || 'Group'), MAX_HEADER_TEXT);
-    const count = countEffectiveBlueprintFields(group.fields);
-    if (title) {
-      labels.push(`${title} (${count})`);
-    }
-  });
-  return summarizeList(labels, { formatter: (value) => value });
-}
-
 function describeField(field) {
   if (typeof field === 'string') return trimLabel(field);
   if (!isPlainObject(field)) return '';
   return trimLabel(field.field || field.title || field.key || field.type || 'field');
-}
-
-function describeAction(action) {
-  if (typeof action === 'string') return `[${trimLabel(action)}]`;
-  if (!isPlainObject(action)) return '';
-  const label = trimLabel(action.title || action.type || action.key || 'action');
-  return `[${label}]`;
-}
-
-function describePopupTrigger(kind, label) {
-  if (kind === 'field') return `Popup from field "${label}"`;
-  if (kind === 'recordAction') return `Popup from recordAction [${label}]`;
-  if (kind === 'action') return `Popup from action [${label}]`;
-  return `Popup from ${kind} "${label}"`;
-}
-
-function getPopupTriggers(block) {
-  const triggers = [];
-
-  for (const field of getBlockFieldEntries(block)) {
-    if (isPlainObject(field) && field.popup) {
-      triggers.push({
-        kind: 'field',
-        label: describeField(field) || 'field',
-        popup: field.popup,
-      });
-    }
-  }
-
-  for (const action of ensureArray(block?.actions)) {
-    if (isPlainObject(action) && action.popup) {
-      triggers.push({
-        kind: 'action',
-        label: trimLabel(action.title || action.type || action.key || 'action'),
-        popup: action.popup,
-      });
-    }
-  }
-
-  for (const action of ensureArray(block?.recordActions)) {
-    if (isPlainObject(action) && action.popup) {
-      triggers.push({
-        kind: 'recordAction',
-        label: trimLabel(action.title || action.type || action.key || 'record action'),
-        popup: action.popup,
-      });
-    }
-  }
-
-  return triggers;
 }
 
 function analyzeLayoutDocument(layout, blocks, warnings = []) {
@@ -2161,11 +2014,6 @@ function analyzeLayoutDocument(layout, blocks, warnings = []) {
   };
 }
 
-function collectLayoutOrder(layout, blocks, warnings) {
-  const analysis = analyzeLayoutDocument(layout, blocks, warnings);
-  return analysis?.rows || null;
-}
-
 function buildBlockHeader(block, options = {}) {
   const parts = [normalizeText(block?.type, 'block')];
   const title = trimLabel(normalizeText(block?.title), MAX_HEADER_TEXT);
@@ -2178,175 +2026,6 @@ function buildBlockHeader(block, options = {}) {
   if (key) parts.push(`[${key}]`);
   if (span) parts.push(`span=${span}`);
   return parts.join(' ');
-}
-
-function renderPopupDocument(popup, context) {
-  const warnings = context.warnings;
-  const body = [];
-  const popupMode = normalizeText(popup?.mode);
-  const templateLine = describeTemplateReference(popup?.template);
-  if (templateLine) body.push(templateLine);
-  const tryTemplateLine = describePopupTryTemplate(popup);
-  if (tryTemplateLine && !templateLine) body.push(tryTemplateLine);
-  const saveAsTemplateLine = describePopupSaveAsTemplate(popup);
-  if (saveAsTemplateLine && !templateLine) body.push(saveAsTemplateLine);
-
-  const ignoredLocalKeys = getIgnoredPopupLocalKeys(popup);
-  if (ignoredLocalKeys.length) {
-    body.push(`Ignored local popup keys: ${ignoredLocalKeys.join(', ')}`);
-    warnings.push(buildIgnoredPopupLocalKeysWarning(popup, ignoredLocalKeys));
-  }
-
-  if (hasTemplateDocument(popup?.template)) {
-    return makeBox(`Popup: ${trimLabel(normalizeText(popup?.title, 'Untitled popup'), MAX_HEADER_TEXT)}`, body);
-  }
-
-  if (popupMode) body.unshift(`Mode: ${popupMode}`);
-
-  const blocks = ensureArray(popup?.blocks).filter((block) => isPlainObject(block));
-  const layoutRows = collectLayoutOrder(popup?.layout, blocks, warnings);
-
-  if (layoutRows?.length) {
-    const rendered = new Set();
-    if (body.length) body.push('');
-    for (const [rowIndex, row] of layoutRows.entries()) {
-      body.push(`Row ${rowIndex + 1}: ${row.label || '(empty)'}`);
-      for (const item of row.items) {
-        const block = blocks.find((candidate) => normalizeText(candidate?.key) === item.key);
-        if (!block || rendered.has(item.key)) continue;
-        rendered.add(item.key);
-        body.push(...indentLines(renderBlock(block, { ...context, span: item.span }), '  '));
-      }
-      if (rowIndex !== layoutRows.length - 1) body.push('');
-    }
-
-    const unplaced = blocks.filter((block) => {
-      const key = normalizeText(block?.key);
-      return !key || !rendered.has(key);
-    });
-
-    if (unplaced.length) {
-      if (body.length) body.push('');
-      body.push('Unplaced blocks:');
-      for (const block of unplaced) {
-        body.push(...indentLines(renderBlock(block, context), '  '));
-      }
-    }
-  } else if (blocks.length) {
-    for (const [index, block] of blocks.entries()) {
-      body.push(...indentLines(renderBlock(block, context), '  '));
-      if (index !== blocks.length - 1) body.push('');
-    }
-  } else if (!popup?.template?.uid && popup?.tryTemplate !== true) {
-    body.push('Default popup content');
-  }
-
-  return makeBox(`Popup: ${trimLabel(normalizeText(popup?.title, 'Untitled popup'), MAX_HEADER_TEXT)}`, body);
-}
-
-function renderPopupTriggers(block, context) {
-  const lines = [];
-  for (const trigger of getPopupTriggers(block)) {
-    const lead = describePopupTrigger(trigger.kind, trigger.label);
-    if (context.popupDepth >= context.maxPopupDepth) {
-      lines.push(`${lead}: nested popup omitted`);
-      context.warnings.push(`${lead} was omitted because preview expands popups only ${context.maxPopupDepth} level(s).`);
-      continue;
-    }
-
-    lines.push(`${lead}:`);
-    lines.push(
-      ...indentLines(
-        renderPopupDocument(trigger.popup, {
-          ...context,
-          popupDepth: context.popupDepth + 1,
-          span: undefined,
-        }),
-        '  ',
-      ),
-    );
-  }
-  return lines;
-}
-
-function renderBlock(block, context) {
-  const body = [];
-  const fields = getBlockFieldEntries(block).map(describeField).filter(Boolean);
-  const fieldGroupsSummary = summarizeFieldGroups(block?.fieldGroups);
-  const actions = ensureArray(block?.actions).map(describeAction).filter(Boolean);
-  const recordActions = ensureArray(block?.recordActions).map(describeAction).filter(Boolean);
-  const script = normalizeText(block?.script);
-  const chart = normalizeText(block?.chart);
-  const resource = describeResource(block);
-  const templateLine = describeTemplateReference(block?.template);
-  const treeConnectFields = describeTreeConnectFields(block?.settings);
-
-  if (templateLine) body.push(templateLine);
-
-  if (fieldGroupsSummary) body.push(`Field groups: ${fieldGroupsSummary}`);
-
-  const fieldsSummary = summarizeList(fields, { formatter: (value) => value });
-  if (fieldsSummary) body.push(`Fields: ${fieldsSummary}`);
-
-  const actionsSummary = summarizeList(actions, { formatter: (value) => value });
-  if (actionsSummary) body.push(`Actions: ${actionsSummary}`);
-
-  const recordActionsSummary = summarizeList(recordActions, { formatter: (value) => value });
-  if (recordActionsSummary) body.push(`Record actions: ${recordActionsSummary}`);
-
-  if (resource) body.push(resource);
-  if (treeConnectFields) body.push(`Connects: ${treeConnectFields}`);
-  if (script) body.push(`Script: ${trimLabel(script, MAX_HEADER_TEXT)}`);
-  if (chart) body.push(`Chart: ${trimLabel(chart, MAX_HEADER_TEXT)}`);
-
-  const popupLines = renderPopupTriggers(block, context);
-  if (popupLines.length && body.length) body.push('');
-  body.push(...popupLines);
-
-  return makeBox(buildBlockHeader(block, context), body);
-}
-
-function renderTab(tab, index, context) {
-  const blocks = ensureArray(tab?.blocks).filter((block) => isPlainObject(block));
-  const body = [];
-  const layoutRows = collectLayoutOrder(tab?.layout, blocks, context.warnings);
-
-  if (layoutRows?.length) {
-    const rendered = new Set();
-    for (const [rowIndex, row] of layoutRows.entries()) {
-      body.push(`Row ${rowIndex + 1}: ${row.label || '(empty)'}`);
-      for (const item of row.items) {
-        const block = blocks.find((candidate) => normalizeText(candidate?.key) === item.key);
-        if (!block || rendered.has(item.key)) continue;
-        rendered.add(item.key);
-        body.push(...indentLines(renderBlock(block, { ...context, span: item.span }), '  '));
-      }
-      if (rowIndex !== layoutRows.length - 1) body.push('');
-    }
-
-    const unplaced = blocks.filter((block) => {
-      const key = normalizeText(block?.key);
-      return !key || !rendered.has(key);
-    });
-
-    if (unplaced.length) {
-      if (body.length) body.push('');
-      body.push('Unplaced blocks:');
-      for (const block of unplaced) {
-        body.push(...indentLines(renderBlock(block, context), '  '));
-      }
-    }
-  } else if (blocks.length) {
-    for (const [blockIndex, block] of blocks.entries()) {
-      body.push(...indentLines(renderBlock(block, context), '  '));
-      if (blockIndex !== blocks.length - 1) body.push('');
-    }
-  } else {
-    body.push('No blocks');
-  }
-
-  const tabTitle = trimLabel(normalizeText(tab?.title, `Tab ${index + 1}`), MAX_HEADER_TEXT);
-  return makeBox(`Tab: ${tabTitle}`, body);
 }
 
 function getWrappedBlueprintKey(input) {
@@ -2376,7 +2055,7 @@ function normalizeBlueprintInput(input, warnings, errors = [], options = {}) {
     const wrappedBlueprint = input[wrappedKey];
     if (isPlainObject(wrappedBlueprint)) {
       if (wrappedKey === 'requestBody' && !suppressLegacyWrapperWarning) {
-        warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
+        warnings.push('Received outer requestBody wrapper; prepare-write unwrapped the inner page blueprint.');
       }
       return wrappedBlueprint;
     }
@@ -2517,51 +2196,14 @@ function normalizeExistingNavigationGroupForWrite(blueprint, warnings = []) {
   };
 }
 
-function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
-  const maxPopupDepth =
-    typeof options.maxPopupDepth === 'number' && Number.isFinite(options.maxPopupDepth)
-      ? Math.max(0, options.maxPopupDepth)
-      : DEFAULT_MAX_POPUP_DEPTH;
-
-  const lines = [];
-  const pageTitle = trimLabel(getPageTitle(blueprint), MAX_HEADER_TEXT);
-  lines.push(`PAGE: ${pageTitle} (${normalizeText(blueprint.mode, 'draft')})`);
-
-  const menuPath = getMenuPath(blueprint);
-  if (menuPath) lines.push(`MENU: ${trimToLength(menuPath, 120)}`);
-
-  const targetPage = normalizeText(blueprint?.target?.pageSchemaUid);
-  if (targetPage) lines.push(`TARGET: ${targetPage}`);
-
-  const defaultsSummary = summarizeBlueprintDefaults(blueprint.defaults);
-  if (defaultsSummary) lines.push(`DEFAULTS: ${defaultsSummary}`);
-
-  lines.push(`TABS: ${blueprint.tabs.length}`);
-  lines.push('');
-
-  const tabContext = {
-    warnings,
-    popupDepth: 0,
-    maxPopupDepth,
-    maxSummaryItems: DEFAULT_MAX_SUMMARY_ITEMS,
-  };
-
-  for (const [index, tab] of blueprint.tabs.entries()) {
-    lines.push(...renderTab(tab, index, tabContext));
-    if (index !== blueprint.tabs.length - 1) lines.push('');
-  }
-
-  return lines.join('\n').trimEnd();
-}
-
 function validateMultiBlockDataTitles(blocks, path, state) {
   const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
-  if (countNonFilterBlocks(normalizedBlocks) <= 1) {
+  if (countNonFilterDataBlocks(normalizedBlocks) <= 1) {
     return;
   }
 
   normalizedBlocks.forEach((block, index) => {
-    if (!isDataBlock(block) || isFilterBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
+    if (!isPlainObject(block) || !isDataBlock(block) || isFilterBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
       return;
     }
     pushValidationError(
@@ -2576,6 +2218,10 @@ function validateMultiBlockDataTitles(blocks, path, state) {
 
 function countNonFilterBlocks(blocks) {
   return ensureArray(blocks).filter((block) => isPlainObject(block) && !isFilterBlock(block)).length;
+}
+
+function countNonFilterDataBlocks(blocks) {
+  return ensureArray(blocks).filter((block) => isPlainObject(block) && isDataBlock(block) && !isFilterBlock(block)).length;
 }
 
 function resolveBlueprintFieldLocalKey(field, index) {
@@ -2758,6 +2404,33 @@ function shouldDefaultPopupMode(popup, options = {}) {
   return countPopupDirectEffectiveFields(blocks) > POPUP_PAGE_MODE_FIELD_THRESHOLD;
 }
 
+function isTitleCleanupTargetBlock(block) {
+  return isPlainObject(block) && isDataBlock(block) && !isFilterBlock(block) && !isTemplateBackedBlock(block);
+}
+
+function stripSingleScopeDataBlockTitles(blocks) {
+  const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
+  if (countNonFilterDataBlocks(normalizedBlocks) !== 1) {
+    return blocks;
+  }
+
+  const block = normalizedBlocks.find(isTitleCleanupTargetBlock);
+  if (!block) {
+    return blocks;
+  }
+
+  delete block.title;
+  if (!isPlainObject(block.settings) || !hasOwn(block.settings, 'title')) {
+    return blocks;
+  }
+
+  delete block.settings.title;
+  if (Object.keys(block.settings).length === 0) {
+    delete block.settings;
+  }
+  return blocks;
+}
+
 function materializePopupForWrite(popup, options = {}) {
   if (!isPlainObject(popup)) {
     return popup;
@@ -2780,6 +2453,9 @@ function materializePopupForWrite(popup, options = {}) {
   }
   if (shouldDefaultPopupSaveAsTemplate(nextPopup, options)) {
     nextPopup.saveAsTemplate = buildAutoSaveTemplateMetadata(nextPopup, options);
+  }
+  if (hasOwn(nextPopup, 'blocks')) {
+    stripSingleScopeDataBlockTitles(nextPopup.blocks);
   }
   return nextPopup;
 }
@@ -2899,6 +2575,54 @@ function normalizeBlockSettingsForWrite(settings, block, options = {}) {
   );
 }
 
+function isCompatibleDragSortField(fieldMeta) {
+  return isPlainObject(fieldMeta)
+    && fieldMeta.interface === 'sort'
+    && !normalizeText(fieldMeta.target)
+    && !normalizeText(fieldMeta.scopeKey);
+}
+
+function resolveCompatibleDragSortFieldName(collectionMetadata, collectionName) {
+  const collectionMeta = getPublicCollectionMeta(collectionMetadata, collectionName);
+  const fields = Array.isArray(collectionMeta?.fields) ? collectionMeta.fields : [];
+  const sortField = fields.find(isCompatibleDragSortField);
+  return normalizeText(sortField?.name);
+}
+
+function normalizeTreeTableDragSortByForWrite(settings, block, options = {}) {
+  if (!isPlainObject(settings)) return settings;
+  if (normalizeText(block?.type) !== 'table' || settings.treeTable !== true || !hasOwn(settings, 'dragSortBy')) {
+    return settings;
+  }
+
+  const collectionName = getCollectionLabel(block);
+  if (!collectionName || !isPlainObject(options.collectionMetadata)) {
+    return settings;
+  }
+
+  const currentFieldName = normalizeText(settings.dragSortBy);
+  const currentFieldMeta = getPublicCollectionFieldMeta(options.collectionMetadata, collectionName, currentFieldName);
+  if (isCompatibleDragSortField(currentFieldMeta)) {
+    return settings;
+  }
+
+  const replacementFieldName = resolveCompatibleDragSortFieldName(options.collectionMetadata, collectionName);
+  const nextSettings = { ...settings };
+  if (replacementFieldName) {
+    nextSettings.dragSortBy = replacementFieldName;
+    options.warnings?.push(
+      `Replaced tree table dragSortBy "${currentFieldName}" with sort field "${replacementFieldName}".`,
+    );
+    return nextSettings;
+  }
+
+  delete nextSettings.dragSortBy;
+  options.warnings?.push(
+    `Removed tree table dragSortBy "${currentFieldName}" because no compatible interface=sort field exists.`,
+  );
+  return nextSettings;
+}
+
 function materializeSettingsForWrite(block, options = {}) {
   const settings = block?.settings;
   let nextSettings = materializeHiddenPopupSettingsForWrite(settings, block, {
@@ -2911,6 +2635,7 @@ function materializeSettingsForWrite(block, options = {}) {
   if (isSortablePublicBlockType(block?.type) && hasOwn(nextSettings, 'sort')) {
     nextSettings = normalizeSortAliasInSettings(nextSettings);
   }
+  nextSettings = normalizeTreeTableDragSortByForWrite(nextSettings, block, options);
   if (!hasOwn(nextSettings, 'height') || hasOwn(nextSettings, 'heightMode')) {
     return nextSettings;
   }
@@ -3002,7 +2727,7 @@ function materializeBlockForWrite(block, options = {}) {
   if (!isPlainObject(block)) {
     return block;
   }
-  const nextBlock = cloneSerializable(block);
+  let nextBlock = cloneSerializable(block);
   normalizeCalendarFieldBindingsOnBlock(nextBlock);
   if (hasOwn(nextBlock, 'settings') || getHiddenPopupSettingsForBlockType(nextBlock.type).length > 0) {
     const materializedSettings = materializeSettingsForWrite(nextBlock, options);
@@ -3043,6 +2768,11 @@ function materializeBlockForWrite(block, options = {}) {
         recordActions: true,
       }),
     );
+  } else {
+    const nextWithDefaultRecordActions = materializeTableRecordActionsForWrite(nextBlock);
+    if (nextWithDefaultRecordActions !== nextBlock) {
+      nextBlock = nextWithDefaultRecordActions;
+    }
   }
   if (!hasOwn(nextBlock, 'fieldsLayout')) {
     const synthesizedLayout = buildDefaultFieldsLayout(nextBlock);
@@ -3095,9 +2825,11 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
     if (!isPlainObject(tab)) {
       return tab;
     }
+    const blocks = ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, materializeOptions));
+    stripSingleScopeDataBlockTitles(blocks);
     return {
       ...tab,
-      blocks: ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, materializeOptions)),
+      blocks,
     };
   });
   return nextBlueprint;
@@ -3284,7 +3016,7 @@ function validateCreateMenuIcons(blueprint, state) {
         state.seenErrors,
         'navigation.item.icon',
         'missing-menu-item-icon',
-        'Creating a new top-level or second-level menu item requires navigation.item.icon. When attaching under one existing deep group via navigation.group.routeId, the local preview tolerates omission because it cannot infer the live depth.',
+        'Creating a new top-level or second-level menu item requires navigation.item.icon. When attaching under one existing deep group via navigation.group.routeId, the local prepare-write gate tolerates omission because it cannot infer the live depth.',
       );
     }
     return;
@@ -3674,6 +3406,57 @@ function validatePublicFieldObjects(items, path, state) {
 function validatePublicFieldGroupObjects(fieldGroups, path, state) {
   forEachFieldGroup(fieldGroups, (group, groupIndex) => {
     validatePublicFieldObjects(group.fields, `${path}[${groupIndex}].fields`, state);
+  });
+}
+
+function validateRelationFieldExplicitTitleFieldRequirement(items, blockContext, path, state) {
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!Object.keys(collectionMetadata).length) {
+    return;
+  }
+
+  const sourceCollection = getTraversalSurfaceCollection(blockContext);
+  if (!sourceCollection) {
+    return;
+  }
+
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'fieldType')) {
+      continue;
+    }
+
+    const fieldPath = getPublicRelationFieldObjectPath(item);
+    if (!fieldPath || normalizeText(item.titleField)) {
+      continue;
+    }
+
+    const requirement = getPublicRelationFieldTitleFieldRequirement(
+      collectionMetadata,
+      sourceCollection,
+      fieldPath,
+    );
+    if (!requirement) {
+      continue;
+    }
+
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}[${index}].titleField`,
+      PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+      buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, requirement.targetCollection),
+    );
+  }
+}
+
+function validateRelationFieldGroupExplicitTitleFieldRequirement(fieldGroups, blockContext, path, state) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    validateRelationFieldExplicitTitleFieldRequirement(
+      group.fields,
+      blockContext,
+      `${path}[${groupIndex}].fields`,
+      state,
+    );
   });
 }
 
@@ -5099,6 +4882,9 @@ function validateBuilderChartAssetQuery(query, path, state) {
     'chart-builder-query-forbidden-keys',
     (keys) => `Builder chart asset query must not include SQL/internal keys: ${keys.join(', ')}.`,
   );
+  collectBuilderChartRelationFieldIssues(query, `${path}.query`).forEach((issue) => {
+    pushValidationError(state.errors, state.seenErrors, issue.path, issue.ruleId, issue.message, issue.code, issue.details);
+  });
 }
 
 function validateSqlChartAssetQuery(query, path, state) {
@@ -5244,6 +5030,8 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateDisplayAssociationFieldGroupPopupRequirement(block.fieldGroups, block, blockContext, `${path}.fieldGroups`, state);
   validatePublicFieldObjects(block.fields, `${path}.fields`, state);
   validatePublicFieldGroupObjects(block.fieldGroups, `${path}.fieldGroups`, state);
+  validateRelationFieldExplicitTitleFieldRequirement(block.fields, blockContext, `${path}.fields`, state);
+  validateRelationFieldGroupExplicitTitleFieldRequirement(block.fieldGroups, blockContext, `${path}.fieldGroups`, state);
   validateFieldPopups(block.fields, `${path}.fields`, state, blockContext);
   validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state, blockContext);
   validateActions(block.actions, `${path}.actions`, state, { recordActions: false, blockContext });
@@ -5612,26 +5400,6 @@ function buildPrepareFacts(blueprint, expectedOuterTabs) {
   };
 }
 
-export function renderPageBlueprintAsciiPreview(input, options = {}) {
-  const warnings = [];
-  const blueprint = normalizeBlueprintInput(input, warnings);
-
-  if (!isRecognizablePageBlueprint(blueprint)) {
-    return {
-      ok: false,
-      ascii: '',
-      warnings,
-      error: 'Input must be one recognizable inner page blueprint object with mode and tabs.',
-    };
-  }
-
-  return {
-    ok: true,
-    ascii: renderRecognizableBlueprintAscii(blueprint, warnings, options),
-    warnings: unique(warnings),
-  };
-}
-
 export function prepareApplyBlueprintRequest(input, options = {}) {
   const warnings = [];
   const normalizeErrors = [];
@@ -5647,6 +5415,18 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     ),
     warnings,
   );
+  const runjsCanonicalize = canonicalizeRunJSPayload({ payload: blueprint });
+  if (runjsCanonicalize?.payload && runjsCanonicalize.payload !== blueprint) {
+    Object.assign(blueprint, runjsCanonicalize.payload);
+  }
+  if (Array.isArray(runjsCanonicalize?.transforms) && runjsCanonicalize.transforms.length > 0) {
+    warnings.push(
+      ...runjsCanonicalize.transforms.map((item) => {
+        const message = item?.message || 'RunJS code normalized before prepare-write.';
+        return message;
+      }),
+    );
+  }
   const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
   const { errors: templateDecisionErrors, summary: templateDecision } = validateTemplateDecision(templateDecisionInput);
   const {
@@ -5663,7 +5443,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const effectiveBlueprint = blueprint;
   const materializeOptions =
     hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
-      ? { collectionMetadata: { collections: collectionMetadata } }
+      ? { collectionMetadata: { collections: collectionMetadata }, warnings }
       : {};
   const preMaterializeValidationErrors = recognizableBlueprint
     ? validateBlueprint(effectiveBlueprint, {
@@ -5674,7 +5454,6 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const preparedBlueprint = recognizableBlueprint ? materializeBlueprintForWrite(effectiveBlueprint, materializeOptions) : null;
   const validationBlueprint = preparedBlueprint || effectiveBlueprint;
   const facts = buildPrepareFacts(validationBlueprint, expectedOuterTabs);
-  const ascii = preparedBlueprint ? renderRecognizableBlueprintAscii(preparedBlueprint, warnings, options) : '';
   const missingCollectionMetadataErrors =
     dataBoundBlockPaths.length > 0 && !hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
       ? [createMissingCollectionMetadataError(dataBoundBlockPaths)]
@@ -5703,7 +5482,6 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     }
     return {
       ok: false,
-      ascii,
       warnings: unique(warnings),
       errors,
       facts,
@@ -5727,7 +5505,6 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   }
   const result = {
     ok: errors.length === 0,
-    ascii,
     warnings: unique(warnings),
     errors,
     facts,

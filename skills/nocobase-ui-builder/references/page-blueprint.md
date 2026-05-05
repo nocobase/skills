@@ -2,7 +2,7 @@
 
 This file defines the simplified public page-structure JSON blueprint used by `applyBlueprint`.
 
-Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns the inner page document only; for nb raw body details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
+Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`. This file owns the inner page document only; for wrapper raw body details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
 
 ## 1. Core Rules
 
@@ -11,6 +11,7 @@ Canonical front door is `nb api flow-surfaces apply-blueprint`. This file owns t
 - `version` stays `"1"`.
 - `mode` is either `"create"` or `"replace"`.
 - `create` creates a new menu item + page.
+- For duplicate-page prevention, page identity is `(navigation.group.routeId, page.title)`, after resolving a unique `navigation.group.title` to routeId. In `create`, same group + same page title may be prepared as `replace` with `target.pageSchemaUid`; different group + same page title does not merge, reuse, or auto-replace another page.
 - In `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
@@ -226,7 +227,7 @@ Example:
 ### `navigation.item` semantics
 
 - In `create`, a new top-level or second-level `navigation.item` must include both `title` and `icon`.
-- When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep `icon` by default; the local preview tolerates omission because it cannot prove whether that live target is already third-level or deeper.
+- When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep `icon` by default; the local prepare-write gate tolerates omission because it cannot prove whether that live target is already third-level or deeper.
 - Replacing the page does not use `navigation.item` to mutate existing menu metadata.
 
 ## 3. Create Example

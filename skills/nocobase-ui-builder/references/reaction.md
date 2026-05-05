@@ -8,9 +8,9 @@ Use this file for interaction logic:
 - block show / hide
 - action visible / enabled / disabled
 
-Canonical front door is `nb api flow-surfaces`. Use `nb --help` to confirm the current subcommand surface, then return here for the payload rules. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
+Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. Use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help` first. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
 
-For localized nb writes, pass the raw business object through `--body` / `--body-file`. Do not wrap that object again.
+For localized writes, the wrapper ultimately sends the raw business object through backend `--body` / `--body-file`. Do not wrap that object again.
 
 ## 1. Quick Route
 
@@ -18,22 +18,22 @@ For localized nb writes, pass the raw business object through `--body` / `--body
 
 If the interaction logic belongs to the page you are building now:
 
-- use `nb api flow-surfaces apply-blueprint`
+- use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`
 - write reactions in top-level `reaction.items[]`
 - each item accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
 - target blocks/actions by stable same-run keys or public paths
 - keep structure, popup, and reaction in one blueprint when possible
-- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write` and preview, and retry blueprint-only up to 5 rounds instead of switching to a separate live reaction phase during those pre-success retries; after 5 failed rounds, report the latest blueprint / preview / error evidence
+- if a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds instead of switching to a separate live reaction phase during those pre-success retries; after 5 failed rounds, report the latest blueprint / error evidence
 - after one successful whole-page `applyBlueprint`, use a separate live reaction phase only for an explicit residual local/live gap, and keep that repair narrowly scoped
 
 ### Localized edit on an existing live page
 
 If the page already exists:
 
-1. run `nb api flow-surfaces get-reaction-meta`
+1. run `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs get-reaction-meta`
 2. choose the capability by `kind`
 3. reuse its `fingerprint`
-4. call the matching `nb api flow-surfaces set-*`
+4. call the matching `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-*`
 
 Do not lock the target before step 1. The chosen target must expose the source path needed by the rule in the returned scene/capability. If it does not, move the target or restructure the page/popup first.
 
@@ -217,7 +217,7 @@ When a form-value-driven helper/reference area must stay scoped to a create/edit
 Verified CLI shape:
 
 ```bash
-nb api flow-surfaces add-field -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-field -e <env> -j \
   --target '{"uid":"users-create-form-uid"}' \
   --type jsItem \
   --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles;\nconst selected = Array.isArray(roles)\n  ? roles.length > 0\n  : Boolean(roles);\n\nif (!selected) {\n  ctx.render(null);\n  return;\n}\n\nctx.render(\"已选择角色，可查看角色治理提示。\");"}'
@@ -259,15 +259,15 @@ Use `actionLinkage` when the target is an action:
 Concrete record-delete guard path:
 
 ```bash
-nb api flow-surfaces add-record-action -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-record-action -e <env> -j \
   --target '{"uid":"roles-table-uid"}' \
   --type delete \
   --settings '{"title":"删除"}'
 
-nb api flow-surfaces get-reaction-meta -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs get-reaction-meta -e <env> -j \
   --target '{"uid":"delete-action-uid"}'
 
-nb api flow-surfaces set-action-linkage-rules -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-action-linkage-rules -e <env> -j \
   --target '{"uid":"delete-action-uid"}' \
   --expected-fingerprint "<fingerprint>" \
   --rules '[{"key":"disableProtectedRoleDelete","title":"Disable protected roles","when":{"logic":"$or","items":[{"path":"record.name","operator":"$eq","value":"root"},{"path":"record.name","operator":"$eq","value":"admin"},{"path":"record.name","operator":"$eq","value":"administrator"},{"path":"record.name","operator":"$eq","value":"member"}]},"then":[{"type":"setActionState","state":"disabled"}]}]'
@@ -278,15 +278,15 @@ Check `conditionMeta.operatorsByPath` first. Record-scoped delete actions should
 Concrete submit guard path:
 
 ```bash
-nb api flow-surfaces add-action -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-action -e <env> -j \
   --target '{"uid":"users-create-form-uid"}' \
   --type submit \
   --settings '{"title":"提交"}'
 
-nb api flow-surfaces get-reaction-meta -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs get-reaction-meta -e <env> -j \
   --target '{"uid":"submit-action-uid"}'
 
-nb api flow-surfaces set-action-linkage-rules -e <env> -j \
+node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-action-linkage-rules -e <env> -j \
   --target '{"uid":"submit-action-uid"}' \
   --expected-fingerprint "<fingerprint>" \
   --rules '[{"key":"disableSubmitUntilReady","title":"Disable submit until key fields ready","when":{"logic":"$or","items":[{"path":"formValues.username","operator":"$empty"},{"path":"formValues.roles","operator":"$eq","value":null}]},"then":[{"type":"setActionState","state":"disabled"}]}]'

@@ -11,6 +11,7 @@ The code is a standalone popup block that needs the popup opener record; use `sc
 - `js-model.render`
 
 ## Required ctx roots
+- `ctx.libs`
 - `ctx.getVar`
 - `ctx.render`
 
@@ -23,13 +24,15 @@ The code is a standalone popup block that needs the popup opener record; use `sc
 ## Normalized snippet
 
 ```js
+const { Typography } = ctx.libs.antd;
 const currentRecord = await ctx.getVar('ctx.record');
 const text = String(currentRecord?.title ?? currentRecord?.name ?? '-');
-ctx.render(text);
+
+ctx.render(<Typography.Text>{text}</Typography.Text>);
 ```
 
 ## Editable slots
 - Replace `title` and `name` with the record fields to display.
 
 ## Skill-mode notes
-This follows the strict render-model contract: render output must go through `ctx.render(...)`. Use only after `recordSemantic` proves `ctx.record` is the host record.
+This follows the strict render-model contract: render output must go through Ant Design JSX in `ctx.render(...)`. Use only after `recordSemantic` proves `ctx.record` is the host record.

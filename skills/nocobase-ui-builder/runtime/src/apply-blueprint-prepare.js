@@ -1,70 +1,21 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { parseCliArgs } from './cli-args.js';
-import { prepareApplyBlueprintRequest, renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { prepareApplyBlueprintRequest } from './page-blueprint-prepare.js';
 import { resolveMissingCollectionMetadataForBlueprint } from './collection-metadata-resolver.js';
+import {
+  findPageIdentityByGroupRouteIdAndTitle,
+  loadPageIdentityRegistry,
+} from '../../scripts/opaque_uid.mjs';
+
+const execFileAsync = promisify(execFile);
 
 function normalizeText(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
-async function readStreamText(stream) {
-  let output = '';
-  for await (const chunk of stream) {
-    output += chunk.toString('utf8');
-  }
-  return output;
-}
-
-async function loadJsonFromStdin(stream) {
-  if (!stream || stream.isTTY) throw new Error('Missing JSON stdin payload.');
-  const raw = await readStreamText(stream);
-  if (!raw.trim()) throw new Error('Missing JSON stdin payload.');
-  let payload;
-  try {
-    payload = JSON.parse(raw);
-  } catch (error) {
-    throw new Error(`Invalid JSON stdin payload: ${error.message}`);
-  }
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('JSON stdin payload must be one object.');
-  }
-  return payload;
-}
-
-async function loadJsonFromFile(cwd, filePath) {
-  const resolved = path.resolve(cwd, filePath);
-  return JSON.parse(await fs.readFile(resolved, 'utf8'));
-}
-
-function usage() {
-  return {
-    command:
-      'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --no-auto-collection-metadata --expected-outer-tabs <n> --max-popup-depth <n>.',
-  };
-}
-
-function writeJson(stream, payload) {
-  stream.write(`${JSON.stringify(payload, null, 2)}\n`);
-}
-
 function uniqueStrings(values) {
   return Array.from(new Set(values.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim())));
-}
-
-function parseOptionalNumber(value, label) {
-  if (typeof value === 'undefined') return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`Invalid ${label} "${value}".`);
-  return parsed;
-}
-
-function parseOptionalInteger(value, label) {
-  if (typeof value === 'undefined') return undefined;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`Invalid ${label} "${value}".`);
-  return parsed;
 }
 
 function isObjectRecord(value) {
@@ -119,9 +70,6 @@ function createAutoCollectionMetadataMissingError(resolution) {
 async function execNbText(args, options = {}) {
   const { execFileImpl, cwd = process.cwd() } = options;
   if (!execFileImpl) {
-    const { execFile } = await import('node:child_process');
-    const { promisify } = await import('node:util');
-    const execFileAsync = promisify(execFile);
     const result = await execFileAsync('nb', args, {
       cwd,
       encoding: 'utf8',
@@ -168,11 +116,117 @@ function withResolvedNavigationGroup(payload, routeId) {
   return wrappedKey ? { ...payload, [wrappedKey]: nextBlueprint } : nextBlueprint;
 }
 
+function withPreparedBlueprint(payload, blueprint) {
+  if (!isObjectRecord(payload)) return payload;
+  if (isObjectRecord(payload.blueprint)) return { ...payload, blueprint };
+  if (isObjectRecord(payload.requestBody)) return { ...payload, requestBody: blueprint };
+  return blueprint;
+}
+
 function extractDesktopRouteRows(payload) {
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.rows)) return payload.rows;
   if (Array.isArray(payload)) return payload;
   return [];
+}
+
+function getPreparePageTitle(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  return normalizeText(
+    blueprint?.page?.title
+    || blueprint?.navigation?.item?.title
+    || blueprint?.target?.pageSchemaUid,
+  );
+}
+
+function getPreparePageMenuGroupRouteId(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  return normalizeText(blueprint?.navigation?.group?.routeId);
+}
+
+function getPreparePageMenuGroupTitle(payload) {
+  const blueprint = extractPrepareBlueprint(payload);
+  return normalizeText(blueprint?.navigation?.group?.title);
+}
+
+async function resolvePageIdentityFromLiveRoutes(payload, options = {}) {
+  const title = getPreparePageTitle(payload);
+  const groupRouteId = getPreparePageMenuGroupRouteId(payload);
+  if (!title || !groupRouteId) {
+    return null;
+  }
+
+  let rows = [];
+  try {
+    const response = await execNbJson([
+      'api',
+      'resource',
+      'list',
+      '--resource',
+      'desktopRoutes',
+      '--filter',
+      JSON.stringify({ title, type: 'flowPage' }),
+      '--fields',
+      'id',
+      '--fields',
+      'title',
+      '--fields',
+      'type',
+      '--fields',
+      'schemaUid',
+      '--fields',
+      'parentId',
+      '-j',
+    ], options);
+    rows = extractDesktopRouteRows(response);
+  } catch {
+    const pageIdentityRegistryPath = options.registryPath || '';
+    if (!pageIdentityRegistryPath) {
+      return null;
+    }
+    const { registry } = loadPageIdentityRegistry(pageIdentityRegistryPath, options);
+    const localMatch = findPageIdentityByGroupRouteIdAndTitle(registry, groupRouteId, title);
+    if (localMatch) {
+      return localMatch;
+    }
+    return null;
+  }
+
+  const matches = rows.filter((row) => normalizeText(row?.title) === title
+    && normalizeText(row?.type) === 'flowPage'
+    && normalizeText(String(row?.parentId ?? '')) === groupRouteId);
+
+  if (matches.length === 0) {
+    return null;
+  }
+  if (matches.length > 1) {
+    return {
+      error: {
+        path: 'target.pageSchemaUid',
+        ruleId: 'page-identity-ambiguous',
+        message: `navigation.group.routeId "${groupRouteId}" already has multiple flow pages titled "${title}"; pass target.pageSchemaUid explicitly before applyBlueprint.`,
+      },
+    };
+  }
+
+  const match = matches[0];
+  if (!normalizeText(match?.schemaUid)) {
+    return {
+      error: {
+        path: 'target.pageSchemaUid',
+        ruleId: 'page-identity-missing-schema-uid',
+        message: `Existing flow page "${title}" under navigation.group.routeId "${groupRouteId}" is missing schemaUid; pass target.pageSchemaUid explicitly before applyBlueprint.`,
+      },
+    };
+  }
+
+  return {
+    pageSchemaUid: normalizeText(match.schemaUid),
+    pageUid: normalizeText(match.id),
+    title,
+    menuGroupTitle: getPreparePageMenuGroupTitle(payload),
+    groupRouteId,
+  };
 }
 
 async function resolvePrepareNavigationGroup(payload, options = {}) {
@@ -266,75 +320,46 @@ async function resolvePrepareWritePayload(payload, options = {}) {
   };
 }
 
-export async function runPagePreviewCli(argv, io = {}) {
-  const cwd = io.cwd || process.cwd();
-  const stdout = io.stdout || process.stdout;
-  const stderr = io.stderr || process.stderr;
-  const stdin = io.stdin || process.stdin;
-
-  try {
-    const args = parseCliArgs(argv, {
-      valueFlags: ['input', 'expected-outer-tabs', 'max-popup-depth'],
-      booleanFlags: ['help', 'stdin-json', 'prepare-write', 'no-auto-collection-metadata'],
-    });
-    if (args.help) {
-      writeJson(stdout, { ok: true, usage: usage() });
-      return 0;
+export async function prepareApplyBlueprintWrite(payload, options = {}) {
+  const collectionPreparePayload = await resolvePrepareWritePayload(payload, options);
+  const navigationPreparePayload = await resolvePrepareNavigationGroup(collectionPreparePayload.payload, options);
+  let writePayload = navigationPreparePayload.payload;
+  const draftBlueprint = extractPrepareBlueprint(writePayload);
+  const normalizedMode = normalizeText(draftBlueprint?.mode).toLowerCase();
+  if (normalizedMode === 'create') {
+    const identityResolution = await resolvePageIdentityFromLiveRoutes(writePayload, options);
+    if (identityResolution?.error) {
+      return {
+        ok: false,
+        warnings: uniqueStrings([...(Array.isArray(navigationPreparePayload.warnings) ? navigationPreparePayload.warnings : [])]),
+        errors: [identityResolution.error],
+      };
     }
-
-    const payload = args['stdin-json']
-      ? await loadJsonFromStdin(stdin)
-      : args.input
-        ? await loadJsonFromFile(cwd, args.input)
-        : (() => {
-            throw new Error('Missing required --stdin-json or --input.');
-          })();
-
-    const maxPopupDepth = parseOptionalNumber(args['max-popup-depth'], '--max-popup-depth');
-    const expectedOuterTabs = parseOptionalInteger(args['expected-outer-tabs'], '--expected-outer-tabs');
-    const collectionPreparePayload = args['prepare-write']
-      ? await resolvePrepareWritePayload(payload, {
-          autoCollectionMetadata: !args['no-auto-collection-metadata'],
-          cwd,
-          ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
-          ...(io.fetchCollectionMetadata ? { fetchCollectionMetadata: io.fetchCollectionMetadata } : {}),
-        })
-      : { payload, resolverErrors: [] };
-    const navigationPreparePayload = args['prepare-write']
-      ? await resolvePrepareNavigationGroup(collectionPreparePayload.payload, {
-          cwd,
-          ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
-        })
-      : { payload: collectionPreparePayload.payload, resolverErrors: [], warnings: [] };
-    const result = args['prepare-write']
-      ? prepareApplyBlueprintRequest(navigationPreparePayload.payload, {
-          maxPopupDepth,
-          expectedOuterTabs,
-        })
-      : renderPageBlueprintAsciiPreview(payload, {
-          maxPopupDepth,
-        });
-    const resolverErrors = [
-      ...(collectionPreparePayload.resolverErrors || []),
-      ...(navigationPreparePayload.resolverErrors || []),
-    ];
-    if (navigationPreparePayload.warnings?.length) {
-      result.warnings = uniqueStrings([...(Array.isArray(result.warnings) ? result.warnings : []), ...navigationPreparePayload.warnings]);
+    if (identityResolution?.pageSchemaUid) {
+      const nextBlueprint = {
+        ...draftBlueprint,
+        mode: 'replace',
+        target: {
+          pageSchemaUid: identityResolution.pageSchemaUid,
+        },
+      };
+      writePayload = withPreparedBlueprint(writePayload, nextBlueprint);
     }
-    if (resolverErrors.length > 0) {
-      result.errors = [...resolverErrors, ...(Array.isArray(result.errors) ? result.errors : [])];
-      result.ok = false;
-      delete result.cliBody;
-    }
-
-    writeJson(stdout, result);
-    return result.ok ? 0 : 1;
-  } catch (error) {
-    writeJson(stderr, {
-      ok: false,
-      error: error?.message || String(error),
-      usage: usage(),
-    });
-    return 2;
   }
+
+  const result = prepareApplyBlueprintRequest(writePayload, options);
+  const resolverErrors = [
+    ...(collectionPreparePayload.resolverErrors || []),
+    ...(navigationPreparePayload.resolverErrors || []),
+  ];
+
+  if (navigationPreparePayload.warnings?.length) {
+    result.warnings = uniqueStrings([...(Array.isArray(result.warnings) ? result.warnings : []), ...navigationPreparePayload.warnings]);
+  }
+  if (resolverErrors.length > 0) {
+    result.errors = [...resolverErrors, ...(Array.isArray(result.errors) ? result.errors : [])];
+    result.ok = false;
+    delete result.cliBody;
+  }
+  return result;
 }

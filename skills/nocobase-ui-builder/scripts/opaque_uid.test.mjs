@@ -10,14 +10,19 @@ import {
   DEFAULT_REGISTRY_PATH,
   createEmptyRegistry,
   loadRegistry,
+  findPageIdentityByGroupRouteIdAndTitle,
   nodeUid,
   nodeUids,
+  loadPageIdentityRegistry,
   recordGroupRoute,
   renamePage,
+  recordPageIdentity,
   reserveGroup,
   reservePage,
   resolveGroup,
   resolvePage,
+  savePageIdentityRegistry,
+  upsertPageIdentityRecord,
 } from './opaque_uid.mjs';
 
 const SCRIPT_PATH = fileURLToPath(new URL('./opaque_uid.mjs', import.meta.url));
@@ -186,6 +191,59 @@ test('resolve-page by title fails cleanly when the registry file is missing', ()
     () => resolvePage({ title: 'Missing', registryPath }),
     /provide schemaUid explicitly/,
   );
+});
+
+test('page identity registry resolves same-group same-title pages without colliding across groups', () => {
+  const registryPath = makeRegistryPath('page-identity');
+  const registry = {
+    pages: [],
+  };
+  recordPageIdentity(registry, {
+    pageSchemaUid: 'page-a',
+    pageUid: 'page-a-uid',
+    title: 'Users',
+    menuGroupTitle: 'Workspace',
+    groupRouteId: '11',
+  });
+  recordPageIdentity(registry, {
+    pageSchemaUid: 'page-b',
+    pageUid: 'page-b-uid',
+    title: 'Users',
+    menuGroupTitle: 'Operations',
+    groupRouteId: '22',
+  });
+  savePageIdentityRegistry(registryPath, { version: 1 }, registry);
+
+  const loaded = loadPageIdentityRegistry(registryPath);
+  assert.equal(loaded.registry.pages.length, 2);
+  assert.equal(findPageIdentityByGroupRouteIdAndTitle(loaded.registry, '11', 'Users').pageSchemaUid, 'page-a');
+  assert.equal(findPageIdentityByGroupRouteIdAndTitle(loaded.registry, '22', 'Users').pageSchemaUid, 'page-b');
+});
+
+test('upsertPageIdentityRecord keeps latest page identity details for the same pageSchemaUid', () => {
+  const registryPath = makeRegistryPath('page-identity-upsert');
+
+  const first = upsertPageIdentityRecord({
+    pageSchemaUid: 'page-a',
+    pageUid: 'page-a-uid',
+    title: 'Users',
+    menuGroupTitle: 'Workspace',
+    groupRouteId: '11',
+  }, { registryPath });
+  const second = upsertPageIdentityRecord({
+    pageSchemaUid: 'page-a',
+    pageUid: 'page-a-uid-2',
+    title: 'Users Admin',
+    menuGroupTitle: 'Workspace',
+    groupRouteId: '11',
+  }, { registryPath });
+  const loaded = loadPageIdentityRegistry(registryPath);
+
+  assert.equal(first.created, true);
+  assert.equal(second.created, false);
+  assert.equal(second.page.title, 'Users Admin');
+  assert.equal(loaded.registry.pages.length, 1);
+  assert.equal(loaded.registry.pages[0].pageUid, 'page-a-uid-2');
 });
 
 test('cli smoke test writes and resolves opaque values', () => {

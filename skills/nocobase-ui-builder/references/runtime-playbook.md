@@ -4,7 +4,7 @@ This file provides the family / locator / write-target mental model for the skil
 
 Start with [local-edit-quick.md](./local-edit-quick.md) when the request looks like a normal localized edit and you only need the default route first. Come here when the family / locator model itself is the blocker.
 
-Canonical front door is `nb`. The operation names below are the stable runtime families; discover the exact generated command shape through `nb api flow-surfaces --help`.
+Agent-facing front door for flow-surfaces is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. The operation names below are stable wrapper subcommands; discover wrapper usage with `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help`.
 
 ## 1. Common Families
 
@@ -21,28 +21,28 @@ Canonical front door is `nb`. The operation names below are the stable runtime f
 ## 2. Default Read Routing
 
 - menu question -> `nb api desktop-routes list-accessible`
-- normal page/popup inspection -> `nb api flow-surfaces get`
-- richer public surface snapshot -> `nb api flow-surfaces describe-surface`
-- capability uncertainty -> `nb api flow-surfaces catalog`
-- reaction-capability uncertainty -> `nb api flow-surfaces get-reaction-meta`
-- context-variable uncertainty -> `nb api flow-surfaces context` as lower-level supplement
+- normal page/popup inspection -> wrapper `get`
+- richer public surface snapshot -> wrapper `describe-surface`
+- capability uncertainty -> wrapper `catalog`
+- reaction-capability uncertainty -> wrapper `get-reaction-meta`
+- context-variable uncertainty -> wrapper `context` as lower-level supplement
 
 ## 3. Default Write Routing
 
 | user intent | default write path |
 | --- | --- |
-| create one whole page | `nb api flow-surfaces apply-blueprint` |
-| replace/rebuild one whole page | `nb api flow-surfaces apply-blueprint` |
-| whole-page interaction / reaction authoring | `nb api flow-surfaces apply-blueprint` |
-| create/move menu only | `nb api flow-surfaces create-menu` / `update-menu` |
-| add/update content under an existing surface | `nb api flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
-| replace one existing full grid layout | `nb api flow-surfaces set-layout` |
+| create one whole page | wrapper `apply-blueprint` |
+| replace/rebuild one whole page | wrapper `apply-blueprint` |
+| whole-page interaction / reaction authoring | wrapper `apply-blueprint` |
+| create/move menu only | wrapper `create-menu` / `update-menu` |
+| add/update content under an existing surface | wrapper `compose` / `add-*` / `configure` / `update-settings` |
+| replace one existing full grid layout | wrapper `set-layout` |
 | edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
-| replace existing instance-level event flows | `nb api flow-surfaces set-event-flows` |
-| localized reaction edit | `nb api flow-surfaces get-reaction-meta` -> matching `set-*` rules |
-| reorder/remove tab or popup tab | `nb api flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
-| reorder/remove node | `nb api flow-surfaces move-node` / `remove-node` |
-| initialize a menu item into a page | `nb api flow-surfaces create-page` |
+| replace existing instance-level event flows | wrapper `set-event-flows` |
+| localized reaction edit | wrapper `get-reaction-meta` -> matching `set-*` rules |
+| reorder/remove tab or popup tab | wrapper `move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
+| reorder/remove node | wrapper `move-node` / `remove-node` |
+| initialize a menu item into a page | wrapper `create-page` |
 
 For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, use pageSchemaUid/live uids for the downstream localized work.
 

@@ -13,8 +13,7 @@ This file is for the inner page document only. For the actual nb raw body, pair 
 Turn business intent into:
 
 1. one executable draft page blueprint document
-2. one ASCII-first preview rendered from that same draft blueprint
-3. one prepared nb raw body (`result.cliBody`) for `nb api flow-surfaces apply-blueprint`
+2. one `nb-flow-surfaces.mjs apply-blueprint` call that internally prepares and sends `result.cliBody`
 
 ## Route
 
@@ -33,7 +32,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 9. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the execution fallback. Local popup content may remain as the fallback when present.
 10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 11. Assemble the final blueprint using [page-blueprint.md](./page-blueprint.md).
-12. Before the real write, run the local prepare-write gate (`node skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` from the repo root, or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+12. Before invoking the wrapper write, confirm the draft can satisfy the internal prepare-write gate:
     - in `create`, every newly created `navigation.group` / `navigation.item` carries one semantic Ant Design icon
     - tabs count matches the request
     - every `tab.blocks` is non-empty
@@ -47,8 +46,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - every custom `edit` popup contains exactly one `editForm`
     - data-bound blocks have resolved `collectionMetadata`; the CLI auto-fills missing collection entries by default, while `--no-auto-collection-metadata` keeps the `missing-collection-metadata` fail-closed path
     - with resolved `collectionMetadata`, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
-13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
-14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the nb raw body. Keep the local `prepare-write` gate and the later `nb api flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Do not wrap that prepared object again.
+13. Then open [tool-shapes.md](./tool-shapes.md) and invoke `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint` with the draft or wrapper envelope. The wrapper must send only internal `prepare-write` output `result.cliBody` as the backend nb raw body. Do not wrap that prepared object again.
 
 ## Heuristics
 
@@ -57,19 +55,11 @@ Use this file only when the task is whole-page authoring. If the request is real
 - Users may describe blocks, relations, and actions in business language only. Infer the minimum executable structure instead of expanding into a rigid pseudo-spec.
 - Prefer `navigation.group.routeId` when the destination group is already known.
 - If visible same-title groups already exist and title lookup would hit multiple groups, stop and require explicit `navigation.group.routeId`; do not reuse one locally and do not create another same-title group just to disambiguate.
+- For page identity, compare menu group routeId before page title: `(navigation.group.routeId, page.title)` is the same-page key after unique group-title resolution. In `create`, same group + same page title may become `replace`; different group + same page title should not merge, reuse, or auto-replace another page.
 - If the user says clicking a shown record or relation record opens details, prefer a field popup rather than inventing a button.
 - Keep `fields[]` as simple strings unless a field object is actually needed.
 - Omit `layout` only when the tab/popup contains at most one non-filter block. Otherwise decide the layout explicitly instead of relying on default vertical stacking.
 - Keep low-level selectors such as `uid`, `ref`, or `$ref` out of the blueprint.
-
-## Prewrite Output
-
-Before the first whole-page `applyBlueprint`, present:
-
-1. a short explanation of the intended page
-2. one ASCII wireframe rendered from the same blueprint
-3. assumptions only when they matter
-4. the executable JSON blueprint only when the user explicitly asks for it or a technical review still needs it
 
 ## Reaction Intent
 

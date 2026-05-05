@@ -38,6 +38,8 @@ Every JS request follows the same five-step loop:
 
 If target field, read source, surface, host model, or required form context is unknown, stop and inspect metadata before writing code.
 
+For JS model render surfaces, default to Ant Design UI from `ctx.libs.antd` / `ctx.libs.antdIcons`. Do not make bare HTML strings, one-off inline-styled DOM, or custom widget markup the first choice when an Ant Design component fits. Use `ctx.importAsync()` / `ctx.requireAsync()` only when the requested capability is outside Ant Design's built-in component set, such as specialized charts, maps, calendars, Gantt views, or drag-and-drop engines.
+
 ## Public JS Capabilities
 
 - `jsBlock`
@@ -104,6 +106,8 @@ If the live environment does not make it clear which JS action model applies, st
 - Output readable multiline JS by default, using 2-space indentation consistently. In JSON payloads, preserve those line breaks inside `code` strings with `\n`; do not flatten multi-statement RunJS into one line for transport convenience.
 - Keep only a single short return or expression on one line. Any code with local variables, conditional branches, fallback handling, string assembly, `await`, `ctx.render(...)`, or more than one statement must be multiline before validator/preflight and before the nb write.
 - For complex template strings, conditional branches, or string assembly, split them into local variables first and then pass them into `ctx.render(...)`.
+- For render-style JS model code, prefer React JSX composed from `ctx.libs.antd` and `ctx.libs.antdIcons`. Use `Typography`, `Tag`, `Space`, `List`, `Card`, `Alert`, `Empty`, `Statistic`, `Table`, or similar built-in components before writing raw HTML strings or custom CSS.
+- If an external component library is necessary, keep surrounding states such as loading, error, empty, actions, and labels in Ant Design where practical, and document why built-in Ant Design components are not enough.
 - Start with the runtime profile's `defaultContextShape`. If live nb readback already knows a more precise `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`, override the defaults with live data.
 - Do not translate the phrase "current record" directly into a direct `ctx.record` read. Pick a `recordSemantic` first: popup opener data uses `await ctx.getVar('ctx.popup.record...')`, row/field host record values use `await ctx.getVar('ctx.record...')`, parent popup data uses `await ctx.getVar('ctx.popup.parent.record...')`, and selected table rows use `ctx.resource.getSelectedRows?.()`.
 - Record the `contextEvidence` used for that choice. For localized edits, prefer `flow-surfaces context --target ... --path popup.record` and `--path record`; for whole-page drafts, use the planned host position and stop if the record semantic is ambiguous.

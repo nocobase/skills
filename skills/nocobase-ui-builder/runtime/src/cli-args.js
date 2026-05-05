@@ -11,21 +11,34 @@ export function parseCliArgs(argv, options = {}) {
       continue;
     }
 
-    const key = token.slice(2);
+    const equalIndex = token.indexOf('=');
+    const hasInlineValue = equalIndex > 2;
+    const key = hasInlineValue ? token.slice(2, equalIndex) : token.slice(2);
+    const inlineValue = hasInlineValue ? token.slice(equalIndex + 1) : undefined;
+    const hasEmptyInlineValue = hasInlineValue && inlineValue === '';
     const next = argv[index + 1];
-    const hasValue = typeof next === 'string' && !next.startsWith('--');
+    const hasNextValue = typeof next === 'string' && !next.startsWith('--');
+    const hasValue = hasInlineValue || hasNextValue;
+    const value = hasInlineValue ? inlineValue : next;
 
     if (valueFlags.has(key)) {
-      if (!hasValue) {
+      if (hasEmptyInlineValue || !hasValue) {
         throw new Error(`Missing value for --${key}.`);
       }
-      args[key] = next;
-      index += 1;
+      args[key] = value;
+      if (!hasInlineValue) index += 1;
       continue;
     }
 
     if (booleanValueFlags.has(key)) {
-      if (hasValue) {
+      if (hasEmptyInlineValue) {
+        throw new Error(`Missing value for --${key}.`);
+      }
+      if (hasInlineValue) {
+        args[key] = inlineValue;
+        continue;
+      }
+      if (hasNextValue) {
         args[key] = next;
         index += 1;
         continue;
@@ -40,8 +53,8 @@ export function parseCliArgs(argv, options = {}) {
     }
 
     if (hasValue) {
-      args[key] = next;
-      index += 1;
+      args[key] = value;
+      if (!hasInlineValue) index += 1;
       continue;
     }
 
