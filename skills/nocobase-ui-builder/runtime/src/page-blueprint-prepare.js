@@ -3454,10 +3454,6 @@ function validateRelationFieldExplicitTitleFieldRequirement(items, blockContext,
       continue;
     }
 
-    if (!hasOwn(item, 'fieldType')) {
-      continue;
-    }
-
     const requirement = getPublicRelationFieldTitleFieldRequirement(
       collectionMetadata,
       sourceCollection,

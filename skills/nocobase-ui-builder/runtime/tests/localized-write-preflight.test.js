@@ -808,6 +808,75 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
   );
 });
 
+test('runLocalizedWritePreflight requires explicit titleField for popup-only relation fields when target collection titleField is id', () => {
+  const metadata = makeMetadata();
+  metadata.collections.roles.titleField = 'id';
+
+  const composeMissing = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleDetails',
+                    type: 'details',
+                    resource: { binding: 'currentRecord', collectionName: 'roles' },
+                    fields: ['name', 'title'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(composeMissing.ok, false);
+  assertHasRule(
+    composeMissing,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.blocks[0].fields[0].titleField',
+  );
+
+  const configureExplicitReadable = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            titleField: 'name',
+            popup: {
+              blocks: [
+                {
+                  key: 'roleDetails',
+                  type: 'details',
+                  resource: { binding: 'currentRecord', collectionName: 'roles' },
+                  fields: ['name', 'title'],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(configureExplicitReadable.ok, true, JSON.stringify(configureExplicitReadable.errors));
+});
+
 test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context', () => {
   const metadata = makeMetadata();
   metadata.collections.departments.titleField = 'id';
@@ -832,6 +901,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
           fields: [
             {
               field: 'roles',
+              titleField: 'name',
               popup: {
                 blocks: [
                   {
@@ -875,6 +945,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
           fields: [
             {
               field: 'roles',
+              titleField: 'name',
               popup: {
                 blocks: [
                   {
@@ -909,6 +980,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
         fields: [
           {
             field: 'roles',
+            titleField: 'name',
             popup: {
               blocks: [
                 {
@@ -946,6 +1018,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
         fields: [
           {
             field: 'roles',
+            titleField: 'name',
             popup: {
               blocks: [
                 {
@@ -999,6 +1072,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
           fields: [
             {
               field: 'roles',
+              titleField: 'name',
               popup: {
                 blocks: [
                   {
@@ -1037,6 +1111,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
         fields: [
           {
             field: 'roles',
+            titleField: 'name',
             popup: {
               blocks: [
                 {
@@ -1600,6 +1675,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
             'nickname',
             {
               field: 'roles',
+              titleField: 'name',
               popup: {
                 blocks: [
                   {
@@ -1640,6 +1716,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
           fields: [
             {
               field: 'roles',
+              titleField: 'name',
               popup: {
                 blocks: [
                   {
@@ -1677,6 +1754,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
           fields: [
             {
               field: 'roles',
+              titleField: 'name',
               popup: {
                 blocks: [
                   {

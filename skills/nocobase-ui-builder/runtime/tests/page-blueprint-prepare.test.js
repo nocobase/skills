@@ -823,6 +823,119 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
   );
 });
 
+test('prepareApplyBlueprintRequest requires explicit titleField for popup-only relation fields when target collection titleField is id', () => {
+  const relationTitleFieldMetadata = {
+    collections: {
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [
+          { name: 'nickname', interface: 'input' },
+          { name: 'roles', interface: 'm2m', target: 'roles' },
+        ],
+      },
+      roles: {
+        name: 'roles',
+        titleField: 'id',
+        fields: [
+          { name: 'id', interface: 'number' },
+          { name: 'name', interface: 'input' },
+          { name: 'code', interface: 'input' },
+        ],
+      },
+    },
+  };
+
+  const missing = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Popup-only relation titleField required page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'roles',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      type: 'details',
+                      resource: { binding: 'currentRecord', collectionName: 'roles' },
+                      fields: ['name', 'code'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction()],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata: relationTitleFieldMetadata });
+
+  assert.equal(missing.ok, false);
+  assert.equal(
+    missing.errors.some(
+      (item) =>
+        item.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
+        && item.path === 'tabs[0].blocks[0].fields[0].titleField'
+        && /roles/.test(item.message)
+        && /"id"/.test(item.message)
+        && /name/.test(item.message),
+    ),
+    true,
+  );
+
+  const explicitReadable = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Popup-only relation titleField readable page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              'nickname',
+              {
+                field: 'roles',
+                titleField: 'name',
+                popup: {
+                  title: 'Role details',
+                  blocks: [
+                    {
+                      type: 'details',
+                      resource: { binding: 'currentRecord', collectionName: 'roles' },
+                      fields: ['name', 'code'],
+                    },
+                  ],
+                },
+              },
+            ],
+            actions: [defaultFilterAction(['nickname'])],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['users', 'roles'],
+    collectionMetadata: relationTitleFieldMetadata,
+  });
+
+  assert.equal(explicitReadable.ok, true, JSON.stringify(explicitReadable.errors));
+});
+
 function buildFixedCollectionPopupDefaults(collectionName) {
   return {
     view: {

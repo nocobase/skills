@@ -1613,7 +1613,7 @@ function collectLocalizedRelationFieldExplicitTitleFieldErrors(payload, operatio
                 { fieldPath, targetCollection, titleField },
               );
             }
-          } else if (Object.hasOwn(field, 'fieldType')) {
+          } else {
             const requirement = getPublicRelationFieldTitleFieldRequirement(metadata, sourceCollection, fieldPath);
             if (requirement) {
               push(
