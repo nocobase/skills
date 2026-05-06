@@ -611,8 +611,7 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
         && /roles/.test(item.message)
         && /"id"/.test(item.message)
         && /name/.test(item.message)
-        && /title/.test(item.message)
-        && /code/.test(item.message),
+        && /not allowed/.test(item.message),
     ),
     true,
   );
@@ -647,10 +646,10 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
 
   assert.equal(explicitReadable.ok, true, JSON.stringify(explicitReadable.errors));
 
-  const explicitId = prepareApplyBlueprintRequest({
+  const forbidden = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
-    page: { title: 'Relation titleField explicit id page' },
+    page: { title: 'Relation titleField forbidden page' },
     tabs: [
       {
         title: 'Main',
@@ -675,7 +674,55 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
     defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
   }, { collectionMetadata });
 
-  assert.equal(explicitId.ok, true, JSON.stringify(explicitId.errors));
+  assert.equal(forbidden.ok, false);
+  assert.equal(
+    forbidden.errors.some(
+      (item) =>
+        item.ruleId === 'relation-field-title-field-id-forbidden'
+        && item.path === 'tabs[0].blocks[0].fields[0].titleField'
+        && /roles/.test(item.message)
+        && /"id"/.test(item.message),
+    ),
+    true,
+  );
+
+  const invalidExplicit = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Relation titleField invalid explicit page' },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [
+          {
+            key: 'form',
+            type: 'createForm',
+            resource: { dataSourceKey: 'main', collectionName: 'users' },
+            fields: [
+              {
+                key: 'rolesField',
+                field: 'roles',
+                fieldType: 'popupSubTable',
+                titleField: 'summary',
+                fields: ['name', 'code'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
+  }, { collectionMetadata });
+
+  assert.equal(invalidExplicit.ok, false);
+  assert.equal(
+    invalidExplicit.errors.some(
+      (item) =>
+        item.ruleId === 'relation-field-title-field-invalid'
+        && item.path === 'tabs[0].blocks[0].fields[0].titleField',
+    ),
+    true,
+  );
 });
 
 test('prepareApplyBlueprintRequest requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {
@@ -737,10 +784,10 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
     true,
   );
 
-  const explicitId = prepareApplyBlueprintRequest({
+  const forbidden = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
-    page: { title: 'Relation titleField implicit explicit id page' },
+    page: { title: 'Relation titleField implicit forbidden page' },
     tabs: [
       {
         title: 'Main',
@@ -765,7 +812,15 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
     defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
   }, { collectionMetadata });
 
-  assert.equal(explicitId.ok, true, JSON.stringify(explicitId.errors));
+  assert.equal(forbidden.ok, false);
+  assert.equal(
+    forbidden.errors.some(
+      (item) =>
+        item.ruleId === 'relation-field-title-field-id-forbidden'
+        && item.path === 'tabs[0].blocks[0].fields[0].titleField',
+    ),
+    true,
+  );
 });
 
 function buildFixedCollectionPopupDefaults(collectionName) {
@@ -10878,6 +10933,60 @@ test('prepare-write preserves explicit table record actions and skips table sele
   const [explicitTable, tableSelect] = payload.cliBody.tabs[0].blocks;
   assert.deepEqual(actionTypes(explicitTable.recordActions), ['view']);
   assert.equal(Object.hasOwn(tableSelect, 'recordActions'), false);
+});
+
+test('prepare-write defaults record actions for table blocks with empty template metadata', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'replace',
+        target: { pageSchemaUid: 'users-page-schema' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                template: {},
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                fields: ['nickname'],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.deepEqual(actionTypes(payload.cliBody.tabs[0].blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
 test('prepareApplyBlueprintRequest skips template-backed and popup subtable model table defaults', () => {

@@ -2089,6 +2089,50 @@ test('defaults collection fieldGroups docs keep the large-popup threshold visibl
   );
 });
 
+test('defaults collection fieldGroups docs require fast self-review and one retry', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/normative-contract.md',
+    'references/tool-shapes.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /fieldGroups[\s\S]{0,260}self-review[\s\S]{0,260}(approve|regenerate)/i,
+      `${relativePath} should require a compact fieldGroups self-review verdict`,
+    );
+    assert.match(
+      text,
+      /fieldGroups[\s\S]{0,420}(regenerate|retry)[\s\S]{0,180}(once|single retry|at most once)|regenerate[\s\S]{0,180}(once|single retry|at most once)[\s\S]{0,420}fieldGroups/i,
+      `${relativePath} should cap defaults fieldGroups regeneration to one retry`,
+    );
+    assert.match(
+      text,
+      /fieldGroups[\s\S]{0,420}(lowest practical reasoning|no-think|chain-of-thought)|(?:lowest practical reasoning|no-think|chain-of-thought)[\s\S]{0,420}fieldGroups/i,
+      `${relativePath} should keep the low-effort/no-think guidance visible`,
+    );
+  }
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /defaults fieldGroups[\s\S]{0,120}self-review[\s\S]{0,120}approve[\/|]regenerate/i,
+    'default prompt should require a compact fieldGroups self-review verdict',
+  );
+  assert.match(
+    defaultPrompt,
+    /defaults fieldGroups[\s\S]{0,180}(lowest reasoning|no-think)[\s\S]{0,180}(no CoT|chain-of-thought)/i,
+    'default prompt should keep low-effort/no-think/no-CoT guidance visible',
+  );
+  assert.match(
+    defaultPrompt,
+    /defaults fieldGroups[\s\S]{0,220}regenerate once/i,
+    'default prompt should cap fieldGroups regeneration to one retry',
+  );
+});
+
 test('whole-page defaults docs require recomputing involved collections and keep fieldGroups target-scoped', () => {
   for (const relativePath of [
     'SKILL.md',

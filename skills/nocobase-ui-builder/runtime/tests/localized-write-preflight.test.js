@@ -340,6 +340,22 @@ test('runLocalizedWritePreflight preserves explicit table record actions and ski
   assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
 });
 
+test('runLocalizedWritePreflight does not default record actions during configure', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: ['nickname'],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(Object.hasOwn(result.cliBody.changes, 'recordActions'), false);
+});
+
 test('runLocalizedWritePreflight skips template-backed and popup subtable model table defaults', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',
@@ -384,6 +400,31 @@ test('runLocalizedWritePreflight skips template-backed and popup subtable model 
   assert.equal(Object.hasOwn(result.cliBody.blocks[0], 'recordActions'), false);
   assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
   assert.equal(Object.hasOwn(result.cliBody.blocks[2], 'recordActions'), false);
+});
+
+test('runLocalizedWritePreflight defaults record actions for table blocks with empty template metadata', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-table',
+          type: 'table',
+          template: {},
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
 test('runLocalizedWritePreflight fails localized writes that use empty block-level defaultFilter on direct data surfaces', () => {
@@ -679,7 +720,36 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
       },
     },
   });
-  assert.equal(explicitId.ok, true, JSON.stringify(explicitId.errors));
+  assert.equal(explicitId.ok, false);
+  assertHasRule(
+    explicitId,
+    'relation-field-title-field-id-forbidden',
+    '$.changes.fields[0].titleField',
+  );
+
+  const invalidExplicit = runLocalizedWritePreflight({
+    operation: 'configure',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        fields: [
+          {
+            field: 'roles',
+            fieldType: 'popupSubTable',
+            titleField: 'summary',
+            fields: ['name', 'title'],
+          },
+        ],
+      },
+    },
+  });
+  assert.equal(invalidExplicit.ok, false);
+  assertHasRule(
+    invalidExplicit,
+    'relation-field-title-field-invalid',
+    '$.changes.fields[0].titleField',
+  );
 });
 
 test('runLocalizedWritePreflight requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {
@@ -730,7 +800,12 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
       },
     },
   });
-  assert.equal(configureExplicitId.ok, true, JSON.stringify(configureExplicitId.errors));
+  assert.equal(configureExplicitId.ok, false);
+  assertHasRule(
+    configureExplicitId,
+    'relation-field-title-field-id-forbidden',
+    '$.changes.fields[0].titleField',
+  );
 });
 
 test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context', () => {
@@ -893,7 +968,12 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
       },
     },
   });
-  assert.equal(configureExplicitId.ok, true, JSON.stringify(configureExplicitId.errors));
+  assert.equal(configureExplicitId.ok, false);
+  assertHasRule(
+    configureExplicitId,
+    'relation-field-title-field-id-forbidden',
+    '$.changes.fields[0].popup.blocks[0].fields[0].titleField',
+  );
 });
 
 test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context when target titleField falls back to id', () => {
@@ -979,7 +1059,12 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
       },
     },
   });
-  assert.equal(configureExplicitId.ok, true, JSON.stringify(configureExplicitId.errors));
+  assert.equal(configureExplicitId.ok, false);
+  assertHasRule(
+    configureExplicitId,
+    'relation-field-title-field-id-forbidden',
+    '$.changes.fields[0].popup.blocks[0].fields[0].titleField',
+  );
 });
 
 test('runLocalizedWritePreflight preserves canonicalized cliBody and localized facts', () => {

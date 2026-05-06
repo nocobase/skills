@@ -15,6 +15,8 @@ import {
 import { canonicalizeRunJSPayload } from '../../scripts/runjs_guard.mjs';
 import {
   buildPublicRelationFieldTitleFieldRequiredMessage,
+  buildPublicRelationFieldTitleFieldInvalidMessage,
+  buildPublicRelationFieldTitleFieldInvalidTargetMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicCollectionFieldMeta,
@@ -23,9 +25,12 @@ import {
   getPublicRelationFieldTitleFieldRequirement,
   getHiddenPopupSettingsForBlockType,
   isPublicAssociationFieldMeta,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
+import { materializeDefaultTableRecordActions } from './table-record-actions-defaults.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_EXPECTED_OUTER_TABS = 1;
@@ -894,29 +899,6 @@ function isDataBlock(block) {
   return hasResourceBinding(block);
 }
 
-function isTableRecordActionsDefaultTarget(block) {
-  if (!isPlainObject(block)) return false;
-  if (normalizeText(block.type) !== 'table') return false;
-  if (!isDataBlock(block) || isTemplateBackedBlock(block)) return false;
-  if (hasOwn(block, 'recordActions')) return false;
-
-  const blockUse = normalizeText(block.use);
-  if (blockUse === 'TableSelectModel') return false;
-  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
-
-  return true;
-}
-
-function materializeTableRecordActionsForWrite(block) {
-  if (!isTableRecordActionsDefaultTarget(block)) {
-    return block;
-  }
-  return {
-    ...block,
-    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
-  };
-}
-
 function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
@@ -1319,13 +1301,19 @@ function chooseDefaultDisplayField(collectionMeta) {
   ].filter(Boolean);
 
   for (const candidate of candidates) {
+    if (candidate === 'id') {
+      continue;
+    }
     const fieldMeta = collectionMeta.fieldsByName.get(candidate);
     if (fieldMeta && normalizeText(fieldMeta.interface) && !isPublicAssociationFieldMeta(fieldMeta)) {
       return candidate;
     }
   }
 
-  const scalarField = collectionMeta.fields.find((field) => normalizeText(field.interface) && !isPublicAssociationFieldMeta(field));
+  const scalarField = collectionMeta.fields.find((field) =>
+    normalizeText(field.interface)
+    && !isPublicAssociationFieldMeta(field)
+    && normalizeText(field.name) !== 'id');
   return normalizeText(scalarField?.name);
 }
 
@@ -1358,7 +1346,9 @@ function buildDefaultPopupSceneFieldPaths(collectionMetadata, collectionName, ac
       if (isPublicAssociationFieldMeta(field) && normalizeText(field.target)) {
         const targetCollection = getPublicCollectionMeta(collectionMetadata, field.target);
         const displayField = chooseDefaultDisplayField(targetCollection);
-        fields.push(displayField ? `${field.name}.${displayField}` : field.name);
+        if (displayField) {
+          fields.push(`${field.name}.${displayField}`);
+        }
       } else {
         fields.push(field.name);
       }
@@ -2769,7 +2759,9 @@ function materializeBlockForWrite(block, options = {}) {
       }),
     );
   } else {
-    const nextWithDefaultRecordActions = materializeTableRecordActionsForWrite(nextBlock);
+    const nextWithDefaultRecordActions = materializeDefaultTableRecordActions(nextBlock, {
+      hasExplicitResourceBinding: isDataBlock(nextBlock),
+    });
     if (nextWithDefaultRecordActions !== nextBlock) {
       nextBlock = nextWithDefaultRecordActions;
     }
@@ -3421,12 +3413,48 @@ function validateRelationFieldExplicitTitleFieldRequirement(items, blockContext,
   }
 
   for (const [index, item] of ensureArray(items).entries()) {
-    if (!isPlainObject(item) || !hasOwn(item, 'fieldType')) {
+    if (!isPlainObject(item)) {
       continue;
     }
 
     const fieldPath = getPublicRelationFieldObjectPath(item);
-    if (!fieldPath || normalizeText(item.titleField)) {
+    if (!fieldPath) {
+      continue;
+    }
+
+    const relationField = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, fieldPath);
+    if (!isPublicAssociationFieldMeta(relationField?.field)) {
+      continue;
+    }
+
+    const targetCollection = normalizeText(relationField?.field?.target);
+    const titleField = normalizeText(item.titleField);
+    if (titleField === 'id') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}].titleField`,
+        PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
+        buildPublicRelationFieldTitleFieldInvalidMessage(fieldPath, targetCollection, titleField),
+      );
+      continue;
+    }
+
+    if (titleField) {
+      const explicitTitleFieldMeta = getPublicCollectionFieldMeta(collectionMetadata, targetCollection, titleField);
+      if (!explicitTitleFieldMeta || isPublicAssociationFieldMeta(explicitTitleFieldMeta)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${path}[${index}].titleField`,
+          PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
+          buildPublicRelationFieldTitleFieldInvalidTargetMessage(fieldPath, targetCollection, titleField),
+        );
+      }
+      continue;
+    }
+
+    if (!hasOwn(item, 'fieldType')) {
       continue;
     }
 
@@ -3444,7 +3472,11 @@ function validateRelationFieldExplicitTitleFieldRequirement(items, blockContext,
       state.seenErrors,
       `${path}[${index}].titleField`,
       PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
-      buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, requirement.targetCollection),
+      buildPublicRelationFieldTitleFieldRequiredMessage(
+        fieldPath,
+        requirement.targetCollection,
+        requirement.readableDisplayFieldName,
+      ),
     );
   }
 }

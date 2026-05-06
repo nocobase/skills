@@ -6,6 +6,7 @@ interface:
 # Long-form guardrails kept here for docs-consistency checks and human review:
 # rebuild defaults.collections from scratch via live metadata
 # defaults.collections fieldGroups >10 effective fields
+# defaults fieldGroups self-review approve/regenerate once lowest reasoning no-think no chain-of-thought
 # fixed view/addNew/edit
 # table addNew threshold
 # associations popups{name,description} first-segment

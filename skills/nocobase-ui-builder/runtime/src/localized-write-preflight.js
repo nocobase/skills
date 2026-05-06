@@ -16,6 +16,8 @@ import { collectPopupDocumentContractIssues } from './popup-contract.js';
 import { collectBuilderChartRelationFieldIssues } from './chart-query-validation.js';
 import {
   buildPublicRelationFieldTitleFieldRequiredMessage,
+  buildPublicRelationFieldTitleFieldInvalidMessage,
+  buildPublicRelationFieldTitleFieldInvalidTargetMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicBlockCollectionName,
@@ -24,9 +26,13 @@ import {
   getPublicRelationFieldObjectPath,
   getPublicRelationFieldTitleFieldRequirement,
   isPublicDataSurfaceBlockType,
+  isPublicAssociationFieldMeta,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
+  PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
+import { materializeDefaultTableRecordActions } from './table-record-actions-defaults.js';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
@@ -176,27 +182,6 @@ function hasLocalizedResourceBinding(block) {
   );
 }
 
-function isTableRecordActionsDefaultTarget(block) {
-  if (!isObjectRecord(block)) return false;
-  if (normalizeText(block.type) !== 'table') return false;
-  if (!hasLocalizedResourceBinding(block) || block.template) return false;
-  if (Object.prototype.hasOwnProperty.call(block, 'recordActions')) return false;
-
-  const blockUse = normalizeText(block.use);
-  if (blockUse === 'TableSelectModel') return false;
-  if (blockUse === 'PopupSubTableFieldModel' || blockUse === 'PopupSubTableActionsColumnModel') return false;
-
-  return true;
-}
-
-function materializeTableRecordActionsForWrite(block) {
-  if (!isTableRecordActionsDefaultTarget(block)) return block;
-  return {
-    ...block,
-    recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
-  };
-}
-
 function normalizeHeightSettingsInPopup(popup, options = {}) {
   if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
     return popup;
@@ -344,7 +329,9 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
     if (changed) nextBlock = { ...nextBlock, fieldGroups };
   }
 
-  return materializeTableRecordActionsForWrite(nextBlock);
+  return materializeDefaultTableRecordActions(nextBlock, {
+    hasExplicitResourceBinding: hasLocalizedResourceBinding(nextBlock),
+  });
 }
 
 function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
@@ -1599,18 +1586,48 @@ function collectLocalizedRelationFieldExplicitTitleFieldErrors(payload, operatio
     if (!Array.isArray(fields)) return;
     fields.forEach((field, index) => {
       const fieldPath = getPublicRelationFieldObjectPath(field);
-      if (isObjectRecord(field) && Object.hasOwn(field, 'fieldType') && fieldPath && !normalizeText(field.titleField)) {
+      if (isObjectRecord(field) && fieldPath) {
         const sourceCollection = getLocalizedTraversalSurfaceCollection(blockContext);
-        if (sourceCollection) {
-          const requirement = getPublicRelationFieldTitleFieldRequirement(metadata, sourceCollection, fieldPath);
-          if (requirement) {
+        const resolvedField = sourceCollection
+          ? resolveFieldPathInMetadata(metadata, sourceCollection, fieldPath)
+          : null;
+        const targetCollection = normalizeText(resolvedField?.field?.target);
+        if (sourceCollection && isPublicAssociationFieldMeta(resolvedField?.field)) {
+          const titleField = normalizeText(field.titleField);
+          if (titleField === 'id') {
             push(
               `${path}[${index}].titleField`,
-              PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
-              buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, requirement.targetCollection),
-              'RELATION_FIELD_TITLE_FIELD_REQUIRED_WHEN_COLLECTION_TITLE_IS_ID',
-              { fieldPath, targetCollection: requirement.targetCollection },
+              PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
+              buildPublicRelationFieldTitleFieldInvalidMessage(fieldPath, targetCollection, titleField),
+              'RELATION_FIELD_TITLE_FIELD_ID_FORBIDDEN',
+              { fieldPath, targetCollection, titleField },
             );
+          } else if (titleField) {
+            const explicitTitleFieldMeta = getPublicCollectionMeta(metadata, targetCollection)?.fieldsByName?.get(titleField) || null;
+            if (!explicitTitleFieldMeta || isPublicAssociationFieldMeta(explicitTitleFieldMeta)) {
+              push(
+                `${path}[${index}].titleField`,
+                PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
+                buildPublicRelationFieldTitleFieldInvalidTargetMessage(fieldPath, targetCollection, titleField),
+                'RELATION_FIELD_TITLE_FIELD_INVALID_TARGET',
+                { fieldPath, targetCollection, titleField },
+              );
+            }
+          } else if (Object.hasOwn(field, 'fieldType')) {
+            const requirement = getPublicRelationFieldTitleFieldRequirement(metadata, sourceCollection, fieldPath);
+            if (requirement) {
+              push(
+                `${path}[${index}].titleField`,
+                PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+                buildPublicRelationFieldTitleFieldRequiredMessage(
+                  fieldPath,
+                  requirement.targetCollection,
+                  requirement.readableDisplayFieldName,
+                ),
+                'RELATION_FIELD_TITLE_FIELD_REQUIRED_WHEN_COLLECTION_TITLE_IS_ID',
+                { fieldPath, targetCollection: requirement.targetCollection },
+              );
+            }
           }
         }
       }
