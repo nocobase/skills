@@ -2920,6 +2920,142 @@ test('prepareApplyBlueprintRequest rejects collection default fieldGroups when t
   );
 });
 
+function buildLargeUsersDepartmentDefaultMetadata() {
+  return {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'email', type: 'string', interface: 'input' },
+          { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments' },
+          { name: 'phone', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'bio', type: 'text', interface: 'textarea' },
+          { name: 'employeeCode', type: 'string', interface: 'input' },
+          { name: 'realName', type: 'string', interface: 'input' },
+          { name: 'city', type: 'string', interface: 'input' },
+          { name: 'country', type: 'string', interface: 'input' },
+          { name: 'postalCode', type: 'string', interface: 'input' },
+          { name: 'timezone', type: 'string', interface: 'input' },
+        ],
+      },
+      departments: {
+        titleField: 'id',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'title', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+}
+
+function buildUsersDepartmentDefaultFieldGroups(departmentField) {
+  return [
+    {
+      key: 'profile',
+      title: 'Profile',
+      fields: ['nickname', 'email', departmentField, 'phone', 'status', 'bio'],
+    },
+    {
+      key: 'location',
+      title: 'Location',
+      fields: ['employeeCode', 'realName', 'city', 'country', 'postalCode', 'timezone'],
+    },
+  ];
+}
+
+function buildUsersDepartmentDefaultsBlueprint(departmentField) {
+  return {
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          fieldGroups: buildUsersDepartmentDefaultFieldGroups(departmentField),
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+            fields: ['nickname'],
+            actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            recordActions: ['view'],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+test('prepareApplyBlueprintRequest validates relation titleField in collection default fieldGroups', () => {
+  const metadata = buildLargeUsersDepartmentDefaultMetadata();
+  const missing = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint({ field: 'department' }),
+    { collectionMetadata: metadata },
+  );
+  assert.equal(missing.ok, false);
+  assert.ok(
+    missing.errors.some(
+      (issue) =>
+        issue.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
+        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
+    ),
+  );
+
+  const forbidden = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint({ field: 'department', titleField: 'id' }),
+    { collectionMetadata: metadata },
+  );
+  assert.equal(forbidden.ok, false);
+  assert.ok(
+    forbidden.errors.some(
+      (issue) =>
+        issue.ruleId === 'relation-field-title-field-id-forbidden'
+        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
+    ),
+  );
+
+  const invalid = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint({ field: 'department', titleField: 'missing' }),
+    { collectionMetadata: metadata },
+  );
+  assert.equal(invalid.ok, false);
+  assert.ok(
+    invalid.errors.some(
+      (issue) =>
+        issue.ruleId === 'relation-field-title-field-invalid'
+        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps valid relation titleField in collection default fieldGroups', () => {
+  const departmentField = { field: 'department', titleField: 'title' };
+  const result = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint(departmentField),
+    { collectionMetadata: buildLargeUsersDepartmentDefaultMetadata() },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(
+    result.cliBody.defaults.collections.users.fieldGroups[0].fields[2],
+    departmentField,
+  );
+});
+
 test('prepareApplyBlueprintRequest rejects invalid collection defaults shapes', () => {
   const buildBlueprint = (defaults) => ({
     version: '1',

@@ -750,6 +750,69 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
     'relation-field-title-field-invalid',
     '$.changes.fields[0].titleField',
   );
+
+  const fieldGroupExplicitReadable = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'grouped-form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fieldGroups: [
+            {
+              title: 'Assignments',
+              fields: [
+                {
+                  field: 'roles',
+                  fieldType: 'popupSubTable',
+                  titleField: 'name',
+                  fields: ['name', 'title'],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(fieldGroupExplicitReadable.ok, true, JSON.stringify(fieldGroupExplicitReadable.errors));
+
+  const fieldGroupExplicitId = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'grouped-form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fieldGroups: [
+            {
+              title: 'Assignments',
+              fields: [
+                {
+                  field: 'roles',
+                  fieldType: 'popupSubTable',
+                  titleField: 'id',
+                  fields: ['name', 'title'],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(fieldGroupExplicitId.ok, false);
+  assertHasRule(
+    fieldGroupExplicitId,
+    'relation-field-title-field-id-forbidden',
+    '$.blocks[0].fieldGroups[0].fields[0].titleField',
+  );
 });
 
 test('runLocalizedWritePreflight requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {

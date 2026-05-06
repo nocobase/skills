@@ -47,6 +47,7 @@ const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
 const DEFAULTS_ROOT_ALLOWED_KEYS = new Set(['collections']);
 const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set(['fieldGroups', 'popups']);
 const DEFAULTS_FIELD_GROUP_ALLOWED_KEYS = new Set(['key', 'title', 'fields']);
+const DEFAULTS_FIELD_GROUP_FIELD_ALLOWED_KEYS = new Set(['field', 'titleField']);
 const DEFAULTS_POPUPS_ALLOWED_KEYS = new Set(['view', 'addNew', 'edit', 'associations']);
 const DEFAULTS_ASSOCIATION_POPUPS_ALLOWED_KEYS = new Set(['view', 'addNew', 'edit']);
 const DEFAULTS_POPUP_VALUE_ALLOWED_KEYS = new Set(['name', 'description']);
@@ -1083,11 +1084,21 @@ function countEffectiveBlueprintFields(items) {
   return ensureArray(items).filter((field) => isCountedBlueprintField(field)).length;
 }
 
+function getDefaultFieldGroupFieldPath(field) {
+  if (typeof field === 'string') return normalizeText(field);
+  if (!isPlainObject(field)) return '';
+  return normalizeText(field.field);
+}
+
+function getDefaultFieldGroupFieldTitleField(field) {
+  return isPlainObject(field) && hasOwn(field, 'titleField') ? normalizeText(field.titleField) : '';
+}
+
 function countDefaultFieldGroupEffectiveFields(fieldGroups) {
   const seen = new Set();
   forEachFieldGroup(fieldGroups, (group) => {
     for (const field of ensureArray(group?.fields)) {
-      const normalized = normalizeText(field);
+      const normalized = getDefaultFieldGroupFieldPath(field);
       if (normalized) {
         seen.add(normalized);
       }
@@ -1776,8 +1787,8 @@ function validateRequiredDefaultFieldGroups(fieldGroups, path, targetCollection,
 
   const providedCoverageKeys = new Set();
   forEachFieldGroup(fieldGroups, (group, groupIndex) => {
-    for (const [fieldIndex, fieldPath] of ensureArray(group?.fields).entries()) {
-      const normalizedFieldPath = normalizeText(fieldPath);
+    for (const [fieldIndex, field] of ensureArray(group?.fields).entries()) {
+      const normalizedFieldPath = getDefaultFieldGroupFieldPath(field);
       if (!normalizedFieldPath) continue;
       if (!resolveCollectionDefaultFieldGroupField(collectionMetadata, targetCollection, normalizedFieldPath)) {
         pushValidationError(
@@ -3067,7 +3078,82 @@ function validateRequiredText(value, path, state, ruleId, message) {
   return true;
 }
 
-function validateDefaultFieldGroups(fieldGroups, path, state) {
+function validateDefaultFieldGroupRelationTitleField(field, fieldPath, path, sourceCollection, state) {
+  const collectionMetadata = state.collectionMetadata || {};
+  if (!Object.keys(collectionMetadata).length) {
+    return;
+  }
+  const normalizedSourceCollection = normalizeText(sourceCollection);
+  if (!normalizedSourceCollection || !fieldPath) {
+    return;
+  }
+
+  const relationField = resolveCollectionDefaultFieldGroupField(
+    collectionMetadata,
+    normalizedSourceCollection,
+    fieldPath,
+  );
+  if (!isPublicAssociationFieldMeta(relationField)) {
+    return;
+  }
+
+  const targetCollection = normalizeText(relationField.target);
+  const titleField = getDefaultFieldGroupFieldTitleField(field);
+  const titleFieldPath = isPlainObject(field) ? `${path}.titleField` : path;
+  if (titleField === 'id') {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      titleFieldPath,
+      PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
+      buildPublicRelationFieldTitleFieldInvalidMessage(fieldPath, targetCollection, titleField),
+    );
+    return;
+  }
+
+  if (titleField) {
+    const explicitTitleFieldMeta = getPublicCollectionFieldMeta(collectionMetadata, targetCollection, titleField);
+    const targetCollectionMeta = getPublicCollectionMeta(collectionMetadata, targetCollection);
+    const targetFieldsByName = targetCollectionMeta?.fieldsByName instanceof Map ? targetCollectionMeta.fieldsByName : null;
+    const targetMetadataHasFields = !!targetFieldsByName && targetFieldsByName.size > 0;
+    if (
+      (explicitTitleFieldMeta && isPublicAssociationFieldMeta(explicitTitleFieldMeta))
+      || (!explicitTitleFieldMeta && targetMetadataHasFields)
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        titleFieldPath,
+        PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
+        buildPublicRelationFieldTitleFieldInvalidTargetMessage(fieldPath, targetCollection, titleField),
+      );
+    }
+    return;
+  }
+
+  const requirement = getPublicRelationFieldTitleFieldRequirement(
+    collectionMetadata,
+    normalizedSourceCollection,
+    fieldPath,
+  );
+  if (!requirement) {
+    return;
+  }
+
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    titleFieldPath,
+    PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+    buildPublicRelationFieldTitleFieldRequiredMessage(
+      fieldPath,
+      requirement.targetCollection,
+      requirement.readableDisplayFieldName,
+    ),
+  );
+}
+
+function validateDefaultFieldGroups(fieldGroups, path, state, sourceCollection = '') {
   if (typeof fieldGroups === 'undefined') return;
   if (!Array.isArray(fieldGroups) || !fieldGroups.length) {
     pushValidationError(
@@ -3120,13 +3206,67 @@ function validateDefaultFieldGroups(fieldGroups, path, state) {
       continue;
     }
     for (const [fieldIndex, field] of group.fields.entries()) {
-      if (normalizeText(field)) continue;
+      const fieldPath = `${groupPath}.fields[${fieldIndex}]`;
+      if (typeof field === 'string') {
+        const normalizedFieldPath = normalizeText(field);
+        if (normalizedFieldPath) {
+          validateDefaultFieldGroupRelationTitleField(field, normalizedFieldPath, fieldPath, sourceCollection, state);
+          continue;
+        }
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          fieldPath,
+          'invalid-default-field-group-field',
+          'defaults field group fields must be non-empty field path strings or { field, titleField } objects.',
+        );
+        continue;
+      }
+      if (isPlainObject(field)) {
+        validateAllowedObjectKeys(
+          field,
+          fieldPath,
+          DEFAULTS_FIELD_GROUP_FIELD_ALLOWED_KEYS,
+          state,
+          'unsupported-default-field-group-field-key',
+          'defaults field group field',
+        );
+        const normalizedFieldPath = normalizeText(field.field);
+        if (!normalizedFieldPath) {
+          pushValidationError(
+            state.errors,
+            state.seenErrors,
+            `${fieldPath}.field`,
+            'invalid-default-field-group-field',
+            'defaults field group field objects must include a non-empty field.',
+          );
+          continue;
+        }
+        if (hasOwn(field, 'titleField') && !normalizeText(field.titleField)) {
+          pushValidationError(
+            state.errors,
+            state.seenErrors,
+            `${fieldPath}.titleField`,
+            'invalid-default-field-group-field-title-field',
+            'defaults field group field titleField must be a non-empty string when present.',
+          );
+          continue;
+        }
+        validateDefaultFieldGroupRelationTitleField(
+          field,
+          normalizedFieldPath,
+          fieldPath,
+          sourceCollection,
+          state,
+        );
+        continue;
+      }
       pushValidationError(
         state.errors,
         state.seenErrors,
-        `${groupPath}.fields[${fieldIndex}]`,
+        fieldPath,
         'invalid-default-field-group-field',
-        'defaults field group fields must be non-empty field path strings.',
+        'defaults field group fields must be non-empty field path strings or { field, titleField } objects.',
       );
     }
   }
@@ -3302,7 +3442,12 @@ function validateBlueprintDefaults(blueprint, state) {
       'unsupported-default-collection-key',
       'defaults collection',
     );
-    validateDefaultFieldGroups(collectionDefaults.fieldGroups, `${collectionPath}.fieldGroups`, state);
+    validateDefaultFieldGroups(
+      collectionDefaults.fieldGroups,
+      `${collectionPath}.fieldGroups`,
+      state,
+      normalizedCollectionName,
+    );
     validateDefaultPopups(collectionDefaults.popups, `${collectionPath}.popups`, state);
   }
 }
