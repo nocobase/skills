@@ -4030,17 +4030,68 @@ function validateDataSurfaceDefaultFilterFieldsExist(fieldNames, block, path, st
     return;
   }
   for (const [index, fieldName] of fieldNames.entries()) {
-    if (resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldName)) {
+    const resolved = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldName);
+    if (!resolved) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'data-surface-default-filter-unknown-field',
+        `filterableFieldNames includes unsupported field path "${fieldName}" for collection ${collection}.`,
+      );
       continue;
     }
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
+    validateDataSurfaceDefaultFilterPathIsRenderSafe(
+      resolved,
+      fieldName,
       `${path}[${index}]`,
-      'data-surface-default-filter-unknown-field',
-      `filterableFieldNames includes unsupported field path "${fieldName}" for collection ${collection}.`,
+      state,
+      collection,
+      `filterableFieldNames field path`,
     );
   }
+}
+
+function buildDataSurfaceAssociationLeafSuggestion(resolvedFieldPath, fieldName, state, collection) {
+  const collectionMetadata = state.collectionMetadata || {};
+  const suggestions = [];
+  const targetCollection = normalizeText(resolvedFieldPath?.field?.target);
+  const targetCollectionMeta = targetCollection ? getCollectionMeta(collectionMetadata, targetCollection) : null;
+  const targetDisplayField = chooseDefaultDisplayField(targetCollectionMeta);
+  if (targetDisplayField) {
+    suggestions.push(`"${fieldName}.${targetDisplayField}"`);
+  }
+
+  const foreignKey = normalizeText(resolvedFieldPath?.field?.foreignKey);
+  const foreignKeyMeta = foreignKey ? getCollectionFieldMeta(collectionMetadata, collection, foreignKey) : null;
+  if (foreignKeyMeta && !isPublicAssociationFieldMeta(foreignKeyMeta)) {
+    suggestions.push(`"${foreignKey}"`);
+  }
+
+  return suggestions.length > 0
+    ? ` Use ${suggestions.join(' or ')} instead.`
+    : ' Use a scalar relation leaf or scalar foreign key field instead.';
+}
+
+function validateDataSurfaceDefaultFilterPathIsRenderSafe(
+  resolvedFieldPath,
+  fieldName,
+  path,
+  state,
+  collection,
+  messagePrefix,
+) {
+  if (!isPublicAssociationFieldMeta(resolvedFieldPath?.field)) {
+    return;
+  }
+  const suggestion = buildDataSurfaceAssociationLeafSuggestion(resolvedFieldPath, fieldName, state, collection);
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    'data-surface-default-filter-association-field-leaf-unsupported',
+    `${messagePrefix} "${fieldName}" points to an association field object, which is not render-safe in FilterAction default filters.${suggestion}`,
+  );
 }
 
 function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, state, messagePrefix = 'defaultFilter') {
@@ -4050,15 +4101,24 @@ function validateDataSurfaceDefaultFilterPathExists(fieldName, block, path, stat
   if (!collection || Object.keys(collectionMetadata).length === 0 || !getCollectionMeta(collectionMetadata, collection)) {
     return;
   }
-  if (resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldName)) {
+  const resolved = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, fieldName);
+  if (!resolved) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'data-surface-default-filter-unknown-field',
+      `${messagePrefix}.items path "${fieldName}" is unsupported for collection ${collection}.`,
+    );
     return;
   }
-  pushValidationError(
-    state.errors,
-    state.seenErrors,
+  validateDataSurfaceDefaultFilterPathIsRenderSafe(
+    resolved,
+    fieldName,
     path,
-    'data-surface-default-filter-unknown-field',
-    `${messagePrefix}.items path "${fieldName}" is unsupported for collection ${collection}.`,
+    state,
+    collection,
+    `${messagePrefix}.items path`,
   );
 }
 

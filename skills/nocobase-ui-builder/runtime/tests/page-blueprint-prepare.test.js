@@ -2048,6 +2048,39 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   );
   assert.equal(nested.ok, true);
 
+  const relationLeaf = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    filterableFieldNames: ['department.title'],
+                    defaultFilter: defaultFilterGroup(['department.title']),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(relationLeaf.ok, true);
+
   const emptyActionDefaultFilter = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -2105,6 +2138,102 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   );
   assert.equal(unknown.ok, false);
   assert.ok(unknown.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
+
+  const blockDefaultFilterAssociationLeaf = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['department']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(blockDefaultFilterAssociationLeaf.ok, false);
+  assert.ok(
+    blockDefaultFilterAssociationLeaf.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-association-field-leaf-unsupported',
+    ),
+  );
+
+  const actionFilterableAssociationLeaf = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [defaultFilterAction(['department'])],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionFilterableAssociationLeaf.ok, false);
+  assert.ok(
+    actionFilterableAssociationLeaf.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-association-field-leaf-unsupported',
+    ),
+  );
+
+  const actionDefaultFilterAssociationLeaf = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                {
+                  type: 'filter',
+                  settings: {
+                    defaultFilter: defaultFilterGroup(['department']),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(actionDefaultFilterAssociationLeaf.ok, false);
+  assert.ok(
+    actionDefaultFilterAssociationLeaf.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-association-field-leaf-unsupported',
+    ),
+  );
 
   const nestedMissingCoverage = prepareWithDirectCollectionDefaults(
     {
