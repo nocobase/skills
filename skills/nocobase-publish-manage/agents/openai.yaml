@@ -26,11 +26,11 @@ agent:
     selected or new migration rule. Package and rule lists require explicit
     user selection before mutation.
 
-    For backup restore, use `nb api backup restore --name <backupName>` when
+    For backup restore, use `nb api backup restore --name <backupName> --force` when
     the backup already exists on the target environment. For cross-environment
     or local-file restore, download from the source with `nb api backup
     download --name <backupName> --output <cliHome>/release/<sourceEnv>/<backupName>`
-    and restore to the target with `nb api backup restore-upload --file <path>`.
+    and restore to the target with `nb api backup restore-upload --file <path> --force`.
     If restore returns a task id as `data.taskId` or `data.task`, inspect it
     with `nb api backup restore-status --task <taskId>`.
 

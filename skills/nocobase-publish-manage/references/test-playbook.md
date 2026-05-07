@@ -16,6 +16,8 @@
 
 Validate that the publish skill uses the current API CLI commands, preserves command dependencies, and waits for confirmation before restore or migration execution.
 
+Backup restore commands should include `--force` directly.
+
 All write workflows have two gates:
 
 - Publish input confirmation: required before package creation, package download, migration rule creation, or migration check.
@@ -42,7 +44,7 @@ Restore dev with local file ./backup-001.nbdata.
 Expected plan:
 
 ```bash
-nb api backup restore-upload --file ./backup-001.nbdata -e dev --json-output
+nb api backup restore-upload --file ./backup-001.nbdata -e dev --json-output --force
 ```
 
 Checks:
@@ -64,7 +66,7 @@ Expected plan:
 
 ```bash
 nb api backup status --name backup-001.nbdata -e dev --json-output
-nb api backup restore --name backup-001.nbdata -e dev --json-output
+nb api backup restore --name backup-001.nbdata -e dev --json-output --force
 nb api backup restore-status --task <RESTORE_TASK_ID> -e dev --json-output
 ```
 
@@ -89,7 +91,7 @@ Expected plan:
 nb api backup create -e dev --json-output
 nb api backup status --name <BACKUP_NAME> -e dev --json-output
 nb api backup download --name <BACKUP_NAME> --output C:/Users/Enzo/.nocobase/release/dev/<BACKUP_NAME> -e dev
-nb api backup restore-upload --file C:/Users/Enzo/.nocobase/release/dev/<BACKUP_NAME> -e dev --json-output
+nb api backup restore-upload --file C:/Users/Enzo/.nocobase/release/dev/<BACKUP_NAME> -e dev --json-output --force
 ```
 
 Checks:

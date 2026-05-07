@@ -68,9 +68,9 @@ The skill converts user intent into an API-first publish context, carries genera
 2. Build a context with `method`, `sourceEnv`, `targetEnv`, `cliHome`, `releaseDir`, `backupName`, `migrationName`, `localFile`, `downloadPath`, `ruleId`, `title`, and `step`.
 3. Run read-only capability probes for the needed command groups. Treat 404, `Not Found`, unknown resource, inactive plugin, or license capability errors as `unsupported_publish_env`.
 4. For backup restore:
-   - Local file: confirm the file, then restore it with `nb api backup restore-upload --file <localFile> -e <targetEnv>`.
-   - Server backup on target: confirm the backup name, then restore it with `nb api backup restore --name <backupName> -e <targetEnv>`.
-   - Source-to-target: create or select the backup on `sourceEnv`, download it to `<cliHome>/release/<sourceEnv>/<backupName>`, then restore-upload that path on `targetEnv`.
+   - Local file: confirm the file, then restore it with `nb api backup restore-upload --file <localFile> -e <targetEnv> --force`.
+   - Server backup on target: confirm the backup name, then restore it with `nb api backup restore --name <backupName> -e <targetEnv> --force`.
+   - Source-to-target: create or select the backup on `sourceEnv`, download it to `<cliHome>/release/<sourceEnv>/<backupName>`, then restore-upload that path on `targetEnv` with `--force`.
 5. For migration:
    - Local file: confirm the file, check it on `targetEnv`, then execute it on `targetEnv`.
    - Server migration package: download it from `sourceEnv` to `<cliHome>/release/<sourceEnv>/<migrationName>`, check it on `targetEnv`, then execute it on `targetEnv`.
@@ -131,7 +131,8 @@ Failure guidance:
 - Package lists and migration rule lists lead to explicit user selection.
 - Existing local files skip package creation.
 - Existing server backup names may use `backup restore --name` when restoring inside the same target environment.
-- Cross-environment backup restore uses `backup download` followed by `backup restore-upload`.
+- Cross-environment backup restore uses `backup download` followed by `backup restore-upload --force`.
+- Backup restore and restore-upload commands include `--force` directly.
 - Downloaded backup, migration, and log files are stored under `<cliHome>/release/<sourceEnv>/`.
 - Migration execution uses a local package file with `migration check --file` before `migration execute --file`.
 - Missing migration file triggers migration rule list before asking for or creating `rule_id`.

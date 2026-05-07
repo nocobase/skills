@@ -99,6 +99,7 @@ Optional or case-specific:
 - Backup package creation runs `backup create`, parses `backupName`, downloads with `--output`, then uses `restore-upload`.
 - Downloaded backup and migration packages are stored under `<CLI_HOME>\release\<SOURCE_ENV>\`.
 - Same-environment server backup restore may use `backup restore --name`.
+- Backup restore and restore-upload commands include `--force` directly.
 - Migration package creation requires a selected or created migration rule before `migration create`.
 - New migration package creation uses `--rule-id`.
 - Migration package execution runs `migration check --file` before `migration execute --file`.
