@@ -503,6 +503,8 @@ test('bundled snapshot contains one-time extracted form/item action model contra
   assert.equal(contract.runtime.registeredModelContexts.includes('JSItemActionModel'), true);
   assert.deepEqual(contract.models.FormJSFieldItemModel.properties, ['element', 'formValues', 'record', 'value']);
   assert.deepEqual(contract.models.FormJSFieldItemModel.methods, ['onRefReady', 'setProps']);
+  assert.equal(contract.models.JSItemActionModel.flowKey, 'jsSettings');
+  assert.equal(contract.models.JSItemActionModel.flowPath, 'stepParams.jsSettings.runJs');
   assert.deepEqual(contract.models.JSItemActionModel.properties, ['element', 'formValues', 'record', 'resource']);
   assert.deepEqual(contract.models.JSItemActionModel.methods, ['onRefReady']);
 });
@@ -515,12 +517,40 @@ test('inspectRunJSCode supports extracted render/action model contracts', async 
   });
   assert.equal(renderResult.ok, true);
 
+  const itemActionRenderResult = await inspectRunJSCode({
+    surface: 'js-model.render',
+    modelUse: 'JSItemActionModel',
+    code: "ctx.form?.setFieldsValue?.({ status: String(ctx.record?.status || '') }); ctx.render(null);",
+  });
+  assert.equal(itemActionRenderResult.ok, true);
+
   const actionResult = await inspectRunJSCode({
     surface: 'js-model.action',
+    modelUse: 'JSRecordActionModel',
+    code: "ctx.message.success(String(ctx.record?.status || 'ok'));",
+  });
+  assert.equal(actionResult.ok, true);
+});
+
+test('inspectRunJSCode treats JSItemActionModel as a render model', async () => {
+  const missingRenderResult = await inspectRunJSCode({
+    surface: 'js-model.render',
     modelUse: 'JSItemActionModel',
     code: "ctx.form?.setFieldsValue?.({ status: String(ctx.record?.status || '') });",
   });
-  assert.equal(actionResult.ok, true);
+  assert.equal(missingRenderResult.ok, false);
+  assert.equal(
+    missingRenderResult.blockers.some((item) => item.code === 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'),
+    true,
+  );
+
+  const actionSurfaceResult = await inspectRunJSCode({
+    surface: 'js-model.action',
+    modelUse: 'JSItemActionModel',
+    code: 'ctx.render(null);',
+  });
+  assert.equal(actionSurfaceResult.ok, false);
+  assert.equal(actionSurfaceResult.blockers.some((item) => item.code === 'RUNJS_UNKNOWN_MODEL_USE'), true);
 });
 
 test('inspectRunJSCode blocks unknown modelUse instead of falling back to JSBlockModel', async () => {

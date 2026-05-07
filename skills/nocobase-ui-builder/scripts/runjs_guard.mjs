@@ -148,8 +148,8 @@ const LOCAL_MODEL_CONTRACTS = {
     methods: ['setProps'],
   },
   JSItemActionModel: {
-    properties: ['record', 'formValues', 'form', 'resource', 'collection'],
-    methods: [],
+    properties: ['element', 'record', 'formValues', 'form', 'resource', 'collection'],
+    methods: ['onRefReady'],
   },
 };
 
@@ -3826,7 +3826,7 @@ function visitRunJSNodes(payload, visitor) {
         code: node.clickSettings.runJs.code,
         version: node.clickSettings.runJs.version,
         modelUse,
-        surface: 'js-model.action',
+        surface: inferExplicitModelSurface(modelUse) || 'js-model.action',
         setCode(nextCode) {
           node.clickSettings.runJs.code = nextCode;
         },

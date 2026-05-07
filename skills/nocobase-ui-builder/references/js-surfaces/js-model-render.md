@@ -9,7 +9,7 @@ Use this surface for JS models whose main job is to render content in a block, f
 - Validation style: render
 - `ctx.render(...)` is required.
 - Do not rely on top-level `return` for rendering.
-- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, or `JSColumnModel`.
+- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, or `JSItemActionModel`.
 - Default UI library policy: render React JSX with Ant Design components from `ctx.libs.antd` / `ctx.libs.antdIcons`.
 - Use external UI libraries only when the requested UI needs capabilities Ant Design does not provide.
 

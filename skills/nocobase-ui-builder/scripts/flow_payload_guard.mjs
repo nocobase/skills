@@ -167,7 +167,8 @@ function resolveBusinessBlockUses(requirements) {
   return set;
 }
 const FORM_BLOCK_MODEL_USES = new Set(['CreateFormModel', 'EditFormModel']);
-const FORM_BLOCK_ACTION_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel']);
+const FORM_ACTION_SLOT_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel', 'JSItemActionModel']);
+const FORM_SUBMIT_LIKE_ACTION_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel']);
 const CHART_QUERY_MODES = new Set(['builder', 'sql']);
 const CHART_OPTION_MODES = new Set(['basic', 'custom']);
 const COLLECTION_ACTION_MODEL_USES = new Set([
@@ -176,6 +177,7 @@ const COLLECTION_ACTION_MODEL_USES = new Set([
   'ExpandCollapseActionModel',
   'FilterActionModel',
   'JSCollectionActionModel',
+  'JSItemActionModel',
   'LinkActionModel',
   'PopupCollectionActionModel',
   'RefreshActionModel',
@@ -188,6 +190,7 @@ const CALENDAR_ACTION_MODEL_USES = new Set([
   'CalendarSelectViewActionModel',
   'FilterActionModel',
   'JSCollectionActionModel',
+  'JSItemActionModel',
   'PopupCollectionActionModel',
   'RefreshActionModel',
   'TriggerWorkflowActionModel',
@@ -196,6 +199,7 @@ const KANBAN_ACTION_MODEL_USES = new Set([
   'AddNewActionModel',
   'FilterActionModel',
   'JSCollectionActionModel',
+  'JSItemActionModel',
   'PopupCollectionActionModel',
   'RefreshActionModel',
 ]);
@@ -216,6 +220,7 @@ const RECORD_ACTION_MODEL_USES = new Set([
   'DeleteActionModel',
   'EditActionModel',
   'JSRecordActionModel',
+  'JSItemActionModel',
   'LinkActionModel',
   'PopupCollectionActionModel',
   'UpdateRecordActionModel',
@@ -230,6 +235,7 @@ const FILTER_FORM_ACTION_MODEL_USES = new Set([
 const GRID_CARD_ITEM_MODEL_USES = new Set(['GridCardItemModel']);
 const ACTION_HOST_MODEL_USES = new Set([
   'TableBlockModel',
+  'ListBlockModel',
   'DetailsBlockModel',
   'GridCardBlockModel',
   'GridCardItemModel',
@@ -3228,6 +3234,15 @@ function listActionSlotsForNode(node, pathValue) {
     return slots;
   }
 
+  if (node.use === 'ListBlockModel') {
+    slots.push({
+      scope: 'block-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
+    return slots;
+  }
+
   if (node.use === 'CalendarBlockModel') {
     slots.push({
       scope: 'block-actions',
@@ -3273,6 +3288,7 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen, busin
     if (
       requirement.scope === 'block-actions'
       && node.use !== 'TableBlockModel'
+      && node.use !== 'ListBlockModel'
       && node.use !== 'GridCardBlockModel'
       && node.use !== 'CalendarBlockModel'
       && node.use !== 'KanbanBlockModel'
@@ -4174,7 +4190,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
     }
 
     gridItems.forEach((item, index) => {
-      if (!isPlainObject(item) || !FORM_BLOCK_ACTION_MODEL_USES.has(item.use)) {
+      if (!isPlainObject(item) || !FORM_ACTION_SLOT_MODEL_USES.has(item.use)) {
         return;
       }
 
@@ -4194,7 +4210,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
     });
 
     const submitLikeActions = actionNodes.filter(
-      (actionNode) => isPlainObject(actionNode) && FORM_BLOCK_ACTION_MODEL_USES.has(actionNode.use),
+      (actionNode) => isPlainObject(actionNode) && FORM_SUBMIT_LIKE_ACTION_MODEL_USES.has(actionNode.use),
     );
     if (submitLikeActions.length > 1) {
       const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
@@ -4977,6 +4993,20 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         allowedUses: RECORD_ACTION_MODEL_USES,
         code: 'DETAILS_ACTION_SLOT_USE_INVALID',
         message: `DetailsBlockModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
+    if (node.use === 'ListBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: COLLECTION_ACTION_MODEL_USES,
+        code: 'LIST_COLLECTION_ACTION_SLOT_USE_INVALID',
+        message: `ListBlockModel 的 actions 槽位只能放 collection action uses，不能回退成泛型 ActionModel 或 record action。`,
         mode,
         blockers,
         seen,
@@ -6755,7 +6785,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       const subModels = isPlainObject(node.subModels) ? node.subModels : (node.subModels = {});
       const actions = Array.isArray(subModels.actions) ? subModels.actions : (subModels.actions = []);
       const hasSubmitLikeAction = actions.some(
-        (actionNode) => isPlainObject(actionNode) && FORM_BLOCK_ACTION_MODEL_USES.has(actionNode.use),
+        (actionNode) => isPlainObject(actionNode) && FORM_SUBMIT_LIKE_ACTION_MODEL_USES.has(actionNode.use),
       );
       if (!hasSubmitLikeAction) {
         actions.push({ use: 'FormSubmitActionModel' });

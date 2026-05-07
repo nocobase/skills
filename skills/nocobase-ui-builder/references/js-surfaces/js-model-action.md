@@ -9,7 +9,15 @@ Use this surface for JS actions whose main job is to run click logic.
 - Validation style: action
 - Return is optional.
 - `ctx.render(...)` is not the default output mechanism.
-- Exact modelUse still matters; use `JSActionModel`, `JSFormActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, `JSItemActionModel`, or `FilterFormJSActionModel`.
+- Exact modelUse still matters; use `JSActionModel`, `JSFormActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, or `FilterFormJSActionModel`.
+- `JSItemActionModel` is not validated on this surface; it uses the render contract in [js-model-render.md](./js-model-render.md).
+
+## Choosing `js` vs `jsItem`
+
+- Use `js` when the action is a normal click target and the code mainly performs side effects.
+- Use `jsItem` when the action itself needs custom rendering or richer item UI.
+- `jsItem` action code follows the render contract and must call `ctx.render(...)`.
+- `js` action code follows the click-action contract and usually should not render UI directly.
 
 ## Minimal examples
 

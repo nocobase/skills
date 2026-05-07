@@ -86,7 +86,7 @@ Whenever the current write involves JS `code`, you must run the local validator 
 | form `js` action | `form/createForm/editForm` | `JSFormActionModel` | `validate` | targets form context |
 | filter-form `js` action | `filterForm` | `FilterFormJSActionModel` | `validate` | targets filter-form context |
 | action-panel / generic `js` action | `actionPanel` or a generic action container | `JSActionModel` | `validate` | fallback when there is no more specific action context |
-| item action with explicit form+record context | a small set of item-level action containers | `JSItemActionModel` | `validate` | only use when the live environment clearly has `record + formValues + form` together |
+| custom-rendered action item | published action item containers on `table/list/gridCard/calendar/kanban` block actions, `table/details/list/gridCard` record actions, and `createForm/editForm` actions | `JSItemActionModel` | `validate` | custom-rendered action item; context depends on the host, so verify live context before using record/form helpers |
 | chart `visual.raw` | chart-block custom option | `ChartOptionModel` | `validate` | directly `return` an ECharts option object |
 | chart `events.raw` | chart-block event script | `ChartEventsModel` | `validate` | registers chart events; `ctx.openView(...)` is only a simulated call in runtime |
 
@@ -97,9 +97,17 @@ If the live environment does not make it clear which JS action model applies, st
 | Capability | Allowed locations | Key constraint |
 | --- | --- | --- |
 | `js` action | `block` / `record` / `form` / `filterForm` / `actionPanel` | choose the correct action scope first |
+| `jsItem` action | block actions on `table/list/gridCard/calendar/kanban`, record actions on `table/details/list/gridCard`, form actions on `createForm/editForm` | custom action item rendering; do not use on `filterForm` or `actionPanel` |
 | `renderer: "js"` | `table/details/list/gridCard/form/createForm/editForm` | still binds to a real field |
 | `jsColumn` | `table` | standalone field, not bound to a real `fieldPath` |
 | `jsItem` | `form/createForm/editForm` | standalone field, not bound to a real `fieldPath` |
+
+## Action Type Choice
+
+- Prefer built-in action types first: `filter`, `addNew`, `view`, `edit`, `delete`, `updateRecord`, `bulkUpdate`, `triggerWorkflow`, and similar live catalog actions.
+- Choose `type: "js"` when the user wants a normal click action: run logic, call an API, refresh data, show a message, or do lightweight computation after one click.
+- Choose `type: "jsItem"` when the user wants a custom-rendered action item: dropdown/menu content, button groups, split buttons, status chips, helper UI, multiple controls, or any action surface that is not just one ordinary click button.
+- Do not silently downgrade `jsItem` to `js` when the live `catalog` does not expose `jsItem` on that target. Stop and report the backend capability gap instead.
 
 ## Code Style and Context
 
@@ -117,7 +125,7 @@ If the live environment does not make it clear which JS action model applies, st
 
 ## Strict Render Rules
 
-The following models are strict render models: `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, and `JSColumnModel`.
+The following models are strict render models: `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, and `JSItemActionModel`.
 
 All of them obey the same rules:
 
@@ -137,6 +145,8 @@ All of them obey the same rules:
 ## Execution Reminders
 
 - Prefer `configure` for JS-related configuration.
+- `JS Action` is click logic: it writes to `clickSettings.runJs` and does not require `ctx.render(...)`.
+- `JS Item Action` is custom action-item rendering: it writes to `jsSettings.runJs` and must call `ctx.render(...)`.
 - `renderer: "js"` is not a standalone field type. `jsColumn` / `jsItem` are the standalone field types.
 - Standalone JS fields like `jsColumn` / `jsItem` may omit a real `fieldPath` at creation time. Only real-field `renderer: "js"` requires `fieldPath`.
 - For form-scoped helper text that should appear only after a form value is selected, prefer a `jsItem` that calls `ctx.render(null)` while hidden and `ctx.render(...)` when visible. Current live `fieldLinkage` does not expose JSItem pseudo paths as target fields.

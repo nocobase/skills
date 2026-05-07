@@ -51,6 +51,7 @@ export const RUNJS_RENDER_MODEL_USES = Object.freeze([
   'JSItemModel',
   'JSEditableFieldModel',
   'FormJSFieldItemModel',
+  'JSItemActionModel',
 ]);
 
 export const RUNJS_ACTION_MODEL_USES = Object.freeze([
@@ -58,7 +59,6 @@ export const RUNJS_ACTION_MODEL_USES = Object.freeze([
   'JSFormActionModel',
   'JSRecordActionModel',
   'JSCollectionActionModel',
-  'JSItemActionModel',
   'FilterFormJSActionModel',
 ]);
 

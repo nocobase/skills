@@ -8,6 +8,11 @@ const KANBAN_GROUP_FIELD_INTERFACES = new Set(['select', 'm2o']);
 const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany', 'belongstoarray', 'onetoone']);
 const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'o2o', 'mbm', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
 const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const JS_ITEM_COLLECTION_ACTION_HOST_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const JS_ITEM_RECORD_ACTION_HOST_BLOCK_TYPES = new Set(['table', 'details', 'list', 'gridCard']);
+const JS_ITEM_FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
+export const JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID = 'js-item-action-slot-unsupported';
+export const JS_ITEM_ACTION_SLOT_UNSUPPORTED_CODE = 'JS_ITEM_ACTION_SLOT_UNSUPPORTED';
 const PUBLIC_BLOCK_TYPE_BY_LIVE_USE = new Map([
   ['TableBlockModel', 'table'],
   ['ListBlockModel', 'list'],
@@ -15,6 +20,8 @@ const PUBLIC_BLOCK_TYPE_BY_LIVE_USE = new Map([
   ['CalendarBlockModel', 'calendar'],
   ['KanbanBlockModel', 'kanban'],
   ['DetailsBlockModel', 'details'],
+  ['FilterFormBlockModel', 'filterForm'],
+  ['ActionPanelBlockModel', 'actionPanel'],
   ['MapBlockModel', 'map'],
   ['ChartBlockModel', 'chart'],
   ['TreeBlockModel', 'tree'],
@@ -37,7 +44,7 @@ const HIDDEN_POPUP_SETTINGS_BY_BLOCK_TYPE = new Map([
     ],
   ],
 ]);
-const READABLE_RELATION_DISPLAY_FIELD_NAMES = new Set([
+const READABLE_RELATION_DISPLAY_FIELD_NAMES = [
   'name',
   'title',
   'nickname',
@@ -51,7 +58,8 @@ const READABLE_RELATION_DISPLAY_FIELD_NAMES = new Set([
   'scope',
   'priority',
   'description',
-]);
+];
+const READABLE_RELATION_DISPLAY_FIELD_SUFFIXES = ['Name', 'Title', 'Code', 'Number'];
 
 function normalizeText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
@@ -190,6 +198,21 @@ export function getPublicBlockTypeFromLiveUse(liveUse) {
 
 export function isPublicDataSurfaceBlockType(blockType) {
   return PUBLIC_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(blockType));
+}
+
+export function isPublicJsItemActionSlotSupported(blockType, slot) {
+  const normalizedBlockType = normalizeText(blockType);
+  if (normalizeText(slot) === 'recordActions') {
+    return JS_ITEM_RECORD_ACTION_HOST_BLOCK_TYPES.has(normalizedBlockType);
+  }
+  return (
+    JS_ITEM_COLLECTION_ACTION_HOST_BLOCK_TYPES.has(normalizedBlockType)
+    || JS_ITEM_FORM_ACTION_HOST_BLOCK_TYPES.has(normalizedBlockType)
+  );
+}
+
+export function buildJsItemActionSlotUnsupportedMessage() {
+  return '`jsItem` actions are only supported in block actions for table/list/gridCard/calendar/kanban, in recordActions for record-capable hosts, or in form actions for createForm/editForm.';
 }
 
 export function forEachBlockHiddenPopup(settings, block, visitor) {
@@ -360,24 +383,28 @@ export function buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, tar
   const normalizedTargetCollection = normalizeText(targetCollection) || '(unknown collection)';
   const readableField = normalizeText(readableDisplayFieldName);
   if (readableField) {
-    return `Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id". You must explicitly set titleField on this relation field object. Use "${readableField}" or another readable field; "id" is not allowed.`;
+    return `Please add titleField for "${normalizedFieldPath}". Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id". Use "${readableField}" or another readable field; "id" is not allowed.`;
   }
-  return `Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id". You must explicitly set titleField on this relation field object and add a readable display field to the target collection. "id" is not allowed.`;
+  return `Please add titleField for "${normalizedFieldPath}". Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id", and the target collection does not expose a readable display field. "id" is not allowed.`;
 }
 
-export function resolveReadableDisplayFieldName(collectionMetadata, collectionName) {
+export function resolveReadableRelationTitleField(collectionMetadata, collectionName) {
   const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
   if (!collectionMeta || !Array.isArray(collectionMeta.fields)) {
     return '';
   }
 
   const fieldsByName = collectionMeta.fieldsByName instanceof Map ? collectionMeta.fieldsByName : new Map();
-  const candidates = [
-    normalizeText(collectionMeta.titleField),
-    normalizeText(collectionMeta.filterTargetKey),
-    ...READABLE_RELATION_DISPLAY_FIELD_NAMES,
-  ];
-
+  const candidates = [normalizeText(collectionMeta.titleField)];
+  for (const suffix of READABLE_RELATION_DISPLAY_FIELD_SUFFIXES) {
+    for (const field of collectionMeta.fields) {
+      const fieldName = normalizeText(field.name || field.field || field.key);
+      if (fieldName && fieldName.toLowerCase().endsWith(suffix.toLowerCase())) {
+        candidates.push(fieldName);
+      }
+    }
+  }
+  candidates.push(...READABLE_RELATION_DISPLAY_FIELD_NAMES);
   const seen = new Set();
   for (const candidate of candidates) {
     const normalizedCandidate = normalizeText(candidate);
@@ -400,11 +427,15 @@ export function resolveReadableDisplayFieldName(collectionMetadata, collectionNa
   return '';
 }
 
+export function resolveReadableDisplayFieldName(collectionMetadata, collectionName) {
+  return resolveReadableRelationTitleField(collectionMetadata, collectionName);
+}
+
 export function buildPublicRelationFieldTitleFieldInvalidMessage(fieldPath, targetCollection, titleField) {
   const normalizedFieldPath = normalizeText(fieldPath) || '(unknown field)';
   const normalizedTargetCollection = normalizeText(targetCollection) || '(unknown collection)';
   const normalizedTitleField = normalizeText(titleField) || '(empty)';
-  return `Relation field "${normalizedFieldPath}" on collection "${normalizedTargetCollection}" cannot use titleField "${normalizedTitleField}". Choose a readable field such as "name", "title", or "code".`;
+  return `Please choose a different field for titleField on "${normalizedFieldPath}". Relation field "${normalizedFieldPath}" on collection "${normalizedTargetCollection}" cannot use titleField "${normalizedTitleField}". "id" is not allowed.`;
 }
 
 export function buildPublicRelationFieldTitleFieldInvalidTargetMessage(fieldPath, targetCollection, titleField) {

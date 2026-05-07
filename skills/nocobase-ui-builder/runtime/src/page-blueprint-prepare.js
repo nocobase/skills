@@ -17,6 +17,7 @@ import {
   buildPublicRelationFieldTitleFieldRequiredMessage,
   buildPublicRelationFieldTitleFieldInvalidMessage,
   buildPublicRelationFieldTitleFieldInvalidTargetMessage,
+  buildJsItemActionSlotUnsupportedMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicCollectionFieldMeta,
@@ -25,9 +26,12 @@ import {
   getPublicRelationFieldTitleFieldRequirement,
   getHiddenPopupSettingsForBlockType,
   isPublicAssociationFieldMeta,
+  isPublicJsItemActionSlotSupported,
+  JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+  resolveReadableRelationTitleField,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
 import { materializeDefaultTableRecordActions } from './table-record-actions-defaults.js';
@@ -67,6 +71,7 @@ const CALENDAR_ACTION_TYPE_MAP = new Map([
   ['popup', 'popup'],
   ['refresh', 'refresh'],
   ['js', 'js'],
+  ['jsitem', 'jsItem'],
   ['triggerworkflow', 'triggerWorkflow'],
 ]);
 const KANBAN_ACTION_TYPE_MAP = new Map([
@@ -75,6 +80,7 @@ const KANBAN_ACTION_TYPE_MAP = new Map([
   ['popup', 'popup'],
   ['refresh', 'refresh'],
   ['js', 'js'],
+  ['jsitem', 'jsItem'],
 ]);
 const EDIT_ACTION_TYPES = new Set(['edit']);
 const REAL_TEMPLATE_MODES = new Set(['reference', 'copy']);
@@ -155,6 +161,7 @@ const CALENDAR_ALLOWED_ACTION_TYPES = new Set([
   'popup',
   'refresh',
   'js',
+  'jsItem',
   'triggerWorkflow',
 ]);
 const KANBAN_ALLOWED_ACTION_TYPES = new Set([
@@ -163,6 +170,7 @@ const KANBAN_ALLOWED_ACTION_TYPES = new Set([
   'popup',
   'refresh',
   'js',
+  'jsItem',
 ]);
 const CALENDAR_ALLOWED_SETTINGS_KEYS = new Set([
   'title',
@@ -1230,6 +1238,10 @@ function normalizeCalendarActionType(value) {
 
 function normalizeKanbanActionType(value) {
   return KANBAN_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
+}
+
+function isJsItemActionType(actionType) {
+  return normalizeLowerText(actionType) === 'jsitem';
 }
 
 function popupHasExplicitTemplate(popup) {
@@ -2651,10 +2663,13 @@ function materializeFieldForWrite(field, options = {}) {
     return field;
   }
   const nextField = cloneSerializable(field);
+  materializeRelationFieldTitleFieldForWrite(nextField, options);
   if (isPlainObject(nextField.popup)) {
     const popupDepth = (Number.isInteger(options.popupDepth) && options.popupDepth > 0 ? options.popupDepth : 0) + 1;
+    const popupBlockContext = getRelationFieldPopupBlockContextForWrite(nextField, options);
     nextField.popup = materializePopupForWrite(nextField.popup, {
       ...options,
+      blockContext: popupBlockContext,
       popupDepth,
       triggerKind: 'field',
       triggerLabel: describeField(nextField),
@@ -2665,6 +2680,42 @@ function materializeFieldForWrite(field, options = {}) {
     });
   }
   return nextField;
+}
+
+function getRelationFieldPopupBlockContextForWrite(field, options = {}) {
+  const fallbackContext = options.blockContext || {};
+  const fieldPath = getPublicRelationFieldObjectPath(field);
+  if (!fieldPath) return fallbackContext;
+  const sourceCollection = getTraversalSurfaceCollection(fallbackContext);
+  if (!sourceCollection) return fallbackContext;
+  const associationRequirement = resolveAssociationRequirement(
+    options.collectionMetadata || {},
+    sourceCollection,
+    fieldPath,
+  );
+  if (!associationRequirement?.targetCollection) return fallbackContext;
+  return { surfaceCollection: associationRequirement.targetCollection };
+}
+
+function materializeRelationFieldTitleFieldForWrite(field, options = {}) {
+  if (!isPlainObject(field) || hasOwn(field, 'titleField')) return;
+  const fieldPath = getPublicRelationFieldObjectPath(field);
+  if (!fieldPath) return;
+  const sourceCollection = getTraversalSurfaceCollection(options.blockContext || {});
+  if (!sourceCollection) return;
+  const resolved = resolveFieldPathInCollectionMetadata(options.collectionMetadata || {}, sourceCollection, fieldPath);
+  if (!isPublicAssociationFieldMeta(resolved?.field)) return;
+  const targetCollection = normalizeText(resolved?.field?.target);
+  const requirement = getPublicRelationFieldTitleFieldRequirement(
+    options.collectionMetadata || {},
+    sourceCollection,
+    fieldPath,
+  );
+  if (!requirement) return;
+  const readableTitleField = resolveReadableRelationTitleField(options.collectionMetadata || {}, targetCollection);
+  if (readableTitleField) {
+    field.titleField = readableTitleField;
+  }
 }
 
 function normalizeRelationFieldPopupBlocksForWrite(popup, options = {}) {
@@ -2707,6 +2758,41 @@ function materializeFieldGroupForWrite(group, options = {}) {
   return nextGroup;
 }
 
+function materializeDefaultFieldGroupRelationTitleFieldForWrite(field, sourceCollection, options = {}) {
+  if (isPlainObject(field) && hasOwn(field, 'titleField')) return field;
+  const fieldPath = getDefaultFieldGroupFieldPath(field);
+  if (!fieldPath) return field;
+  const relationField = resolveCollectionDefaultFieldGroupField(options.collectionMetadata || {}, sourceCollection, fieldPath);
+  if (!isPublicAssociationFieldMeta(relationField)) return field;
+  const targetCollection = normalizeText(relationField.target);
+  const requirement = getPublicRelationFieldTitleFieldRequirement(
+    options.collectionMetadata || {},
+    sourceCollection,
+    fieldPath,
+  );
+  if (!requirement) return field;
+  const readableTitleField = resolveReadableRelationTitleField(options.collectionMetadata || {}, targetCollection);
+  if (!readableTitleField) return field;
+  return isPlainObject(field)
+    ? { ...field, titleField: readableTitleField }
+    : { field: fieldPath, titleField: readableTitleField };
+}
+
+function materializeDefaultCollectionFieldGroupsForWrite(collectionDefaults, collectionName, options = {}) {
+  if (!isPlainObject(collectionDefaults) || !Array.isArray(collectionDefaults.fieldGroups)) {
+    return collectionDefaults;
+  }
+  const fieldGroups = collectionDefaults.fieldGroups.map((group) => {
+    if (!isPlainObject(group) || !Array.isArray(group.fields)) return group;
+    return {
+      ...group,
+      fields: group.fields.map((field) =>
+        materializeDefaultFieldGroupRelationTitleFieldForWrite(field, collectionName, options)),
+    };
+  });
+  return { ...collectionDefaults, fieldGroups };
+}
+
 function materializeActionForWrite(action, options = {}) {
   if (!isPlainObject(action)) {
     return action;
@@ -2729,6 +2815,7 @@ function materializeBlockForWrite(block, options = {}) {
     return block;
   }
   let nextBlock = cloneSerializable(block);
+  const blockContext = buildBlockTraversalContext(nextBlock, options.blockContext || {}, options.collectionMetadata || {});
   normalizeCalendarFieldBindingsOnBlock(nextBlock);
   if (hasOwn(nextBlock, 'settings') || getHiddenPopupSettingsForBlockType(nextBlock.type).length > 0) {
     const materializedSettings = materializeSettingsForWrite(nextBlock, options);
@@ -2741,6 +2828,7 @@ function materializeBlockForWrite(block, options = {}) {
       materializeFieldForWrite(field, {
         ...options,
         hostBlock: nextBlock,
+        blockContext,
       }),
     );
   }
@@ -2749,6 +2837,7 @@ function materializeBlockForWrite(block, options = {}) {
       materializeFieldGroupForWrite(group, {
         ...options,
         hostBlock: nextBlock,
+        blockContext,
       }),
     );
   }
@@ -2757,6 +2846,7 @@ function materializeBlockForWrite(block, options = {}) {
       materializeActionForWrite(action, {
         ...options,
         hostBlock: nextBlock,
+        blockContext,
         recordActions: false,
       }),
     );
@@ -2766,6 +2856,7 @@ function materializeBlockForWrite(block, options = {}) {
       materializeActionForWrite(action, {
         ...options,
         hostBlock: nextBlock,
+        blockContext,
         recordActions: true,
       }),
     );
@@ -2804,17 +2895,17 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
           }
           const popups = isPlainObject(collectionDefaults.popups) ? collectionDefaults.popups : null;
           if (!isPlainObject(popups?.associations)) {
-            return [collectionName, collectionDefaults];
+            return [collectionName, materializeDefaultCollectionFieldGroupsForWrite(collectionDefaults, collectionName, options)];
           }
           return [
             collectionName,
-            {
+            materializeDefaultCollectionFieldGroupsForWrite({
               ...collectionDefaults,
               popups: {
                 ...popups,
                 associations: normalizeAssociationPopupDefaultsMap(popups.associations),
               },
-            },
+            }, collectionName, options),
           ];
         }),
       ),
@@ -3117,8 +3208,9 @@ function validateDefaultFieldGroupRelationTitleField(field, fieldPath, path, sou
     const targetFieldsByName = targetCollectionMeta?.fieldsByName instanceof Map ? targetCollectionMeta.fieldsByName : null;
     const targetMetadataHasFields = !!targetFieldsByName && targetFieldsByName.size > 0;
     if (
-      (explicitTitleFieldMeta && isPublicAssociationFieldMeta(explicitTitleFieldMeta))
-      || (!explicitTitleFieldMeta && targetMetadataHasFields)
+      !targetMetadataHasFields
+      || !explicitTitleFieldMeta
+      || isPublicAssociationFieldMeta(explicitTitleFieldMeta)
     ) {
       pushValidationError(
         state.errors,
@@ -3827,6 +3919,18 @@ function validateActions(items, path, state, { recordActions = false, blockConte
         'update-record-must-use-record-actions',
         '`updateRecord` is a record action and must be authored under recordActions.',
       );
+    }
+    if (isJsItemActionType(actionType)) {
+      if (!isPublicJsItemActionSlotSupported(hostBlockType, recordActions ? 'recordActions' : 'actions')) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          itemPath,
+          JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID,
+          buildJsItemActionSlotUnsupportedMessage(),
+        );
+        continue;
+      }
     }
     if (
       !recordActions

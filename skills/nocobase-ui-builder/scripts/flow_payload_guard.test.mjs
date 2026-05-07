@@ -863,6 +863,7 @@ function makeEditFormBlock({
   includeActions = true,
   includeFieldSubModel = true,
   putSubmitInGridItems = false,
+  actions = null,
 } = {}) {
   const items = [
     {
@@ -914,11 +915,13 @@ function makeEditFormBlock({
         },
       },
       actions: includeActions
-        ? [
-            {
-              use: 'FormSubmitActionModel',
-            },
-          ]
+        ? (Array.isArray(actions)
+          ? actions
+          : [
+              {
+                use: 'FormSubmitActionModel',
+              },
+            ])
         : [],
     },
   };
@@ -927,6 +930,20 @@ function makeEditFormBlock({
 function makeActionTargetBlock(collectionName = 'order_items', actions = []) {
   return {
     use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit(collectionName),
+      },
+    },
+    subModels: {
+      actions,
+    },
+  };
+}
+
+function makeListActionTargetBlock(collectionName = 'order_items', actions = []) {
+  return {
+    use: 'ListBlockModel',
     stepParams: {
       resourceSettings: {
         init: makeCollectionResourceInit(collectionName),
@@ -2602,6 +2619,19 @@ test('auditPayload blocks generic ActionModel in TableBlockModel actions slot', 
   assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID'), true);
 });
 
+test('auditPayload blocks generic ActionModel in ListBlockModel actions slot', () => {
+  const payload = makeListActionTargetBlock('order_items', [{ use: 'ActionModel' }]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'LIST_COLLECTION_ACTION_SLOT_USE_INVALID'), true);
+});
+
 test('auditPayload blocks generic ActionModel in TableActionsColumnModel actions slot', () => {
   const payload = makeRowActionTargetBlock('order_items', [{ use: 'ActionModel' }]);
 
@@ -2639,6 +2669,72 @@ test('auditPayload blocks generic ActionModel in FilterFormBlockModel actions sl
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload accepts JSItemActionModel in collection record and form action slots', () => {
+  const table = auditPayload({
+    payload: makeActionTargetBlock('order_items', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(table.ok, true, JSON.stringify(table.blockers));
+
+  const list = auditPayload({
+    payload: makeListActionTargetBlock('order_items', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(list.ok, true, JSON.stringify(list.blockers));
+
+  const row = auditPayload({
+    payload: makeRowActionTargetBlock('order_items', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(row.ok, true, JSON.stringify(row.blockers));
+
+  const details = auditPayload({
+    payload: makeDetailsActionTargetBlock('orders', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(details.blockers.some((item) => item.code === 'DETAILS_ACTION_SLOT_USE_INVALID'), false);
+
+  const form = auditPayload({
+    payload: makeEditFormBlock({
+      includeActions: true,
+      actions: [{ use: 'FormSubmitActionModel' }, { use: 'JSItemActionModel' }],
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(form.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_DUPLICATED'), false);
+  assert.equal(form.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), false);
+});
+
+test('auditPayload does not treat JSItemActionModel as a submit-like form action', () => {
+  const payload = makeEditFormBlock({
+    includeActions: true,
+    actions: [{ use: 'JSItemActionModel' }],
+  });
+
+  const audit = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(audit.ok, false);
+  assert.equal(audit.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), true);
+  assert.equal(audit.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_DUPLICATED'), false);
+
+  const canonicalized = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(canonicalized.payload.subModels.actions.some((item) => item.use === 'JSItemActionModel'), true);
+  assert.equal(canonicalized.payload.subModels.actions.some((item) => item.use === 'FormSubmitActionModel'), true);
+  assert.equal(canonicalized.transforms.some((item) => item.code === 'FORM_SUBMIT_ACTION_INSERTED'), true);
 });
 
 test('auditPayload blocks declared edit-record-popup requirements when target block has no stable edit action tree', () => {
@@ -2706,6 +2802,28 @@ test('auditPayload accepts declared edit-record-popup requirements when stable a
 
 test('auditPayload accepts declared create-popup requirements in block actions slot', () => {
   const payload = makeActionTargetBlock('order_items', [makeCreatePopupAction('order_items', '新建订单项')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'create-popup',
+          collectionName: 'order_items',
+          scope: 'block-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_CREATE_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared create-popup requirements in list block actions slot', () => {
+  const payload = makeListActionTargetBlock('order_items', [makeCreatePopupAction('order_items', '新建订单项')]);
 
   const result = auditPayload({
     payload,
@@ -6297,6 +6415,7 @@ test('auditPayload accepts CalendarBlockModel as a collection resource block wit
           { use: 'CalendarSelectViewActionModel' },
           { use: 'FilterActionModel' },
           { use: 'AddNewActionModel' },
+          { use: 'JSItemActionModel' },
         ],
       },
     },
@@ -6382,6 +6501,7 @@ test('auditPayload accepts KanbanBlockModel as a collection resource block with 
           { use: 'PopupCollectionActionModel' },
           { use: 'RefreshActionModel' },
           { use: 'JSCollectionActionModel' },
+          { use: 'JSItemActionModel' },
         ],
       },
     },

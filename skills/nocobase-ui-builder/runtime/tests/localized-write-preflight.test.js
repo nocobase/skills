@@ -262,6 +262,142 @@ test('runLocalizedWritePreflight defaults record actions for direct table blocks
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
+test('runLocalizedWritePreflight accepts jsItem in public collection and record action slots', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-table',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          actions: ['jsItem'],
+          recordActions: ['jsItem'],
+        },
+        {
+          key: 'users-calendar',
+          type: 'calendar',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'calendar_events',
+          },
+          defaultFilter: makeDefaultFilter(['title', 'status', 'startAt']),
+          settings: {
+            titleField: 'title',
+            startField: 'startAt',
+            endField: 'endAt',
+          },
+          actions: ['jsItem'],
+        },
+        {
+          key: 'tasks-kanban',
+          type: 'kanban',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'kanban_tasks',
+          },
+          defaultFilter: makeDefaultFilter(['title', 'status']),
+          fields: ['title', 'status'],
+          actions: ['jsItem'],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['jsItem']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['jsItem']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[1].actions), ['jsItem']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[2].actions), ['jsItem']);
+});
+
+test('runLocalizedWritePreflight rejects jsItem on unsupported public action hosts', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'filter-block',
+          type: 'filterForm',
+          fields: ['nickname'],
+          actions: ['jsItem'],
+        },
+        {
+          key: 'action-panel',
+          type: 'actionPanel',
+          actions: ['jsItem'],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.errors.filter((issue) => issue.ruleId === 'js-item-action-slot-unsupported').length,
+    2,
+  );
+});
+
+test('runLocalizedWritePreflight validates jsItem action slots against live configure target type', () => {
+  const metadata = makeMetadata();
+  metadata.liveTopology.byUid['filter-form-uid'] = {
+    uid: 'filter-form-uid',
+    use: 'FilterFormBlockModel',
+    collectionName: 'users',
+  };
+  metadata.liveTopology.byUid['action-panel-uid'] = {
+    uid: 'action-panel-uid',
+    use: 'ActionPanelBlockModel',
+  };
+
+  const table = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'users-table-uid' },
+      changes: {
+        actions: ['jsItem'],
+      },
+    },
+    collectionMetadata: metadata,
+  });
+  assert.equal(table.ok, true, JSON.stringify(table.errors));
+  assert.deepEqual(actionTypes(table.cliBody.changes.actions), ['jsItem']);
+
+  const filterForm = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'filter-form-uid' },
+      changes: {
+        actions: ['jsItem'],
+      },
+    },
+    collectionMetadata: metadata,
+  });
+  assert.equal(filterForm.ok, false);
+  assertHasRule(filterForm, 'js-item-action-slot-unsupported', '$.changes.actions[0]');
+
+  const actionPanel = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'action-panel-uid' },
+      changes: {
+        actions: ['jsItem'],
+      },
+    },
+    collectionMetadata: metadata,
+  });
+  assert.equal(actionPanel.ok, false);
+  assertHasRule(actionPanel, 'js-item-action-slot-unsupported', '$.changes.actions[0]');
+});
+
 test('runLocalizedWritePreflight defaults record actions for nested popup table blocks', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',
@@ -624,7 +760,7 @@ test('runLocalizedWritePreflight accepts flat relation fieldType and rejects int
   assert.equal(invalid.errors.some((item) => item.ruleId === 'internal-field-keys-not-public'), true);
 });
 
-test('runLocalizedWritePreflight requires explicit titleField for relation fieldType objects when target collection titleField is id', () => {
+test('runLocalizedWritePreflight auto-fills titleField for relation field objects when target collection titleField is id', () => {
   const metadata = makeMetadata();
   metadata.collections.roles.titleField = 'id';
 
@@ -649,12 +785,8 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
       ],
     },
   });
-  assert.equal(composeMissing.ok, false);
-  assertHasRule(
-    composeMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.blocks[0].fields[0].titleField',
-  );
+  assert.equal(composeMissing.ok, true, JSON.stringify(composeMissing.errors));
+  assert.equal(composeMissing.cliBody.blocks[0].fields[0].titleField, 'name');
 
   const composeExplicitReadable = runLocalizedWritePreflight({
     operation: 'compose',
@@ -696,12 +828,8 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
       },
     },
   });
-  assert.equal(configureMissing.ok, false);
-  assertHasRule(
-    configureMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.changes.fields[0].titleField',
-  );
+  assert.equal(configureMissing.ok, true, JSON.stringify(configureMissing.errors));
+  assert.equal(configureMissing.cliBody.changes.fields[0].titleField, 'name');
 
   const explicitId = runLocalizedWritePreflight({
     operation: 'configure',
@@ -780,6 +908,29 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
   });
   assert.equal(fieldGroupExplicitReadable.ok, true, JSON.stringify(fieldGroupExplicitReadable.errors));
 
+  const fieldGroupMissing = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'grouped-form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fieldGroups: [
+            {
+              title: 'Assignments',
+              fields: [{ field: 'roles', fieldType: 'popupSubTable', fields: ['name', 'title'] }],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(fieldGroupMissing.ok, true, JSON.stringify(fieldGroupMissing.errors));
+  assert.equal(fieldGroupMissing.cliBody.blocks[0].fieldGroups[0].fields[0].titleField, 'name');
+
   const fieldGroupExplicitId = runLocalizedWritePreflight({
     operation: 'compose',
     collectionMetadata: metadata,
@@ -813,9 +964,33 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
     'relation-field-title-field-id-forbidden',
     '$.blocks[0].fieldGroups[0].fields[0].titleField',
   );
+
+  const actionWithRelationFieldProperty = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'table',
+          type: 'table',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          defaultFilter: { status: 'active' },
+          actions: [
+            {
+              type: 'popup',
+              field: 'roles',
+              popup: { blocks: [] },
+            },
+          ],
+        },
+      ],
+    },
+  });
+  assert.equal(Object.hasOwn(actionWithRelationFieldProperty.cliBody.blocks[0].actions[0], 'titleField'), false);
 });
 
-test('runLocalizedWritePreflight requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {
+test('runLocalizedWritePreflight auto-fills titleField for relation field objects when target collection titleField falls back to id', () => {
   const metadata = makeMetadata();
 
   const composeMissing = runLocalizedWritePreflight({
@@ -839,12 +1014,8 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
       ],
     },
   });
-  assert.equal(composeMissing.ok, false);
-  assertHasRule(
-    composeMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.blocks[0].fields[0].titleField',
-  );
+  assert.equal(composeMissing.ok, true, JSON.stringify(composeMissing.errors));
+  assert.equal(composeMissing.cliBody.blocks[0].fields[0].titleField, 'name');
 
   const configureExplicitId = runLocalizedWritePreflight({
     operation: 'configure',
@@ -871,7 +1042,49 @@ test('runLocalizedWritePreflight requires explicit titleField for relation field
   );
 });
 
-test('runLocalizedWritePreflight requires explicit titleField for popup-only relation fields when target collection titleField is id', () => {
+test('runLocalizedWritePreflight asks for titleField when relation target has no readable display field', () => {
+  const metadata = makeMetadata();
+  metadata.collections.roles = {
+    name: 'roles',
+    filterTargetKey: 'id',
+    fields: [
+      { name: 'id', interface: 'integer', type: 'bigInt' },
+      { name: 'manager', interface: 'm2o', type: 'belongsTo', target: 'users' },
+    ],
+  };
+
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    collectionMetadata: metadata,
+    body: {
+      target: { uid: 'tab-uid' },
+      blocks: [
+        {
+          key: 'form',
+          type: 'createForm',
+          resource: { dataSourceKey: 'main', collectionName: 'users' },
+          fields: [
+            {
+              field: 'roles',
+              fieldType: 'popupSubTable',
+              fields: ['id'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(
+    result,
+    'relation-field-title-field-required-when-collection-title-is-id',
+    '$.blocks[0].fields[0].titleField',
+  );
+  assert.match(result.errors[0].message, /Please add titleField/);
+});
+
+test('runLocalizedWritePreflight auto-fills titleField for popup-only relation fields when target collection titleField is id', () => {
   const metadata = makeMetadata();
   metadata.collections.roles.titleField = 'id';
 
@@ -905,12 +1118,8 @@ test('runLocalizedWritePreflight requires explicit titleField for popup-only rel
       ],
     },
   });
-  assert.equal(composeMissing.ok, false);
-  assertHasRule(
-    composeMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.blocks[0].fields[0].titleField',
-  );
+  assert.equal(composeMissing.ok, true, JSON.stringify(composeMissing.errors));
+  assert.equal(composeMissing.cliBody.blocks[0].fields[0].titleField, 'name');
 
   const configureExplicitReadable = runLocalizedWritePreflight({
     operation: 'configure',
@@ -940,7 +1149,7 @@ test('runLocalizedWritePreflight requires explicit titleField for popup-only rel
   assert.equal(configureExplicitReadable.ok, true, JSON.stringify(configureExplicitReadable.errors));
 });
 
-test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context', () => {
+test('runLocalizedWritePreflight auto-fills relation titleField inside inherited relation popup surface context', () => {
   const metadata = makeMetadata();
   metadata.collections.departments.titleField = 'id';
   metadata.collections.roles.fields.push({
@@ -987,11 +1196,10 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
       ],
     },
   });
-  assert.equal(composeMissing.ok, false);
-  assertHasRule(
-    composeMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.blocks[0].fields[0].popup.blocks[0].fields[0].titleField',
+  assert.equal(composeMissing.ok, true, JSON.stringify(composeMissing.errors));
+  assert.equal(
+    composeMissing.cliBody.blocks[0].fields[0].popup.blocks[0].fields[0].titleField,
+    'title',
   );
 
   const composeExplicitReadable = runLocalizedWritePreflight({
@@ -1065,11 +1273,10 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
       },
     },
   });
-  assert.equal(configureMissing.ok, false);
-  assertHasRule(
-    configureMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.changes.fields[0].popup.blocks[0].fields[0].titleField',
+  assert.equal(configureMissing.ok, true, JSON.stringify(configureMissing.errors));
+  assert.equal(
+    configureMissing.cliBody.changes.fields[0].popup.blocks[0].fields[0].titleField,
+    'title',
   );
 
   const configureExplicitId = runLocalizedWritePreflight({
@@ -1112,7 +1319,7 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
   );
 });
 
-test('runLocalizedWritePreflight keeps relation titleField guard inside inherited relation popup surface context when target titleField falls back to id', () => {
+test('runLocalizedWritePreflight auto-fills relation titleField inside inherited relation popup surface context when target titleField falls back to id', () => {
   const metadata = makeMetadata();
   metadata.collections.roles.fields.push({
     name: 'department',
@@ -1158,11 +1365,10 @@ test('runLocalizedWritePreflight keeps relation titleField guard inside inherite
       ],
     },
   });
-  assert.equal(composeMissing.ok, false);
-  assertHasRule(
-    composeMissing,
-    'relation-field-title-field-required-when-collection-title-is-id',
-    '$.blocks[0].fields[0].popup.blocks[0].fields[0].titleField',
+  assert.equal(composeMissing.ok, true, JSON.stringify(composeMissing.errors));
+  assert.equal(
+    composeMissing.cliBody.blocks[0].fields[0].popup.blocks[0].fields[0].titleField,
+    'title',
   );
 
   const configureExplicitId = runLocalizedWritePreflight({

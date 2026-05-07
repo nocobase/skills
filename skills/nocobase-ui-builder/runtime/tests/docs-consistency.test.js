@@ -800,10 +800,12 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
 
   const jsModelRender = read('references/js-surfaces/js-model-render.md');
   assert.match(jsModelRender, /ctx\.render\(\.\.\.\).*required|required.*ctx\.render/i, 'js-model-render doc should require ctx.render');
+  assert.match(jsModelRender, /JSItemActionModel/i, 'js-model-render doc should include JS item action rendering');
   assert.match(jsModelRender, /popup-opener-record[\s\S]{0,160}ctx\.popup\.record/i, 'js-model-render doc should route popup opener records to ctx.popup.record');
 
   const jsModelAction = read('references/js-surfaces/js-model-action.md');
   assert.match(jsModelAction, /clickSettings\.runJs/i, 'js-model-action doc should expose action write path');
+  assert.match(jsModelAction, /JSItemActionModel[\s\S]{0,120}render contract/i, 'js-model-action doc should route JS item action to render validation');
   assert.match(jsModelAction, /inner-row-record[\s\S]{0,180}ctx\.getVar\('ctx\.record/i, 'js-model-action doc should distinguish popup inner row record from popup opener record');
 
   const legacyIndex = read('references/js-models/index.md');
@@ -816,6 +818,16 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   assert.match(jsAction, /popup action|field popup|configuration|配置层/i, 'JSActionModel leaf doc should reroute popup/openView work to configuration');
 
   const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  assert.equal(
+    catalog.snippets.some((entry) => entry.modelUses?.['js-model.action']?.includes('JSItemActionModel')),
+    false,
+    'JS item action should not be listed under action-style snippets',
+  );
+  assert.equal(
+    catalog.snippets.some((entry) => entry.modelUses?.['js-model.render']?.includes('JSItemActionModel')),
+    true,
+    'JS item action should have render-style snippet coverage',
+  );
   const safeIds = new Set(catalog.snippets.filter((entry) => entry.tier === 'safe').map((entry) => entry.id));
   const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
   const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');

@@ -552,7 +552,7 @@ test('prepareApplyBlueprintRequest accepts flat relation fieldType objects and r
   assert.equal(invalid.errors.some((item) => item.ruleId === 'internal-field-keys-not-public'), true);
 });
 
-test('prepareApplyBlueprintRequest requires explicit titleField for relation fieldType objects when target collection titleField is id', () => {
+test('prepareApplyBlueprintRequest auto-fills titleField for relation field objects when target collection titleField is id', () => {
   const collectionMetadata = {
     collections: {
       users: {
@@ -602,19 +602,8 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
     defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
   }, { collectionMetadata });
 
-  assert.equal(missing.ok, false);
-  assert.equal(
-    missing.errors.some(
-      (item) =>
-        item.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
-        && item.path === 'tabs[0].blocks[0].fields[0].titleField'
-        && /roles/.test(item.message)
-        && /"id"/.test(item.message)
-        && /name/.test(item.message)
-        && /not allowed/.test(item.message),
-    ),
-    true,
-  );
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.equal(missing.cliBody.tabs[0].blocks[0].fields[0].titleField, 'name');
 
   const explicitReadable = prepareApplyBlueprintRequest({
     version: '1',
@@ -725,7 +714,7 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
   );
 });
 
-test('prepareApplyBlueprintRequest requires explicit titleField for relation fieldType objects when target collection titleField falls back to id', () => {
+test('prepareApplyBlueprintRequest auto-fills titleField for relation field objects when target collection titleField falls back to id', () => {
   const collectionMetadata = {
     collections: {
       users: {
@@ -774,15 +763,8 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
     defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
   }, { collectionMetadata });
 
-  assert.equal(missing.ok, false);
-  assert.equal(
-    missing.errors.some(
-      (item) =>
-        item.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
-        && item.path === 'tabs[0].blocks[0].fields[0].titleField',
-    ),
-    true,
-  );
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.equal(missing.cliBody.tabs[0].blocks[0].fields[0].titleField, 'name');
 
   const forbidden = prepareApplyBlueprintRequest({
     version: '1',
@@ -823,7 +805,7 @@ test('prepareApplyBlueprintRequest requires explicit titleField for relation fie
   );
 });
 
-test('prepareApplyBlueprintRequest requires explicit titleField for popup-only relation fields when target collection titleField is id', () => {
+test('prepareApplyBlueprintRequest auto-fills titleField for popup-only relation fields when target collection titleField is id', () => {
   const relationTitleFieldMetadata = {
     collections: {
       users: {
@@ -846,7 +828,7 @@ test('prepareApplyBlueprintRequest requires explicit titleField for popup-only r
     },
   };
 
-  const missing = prepareApplyBlueprintRequest({
+  const missing = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
     page: { title: 'Popup-only relation titleField required page' },
@@ -873,26 +855,19 @@ test('prepareApplyBlueprintRequest requires explicit titleField for popup-only r
                 },
               },
             ],
-            actions: [defaultFilterAction()],
+            actions: [defaultFilterAction(['nickname'])],
           },
         ],
       },
     ],
     defaults: { collections: { users: { popups: buildFixedCollectionPopupDefaults('users') } } },
-  }, { collectionMetadata: relationTitleFieldMetadata });
+  }, {
+    collections: ['users', 'roles'],
+    collectionMetadata: relationTitleFieldMetadata,
+  });
 
-  assert.equal(missing.ok, false);
-  assert.equal(
-    missing.errors.some(
-      (item) =>
-        item.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
-        && item.path === 'tabs[0].blocks[0].fields[0].titleField'
-        && /roles/.test(item.message)
-        && /"id"/.test(item.message)
-        && /name/.test(item.message),
-    ),
-    true,
-  );
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.equal(missing.cliBody.tabs[0].blocks[0].fields[0].titleField, 'name');
 
   const explicitReadable = prepareWithDirectCollectionDefaults({
     version: '1',
@@ -3000,19 +2975,16 @@ function buildUsersDepartmentDefaultsBlueprint(departmentField) {
   };
 }
 
-test('prepareApplyBlueprintRequest validates relation titleField in collection default fieldGroups', () => {
+test('prepareApplyBlueprintRequest auto-fills relation titleField in collection default fieldGroups', () => {
   const metadata = buildLargeUsersDepartmentDefaultMetadata();
   const missing = prepareApplyBlueprintRequest(
     buildUsersDepartmentDefaultsBlueprint({ field: 'department' }),
     { collectionMetadata: metadata },
   );
-  assert.equal(missing.ok, false);
-  assert.ok(
-    missing.errors.some(
-      (issue) =>
-        issue.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
-        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
-    ),
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.deepEqual(
+    missing.cliBody.defaults.collections.users.fieldGroups[0].fields[2],
+    { field: 'department', titleField: 'title' },
   );
 
   const forbidden = prepareApplyBlueprintRequest(
@@ -3025,6 +2997,30 @@ test('prepareApplyBlueprintRequest validates relation titleField in collection d
       (issue) =>
         issue.ruleId === 'relation-field-title-field-id-forbidden'
         && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
+      ),
+  );
+
+  const noReadableMetadata = {
+    collections: {
+      users: metadata.collections.users,
+      departments: {
+        titleField: 'id',
+        filterTargetKey: 'id',
+        fields: [{ name: 'id', type: 'integer', interface: 'number' }],
+      },
+    },
+  };
+  const noReadable = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint({ field: 'department' }),
+    { collectionMetadata: noReadableMetadata },
+  );
+  assert.equal(noReadable.ok, false);
+  assert.ok(
+    noReadable.errors.some(
+      (issue) =>
+        issue.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
+        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField'
+        && /Please add titleField/.test(issue.message),
     ),
   );
 
@@ -3035,6 +3031,48 @@ test('prepareApplyBlueprintRequest validates relation titleField in collection d
   assert.equal(invalid.ok, false);
   assert.ok(
     invalid.errors.some(
+      (issue) =>
+        issue.ruleId === 'relation-field-title-field-invalid'
+        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
+    ),
+  );
+
+  const missingTargetMetadata = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint({ field: 'department', titleField: 'title' }),
+    {
+      collectionMetadata: {
+        collections: {
+          users: metadata.collections.users,
+        },
+      },
+    },
+  );
+  assert.equal(missingTargetMetadata.ok, false);
+  assert.ok(
+    missingTargetMetadata.errors.some(
+      (issue) =>
+        issue.ruleId === 'relation-field-title-field-invalid'
+        && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
+    ),
+  );
+
+  const incompleteTargetMetadata = prepareApplyBlueprintRequest(
+    buildUsersDepartmentDefaultsBlueprint({ field: 'department', titleField: 'title' }),
+    {
+      collectionMetadata: {
+        collections: {
+          users: metadata.collections.users,
+          departments: {
+            titleField: 'title',
+            fields: [],
+          },
+        },
+      },
+    },
+  );
+  assert.equal(incompleteTargetMetadata.ok, false);
+  assert.ok(
+    incompleteTargetMetadata.errors.some(
       (issue) =>
         issue.ruleId === 'relation-field-title-field-invalid'
         && issue.path === 'defaults.collections.users.fieldGroups[0].fields[2].titleField',
@@ -5768,7 +5806,7 @@ test('prepareApplyBlueprintRequest strips titles from a single popup data block 
             title: 'Users table',
             collection: 'users',
             fields: ['nickname'],
-            actions: [defaultFilterAction()],
+            actions: [defaultFilterAction(['nickname'])],
             recordActions: [
               {
                 type: 'view',
@@ -7770,7 +7808,7 @@ test('prepareApplyBlueprintRequest rejects relation field details popup with mis
   );
 });
 
-test('prepareApplyBlueprintRequest keeps relation titleField guard inside inherited relation popup surface context when target titleField falls back to id', () => {
+test('prepareApplyBlueprintRequest auto-fills relation titleField inside inherited relation popup surface context when target titleField falls back to id', () => {
   const nestedRelationCollectionMetadata = {
     collections: {
       users: {
@@ -7835,19 +7873,17 @@ test('prepareApplyBlueprintRequest keeps relation titleField guard inside inheri
                 },
               },
             ],
-            actions: [defaultFilterAction()],
+            actions: [defaultFilterAction(['nickname'])],
           },
         ],
       },
     ],
   }, { collectionMetadata: nestedRelationCollectionMetadata });
 
-  assert.equal(missing.ok, false);
-  assert.ok(
-    missing.errors.some(
-      (issue) => issue.ruleId === 'relation-field-title-field-required-when-collection-title-is-id'
-        && issue.path === 'tabs[0].blocks[0].fields[0].popup.blocks[0].fields[0].titleField',
-    ),
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.equal(
+    missing.cliBody.tabs[0].blocks[0].fields[0].popup.blocks[0].fields[0].titleField,
+    'title',
   );
 });
 
@@ -12880,6 +12916,175 @@ test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.titleField')), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.startField')), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'calendar-field-binding-invalid' && issue.path.endsWith('.endField')), true);
+});
+
+test('prepareApplyBlueprintRequest accepts jsItem collection and record actions on public hosts', () => {
+  const buildBlueprint = (block) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'JS item actions' },
+    defaults: {
+      collections: {
+        users: {
+          popups: buildFixedCollectionPopupDefaults('users'),
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Main',
+        blocks: [block],
+      },
+    ],
+  });
+
+  const validCases = [
+    {
+      type: 'table',
+      collection: 'users',
+      defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+      fields: ['nickname'],
+      actions: [{ type: 'jsItem', title: 'Tools', code: 'ctx.render(null);' }],
+      recordActions: [{ type: 'jsItem', title: 'Row tools', code: 'ctx.render(null);' }],
+    },
+    {
+      type: 'list',
+      collection: 'users',
+      defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+      fields: ['nickname'],
+      actions: ['jsItem'],
+      recordActions: ['jsItem'],
+    },
+    {
+      type: 'gridCard',
+      collection: 'users',
+      defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+      fields: ['nickname'],
+      actions: ['jsItem'],
+      recordActions: ['jsItem'],
+    },
+    {
+      type: 'details',
+      collection: 'users',
+      fields: ['nickname'],
+      recordActions: ['jsItem'],
+    },
+  ];
+
+  validCases.forEach((block, index) => {
+    const result = prepareApplyBlueprintRequest(
+      buildBlueprint({ key: `block${index}`, ...block }),
+      { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    );
+    assert.equal(result.ok, true, JSON.stringify(result.errors));
+  });
+});
+
+test('prepareApplyBlueprintRequest accepts jsItem collection actions on calendar and kanban blocks', () => {
+  const calendar = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Calendar js item action' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Schedule',
+          blocks: [
+            {
+              key: 'usersCalendar',
+              type: 'calendar',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
+              settings: {
+                titleField: 'nickname',
+                startField: 'createdAt',
+                endField: 'updatedAt',
+              },
+              actions: ['jsItem'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(calendar.ok, true, JSON.stringify(calendar.errors));
+  assert.deepEqual(calendar.cliBody.tabs[0].blocks[0].actions, ['jsItem']);
+
+  const kanban = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban js item action' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              fields: ['nickname', 'status'],
+              actions: ['jsItem'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(kanban.ok, true, JSON.stringify(kanban.errors));
+  assert.deepEqual(kanban.cliBody.tabs[0].blocks[0].actions, ['jsItem']);
+});
+
+test('prepareApplyBlueprintRequest rejects jsItem actions on unsupported public hosts', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Unsupported js item action' },
+      tabs: [
+        {
+          title: 'Main',
+          blocks: [
+            {
+              key: 'filterBlock',
+              type: 'filterForm',
+              fields: ['nickname'],
+              actions: ['jsItem'],
+            },
+            {
+              key: 'actionPanel',
+              type: 'actionPanel',
+              actions: ['jsItem'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.errors.filter((issue) => issue.ruleId === 'js-item-action-slot-unsupported').length,
+    2,
+  );
 });
 
 test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilter on kanban blocks', () => {

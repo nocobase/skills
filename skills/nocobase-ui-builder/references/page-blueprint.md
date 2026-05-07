@@ -805,7 +805,7 @@ For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 
 For `calendar` blocks:
 
-- allowed public actions are `today`, `turnPages`, `title`, `selectView`, plus applicable collection actions such as `filter`, `addNew`, `popup`, `refresh`, `js`, and `triggerWorkflow`
+- allowed public actions are `today`, `turnPages`, `title`, `selectView`, plus applicable collection actions such as `filter`, `addNew`, `popup`, `refresh`, `js`, `jsItem`, and `triggerWorkflow`
 - do not use `bulkDelete`, import/export, print, or record-level actions on the main calendar block
 - `settings.startField` and `settings.endField` must bind date-capable fields; `settings.titleField` and `settings.colorField` must bind non-association display fields
 - For generic prompts that only say “add a calendar block” and do not name a business date field, prefer date fields that are likely populated in existing data, such as `createdAt` / `updatedAt`, over optional business dates such as `birthday` / `hireDate`. This keeps event-click verification possible on existing records. Use optional business date fields only when the user asks for that calendar meaning or live data confirms those fields are populated.
@@ -814,7 +814,7 @@ For `calendar` blocks:
 
 For `kanban` blocks:
 
-- allowed public main-block actions are `filter`, `addNew`, `popup`, `refresh`, and `js`
+- allowed public main-block actions are `filter`, `addNew`, `popup`, `refresh`, `js`, and `jsItem`
 - do not use `today`, `turnPages`, `bulkDelete`, `triggerWorkflow`, import/export, print, or record-level actions on the main kanban block
 - public main kanban blocks may keep `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`
 - quick-create and card click/view popups are configured through `settings.quickCreatePopup` and `settings.cardPopup`. In whole-page `create`, prepare-write auto-adds missing `quickCreatePopup` / `cardPopup` as `{ tryTemplate: true }` and defaults missing `settings.quickCreateEnabled` / `settings.enableCardClick` to `true`; explicit overrides are preserved. Helper-only popup materialization, defaults checks, metadata discovery, and explicit `groupField` validation belong in [helper-contracts.md](./helper-contracts.md).
