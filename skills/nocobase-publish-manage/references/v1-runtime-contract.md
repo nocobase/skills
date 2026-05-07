@@ -30,8 +30,8 @@ nb api backup list -e <env> --json-output
 nb api backup create -e <sourceEnv> --json-output
 nb api backup status --name <backupName> -e <env> --json-output
 nb api backup download --name <backupName> --output <localFile> -e <sourceEnv>
-nb api backup restore --name <backupName> -e <targetEnv> --json-output
-nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output
+nb api backup restore --name <backupName> -e <targetEnv> --json-output --force
+nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output --force
 nb api backup restore-status --task <taskId> -e <targetEnv> --json-output
 nb api backup remove --name <backupName> -e <env> --json-output
 ```
@@ -59,6 +59,7 @@ Command rules:
 - Use `--json-output` for JSON API results.
 - Use `--output` for binary downloads.
 - Use `--file` for multipart uploads.
+- Use `--force` on backup restore and restore-upload commands directly.
 - Use `-e <env>` or `--env <env>` explicitly on every command.
 - Write downloaded release files to the CLI home release workspace: `<cliHome>/release/<sourceEnv>/<filename>`.
 
@@ -174,7 +175,7 @@ Rules:
 Plan:
 
 ```bash
-nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output
+nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output --force
 ```
 
 Rules:
@@ -189,7 +190,7 @@ Plan:
 
 ```bash
 nb api backup status --name <backupName> -e <targetEnv> --json-output
-nb api backup restore --name <backupName> -e <targetEnv> --json-output
+nb api backup restore --name <backupName> -e <targetEnv> --json-output --force
 ```
 
 Rules:
@@ -206,7 +207,7 @@ Plan:
 nb api backup create -e <sourceEnv> --json-output
 nb api backup status --name <backupName> -e <sourceEnv> --json-output
 nb api backup download --name <backupName> --output <localFile> -e <sourceEnv>
-nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output
+nb api backup restore-upload --file <localFile> -e <targetEnv> --json-output --force
 ```
 
 Rules:
@@ -214,7 +215,7 @@ Rules:
 - User-selected source backups enter the workflow at `backup status`.
 - Parse `backupName` from the create response before status/download.
 - Always use `--output` for download, with `<localFile>` under `<cliHome>/release/<sourceEnv>/`.
-- Cross-environment restore uses `restore-upload`.
+- Cross-environment restore uses `restore-upload --force`.
 
 ## Migration Workflow
 
