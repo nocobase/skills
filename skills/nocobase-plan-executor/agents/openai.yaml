@@ -1,0 +1,18 @@
+interface:
+  display_name: "NocoBase Plan Executor"
+  short_description: "Execute NocoBase build plans with gated acceptance"
+  default_prompt: >
+    Use $nocobase-plan-executor to execute an existing NocoBase PRD, BuildPlan,
+    task list, or external implementation plan one task at a time.
+
+    Lock the target environment explicitly, dispatch each task to the right
+    NocoBase skill, read back live evidence, and stop after every task for user
+    acceptance before continuing.
+
+    Before each mutating continuation task, reconcile the last accepted baseline
+    with current live NocoBase state so UI/schema/workflow/ACL changes made
+    outside the executor are adopted, merged, or explicitly overwritten instead
+    of being silently lost.
+
+policy:
+  allow_implicit_invocation: true
