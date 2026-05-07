@@ -20,6 +20,8 @@ const PUBLIC_BLOCK_TYPE_BY_LIVE_USE = new Map([
   ['CalendarBlockModel', 'calendar'],
   ['KanbanBlockModel', 'kanban'],
   ['DetailsBlockModel', 'details'],
+  ['CreateFormModel', 'createForm'],
+  ['EditFormModel', 'editForm'],
   ['FilterFormBlockModel', 'filterForm'],
   ['ActionPanelBlockModel', 'actionPanel'],
   ['MapBlockModel', 'map'],

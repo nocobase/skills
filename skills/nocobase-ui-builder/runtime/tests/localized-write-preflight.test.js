@@ -357,6 +357,16 @@ test('runLocalizedWritePreflight validates jsItem action slots against live conf
     uid: 'action-panel-uid',
     use: 'ActionPanelBlockModel',
   };
+  metadata.liveTopology.byUid['create-form-uid'] = {
+    uid: 'create-form-uid',
+    use: 'CreateFormModel',
+    collectionName: 'users',
+  };
+  metadata.liveTopology.byUid['edit-form-uid'] = {
+    uid: 'edit-form-uid',
+    use: 'EditFormModel',
+    collectionName: 'users',
+  };
 
   const table = runLocalizedWritePreflight({
     operation: 'configure',
@@ -370,6 +380,32 @@ test('runLocalizedWritePreflight validates jsItem action slots against live conf
   });
   assert.equal(table.ok, true, JSON.stringify(table.errors));
   assert.deepEqual(actionTypes(table.cliBody.changes.actions), ['jsItem']);
+
+  const createForm = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'create-form-uid' },
+      changes: {
+        actions: ['jsItem'],
+      },
+    },
+    collectionMetadata: metadata,
+  });
+  assert.equal(createForm.ok, true, JSON.stringify(createForm.errors));
+  assert.deepEqual(actionTypes(createForm.cliBody.changes.actions), ['jsItem']);
+
+  const editForm = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'edit-form-uid' },
+      changes: {
+        actions: ['jsItem'],
+      },
+    },
+    collectionMetadata: metadata,
+  });
+  assert.equal(editForm.ok, true, JSON.stringify(editForm.errors));
+  assert.deepEqual(actionTypes(editForm.cliBody.changes.actions), ['jsItem']);
 
   const filterForm = runLocalizedWritePreflight({
     operation: 'configure',
