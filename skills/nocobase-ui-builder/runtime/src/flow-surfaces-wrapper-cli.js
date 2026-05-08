@@ -2,9 +2,6 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { runLocalizedWritePreflight } from './localized-write-preflight.js';
-import { prepareApplyBlueprintWrite } from './apply-blueprint-prepare.js';
-import { getFlowSurfacesCommandPolicy } from './flow-surfaces-command-policy.js';
 import { resolveSessionPaths } from '../../scripts/session_state.mjs';
 import {
   upsertPageIdentityRecord,
@@ -12,15 +9,21 @@ import {
 
 const execFileAsync = promisify(execFile);
 const MAX_BUFFER = 10 * 1024 * 1024;
+const LEGACY_WRITE_GATE_FLAGS = new Set([
+  'collection-metadata',
+  'expected-outer-tabs',
+  'max-popup-depth',
+  'no-auto-collection-metadata',
+]);
 
 function usage() {
   return {
     command:
-      'Run flow-surfaces commands through the UI Builder wrapper. Agent-facing writes should use this entry instead of calling `nb api flow-surfaces` directly.',
+      'Legacy UI Builder helper for flow-surfaces commands. Agent-facing writes should call `nb api flow-surfaces` directly; this helper is a thin compatibility pass-through.',
     examples: [
-      'node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint --body-file blueprint.json -j',
-      'node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-block --body-file body.json --collection-metadata metadata.json -j',
-      'node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs get --page-schema-uid page-uid -j',
+      'nb api flow-surfaces apply-blueprint --body-file blueprint.json -j',
+      'nb api flow-surfaces add-block --body-file body.json -j',
+      'nb api flow-surfaces get --page-schema-uid page-uid -j',
     ],
   };
 }
@@ -81,52 +84,22 @@ function getFlagValue(args, flagName) {
   return undefined;
 }
 
-function getFlagIndexesToRemove(args, flagName) {
-  const flag = `--${flagName}`;
-  const indexes = new Set();
-  for (let index = 0; index < args.length; index += 1) {
-    const token = args[index];
-    if (token === flag) {
-      const next = args[index + 1];
-      if (!normalizeText(next) || String(next).startsWith('--')) {
-        throw new Error(`Missing value for ${flag}.`);
-      }
-      indexes.add(index);
-      indexes.add(index + 1);
-      index += 1;
-      continue;
-    }
-    if (typeof token === 'string' && token.startsWith(`${flag}=`)) {
-      const value = token.slice(flag.length + 1);
-      if (!normalizeText(value)) {
-        throw new Error(`Missing value for ${flag}.`);
-      }
-      indexes.add(index);
-    }
+function getLongFlagName(token) {
+  if (typeof token !== 'string' || !token.startsWith('--') || token === '--') return '';
+  const withoutPrefix = token.slice(2);
+  const equalsIndex = withoutPrefix.indexOf('=');
+  return equalsIndex === -1 ? withoutPrefix : withoutPrefix.slice(0, equalsIndex);
+}
+
+function assertNoLegacyWriteGateFlags(args) {
+  for (const token of args) {
+    const flagName = getLongFlagName(token);
+    if (!LEGACY_WRITE_GATE_FLAGS.has(flagName)) continue;
+    throw new Error(
+      `Legacy UI Builder helper flag --${flagName} is no longer supported. `
+      + 'Call `nb api flow-surfaces` directly with the raw business payload; backend authoring now owns validation/defaulting.',
+    );
   }
-  return indexes;
-}
-
-function removeFlagWithValue(args, flagName) {
-  const indexes = getFlagIndexesToRemove(args, flagName);
-  if (indexes.size === 0) return [...args];
-  return args.filter((_, index) => !indexes.has(index));
-}
-
-function hasFlag(args, flagName) {
-  const flag = `--${flagName}`;
-  return args.some((value) => value === flag || (typeof value === 'string' && value.startsWith(`${flag}=`)));
-}
-
-function removeBooleanFlag(args, flagName) {
-  const flag = `--${flagName}`;
-  return args.filter((value) => value !== flag && !(typeof value === 'string' && value.startsWith(`${flag}=`)));
-}
-
-function replaceBodyArg(args, body) {
-  let nextArgs = removeFlagWithValue(args, 'body-file');
-  nextArgs = removeFlagWithValue(nextArgs, 'body');
-  return [...nextArgs, '--body', JSON.stringify(body)];
 }
 
 async function loadJsonFile(cwd, filePath) {
@@ -141,26 +114,6 @@ function parseInlineJson(jsonText, flagName) {
   }
 }
 
-function parseOptionalNumberFlag(args, flagName) {
-  const value = getFlagValue(args, flagName);
-  if (typeof value === 'undefined') return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    throw new Error(`Invalid --${flagName} "${value}".`);
-  }
-  return parsed;
-}
-
-function parseOptionalPositiveIntegerFlag(args, flagName) {
-  const value = getFlagValue(args, flagName);
-  if (typeof value === 'undefined') return undefined;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`Invalid --${flagName} "${value}".`);
-  }
-  return parsed;
-}
-
 async function loadBodyFromArgs(args, cwd) {
   const inlineBody = getFlagValue(args, 'body');
   if (normalizeText(inlineBody)) {
@@ -171,31 +124,6 @@ async function loadBodyFromArgs(args, cwd) {
     return loadJsonFile(cwd, bodyFile);
   }
   throw new Error('Missing required --body or --body-file for this command.');
-}
-
-async function loadOptionalCollectionMetadataFromArgs(args, cwd) {
-  const metadataFile = getFlagValue(args, 'collection-metadata');
-  if (!normalizeText(metadataFile)) return undefined;
-  return loadJsonFile(cwd, metadataFile);
-}
-
-function buildApplyBlueprintPreparePayload(body, collectionMetadata) {
-  if (isObjectRecord(body) && (isObjectRecord(body.blueprint) || isObjectRecord(body.requestBody))) {
-    if (typeof collectionMetadata === 'undefined') {
-      return body;
-    }
-    return {
-      ...body,
-      collectionMetadata,
-    };
-  }
-  if (typeof collectionMetadata === 'undefined') {
-    return body;
-  }
-  return {
-    blueprint: body,
-    collectionMetadata,
-  };
 }
 
 function extractApplyBlueprintPageIdentity(preparedBody, responseBody, fallbackTitle = '') {
@@ -239,25 +167,6 @@ function extractApplyBlueprintPageIdentity(preparedBody, responseBody, fallbackT
   };
 }
 
-function buildLocalizedPreflightPayload(body, collectionMetadata) {
-  if (isObjectRecord(body) && Object.prototype.hasOwnProperty.call(body, 'body')) {
-    if (typeof collectionMetadata === 'undefined') {
-      return {
-        body: body.body,
-        collectionMetadata: body.collectionMetadata,
-      };
-    }
-    return {
-      ...body,
-      collectionMetadata,
-    };
-  }
-  return {
-    body,
-    collectionMetadata,
-  };
-}
-
 function normalizeExecResult(result) {
   if (typeof result === 'string') {
     return { stdout: result, stderr: '', exitCode: 0 };
@@ -298,91 +207,40 @@ async function execNb(args, options = {}) {
   }
 }
 
-async function runPreparedFlowSurfacesWrite(subcommand, args, io) {
+async function runFlowSurfacesCommand(subcommand, args, io) {
   const cwd = io.cwd || process.cwd();
   const stdout = io.stdout || process.stdout;
   const stderr = io.stderr || process.stderr;
-  const policy = getFlowSurfacesCommandPolicy(subcommand);
-  const sessionPaths = resolveSessionPaths({
-    cwd,
-    sessionId: io.sessionId,
-    sessionRoot: io.sessionRoot,
-  });
-
-  if (policy === 'whole_page_prepare') {
-    const body = await loadBodyFromArgs(args, cwd);
-    const collectionMetadata = await loadOptionalCollectionMetadataFromArgs(args, cwd);
-    const rawPreparePayload = buildApplyBlueprintPreparePayload(body, collectionMetadata);
-    const prepareResult = await prepareApplyBlueprintWrite(
-      rawPreparePayload,
-      {
-        cwd,
-        sessionId: sessionPaths.sessionId,
-        sessionRoot: sessionPaths.sessionRoot,
-        registryPath: sessionPaths.registryPath,
-        autoCollectionMetadata: !hasFlag(args, 'no-auto-collection-metadata'),
-        expectedOuterTabs: parseOptionalPositiveIntegerFlag(args, 'expected-outer-tabs'),
-        maxPopupDepth: parseOptionalNumberFlag(args, 'max-popup-depth'),
-        ...(io.execFileImpl ? { execFileImpl: io.execFileImpl } : {}),
-        ...(io.fetchCollectionMetadata ? { fetchCollectionMetadata: io.fetchCollectionMetadata } : {}),
-      },
-    );
-    if (!prepareResult.ok) {
-      writeJson(stdout, prepareResult);
-      return 1;
-    }
-    let nextArgs = replaceBodyArg(args, prepareResult.cliBody);
-    nextArgs = removeFlagWithValue(nextArgs, 'collection-metadata');
-    nextArgs = removeBooleanFlag(nextArgs, 'no-auto-collection-metadata');
-    nextArgs = removeFlagWithValue(nextArgs, 'expected-outer-tabs');
-    nextArgs = removeFlagWithValue(nextArgs, 'max-popup-depth');
-    const execResult = await execNb(['api', 'flow-surfaces', subcommand, ...nextArgs], io);
-    writeText(stdout, execResult.stdout);
-    writeText(stderr, execResult.stderr);
-    if (execResult.exitCode === 0) {
-      try {
-        const responseBody = JSON.parse(execResult.stdout || '{}');
-        const pageIdentity = extractApplyBlueprintPageIdentity(
-          prepareResult.cliBody,
-          responseBody,
-          normalizeText(extractPrepareBlueprint(rawPreparePayload)?.page?.title),
-        );
-        if (pageIdentity) {
-          upsertPageIdentityRecord(pageIdentity, {
-            registryPath: sessionPaths.registryPath,
-            sessionId: sessionPaths.sessionId,
-            sessionRoot: sessionPaths.sessionRoot,
-          });
-        }
-      } catch {
-        // best-effort registry writeback only
-      }
-    }
-    return execResult.exitCode;
-  }
-
-  if (policy === 'localized_preflight') {
-    const body = await loadBodyFromArgs(args, cwd);
-    const collectionMetadata = await loadOptionalCollectionMetadataFromArgs(args, cwd);
-    const preflightResult = runLocalizedWritePreflight({
-      operation: subcommand,
-      ...buildLocalizedPreflightPayload(body, collectionMetadata),
-    });
-    if (!preflightResult.ok) {
-      writeJson(stdout, preflightResult);
-      return 1;
-    }
-    let nextArgs = replaceBodyArg(args, preflightResult.cliBody);
-    nextArgs = removeFlagWithValue(nextArgs, 'collection-metadata');
-    const execResult = await execNb(['api', 'flow-surfaces', subcommand, ...nextArgs], io);
-    writeText(stdout, execResult.stdout);
-    writeText(stderr, execResult.stderr);
-    return execResult.exitCode;
-  }
 
   const execResult = await execNb(['api', 'flow-surfaces', subcommand, ...args], io);
   writeText(stdout, execResult.stdout);
   writeText(stderr, execResult.stderr);
+  if (subcommand === 'apply-blueprint' && execResult.exitCode === 0) {
+    try {
+      const requestBody = await loadBodyFromArgs(args, cwd);
+      const blueprint = extractPrepareBlueprint(requestBody);
+      const responseBody = JSON.parse(execResult.stdout || '{}');
+      const pageIdentity = extractApplyBlueprintPageIdentity(
+        blueprint,
+        responseBody,
+        normalizeText(blueprint?.page?.title),
+      );
+      if (pageIdentity) {
+        const sessionPaths = resolveSessionPaths({
+          cwd,
+          sessionId: io.sessionId,
+          sessionRoot: io.sessionRoot,
+        });
+        upsertPageIdentityRecord(pageIdentity, {
+          registryPath: sessionPaths.registryPath,
+          sessionId: sessionPaths.sessionId,
+          sessionRoot: sessionPaths.sessionRoot,
+        });
+      }
+    } catch {
+      // best-effort registry writeback only
+    }
+  }
   return execResult.exitCode;
 }
 
@@ -402,7 +260,8 @@ export async function runFlowSurfacesWrapperCli(argv, io = {}) {
       writeText(stderr, execResult.stderr);
       return execResult.exitCode;
     }
-    return await runPreparedFlowSurfacesWrite(subcommand, args, io);
+    assertNoLegacyWriteGateFlags(args);
+    return await runFlowSurfacesCommand(subcommand, args, io);
   } catch (error) {
     writeJson(stderr, {
       ok: false,

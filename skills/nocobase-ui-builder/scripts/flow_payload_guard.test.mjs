@@ -3273,6 +3273,41 @@ test('auditPayload blocks multi-block layouts that keep filters away from the fi
   assert.equal(result.blockers.some((item) => item.code === 'MULTI_BLOCK_LAYOUT_SINGLE_COLUMN'), true);
 });
 
+test('auditPayload blocks over-wide single-row multi-block layouts', () => {
+  const payload = {
+    uid: 'grid-root',
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [['chart-1'], ['chart-2'], ['chart-3'], ['chart-4'], ['chart-5'], ['chart-6'], ['chart-7']],
+          },
+          sizes: {
+            row1: [4, 4, 4, 3, 3, 3, 3],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: Array.from({ length: 7 }, (_, index) => ({
+        uid: `chart-${index + 1}`,
+        use: 'ChartBlockModel',
+      })),
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'MULTI_BLOCK_LAYOUT_OVERWIDE_ROW'), true);
+});
+
 test('auditPayload blocks raw set-layout payloads that use one-dimensional rows', () => {
   const result = auditPayload({
     payload: {

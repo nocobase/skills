@@ -8,7 +8,7 @@ Use this for every JS / RunJS write before code is produced.
 2. Fill the scenario card below.
 3. Pick exactly one `safe` snippet from [js-surfaces/snippet-manifest.json](./js-surfaces/snippet-manifest.json) or [js-snippets/catalog.json](./js-snippets/catalog.json), using `sceneHints`, `preferredForIntents`, and `offlineSafe` to narrow first.
 4. Edit only the documented slots in that snippet.
-5. Run validator / preflight and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md). Retry at most 3 rounds.
+5. Run the JS validator and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md). Retry at most 3 rounds.
 
 ## Scenario Card
 

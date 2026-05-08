@@ -2,7 +2,7 @@
 
 Read this file first when you already know you are creating a block / field / action / record action, and the user also requires frequent public attributes such as title, label, required, or button style. The goal is to inline public semantic `settings` directly into `add*`, rather than creating an empty node first and then mechanically adding a separate `configure`. Whether `catalog` is mandatory is governed by [normative-contract.md](./normative-contract.md).
 
-Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below use the raw business object that the wrapper eventually sends. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
+Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below use the raw business object passed through `--body` / `--body-file`. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
 
 ## Contents
 
@@ -49,7 +49,7 @@ Use `set-layout` when the target grid already exists and the user explicitly acc
 
 Core rules:
 
-- Preferred agent entry is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-layout`.
+- Preferred agent entry is `nb api flow-surfaces set-layout`.
 - Low-level `set-layout` is **not** the public page/popup/fields layout contract. Do not reuse `{ rows: [[{ key, span }]] }` here.
 - `target.uid` must be the live grid uid from readback, not a page/popup block `key`.
 - `rows` is `Record<string, string[][]>`: each row value is an array of column cells, and each cell is an array of stacked live child `uid`s.
@@ -57,7 +57,7 @@ Core rules:
 - `rowOrder` is optional; if provided, it must list every `rows` key exactly once.
 - `[[details-uid], [roles-table-uid]]` with `[12, 12]` means one row with two columns.
 - `[[details-uid, roles-table-uid]]` with `[24]` means one column with two vertically stacked blocks.
-- Before the real write, pass the raw `set-layout` body through the local preflight/guard when available so one-dimensional `rows`, nested `sizes`, row/size count mismatches, and `rowOrder` mismatches fail locally instead of surfacing as a misleading runtime layout.
+- Before persistence, backend service-level layout validation (`contractGuard.validateLayout`) rejects one-dimensional `rows`, nested `sizes`, row/size count mismatches, and `rowOrder` mismatches; `set-layout` is not part of the aggregate authoring validation entrypoints.
 - Keep [tool-shapes.md](./tool-shapes.md) as the canonical full transport example. This section keeps only the minimum mental model and anti-examples.
 
 Minimal same-row two-column example:
@@ -100,7 +100,7 @@ Use `set-event-flows` when the target already exists and the user explicitly acc
 
 Core rules:
 
-- Preferred agent entry is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs set-event-flows`.
+- Preferred agent entry is `nb api flow-surfaces set-event-flows`.
 - Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
 - For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.
@@ -254,7 +254,7 @@ Create `createForm` and give it a title directly:
 }
 ```
 
-When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban`, keep a non-empty `defaultFilter` at the top level of that block-create envelope. Prefer 3 to 4 common business fields when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate instead. Do not move it into `settings.defaultFilter`; template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
+When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban`, provide an explicit effective `defaultFilter`; backend authoring reports a missing filter through aggregate `errors[]` instead of choosing fields. Keep block-level `defaultFilter` top-level on the block-create envelope, not in `settings.defaultFilter`, and make it concrete and metadata-valid. Relation filters must use a child path such as `department.title`, not the relation field itself. Template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
 
 When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block. Hidden quick-create / event popups live under `settings.quickCreatePopup` and `settings.eventPopup`.
 
@@ -295,7 +295,7 @@ Do not copy `displayTitle` into block families whose runtime configureOptions do
 Height settings:
 
 - If you set a numeric `height`, pair it with `heightMode: "specifyValue"` so the frontend uses the value.
-- The local prepare-write and localized preflight helpers auto-add `heightMode: "specifyValue"` when `height` is present and `heightMode` is omitted.
+- Backend authoring normalizes compatible height settings; local helpers are optional planning aids only.
 - Do not override explicit `heightMode: "defaultHeight"` or `"fullHeight"` just because a stale payload also contains `height`.
 
 Calendar reminders:
@@ -303,13 +303,13 @@ Calendar reminders:
 - `settings.startField` and `settings.endField` must bind date-capable non-association fields.
 - `settings.titleField` and `settings.colorField` must bind existing non-association display fields.
 - Public main calendar blocks do not accept `fields`, `fieldGroups`, or `recordActions`; event forms/details belong in the quick-create and event-view popup hosts.
-- Whole-page `create` prepare-write auto-adds missing direct non-template calendar hidden popup settings as `{ tryTemplate: true }`. Keep helper-only popup materialization, metadata discovery, defaults completeness, and strict binding validation in [helper-contracts.md](./helper-contracts.md).
+- Backend authoring may materialize missing direct non-template calendar hidden popup settings as `{ tryTemplate: true }`. [helper-contracts.md](./helper-contracts.md) keeps only deprecated local-helper compatibility notes.
 
 Kanban reminders:
 
 - Public main kanban blocks may use `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`.
 - Quick-create content belongs in `settings.quickCreatePopup`; card click/view content belongs in `settings.cardPopup`.
-- Whole-page `create` prepare-write auto-adds missing direct non-template kanban hidden popup settings as `{ tryTemplate: true }`, defaults missing `quickCreateEnabled` / `enableCardClick` to `true`, and preserves explicit overrides. Keep helper-only metadata/defaults behavior and explicit `groupField` validation in [helper-contracts.md](./helper-contracts.md).
+- Backend authoring may materialize missing direct non-template kanban hidden popup settings as `{ tryTemplate: true }`, default missing `quickCreateEnabled` / `enableCardClick` to `true`, and preserve explicit overrides. [helper-contracts.md](./helper-contracts.md) keeps only deprecated local-helper compatibility notes.
 
 ### `add-field`
 

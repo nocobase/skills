@@ -8,6 +8,9 @@ import { maskJavaScriptSource } from '../src/source-mask.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const repoRoot = path.resolve(skillRoot, '..', '..');
+const backendWritePattern = /nb api flow-surfaces/i;
+const forbiddenWriteGatePattern =
+  /mandatory local prepare-write|prepare-write is mandatory|result\.cliBody|cliBody only|local preflight|nb-flow-surfaces\.mjs apply-blueprint|flow-surfaces behind the wrapper|wrapper is the public entry|wrapper raw body/i;
 
 function read(relativePath) {
   return readFileSync(path.join(skillRoot, relativePath), 'utf8');
@@ -15,6 +18,16 @@ function read(relativePath) {
 
 function assertFileDoesNotContain(relativePath, pattern, message) {
   assert.doesNotMatch(read(relativePath), pattern, message || `${relativePath} should not contain ${pattern}`);
+}
+
+function assertBackendFirstWriteContract(relativePath) {
+  const text = read(relativePath);
+  assert.match(text, backendWritePattern, `${relativePath} should document direct nb api flow-surfaces writes`);
+  assert.doesNotMatch(
+    text,
+    forbiddenWriteGatePattern,
+    `${relativePath} should not require wrapper/preflight/cliBody write gates`,
+  );
 }
 
 function assertNavigationGroupDocsDoNotKeepOldMetadataRules(relativePath) {
@@ -292,8 +305,8 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /localized existing-surface edits[\s\S]{0,160}`nb-flow-surfaces\.mjs`[\s\S]{0,160}(?:`compose`|`configure`|`add-\*`)[\s\S]{0,160}\[local-edit-quick\.md\]/i,
-    'SKILL.md should route localized edits through nb-flow-surfaces.mjs wrapper subcommands and local-edit-quick.md',
+    /localized existing-surface edits[\s\S]{0,160}(?:`compose`|`configure`|`add-\*|backend actions|nb api flow-surfaces)[\s\S]{0,160}\[local-edit-quick\.md\]/i,
+    'SKILL.md should route localized edits through backend actions and local-edit-quick.md',
   );
   assert.match(
     text,
@@ -337,8 +350,8 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /Do not open \[tool-shapes\.md\][\s\S]{0,40}or \[helper-contracts\.md\][\s\S]{0,220}(real (?:CLI|nb) body|prewrite gate|prepared write body)/i,
-    'SKILL.md should keep tool-shapes and helper-contracts behind the real-write stage',
+    /Do not open \[tool-shapes\.md\][\s\S]{0,120}preparing a real nb body/i,
+    'SKILL.md should keep tool-shapes behind the real-write stage',
   );
   assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md intent-first rule should not absorb popup.tryTemplate details');
   assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md intent-first rule should not absorb popup.saveAsTemplate details');
@@ -439,7 +452,7 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}prepare-write[\s\S]{0,80}(?:allowed|ok)/i,
+    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}(?:allowed|ok)/i,
     `${sourceLabel} should allow read-only prep work before the first mutating write`,
   );
   assert.match(
@@ -449,8 +462,8 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
-    `${sourceLabel} should repair the blueprint, rerun prepare-write, and retry up to 5 rounds on pre-success applyBlueprint failure`,
+    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,160}(?:aggregate `?errors\[\]`?|backend aggregate errors|errors\[\])[\s\S]{0,160}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,160}(?:aggregate `?errors\[\]`?|backend aggregate errors|errors\[\])[\s\S]{0,160}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
+    `${sourceLabel} should repair the blueprint from backend aggregate errors and retry up to 5 rounds on pre-success applyBlueprint failure`,
   );
   assert.match(
     text,
@@ -472,8 +485,8 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
 function assertOpenAIGuardrails(text) {
   assert.match(
     text,
-    /localized edits[\s\S]{0,80}(?:flow-surfaces wrapper|wrapper|nb-flow-surfaces)/i,
-    'openai prompt should keep localized wrapper routing visible',
+    /localized edits[\s\S]{0,80}(?:direct backend actions|nb api flow-surfaces|backend actions)/i,
+    'openai prompt should keep direct backend routing visible for localized edits',
   );
   assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
   assert.match(
@@ -504,7 +517,7 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /(?:exactly )?one `?editForm`?|1 `?editForm`?/i, 'openai prompt should keep one-editForm guidance');
   assert.match(
     text,
-    /repeat-eligible[\s\S]{0,80}(?:must|mandatory)[\s\S]{0,80}contextual `?list-templates`?/i,
+    /repeat-eligible[\s\S]{0,80}(?:(?:must|mandatory)[\s\S]{0,80})?contextual `?list-templates`?/i,
     'openai prompt should require contextual template probing for repeat-eligible scenes',
   );
   assert.match(text, /keyword-only search[\s\S]{0,40}discovery-only/i, 'openai prompt should keep keyword-only guardrail');
@@ -513,9 +526,9 @@ function assertOpenAIGuardrails(text) {
     /backend order|first compatible row|first result|first returned row/i,
     'openai prompt should keep backend-order tie-break guidance',
   );
-  assert.match(text, /popup\.tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
-  assert.match(text, /popup\.saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
-  assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
+  assert.match(text, /popup\.tryTemplate|tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
+  assert.match(text, /popup\.saveAsTemplate|saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
+  assert.match(text, /openView\.tryTemplate|apply .*popup|tryTemplate/i, 'openai prompt should mention existing-opener tryTemplate guidance');
   assert.match(
     text,
     /navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,80}(?:semantic )?Ant ?Design `?icon`?|semantic Ant ?Design `?icon`?/i,
@@ -523,12 +536,12 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /multi[- ]non[- ]filter[\s\S]{0,120}explicit keyed `?layout`?|explicit keyed `?layout`?[\s\S]{0,120}multi[- ]non[- ]filter/i,
+    /multi[- ]non[- ]filter[\s\S]{0,120}(?:explicit )?keyed `?layout`?|(?:explicit )?keyed `?layout`?[\s\S]{0,120}multi[- ]non[- ]filter/i,
     'openai prompt should require explicit keyed layout for multi-block tab or popup scopes',
   );
   assert.match(
     text,
-    /filter[\s\S]{0,80}row 1|filter alone in row 1|filter blocks? should sit alone/i,
+    /filter[\s\S]{0,80}row ?1|filter alone in row 1|filter blocks? should sit alone/i,
     'openai prompt should keep the filter-first-row guardrail visible',
   );
   assert.match(
@@ -575,7 +588,7 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /reads\/metadata\/prepare-write ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
+    /reads\/metadata ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}ok/i,
     'openai prompt should allow read-only prep before the first mutating write',
   );
   assert.match(
@@ -585,8 +598,8 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /fail->repair\+prepare-write\+retry<=5/i,
-    'openai prompt should repair, rerun prepare-write, and retry up to 5 rounds on applyBlueprint failure',
+    /fail->repair aggregate errors\+retry<=5/i,
+    'openai prompt should repair aggregate errors and retry up to 5 rounds on applyBlueprint failure',
   );
   assert.match(
     text,
@@ -679,40 +692,38 @@ test('upstream js snapshot relative links stay valid', () => {
 
 test('docs keep canonical nb boundaries', () => {
   const skill = read('SKILL.md');
-  assert.match(skill, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(skill, /Internal backend transport contract remains `?flow-surfaces`?/);
-  assert.match(skill, /nb-flow-surfaces\.mjs apply-blueprint/);
-  assert.match(skill, /nb-flow-surfaces\.mjs get-reaction-meta/);
-  assert.match(skill, /prepare-write/i);
+  assertBackendFirstWriteContract('SKILL.md');
+  assert.match(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
+  assert.match(skill, /backend `flow-surfaces` is the authoring compiler/i);
+  assert.match(skill, /aggregate `?errors\[\]`?/i);
   assert.doesNotMatch(skill, /nocobase-ctl|MCP fallback|flow_surfaces_|requestBody|collections:get/i);
 
+  assertBackendFirstWriteContract('references/page-blueprint.md');
   const pageBlueprint = read('references/page-blueprint.md');
-  assert.match(pageBlueprint, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
-  assert.match(pageBlueprint, /wrapper raw body/i);
-  assert.match(pageBlueprint, /Do not wrap that object again/i);
+  assert.match(pageBlueprint, /Agent-facing write path is `nb api flow-surfaces apply-blueprint`/);
+  assert.match(pageBlueprint, /Do not wrap that object/i);
 
+  assertBackendFirstWriteContract('references/normative-contract.md');
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /Agent-facing front door: `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(normativeContract, /Backend transport contract: flow-surfaces behind the wrapper/);
-  assert.match(normativeContract, /wrapper `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
+  assert.match(normativeContract, /Agent-facing write path: `nb api flow-surfaces <action>`/);
+  assert.match(normativeContract, /flow-surfaces is the authoring compiler/i);
 
   const templates = read('references/templates.md');
-  assert.match(templates, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
   assert.match(templates, /raw business object/i);
 
   const reaction = read('references/reaction.md');
-  assert.match(reaction, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(reaction, /nb-flow-surfaces\.mjs apply-blueprint/);
-  assert.match(reaction, /nb-flow-surfaces\.mjs get-reaction-meta/);
+  assert.match(reaction, /raw business object|backend/i);
+  assert.match(reaction, /apply-blueprint/i);
+  assert.match(reaction, /get-reaction-meta/i);
 
   const settings = read('references/settings.md');
-  assert.match(settings, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(settings, /nb-flow-surfaces\.mjs set-layout/);
-  assert.match(settings, /nb-flow-surfaces\.mjs set-event-flows/);
+  assert.match(settings, /set-layout/);
+  assert.match(settings, /set-event-flows/);
 
+  assertBackendFirstWriteContract('references/tool-shapes.md');
   const toolShapes = read('references/tool-shapes.md');
-  assert.match(toolShapes, /Do not wrap it again/i);
-  assert.match(toolShapes, /wrapper `?get`? is the common exception: it uses top-level locator flags and no JSON body/i);
+  assert.match(toolShapes, /do not wrap that object again/i);
+  assert.match(toolShapes, /read commands such as `?get`? may use top-level locator flags and no JSON body/i);
   assert.doesNotMatch(toolShapes, /MCP fallback|requestBody|flow_surfaces_|collections:get/i);
   assert.doesNotMatch(
     toolShapes,
@@ -721,8 +732,6 @@ test('docs keep canonical nb boundaries', () => {
   );
 
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /\{\s*blueprint,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
-  assert.match(helperContracts, /prepared `?cliBody`?/i);
   assert.doesNotMatch(helperContracts, /requestBody|tool-call envelope/i);
 });
 
@@ -989,7 +998,7 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
-  assert.match(crosswalk, /set-event-flows/i, 'transport-crosswalk should expose the wrapper subcommand for set-event-flows');
+  assert.match(crosswalk, /set-event-flows/i, 'transport-crosswalk should expose the backend action for set-event-flows');
 
   const settings = read('references/settings.md');
   assert.match(settings, /Event-flow Replacement/i, 'settings.md should document event-flow replacement explicitly');
@@ -1100,8 +1109,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /Front door: `nb-flow-surfaces\.mjs`/);
-  assert.doesNotMatch(defaultPrompt, /nb api flow-surfaces/i);
+  assert.match(defaultPrompt, /Front door: `nb api flow-surfaces`/);
   assert.match(defaultPrompt, /Intent-first/i);
   assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
@@ -1111,9 +1119,17 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.ok(defaultPrompt.length <= 1300, 'openai default_prompt should stay at or below 1300 chars');
 });
 
-test('data-surface docs require block-level defaultFilter while keeping filter action routing visible', () => {
-  const blockDefaultFilterRequiredPattern =
-    /(?:table|list|gridCard|calendar|kanban)[\s\S]{0,260}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard|calendar|kanban)[\s\S]{0,260}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,260}(?:table|list|gridCard|calendar|kanban)/i;
+test('data-surface docs require UI Builder supplied defaultFilter while keeping filter action routing visible', () => {
+  const dataSurfacesPattern =
+    /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar[\s\S]{0,100}kanban|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar[\s\S]{0,100}kanban/i;
+  const forbiddenDefaultFilterMaterializationPattern =
+    /defaultFilter[\s\S]{0,120}(?:may be omitted|may omit|omit ok|omitted)[\s\S]{0,180}(?:backend authoring|backend)[\s\S]{0,180}(?:materialize|materializes)|(?:may be omitted|may omit|omit ok|omitted)[\s\S]{0,120}defaultFilter[\s\S]{0,180}(?:backend authoring|backend)[\s\S]{0,180}(?:materialize|materializes)|(?:backend authoring|backend)[\s\S]{0,180}(?:materialize|materializes)[\s\S]{0,180}(?:omitted|may omit|may be omitted)[\s\S]{0,120}defaultFilter|defaultFilter[\s\S]{0,120}(?:省略|物化)|(?:省略|物化)[\s\S]{0,120}defaultFilter/i;
+  const requiredDefaultFilterPattern =
+    /(?:direct,?\s+)?non-template[\s\S]{0,160}(?:table|list|gridCard|calendar|kanban)[\s\S]{0,220}(?:must|required|requires?|provide|supplied|explicit effective)[\s\S]{0,160}defaultFilter|defaultFilter[\s\S]{0,160}(?:must|required|requires?|provide|supplied|explicit effective)[\s\S]{0,220}(?:table|list|gridCard|calendar|kanban)/i;
+  const missingDefaultFilterRejectedPattern =
+    /(?:missing|required)[\s\S]{0,120}defaultFilter[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected|reports?)|defaultFilter[\s\S]{0,160}(?:missing|required)[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected|reports?)/i;
+  const explicitDefaultFilterRejectedPattern =
+    /defaultFilter[\s\S]{0,160}(?:explicit|supplied|provide)[\s\S]{0,220}(?:empty|invalid|unknown)[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected)|(?:empty|invalid|unknown)[\s\S]{0,180}defaultFilter[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected)/i;
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
@@ -1126,7 +1142,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     const text = read(relativePath);
     assert.match(
       text,
-      /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar[\s\S]{0,100}kanban|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar[\s\S]{0,100}kanban/i,
+      dataSurfacesPattern,
       `${relativePath} should name table/list/gridCard/calendar/kanban data surfaces`,
     );
     assert.match(
@@ -1136,15 +1152,30 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     );
     assert.match(
       text,
-      blockDefaultFilterRequiredPattern,
-      `${relativePath} should require block-level defaultFilter for table/list/gridCard/calendar/kanban data surfaces`,
+      requiredDefaultFilterPattern,
+      `${relativePath} should require an explicit effective defaultFilter for public data surfaces`,
+    );
+    assert.match(
+      text,
+      missingDefaultFilterRejectedPattern,
+      `${relativePath} should document aggregate rejection for missing defaultFilter`,
+    );
+    assert.match(
+      text,
+      explicitDefaultFilterRejectedPattern,
+      `${relativePath} should document aggregate rejection for explicit invalid defaultFilter`,
+    );
+    assert.doesNotMatch(
+      text,
+      forbiddenDefaultFilterMaterializationPattern,
+      `${relativePath} should not claim backend defaultFilter materialization when omitted`,
     );
   }
 
   const pageBlueprint = read('references/page-blueprint.md');
   assert.match(
     pageBlueprint,
-    /block-level `?defaultFilter`?[\s\S]{0,80}(?:required|must|carry)|(?:required|must|carry)[\s\S]{0,80}block-level `?defaultFilter`?/i,
+    /effective `?defaultFilter`?[\s\S]{0,160}(?:required|must|provide)|(?:required|must|provide)[\s\S]{0,160}effective `?defaultFilter`?/i,
   );
   assert.doesNotMatch(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
   assert.doesNotMatch(
@@ -1155,7 +1186,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(
     pageBlueprint,
     /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
-    'page-blueprint canonical table example should include a non-empty block-level defaultFilter',
+    'page-blueprint explicit table example should keep a valid non-empty block-level defaultFilter',
   );
   assert.match(
     pageBlueprint,
@@ -1169,7 +1200,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     pageBlueprint,
-    /\{\}[\s\S]{0,120}`?null`?[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}rejected/i,
+    /\{\}[\s\S]{0,120}`?null`?[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}(?:aggregate|rejected)/i,
     'page-blueprint should document rejected empty defaultFilter groups',
   );
   assert.match(
@@ -1182,7 +1213,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(
     wholePageQuick,
     /"type":\s*"table"[\s\S]{0,120}"collection":\s*"support_tickets"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"subject"/,
-    'whole-page quick table example should include a non-empty block-level defaultFilter',
+    'whole-page quick explicit table example should include a valid non-empty block-level defaultFilter',
   );
 
   const toolShapes = read('references/tool-shapes.md');
@@ -1194,12 +1225,12 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(
     toolShapes,
     /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
-    'tool-shapes applyBlueprint table example should include a non-empty block-level defaultFilter',
+    'tool-shapes applyBlueprint table example should keep a valid explicit block-level defaultFilter',
   );
   assert.match(
     toolShapes,
     /"key":\s*"employeesTable"[\s\S]{0,300}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
-    'tool-shapes compose table example should include a non-empty block-level defaultFilter',
+    'tool-shapes compose table example should keep a valid explicit block-level defaultFilter',
   );
 
   const helperContracts = read('references/helper-contracts.md');
@@ -1228,12 +1259,13 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
 
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i);
-  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}defaultActionSettings[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}action-level\/defaultActionSettings `?defaultFilter`?[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
-  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,24}(?:required|must)|(?:required|must)[\s\S]{0,24}defaultFilter/i);
+  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}required|required[\s\S]{0,60}defaultFilter/i);
+  assert.match(defaultPrompt, /missing[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}errors/i);
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
 });
 
@@ -1275,8 +1307,8 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
   const kanbanBlock = read('references/blocks/kanban.md');
   assert.match(
     kanbanBlock,
-    /defaultFilter[\s\S]{0,120}filter action|filter action[\s\S]{0,120}defaultFilter/i,
-    'kanban block doc should keep defaultFilter and host-level filter action guidance together',
+    /defaultFilter[\s\S]{0,160}(?:必须|explicit|required)[\s\S]{0,220}filter`? action|filter`? action[\s\S]{0,220}defaultFilter/i,
+    'kanban block doc should keep explicit defaultFilter and host-level filter action guidance together',
   );
 
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
@@ -1356,7 +1388,7 @@ test('whole-page satellite docs do not preserve pre-success low-level fallback w
     );
     assert.match(
       text,
-      /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:repair|修正|修复)[\s\S]{0,120}prepare-write[\s\S]{0,120}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:repair|修正|修复)[\s\S]{0,120}prepare-write[\s\S]{0,120}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
+    /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:(?:repair|修正|修复)[\s\S]{0,160}(?:aggregate|errors\[\]|错误列表|聚合)|(?:aggregate|errors\[\]|错误列表|聚合)[\s\S]{0,160}(?:repair|修正|修复))[\s\S]{0,160}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:(?:repair|修正|修复)[\s\S]{0,160}(?:aggregate|errors\[\]|错误列表|聚合)|(?:aggregate|errors\[\]|错误列表|聚合)[\s\S]{0,160}(?:repair|修正|修复))[\s\S]{0,160}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
       `${relativePath} should repair and retry up to 5 rounds on pre-success applyBlueprint failure`,
     );
     assert.match(
@@ -1454,7 +1486,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
 
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(wholePageQuick, /\[page-blueprint\.md\]/i);
-  assert.match(wholePageQuick, /\[helper-contracts\.md\]/i);
+  assert.match(wholePageQuick, /\[helper-contracts\.md\][\s\S]{0,120}optional helper behavior/i);
   assert.match(wholePageQuick, /\[template-quick\.md\]/i);
   assert.match(wholePageQuick, /\.artifacts\/nocobase-ui-builder/i);
   assert.match(wholePageQuick, /blueprint\.json/i);
@@ -1481,8 +1513,8 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /helper-contracts[\s\S]{0,120}(real write|prewrite gate)/i,
-    'whole-page-quick should keep helper-contracts behind real-write or prewrite-gate needs',
+    /For artifact-only drafts[\s\S]{0,180}do not open \[helper-contracts\.md\]/i,
+    'whole-page-quick should keep helper-contracts out of artifact-only drafting',
   );
   assert.match(
     wholePageQuick,
@@ -1506,7 +1538,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
+    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}(?:aggregate `?errors\[\]`?|backend aggregate)[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
     'whole-page-quick should keep the first-write and post-success repair policy visible',
   );
   assert.match(
@@ -1715,48 +1747,38 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(templateQuick, /"hostOpenViewConfigRoute"/i);
 
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /real write|prewrite-validation/i);
-  assert.match(helperContracts, /common-case drafting|not the default first stop/i);
-  assert.match(helperContracts, /prepare-write/i);
+  assert.match(helperContracts, /optional local helpers[\s\S]{0,120}do not define the write path/i);
+  assert.match(helperContracts, /common-case drafting|do not open runtime source files/i);
   assert.match(helperContracts, /nb-runjs/i);
-  assert.match(helperContracts, /nb-localized-write-preflight/i);
-  assert.match(helperContracts, /does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
+  assert.match(helperContracts, /Deprecated local write gates|Legacy PrepareWrite/i);
+  assert.match(helperContracts, /optional local helpers|do not define the write path|does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
+  assert.doesNotMatch(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
 
+  assertBackendFirstWriteContract('references/cli-transport.md');
   const cliTransport = read('references/cli-transport.md');
-  assert.match(cliTransport, /nb-flow-surfaces\.mjs/i);
-  assert.match(cliTransport, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
-  assert.match(cliTransport, /do not probe bare PATH commands first/i);
-  assert.match(cliTransport, /blocked wrapper command state/i);
-  assert.match(cliTransport, /exact `?nb-flow-surfaces\.mjs <subcommand>`? wrapper command\/output/i);
-  assert.doesNotMatch(cliTransport, /blocked nb command state|chosen nb path|exact `?nb api \.\.\.`? command\/output/i);
+  assert.match(cliTransport, /nb api flow-surfaces <action>|node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+  assert.match(cliTransport, /Check whether `?nb`? is available|do not probe bare PATH commands first/i);
+  assert.match(cliTransport, /blocked command state|blocked nb command state/i);
+  assert.match(cliTransport, /exact `?nb api flow-surfaces <action>`? command\/output/i);
 
-  const executionChecklistLocalCli = read('references/execution-checklist.md');
-  assert.match(executionChecklistLocalCli, /nb-flow-surfaces\.mjs apply-blueprint/i);
+  assertBackendFirstWriteContract('references/execution-checklist.md');
 
+  assertBackendFirstWriteContract('references/cli-command-surface.md');
   const cliCommandSurface = read('references/cli-command-surface.md');
-  assert.match(cliCommandSurface, /nb-flow-surfaces\.mjs/i);
-  assert.match(cliCommandSurface, /internal `?prepare-write`?/i);
-  assert.match(cliCommandSurface, /unresolved `?nb-flow-surfaces\.mjs <subcommand>`? wrapper command/i);
-  assert.doesNotMatch(cliCommandSurface, /unresolved `?nb api \.\.\.`? command/i);
+  assert.match(cliCommandSurface, /unresolved `?nb api flow-surfaces <action>`? command/i);
 
+  assertBackendFirstWriteContract('references/page-intent.md');
   const pageIntent = read('references/page-intent.md');
-  assert.match(pageIntent, /nb-flow-surfaces\.mjs apply-blueprint/i);
+  assert.match(pageIntent, /nb api flow-surfaces apply-blueprint/i);
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+  assert.match(normativeContract, /nb-runjs|nb-template-decision/i);
 
   for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
     const text = read(relativePath);
     assert.doesNotMatch(text, /nb-page-preview/i, `${relativePath} should not expose nb-page-preview`);
-    assert.doesNotMatch(
-      text,
-      /\bnb\s+api\s+flow-surfaces\b/i,
-      `${relativePath} should not expose raw nb api flow-surfaces; use nb-flow-surfaces.mjs`,
-    );
     assert.doesNotMatch(
       text,
       /prepareApplyBlueprintRequest/i,
@@ -1778,9 +1800,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
 
   const localEditQuickHelper = read('references/local-edit-quick.md');
-  assert.match(localEditQuickHelper, /nb-localized-write-preflight/i);
-  assert.match(localEditQuickHelper, /runLocalizedWritePreflight/i);
-  assert.match(localEditQuickHelper, /does not wrap or execute the nb transport|wrapper\/backend write/i);
+  assert.match(localEditQuickHelper, /nb api flow-surfaces|backend/i);
 
 });
 
@@ -2250,55 +2270,69 @@ test('whole-page defaults docs keep the fixed popup trio and table addNew thresh
   );
 });
 
-test('helper contracts document prepare-write collectionMetadata auto-resolution', () => {
-  const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /auto-resolves missing `?collectionMetadata`? entries/i);
-  assert.match(helperContracts, /data-modeling collections get/i);
-  assert.match(helperContracts, /resource list/i);
-  assert.match(helperContracts, /--no-auto-collection-metadata/i);
-  assert.match(helperContracts, /collectionMetadata/i);
-  assert.match(helperContracts, /data-bound block/i);
-  assert.match(helperContracts, /missing-collection-metadata/i);
-  assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
-  assert.match(helperContracts, /caller-supplied[\s\S]{0,80}wins/i);
-  assert.match(helperContracts, /wrapper path auto-resolves missing `?collectionMetadata`? entries/i);
-  assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
+test('docs keep backend-first collection metadata and validation boundary', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/normative-contract.md',
+    'references/page-intent.md',
+    'references/whole-page-quick.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(text, /live (?:collection )?metadata/i, `${relativePath} should keep live metadata planning visible`);
+    assert.match(text, /backend[\s\S]{0,120}(?:aggregate|validation|authoring)/i, `${relativePath} should route final validation to backend authoring`);
+    assert.doesNotMatch(text, /--no-auto-collection-metadata|missing-collection-metadata|result\.cliBody/i);
+  }
 });
 
-test('localized preflight docs keep explicit helper-vs-transport boundary', () => {
+test('localized write docs keep backend validation boundary', () => {
   const skill = read('SKILL.md');
-  assert.match(skill, /explicit local validator/i);
-  assert.match(skill, /wrapper `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
-  assert.match(skill, /backend runtime remains compatibility-tolerant|compatibility-tolerant/i);
+  assert.match(skill, /send it directly to `nb api flow-surfaces <action>`/i);
+  assert.match(skill, /backend authoring pipeline performs compatibility normalization and hard validation/i);
 
-  const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /local\/read-only/i);
-  assert.match(helperContracts, /does not execute `?nb`?/i);
-  assert.match(helperContracts, /does not wrap the transport by itself|does not wrap the transport/i);
-  assert.match(helperContracts, /later explicit wrapper call|later wrapper write/i);
+  const cliCommandSurface = read('references/cli-command-surface.md');
+  assert.match(cliCommandSurface, /raw business object/i);
+  assert.match(cliCommandSurface, /backend aggregate `?errors\[\]`?/i);
 
   const localEditQuick = read('references/local-edit-quick.md');
-  assert.match(localEditQuick, /later wrapper\/backend write|through `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
-  assert.match(localEditQuick, /does not wrap or execute the nb transport/i);
+  assert.match(localEditQuick, /backend|nb api flow-surfaces/i);
+  assert.doesNotMatch(localEditQuick, /result\.cliBody|nb-localized-write-preflight|local preflight/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /local preflight/i);
-  assert.match(defaultPrompt, /cliBody only/i);
+  assert.match(defaultPrompt, /backend aggregate validation|aggregate errors/i);
+  assert.match(defaultPrompt, /raw payload only/i);
 });
 
-test('prepare-write helper-envelope docs explain collectionMetadata requirements', () => {
+test('docs keep migrated write ergonomics backend-owned', () => {
+  const skill = read('SKILL.md');
+  assert.match(skill, /single-scope[\s\S]{0,80}data-block title[\s\S]{0,120}backend authoring[\s\S]{0,80}strips/i);
+
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /backend authoring[\s\S]{0,120}strips[\s\S]{0,160}single-scope[\s\S]{0,160}data blocks/i);
+  assert.match(helperContracts, /backend authoring[\s\S]{0,160}fieldGroups[\s\S]{0,160}large generated popups/i);
+  assert.match(helperContracts, /chart relation field paths[\s\S]{0,120}backend aggregate validation/i);
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(wholePageQuick, /backend authoring[\s\S]{0,120}strips[\s\S]{0,120}single-scope[\s\S]{0,120}data blocks/i);
+
+  for (const relativePath of ['SKILL.md', ...walkMarkdownFiles('references')]) {
+    const text = read(relativePath);
+    assert.doesNotMatch(
+      text,
+      /--collection-metadata|--expected-outer-tabs|--max-popup-depth|--no-auto-collection-metadata/i,
+      `${relativePath} should not document legacy helper-only wrapper flags`,
+    );
+  }
+});
+
+test('optional helper docs do not define write gates', () => {
   for (const relativePath of [
     'references/helper-contracts.md',
     'references/template-decision-summary.md',
   ]) {
     const text = read(relativePath);
-    assert.match(text, /blueprint/i, `${relativePath} should keep the helper envelope blueprint payload`);
     assert.doesNotMatch(text, /requestBody/i, `${relativePath} should not keep the old helper payload name`);
-    assert.match(text, /templateDecision/i, `${relativePath} should keep templateDecision in the helper envelope`);
-    assert.match(text, /collectionMetadata/i, `${relativePath} should document collectionMetadata in the helper envelope`);
-    assert.match(text, /data-bound/i, `${relativePath} should explain when collectionMetadata is required`);
-    assert.match(text, /missing-collection-metadata/i, `${relativePath} should name the hard-fail rule`);
+    assert.doesNotMatch(text, /mandatory local prepare-write|result\.cliBody|cliBody only/i);
   }
 });
 

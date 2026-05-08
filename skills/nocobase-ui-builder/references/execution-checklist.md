@@ -1,6 +1,6 @@
 # Execution Checklist
 
-Canonical front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. When runtime/auth is missing, report the blocked wrapper command before writing.
+Canonical write path is `nb api flow-surfaces <action>`. When runtime/auth is missing, report the blocked nb command before writing.
 
 Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
 
@@ -9,8 +9,8 @@ Use this checklist after the matching quick route is already clear. For global r
 - Confirm the task is really about Modern page (v2) UI.
 - Confirm `nb` is available, then run:
   - `nb --help`
-- If runtime/auth is missing, report the blocked wrapper command before writing.
-- Before first use of a specific subcommand, run `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help`.
+- If runtime/auth is missing, report the blocked nb command before writing.
+- Before first use of a specific action, run `nb api flow-surfaces <action> --help` when available.
 - Decide the route early:
   - whole-page create / replace
   - localized existing-surface edit
@@ -22,8 +22,8 @@ Use this checklist after the matching quick route is already clear. For global r
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
-  - body-based wrapper commands take the raw business object through `--body` / `--body-file`
-  - never wrap that same object again before passing it to `nb-flow-surfaces.mjs`
+  - body-based `flow-surfaces` commands take the raw business object through `--body` / `--body-file`
+  - never wrap that same object again before passing it to `nb api flow-surfaces`
 - Never invent `"root"` for `target.uid` or `locator.uid`.
 
 ## 2. Template Decision Gate
@@ -44,12 +44,12 @@ Use this checklist after the matching quick route is already clear. For global r
 
 Use this path when the user is describing one entire page.
 
-1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md) and [page-blueprint.md](./page-blueprint.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real nb body or nb helper envelope.
+1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md) and [page-blueprint.md](./page-blueprint.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real nb body.
 2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch. Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
-6. Before the first write, confirm the draft can satisfy the wrapper's internal prepare-write gate:
+6. Before the first write, confirm the draft can satisfy backend authoring validation:
    - in `create`, every newly created `navigation.group` / `navigation.item` carries a semantic Ant Design icon
    - tabs count matches the request
    - every `tab.blocks` is non-empty
@@ -61,15 +61,15 @@ Use this path when the user is describing one entire page.
    - any requested `table` / `list` / `gridCard` / `calendar` / `kanban` filtering/search action lands on the intended host instead of silently turning into `filterForm`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
-      - data-bound blocks have resolved `collectionMetadata`; the wrapper auto-fills missing collection entries by default, while `--no-auto-collection-metadata` keeps the `missing-collection-metadata` fail-closed path
-   - with resolved `collectionMetadata`, prepare-write validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
-7. Pre-write reads, metadata fetch, and `prepare-write` are allowed, but the first mutating write in this route must be `applyBlueprint` through `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint`.
+      - data-bound blocks are planned against current live metadata
+   - backend validates the involved `defaults.collections` entries, popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and large-popup `fieldGroups` when any fixed scene stays above the threshold; `table` blocks always pull their collection into the `addNew` check
+7. Pre-write reads and metadata fetch are allowed, but the first mutating write in this route must be `applyBlueprint` through `nb api flow-surfaces apply-blueprint`.
 8. Before one whole-page `applyBlueprint` succeeds, do not issue `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
-9. In execution, invoke the wrapper once; it runs internal `prepare-write` first, then sends `result.cliBody` as the backend raw JSON body.
-10. If you persist the prepared payload to a file for the final nb write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
-11. If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the error, rerun `prepare-write`, and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest prepared payload / error evidence.
-12. Do not wrap that prepared business object again.
-13. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for wrapper `get` and targeted readback from [verification.md](./verification.md).
+9. In execution, invoke `nb api flow-surfaces apply-blueprint` once with the raw business payload.
+10. If you persist the payload to a file for the final nb write, persist the raw backend payload itself.
+11. If a whole-page `applyBlueprint` fails before first success, repair the blueprint from backend aggregate `errors[]` and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest payload / error evidence.
+12. Do not wrap that business object again.
+13. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nb api flow-surfaces get` and targeted readback from [verification.md](./verification.md).
 
 ## 4. Localized Existing-surface Edit
 

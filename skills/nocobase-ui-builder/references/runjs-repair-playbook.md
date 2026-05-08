@@ -1,6 +1,6 @@
 # RunJS Repair Playbook
 
-Use this after `runjs_guard`, `flow_payload_guard`, or `preflight_write_gate` reports a RunJS finding with `details.repairClass`.
+Use this after the JS validator or backend aggregate validation reports a RunJS finding with `details.repairClass`.
 
 ## Repair Classes
 

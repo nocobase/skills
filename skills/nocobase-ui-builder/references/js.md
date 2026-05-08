@@ -34,7 +34,7 @@ Every JS request follows the same five-step loop:
 2. Fill the scenario card in [runjs-authoring-loop.md](./runjs-authoring-loop.md), including `recordSemantic` and `contextEvidence` before choosing any record path.
 3. Select one `safe` snippet from [js-snippets/catalog.json](./js-snippets/catalog.json).
 4. Edit only the snippet's editable slots.
-5. Run validator / preflight and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md), with at most 3 retry rounds.
+5. Run the JS validator and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md), with at most 3 retry rounds. This validates JS source only; it does not replace the direct `nb api flow-surfaces` write.
 
 If target field, read source, surface, host model, or required form context is unknown, stop and inspect metadata before writing code.
 
@@ -112,7 +112,7 @@ If the live environment does not make it clear which JS action model applies, st
 ## Code Style and Context
 
 - Output readable multiline JS by default, using 2-space indentation consistently. In JSON payloads, preserve those line breaks inside `code` strings with `\n`; do not flatten multi-statement RunJS into one line for transport convenience.
-- Keep only a single short return or expression on one line. Any code with local variables, conditional branches, fallback handling, string assembly, `await`, `ctx.render(...)`, or more than one statement must be multiline before validator/preflight and before the nb write.
+- Keep only a single short return or expression on one line. Any code with local variables, conditional branches, fallback handling, string assembly, `await`, `ctx.render(...)`, or more than one statement must be multiline before JS validation and before the nb write.
 - For complex template strings, conditional branches, or string assembly, split them into local variables first and then pass them into `ctx.render(...)`.
 - For render-style JS model code, prefer React JSX composed from `ctx.libs.antd` and `ctx.libs.antdIcons`. Use `Typography`, `Tag`, `Space`, `List`, `Card`, `Alert`, `Empty`, `Statistic`, `Table`, or similar built-in components before writing raw HTML strings or custom CSS.
 - If an external component library is necessary, keep surrounding states such as loading, error, empty, actions, and labels in Ant Design where practical, and document why built-in Ant Design components are not enough.

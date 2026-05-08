@@ -9,7 +9,6 @@
   },
   "bin": {
     "nb-runjs": "./bin/nb-runjs.mjs",
-    "nb-localized-write-preflight": "./bin/nb-localized-write-preflight.mjs",
     "nb-template-decision": "./bin/nb-template-decision.mjs"
   },
   "scripts": {

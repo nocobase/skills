@@ -4,7 +4,7 @@ Read this file when template routing is already confirmed: reusable popup / bloc
 
 Start with [template-quick.md](./template-quick.md) when you are still deciding whether template routing is in scope. Come here once that route is clear.
 
-Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. JSON examples below use the raw business object that the wrapper eventually sends. Do not wrap that object again. For body details see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
+Agent-facing front door is `nb api flow-surfaces <action>`. JSON examples below use the raw business object passed through `--body` / `--body-file`. Do not wrap that object again. For body details see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
 
 This file is the single normative source for template selection and localized existing-reference edit routing. If another doc starts restating the template rules, shorten the other doc and point back here.
 
@@ -94,7 +94,7 @@ Rules that never change:
 - `popup.saveAsTemplate` cannot be combined with `popup.template`.
 - `popup.saveAsTemplate` may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved as a template.
 - For repeated popup scenes with no usable template yet, prefer `popup.saveAsTemplate={ name, description }` on the first explicit local popup instead of delaying template creation to a second step.
-- In this skill's whole-page prepare-write flow, explicit local inline popups with `popup.blocks` may auto-receive generated `popup.saveAsTemplate={ name, description }`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
+- Backend authoring may auto-receive generated `popup.saveAsTemplate={ name, description }` for explicit local inline popups with `popup.blocks`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
 
 ## Auto-generated Name and Description
 
@@ -105,7 +105,7 @@ When the skill auto-creates a template:
 - `description` should include reusable scene, collection/resource/association context, and key popup content / trigger clues that help later contextual search
 - for popup seeds, include opener/resource or relation context so later contextual search can rank it higher
 - avoid timestamps or hashes unless a real name collision forces them
-- for whole-page prepare-write auto-generated popup seeds, derive `name` / `description` from the popup title or trigger first, then host block + popup local blocks as fallback context
+- for whole-page backend-generated popup seeds, derive `name` / `description` from the popup title or trigger first, then host block + popup local blocks as fallback context
 
 ## Read or Refine Template Metadata
 

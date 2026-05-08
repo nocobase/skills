@@ -5881,6 +5881,39 @@ test('prepareApplyBlueprintRequest rejects explicit single-column multi-block la
   assert.ok(result.errors.some((issue) => issue.ruleId === 'single-column-multi-block-layout'));
 });
 
+test('prepareApplyBlueprintRequest rejects over-wide single-row multi-block layouts', () => {
+  const blocks = Array.from({ length: 7 }, (_, index) => ({
+    key: `chart${index + 1}`,
+    type: 'chart',
+    title: `Chart ${index + 1}`,
+    chart: 'statusChart',
+  }));
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      item: { title: 'Dashboard', icon: 'DashboardOutlined' },
+    },
+    assets: {
+      charts: {
+        statusChart: buildChartAsset(),
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [blocks.map((block) => block.key)],
+        },
+        blocks,
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'overwide-single-row-multi-block-layout'));
+});
+
 test('prepareApplyBlueprintRequest preserves titles when multiple data blocks share one scope', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',

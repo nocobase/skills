@@ -3687,53 +3687,32 @@ test('runLocalizedWritePreflight normalizes hidden popup descendant heightMode f
   });
 });
 
-test('nb-localized-write-preflight CLI returns stable localized shape for missing and empty defaultFilter failures', () => {
-  const invalidCases = [
-    {
-      payload: {
-        body: makeDirectLocalizedBody('add-block', {
-          type: 'table',
-          collectionName: 'users',
-        }),
-        collectionMetadata: makeMetadata(),
-      },
-      ruleId: 'public-data-surface-default-filter-required',
-    },
-    {
-      payload: {
-        body: makeDirectLocalizedBody('add-block', {
-          type: 'table',
-          collectionName: 'users',
-          defaultFilter: {},
-        }),
-        collectionMetadata: makeMetadata(),
-      },
-      ruleId: 'public-data-surface-default-filter-empty',
-    },
-  ];
+test('nb-localized-write-preflight CLI is retired as a local write gate', () => {
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    '--operation',
+    'add-block',
+    '--stdin-json',
+  ], {
+    input: JSON.stringify({
+      body: makeDirectLocalizedBody('add-block', {
+        type: 'table',
+        collectionName: 'users',
+      }),
+      collectionMetadata: makeMetadata(),
+    }),
+    encoding: 'utf8',
+  });
 
-  for (const item of invalidCases) {
-    const result = spawnSync(process.execPath, [
-      cliPath,
-      '--operation',
-      'add-block',
-      '--stdin-json',
-    ], {
-      input: JSON.stringify(item.payload),
-      encoding: 'utf8',
-    });
-
-    assert.equal(result.status, 1);
-    const parsed = JSON.parse(result.stdout);
-    assert.equal(parsed.ok, false);
-    assert.equal(Array.isArray(parsed.errors), true);
-    assert.equal(Array.isArray(parsed.warnings), true);
-    assert.equal(typeof parsed.facts?.operation, 'string');
-    assertHasRule(parsed, item.ruleId);
-  }
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, '');
+  const parsed = JSON.parse(result.stderr);
+  assert.equal(parsed.ok, false);
+  assert.match(parsed.error, /retired/i);
+  assert.match(parsed.error, /nb api flow-surfaces <action>/i);
 });
 
-test('nb-localized-write-preflight CLI help keeps validator-only contract explicit', () => {
+test('nb-localized-write-preflight CLI help keeps retired contract explicit', () => {
   const result = spawnSync(process.execPath, [cliPath, '--help'], {
     encoding: 'utf8',
   });
@@ -3741,9 +3720,9 @@ test('nb-localized-write-preflight CLI help keeps validator-only contract explic
   assert.equal(result.status, 0);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, true);
-  assert.match(parsed.usage.command, /validate one localized flow-surfaces/i);
-  assert.match(parsed.usage.command, /before a later explicit nb write/i);
-  assert.doesNotMatch(parsed.usage.command, /before the real nb write/i);
+  assert.match(parsed.usage.command, /Deprecated compatibility shim/i);
+  assert.match(parsed.usage.command, /nb api flow-surfaces <action>/i);
+  assert.match(parsed.usage.command, /backend authoring now owns validation\/defaulting/i);
 });
 
 test('runLocalizedWritePreflight validates compose update action assignValues against collection metadata', () => {
