@@ -799,8 +799,9 @@ For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 - do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
-- every direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` block must provide an explicit effective `defaultFilter`; backend authoring reports missing filters through aggregate `errors[]` instead of choosing fields
-- block-level or filter action `defaultFilter` must contain concrete metadata-valid filter items; explicit empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through aggregate `errors[]`. For relation filters, write a relation child path such as `department.title`, not the relation field itself.
+- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes one from live metadata with 3-4 scalar/filterable fields and at most 4 fields
+- explicit block-level or filter action `defaultFilter` overrides must contain concrete metadata-valid filter items; explicit empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through aggregate `errors[]`. For relation filters, write a relation child path such as `department.title`, not the relation field itself.
+- for every direct public data surface, `actions` partials merge with that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`), and table `recordActions` partials merge with `view` / `edit` / `delete`; use `skipDefaultActions: true` or `skipDefaultRecordActions: true` only for intentional opt-out
 
 For `calendar` blocks:
 
@@ -809,7 +810,7 @@ For `calendar` blocks:
 - `settings.startField` and `settings.endField` must bind date-capable fields; `settings.titleField` and `settings.colorField` must bind non-association display fields
 - For generic prompts that only say “add a calendar block” and do not name a business date field, prefer date fields that are likely populated in existing data, such as `createdAt` / `updatedAt`, over optional business dates such as `birthday` / `hireDate`. This keeps event-click verification possible on existing records. Use optional business date fields only when the user asks for that calendar meaning or live data confirms those fields are populated.
 - quick-create and event click/view popups are configured through `settings.quickCreatePopup` and `settings.eventPopup` on the calendar block. Use the same popup/open-view shape as action popup settings, including `template`, `tryTemplate`, or `saveAsTemplate` when a popup template decision is required. In whole-page `create`, backend authoring can auto-add missing `quickCreatePopup` / `eventPopup` as `{ tryTemplate: true }`. Do not put `popup.template` on the calendar main block itself.
-- direct public calendar blocks use the same explicit `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a calendar host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
+- direct public calendar blocks use the same omitted-or-explicit `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a calendar host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
 
 For `kanban` blocks:
 
@@ -817,9 +818,9 @@ For `kanban` blocks:
 - do not use `today`, `turnPages`, `bulkDelete`, `triggerWorkflow`, import/export, print, or record-level actions on the main kanban block
 - public main kanban blocks may keep `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`
 - quick-create and card click/view popups are configured through `settings.quickCreatePopup` and `settings.cardPopup`. In whole-page `create`, backend authoring can auto-add missing `quickCreatePopup` / `cardPopup` as `{ tryTemplate: true }` and default missing `settings.quickCreateEnabled` / `settings.enableCardClick` to `true`; explicit overrides are preserved.
-- direct public kanban blocks use the same explicit `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a kanban host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
+- direct public kanban blocks use the same omitted-or-explicit `defaultFilter` contract as the other shared data-surface blocks; filter/search wording on a kanban host routes to that host's `filter` action unless a real `filterForm` is explicitly requested
 
-Required effective `defaultFilter` plus optional filter action settings shape:
+Optional explicit `defaultFilter` override plus filter action settings shape:
 
 ```json
 {
@@ -854,10 +855,11 @@ Required effective `defaultFilter` plus optional filter action settings shape:
 
 Planning rules:
 
-- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks require an explicit effective `defaultFilter`; prefer block-level `defaultFilter` unless a filter action `settings.defaultFilter` intentionally overrides it
-- `defaultFilter` must contain at least one concrete filter item; missing filters, `{}`, `null`, `{ "logic": "$and", "items": [] }`, invalid operators, relation fields used directly, and unknown paths are rejected through backend aggregate `errors[]`
+- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend materializes generated defaults from live metadata and caps generated fields at 4
+- explicit `defaultFilter` overrides must contain at least one concrete filter item; `{}`, `null`, `{ "logic": "$and", "items": [] }`, invalid operators, relation fields used directly, and unknown paths are rejected through backend aggregate `errors[]`
 - a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for the first backend write
-- if explicit `filterableFieldNames` are provided, validate coverage against filter action `settings.defaultFilter` when present, then `defaultActionSettings.filter.defaultFilter`, otherwise block-level `defaultFilter`
+- if explicit `filterableFieldNames` are provided, validate coverage against the effective default filter: filter action `settings.defaultFilter` when present, then `defaultActionSettings.filter.defaultFilter`, then block-level `defaultFilter`, otherwise the backend-generated default filter
+- for every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`); table partial `recordActions` complete to `view` / `edit` / `delete`
 - if the user explicitly asks for a filter/search block or form, use `filterForm` instead of a block action
 
 ### Popup

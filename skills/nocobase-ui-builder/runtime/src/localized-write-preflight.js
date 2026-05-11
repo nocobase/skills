@@ -5,7 +5,6 @@ import {
   extractRequiredMetadata,
 } from '../../scripts/flow_payload_guard.mjs';
 import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
-import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import {
   isSortablePublicBlockType,
   isSortablePublicLiveUse,
@@ -37,7 +36,7 @@ import {
   resolveReadableRelationTitleField,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
-import { materializeDefaultTableRecordActions } from './table-record-actions-defaults.js';
+import { materializeDefaultTableActionGroups } from './table-record-actions-defaults.js';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
@@ -357,7 +356,10 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
     if (changed) nextBlock = { ...nextBlock, fieldGroups };
   }
 
-  return materializeDefaultTableRecordActions(nextBlock, {
+  if (options.materializeDefaultTableActions === false) {
+    return nextBlock;
+  }
+  return materializeDefaultTableActionGroups(nextBlock, {
     hasExplicitResourceBinding: hasLocalizedResourceBinding(nextBlock),
   });
 }
@@ -371,6 +373,7 @@ function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
       const normalizedTargetBlock = normalizeHeightSettingsInBlock(targetBlock, {
         metadata,
         normalizeSortAliasInOwnSettings: isSortablePublicLiveUse(getLiveEntryUse(getLiveTopologyEntry(metadata, payload?.target?.uid))),
+        materializeDefaultTableActions: false,
       });
       const changes = createConfigureChangesFromTargetBlock(payload.changes, normalizedTargetBlock);
       return changes === payload.changes ? payload : { ...payload, changes };
@@ -587,12 +590,6 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     });
   };
 
-  const getMinimumCandidateFieldNames = (block) => {
-    const collectionName = getBlockCollectionName(block);
-    const collectionMeta = getCollectionMeta(metadata, collectionName);
-    return collectionMeta ? resolveDefaultFilterMinimumCandidateFieldNames(collectionMeta) : [];
-  };
-
   const validateDefaultFilterGroup = (defaultFilter, path, block) => {
     if (defaultFilter === null || (isObjectRecord(defaultFilter) && Object.keys(defaultFilter).length === 0)) {
       push(
@@ -607,15 +604,13 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     if (!isObjectRecord(defaultFilter)) {
       push(
         path,
-        'public-data-surface-default-filter-required',
+        'public-data-surface-default-filter-invalid-shape',
         'defaultFilter must be one filter group object when provided.',
-        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
+        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_INVALID_SHAPE',
       );
       return;
     }
 
-    const minimumCandidateFieldNames = getMinimumCandidateFieldNames(block);
-    const filterItemPaths = new Set();
     let filterItemCount = 0;
 
     const visitGroup = (group, groupPath) => {
@@ -672,7 +667,6 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
             'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_PATH_REQUIRED',
           );
         } else {
-          filterItemPaths.add(filterPath);
           const collectionName = getBlockCollectionName(block);
           if (collectionName && getCollectionMeta(metadata, collectionName) && !resolveFieldPathInMetadata(metadata, collectionName, filterPath)) {
             push(
@@ -708,37 +702,12 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
       return;
     }
 
-    const coveredCandidateFieldCount = minimumCandidateFieldNames.filter((fieldName) => filterItemPaths.has(fieldName)).length;
-    if (
-      minimumCandidateFieldNames.length > 0
-      && coveredCandidateFieldCount < minimumCandidateFieldNames.length
-    ) {
-      const collectionName = getBlockCollectionName(block);
-      push(
-        `${path}.items`,
-        'public-data-surface-default-filter-common-fields-incomplete',
-        `defaultFilter.items must cover at least ${minimumCandidateFieldNames.length} common business fields when available for collection ${collectionName}: ${minimumCandidateFieldNames.join(', ')}.`,
-        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE',
-        {
-          collectionName,
-          minimumCandidateFieldNames,
-          coveredCandidateFieldCount,
-        },
-      );
-    }
   };
 
   const visitBlock = (block, path) => {
     if (!isObjectRecord(block)) return;
     if (isPublicDataSurfaceBlockType(block.type) && !block.template) {
-      if (!Object.hasOwn(block, 'defaultFilter')) {
-        push(
-          `${path}.defaultFilter`,
-          'public-data-surface-default-filter-required',
-          'Data-surface blocks of type table, list, gridCard, calendar, and kanban must include block-level defaultFilter.',
-          'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
-        );
-      } else {
+      if (Object.hasOwn(block, 'defaultFilter')) {
         validateDefaultFilterGroup(block.defaultFilter, `${path}.defaultFilter`, block);
       }
     }

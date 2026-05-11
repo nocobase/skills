@@ -219,7 +219,7 @@ function makeDirectLocalizedBody(operation, {
   };
 }
 
-test('runLocalizedWritePreflight fails add-block data surfaces that omit block-level defaultFilter', () => {
+test('runLocalizedWritePreflight accepts add-block data surfaces that omit block-level defaultFilter', () => {
   const result = runLocalizedWritePreflight({
     operation: 'add-block',
     body: {
@@ -233,12 +233,13 @@ test('runLocalizedWritePreflight fails add-block data surfaces that omit block-l
     collectionMetadata: makeMetadata(),
   });
 
-  assert.equal(result.ok, false);
-  assertHasRule(result, 'public-data-surface-default-filter-required');
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.facts.requiredCollections.includes('users'), true);
+  assert.deepEqual(actionTypes(result.cliBody.actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
+  assert.deepEqual(actionTypes(result.cliBody.recordActions), ['view', 'edit', 'delete']);
 });
 
-test('runLocalizedWritePreflight defaults record actions for direct table blocks', () => {
+test('runLocalizedWritePreflight defaults table actions and record actions for direct table blocks', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',
     body: {
@@ -259,6 +260,7 @@ test('runLocalizedWritePreflight defaults record actions for direct table blocks
   });
 
   assert.equal(result.ok, true);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
@@ -311,8 +313,8 @@ test('runLocalizedWritePreflight accepts jsItem in public collection and record 
   });
 
   assert.equal(result.ok, true, JSON.stringify(result.errors));
-  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['jsItem']);
-  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['jsItem']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['filter', 'refresh', 'bulkDelete', 'addNew', 'jsItem']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete', 'jsItem']);
   assert.deepEqual(actionTypes(result.cliBody.blocks[1].actions), ['jsItem']);
   assert.deepEqual(actionTypes(result.cliBody.blocks[2].actions), ['jsItem']);
 });
@@ -476,7 +478,7 @@ test('runLocalizedWritePreflight defaults record actions for nested popup table 
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions[0].popup.blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
-test('runLocalizedWritePreflight preserves explicit table record actions and skips table select models', () => {
+test('runLocalizedWritePreflight merges partial table actions and record actions and skips table select models', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',
     body: {
@@ -490,6 +492,7 @@ test('runLocalizedWritePreflight preserves explicit table record actions and ski
             collectionName: 'users',
           },
           defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          actions: [{ type: 'filter', settings: { pinned: true } }],
           recordActions: [{ type: 'view' }],
         },
         {
@@ -508,8 +511,40 @@ test('runLocalizedWritePreflight preserves explicit table record actions and ski
   });
 
   assert.equal(result.ok, true);
-  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
+  assert.equal(result.cliBody.blocks[0].actions[0].settings.pinned, true);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
+  assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'actions'), false);
   assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
+});
+
+test('runLocalizedWritePreflight honors explicit table default action opt-outs', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-table',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          actions: [{ type: 'filter' }],
+          recordActions: [{ type: 'view' }],
+          skipDefaultActions: true,
+          skipDefaultRecordActions: true,
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['filter']);
+  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view']);
 });
 
 test('runLocalizedWritePreflight does not default record actions during configure', () => {
@@ -3193,8 +3228,15 @@ test('runLocalizedWritePreflight validates hidden popup descendant blocks and re
     collectionMetadata: makeMetadata(),
   });
 
-  assert.equal(missingDefaultFilter.ok, false);
-  assertHasRule(missingDefaultFilter, 'public-data-surface-default-filter-required', '$.blocks[0].settings.quickCreatePopup.blocks[0].defaultFilter');
+  assert.equal(missingDefaultFilter.ok, true, JSON.stringify(missingDefaultFilter.errors));
+  assert.deepEqual(
+    actionTypes(missingDefaultFilter.cliBody.blocks[0].settings.quickCreatePopup.blocks[0].actions),
+    ['filter', 'refresh', 'bulkDelete', 'addNew'],
+  );
+  assert.deepEqual(
+    actionTypes(missingDefaultFilter.cliBody.blocks[0].settings.quickCreatePopup.blocks[0].recordActions),
+    ['view', 'edit', 'delete'],
+  );
 });
 
 test('runLocalizedWritePreflight validates relation popup resources inside hidden popup descendants', () => {
@@ -3451,8 +3493,15 @@ test('runLocalizedWritePreflight validates configure hidden popup descendants wi
     },
     collectionMetadata: makeMetadata(),
   });
-  assert.equal(missingDefaultFilter.ok, false);
-  assertHasRule(missingDefaultFilter, 'public-data-surface-default-filter-required', '$.changes.quickCreatePopup.blocks[0].defaultFilter');
+  assert.equal(missingDefaultFilter.ok, true, JSON.stringify(missingDefaultFilter.errors));
+  assert.deepEqual(
+    actionTypes(missingDefaultFilter.cliBody.changes.quickCreatePopup.blocks[0].actions),
+    ['filter', 'refresh', 'bulkDelete', 'addNew'],
+  );
+  assert.deepEqual(
+    actionTypes(missingDefaultFilter.cliBody.changes.quickCreatePopup.blocks[0].recordActions),
+    ['view', 'edit', 'delete'],
+  );
 
   const wrongRelationPopup = runLocalizedWritePreflight({
     operation: 'configure',
@@ -3787,7 +3836,7 @@ test('runLocalizedWritePreflight validates compose update action assignValues ag
     collectionMetadata: makeMetadata(),
   });
   assert.equal(unknownField.ok, false);
-  assertHasRule(unknownField, 'assign-values-field-unknown', '$.blocks[0].actions[0].settings.assignValues.missingField');
+  assertHasRule(unknownField, 'assign-values-field-unknown');
 
   const nonObject = runLocalizedWritePreflight({
     operation: 'compose',
@@ -3799,7 +3848,7 @@ test('runLocalizedWritePreflight validates compose update action assignValues ag
     collectionMetadata: makeMetadata(),
   });
   assert.equal(nonObject.ok, false);
-  assertHasRule(nonObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
+  assertHasRule(nonObject, 'assign-values-must-be-object');
 
   class AssignValuesClass {
     status = 'inactive';
@@ -3814,7 +3863,7 @@ test('runLocalizedWritePreflight validates compose update action assignValues ag
     collectionMetadata: makeMetadata(),
   });
   assert.equal(nonPlainObject.ok, false);
-  assertHasRule(nonPlainObject, 'assign-values-must-be-object', '$.blocks[0].actions[0].settings.assignValues');
+  assertHasRule(nonPlainObject, 'assign-values-must-be-object');
 
   const emptyClear = runLocalizedWritePreflight({
     operation: 'compose',

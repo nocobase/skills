@@ -1,5 +1,11 @@
 import { hasTemplateDocument } from './popup-contract.js';
 
+const DEFAULT_TABLE_ACTIONS = [
+  { type: 'filter' },
+  { type: 'refresh' },
+  { type: 'bulkDelete' },
+  { type: 'addNew' },
+];
 const DEFAULT_TABLE_RECORD_ACTIONS = [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }];
 const EXCLUDED_TABLE_USES = new Set([
   'TableSelectModel',
@@ -30,18 +36,64 @@ function hasResourceBinding(block, { hasExplicitResourceBinding } = {}) {
   );
 }
 
-export function isTableRecordActionsDefaultTarget(block, options = {}) {
+function isTableDefaultActionTarget(block, options = {}) {
   if (!isObjectRecord(block)) return false;
   if (normalizeText(block.type) !== 'table') return false;
   if (!hasResourceBinding(block, options) || hasTemplateDocument(block.template)) return false;
-  if (Object.hasOwn(block, 'recordActions')) return false;
   return !EXCLUDED_TABLE_USES.has(normalizeText(block.use));
+}
+
+function getActionType(action) {
+  if (typeof action === 'string') return normalizeText(action);
+  return normalizeText(action?.type);
+}
+
+function cloneAction(action) {
+  return isObjectRecord(action) ? { ...action } : action;
+}
+
+function mergeDefaultActionList(existing, defaults) {
+  const existingList = Array.isArray(existing) ? existing : [];
+  const defaultTypes = new Set(defaults.map((action) => action.type));
+  const explicitByType = new Map();
+  const extras = [];
+
+  for (const item of existingList) {
+    const type = getActionType(item);
+    if (type && defaultTypes.has(type) && !explicitByType.has(type)) {
+      explicitByType.set(type, item);
+      continue;
+    }
+    extras.push(item);
+  }
+
+  return [
+    ...defaults.map((action) => cloneAction(explicitByType.get(action.type) || action)),
+    ...extras.map(cloneAction),
+  ];
+}
+
+export function isTableRecordActionsDefaultTarget(block, options = {}) {
+  return isTableDefaultActionTarget(block, options) && block.skipDefaultRecordActions !== true;
+}
+
+export function materializeDefaultTableActions(block, options = {}) {
+  if (!isTableDefaultActionTarget(block, options) || block.skipDefaultActions === true) return block;
+  return {
+    ...block,
+    actions: mergeDefaultActionList(block.actions, DEFAULT_TABLE_ACTIONS),
+  };
 }
 
 export function materializeDefaultTableRecordActions(block, options = {}) {
   if (!isTableRecordActionsDefaultTarget(block, options)) return block;
   return {
     ...block,
-    recordActions: DEFAULT_TABLE_RECORD_ACTIONS.map((action) => ({ ...action })),
+    recordActions: mergeDefaultActionList(block.recordActions, DEFAULT_TABLE_RECORD_ACTIONS),
   };
+}
+
+export function materializeDefaultTableActionGroups(block, options = {}) {
+  const withActions = materializeDefaultTableActions(block, options);
+  return materializeDefaultTableRecordActions(withActions, options);
 }

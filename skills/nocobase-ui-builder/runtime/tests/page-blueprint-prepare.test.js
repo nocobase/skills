@@ -1217,7 +1217,12 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
             collection: 'users',
             fields: ['nickname', 'email'],
             defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
-            actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
+            actions: [
+              defaultFilterAction(commonUserDefaultFilterFieldNames),
+              { type: 'refresh' },
+              { type: 'bulkDelete' },
+              { type: 'addNew' },
+            ],
             recordActions: [{ type: 'view' }, { type: 'edit' }, { type: 'delete' }],
           },
         ],
@@ -1303,7 +1308,7 @@ test('prepareApplyBlueprintRequest accepts public blueprint envelope with metada
   assert.equal(result.cliBody.page.title, 'Employees');
 });
 
-test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-surface blocks while keeping filter actions optional', () => {
+test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on data-surface blocks while keeping filter actions optional', () => {
   const missing = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -1318,6 +1323,8 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
+              skipDefaultActions: true,
+              skipDefaultRecordActions: true,
             },
           ],
         },
@@ -1325,8 +1332,8 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
     },
     { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(missing.ok, false);
-  assert.ok(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.ok(!Object.hasOwn(missing.cliBody.tabs[0].blocks[0], 'defaultFilter'));
 
   const shorthand = prepareWithDirectCollectionDefaults(
     {
@@ -1390,7 +1397,9 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email'])],
+              actions: [defaultFilterAction(['nickname', 'status'])],
+              skipDefaultActions: true,
+              skipDefaultRecordActions: true,
             },
           ],
         },
@@ -1398,8 +1407,8 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
     },
     { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(actionLevelOnly.ok, false);
-  assert.ok(actionLevelOnly.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'));
+  assert.equal(actionLevelOnly.ok, true, JSON.stringify(actionLevelOnly.errors));
+  assert.ok(!Object.hasOwn(actionLevelOnly.cliBody.tabs[0].blocks[0], 'defaultFilter'));
 
   const templateBackedWithoutDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -1507,7 +1516,7 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
   assert.equal(invalidSecondFilterAction.ok, false);
   assert.ok(invalidSecondFilterAction.errors.some((issue) => issue.ruleId === 'data-surface-filter-settings-invalid'));
 
-  const missingCommonFields = prepareWithDirectCollectionDefaults(
+  const partialBlockDefaultFilter = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -1529,10 +1538,7 @@ test('prepareApplyBlueprintRequest requires block-level defaultFilter on data-su
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(missingCommonFields.ok, false);
-  assert.ok(
-    missingCommonFields.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-common-fields-incomplete'),
-  );
+  assert.equal(partialBlockDefaultFilter.ok, true, JSON.stringify(partialBlockDefaultFilter.errors));
 
   const emptyObjectDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -2251,7 +2257,7 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
   assert.equal(nestedMissingCoverage.ok, false);
   assert.ok(nestedMissingCoverage.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
 
-  const actionDefaultFilterMissingCommonFields = prepareWithDirectCollectionDefaults(
+  const partialActionDefaultFilter = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -2281,14 +2287,9 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(actionDefaultFilterMissingCommonFields.ok, false);
-  assert.ok(
-    actionDefaultFilterMissingCommonFields.errors.some(
-      (issue) => issue.ruleId === 'data-surface-default-filter-common-fields-incomplete',
-    ),
-  );
+  assert.equal(partialActionDefaultFilter.ok, true, JSON.stringify(partialActionDefaultFilter.errors));
 
-  const actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty = prepareWithDirectCollectionDefaults(
+  const actionDefaultFilterRejectsExplicitEmptyFilterableFieldNames = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -2319,17 +2320,11 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty.ok, false);
+  assert.equal(actionDefaultFilterRejectsExplicitEmptyFilterableFieldNames.ok, false);
   assert.ok(
-    actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty.errors.some(
+    actionDefaultFilterRejectsExplicitEmptyFilterableFieldNames.errors.some(
       (issue) => issue.ruleId === 'data-surface-default-filter-fields-required',
     ),
-  );
-  assert.equal(
-    actionDefaultFilterSkipsCommonFieldCoverageWhenFilterableFieldNamesIsExplicitButEmpty.errors.some(
-      (issue) => issue.ruleId === 'data-surface-default-filter-common-fields-incomplete',
-    ),
-    false,
   );
 
   const actionDefaultFilterExactTwoCandidateCoverage = prepareWithDirectCollectionDefaults(
@@ -7392,7 +7387,7 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   });
 
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[1].popup.layout'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
 });
 
@@ -11312,7 +11307,7 @@ test('prepare-write defaults record actions for direct table blocks', async () =
   assert.deepEqual(actionTypes(payload.cliBody.tabs[0].blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
-test('prepare-write preserves explicit table record actions and skips table select models', async () => {
+test('prepare-write merges partial table actions and record actions and skips table select models', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11378,8 +11373,68 @@ test('prepare-write preserves explicit table record actions and skips table sele
   assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
   const [explicitTable, tableSelect] = payload.cliBody.tabs[0].blocks;
-  assert.deepEqual(actionTypes(explicitTable.recordActions), ['view']);
+  assert.deepEqual(actionTypes(explicitTable.actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
+  assert.deepEqual(actionTypes(explicitTable.recordActions), ['view', 'edit', 'delete']);
   assert.equal(Object.hasOwn(tableSelect, 'recordActions'), false);
+});
+
+test('prepare-write honors explicit table default action opt-outs', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'replace',
+        target: { pageSchemaUid: 'users-page-schema' },
+        defaults: {
+          collections: {
+            users: {
+              popups: {
+                view: { name: 'User details', description: 'View one user record.' },
+                addNew: { name: 'Create user', description: 'Create one user record.' },
+                edit: { name: 'Edit user', description: 'Edit one user record.' },
+              },
+            },
+          },
+        },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                title: 'Users table',
+                type: 'table',
+                collection: 'users',
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                fields: ['nickname'],
+                actions: [{ type: 'filter' }],
+                recordActions: [{ type: 'view' }],
+                skipDefaultActions: true,
+                skipDefaultRecordActions: true,
+              },
+            ],
+          },
+        ],
+      },
+      collectionMetadata,
+    }),
+  );
+
+  const exitCode = await runPrepareWriteForTest(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  const table = payload.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(actionTypes(table.actions), ['filter']);
+  assert.deepEqual(actionTypes(table.recordActions), ['view']);
 });
 
 test('prepare-write defaults record actions for table blocks with empty template metadata', async () => {
@@ -11808,12 +11863,19 @@ test('prepare-write accepts inline equals flags for numeric options', async () =
   assert.equal(payload.facts.outerTabCount, 2);
 });
 
-test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilter on calendar blocks', () => {
+test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on calendar blocks', () => {
   const missing = prepareApplyBlueprintRequest(
     {
       version: '1',
       mode: 'create',
       page: { title: 'Calendar page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
       tabs: [
         {
           title: 'Schedule',
@@ -11827,7 +11889,8 @@ test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilte
                 startField: 'createdAt',
                 endField: 'updatedAt',
               },
-              actions: ['today', 'turnPages', 'title', 'selectView', 'filter', 'addNew'],
+              actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
+              skipDefaultActions: true,
             },
           ],
         },
@@ -11835,8 +11898,8 @@ test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilte
     },
     { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(missing.ok, false);
-  assert.equal(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'), true);
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.ok(!Object.hasOwn(missing.cliBody.tabs[0].blocks[0], 'defaultFilter'));
 
   const result = prepareApplyBlueprintRequest(
     {
@@ -13120,12 +13183,19 @@ test('prepareApplyBlueprintRequest rejects jsItem actions on unsupported public 
   );
 });
 
-test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilter on kanban blocks', () => {
+test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on kanban blocks', () => {
   const missing = prepareApplyBlueprintRequest(
     {
       version: '1',
       mode: 'create',
       page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
       tabs: [
         {
           title: 'Pipeline',
@@ -13135,7 +13205,8 @@ test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilte
               type: 'kanban',
               collection: 'users',
               fields: ['nickname', 'status'],
-              actions: ['filter', 'addNew', 'popup', 'refresh', 'js'],
+              actions: ['filter', 'popup', 'refresh', 'js'],
+              skipDefaultActions: true,
             },
           ],
         },
@@ -13143,8 +13214,8 @@ test('prepareApplyBlueprintRequest requires and accepts block-level defaultFilte
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(missing.ok, false);
-  assert.equal(missing.errors.some((issue) => issue.ruleId === 'data-surface-block-default-filter-required'), true);
+  assert.equal(missing.ok, true, JSON.stringify(missing.errors));
+  assert.ok(!Object.hasOwn(missing.cliBody.tabs[0].blocks[0], 'defaultFilter'));
 
   const valid = prepareApplyBlueprintRequest(
     {

@@ -22,7 +22,6 @@ import {
   transformFilterGroupToQueryFilter,
 } from "./runjs_guard.mjs";
 import { resolveFilterFieldModelSpec } from "./filter_form_field_resolver.mjs";
-import { resolveDefaultFilterMinimumCandidateFieldNames } from "../runtime/src/default-filter-candidates.js";
 
 export const GENERAL_MODE = "general";
 export const VALIDATION_CASE_MODE = "validation-case";
@@ -1542,7 +1541,6 @@ function validatePublicDefaultFilterGroup({
   seen,
   fieldNames = [],
   messagePrefix = "defaultFilter",
-  allowImplicitCommonFieldCoverage = false,
 }) {
   const pushEmptyDefaultFilterFinding = (emptyPath = pathValue) => {
     pushFinding(
@@ -1558,13 +1556,6 @@ function validatePublicDefaultFilterGroup({
       }),
     );
   };
-
-  const minimumCandidateFieldNames =
-    allowImplicitCommonFieldCoverage && collectionName
-      ? resolveDefaultFilterMinimumCandidateFieldNames(
-          getCollectionMeta(metadata, collectionName),
-        )
-      : [];
 
   if (
     defaultFilter === null ||
@@ -1764,32 +1755,6 @@ function validatePublicDefaultFilterGroup({
     );
   }
 
-  const coveredCandidateFieldCount = minimumCandidateFieldNames.filter(
-    (fieldName) => filterItemPaths.has(fieldName),
-  ).length;
-  if (
-    allowImplicitCommonFieldCoverage &&
-    minimumCandidateFieldNames.length > 0 &&
-    coveredCandidateFieldCount < minimumCandidateFieldNames.length
-  ) {
-    pushFinding(
-      blockers,
-      seen,
-      createFinding({
-        severity: "blocker",
-        code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE",
-        message: `${messagePrefix}.items must cover at least ${minimumCandidateFieldNames.length} common business fields when available for collection ${collectionName}: ${minimumCandidateFieldNames.join(", ")}.`,
-        path: `${pathValue}.items`,
-        mode,
-        dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE:${pathValue}:${minimumCandidateFieldNames.join(",")}`,
-        details: {
-          collectionName,
-          minimumCandidateFieldNames,
-          coveredCandidateFieldCount,
-        },
-      }),
-    );
-  }
 }
 
 function validatePublicFilterSettings({
@@ -1847,7 +1812,6 @@ function validatePublicFilterSettings({
       blockers,
       seen,
       messagePrefix: `${settingsPrefix}.defaultFilter`,
-      allowImplicitCommonFieldCoverage: !hasFieldNames,
     });
     return;
   }
@@ -2038,24 +2002,7 @@ function inspectPublicDataSurfaceDefaultFilters(
         );
       }
     } else if (isDirectPublicDataSurfaceBlock(block)) {
-      if (!Object.hasOwn(block, "defaultFilter")) {
-        pushFinding(
-          blockers,
-          seen,
-          createFinding({
-            severity: "blocker",
-            code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED",
-            message:
-              "Public table/list/gridCard/calendar/kanban payloads must include block-level defaultFilter.",
-            path: `${pathValue}.defaultFilter`,
-            mode,
-            dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED:${pathValue}`,
-            details: {
-              type: normalizeOptionalText(block.type) || null,
-            },
-          }),
-        );
-      } else {
+      if (Object.hasOwn(block, "defaultFilter")) {
         validatePublicDefaultFilterGroup({
           defaultFilter: block.defaultFilter,
           collectionName: resolvePublicBlockCollectionName(block),
@@ -2064,7 +2011,6 @@ function inspectPublicDataSurfaceDefaultFilters(
           mode,
           blockers,
           seen,
-          allowImplicitCommonFieldCoverage: true,
         });
       }
       validatePublicDataSurfaceFilterSettings(

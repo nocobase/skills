@@ -5920,7 +5920,7 @@ test('auditPayload blocks grid card payloads missing item subtree or invalid act
   assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID'), true);
 });
 
-test('auditPayload blocks public add-block table payloads missing block-level defaultFilter', () => {
+test('auditPayload allows public add-block table payloads missing block-level defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5934,11 +5934,11 @@ test('auditPayload blocks public add-block table payloads missing block-level de
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
 });
 
-test('auditPayload does not accept add-block table payloads that only place defaultFilter under settings', () => {
+test('auditPayload does not treat settings.defaultFilter as required block-level defaultFilter coverage', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5952,8 +5952,7 @@ test('auditPayload does not accept add-block table payloads that only place defa
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
 });
 
 test('auditPayload accepts public add-block table payloads with top-level defaultFilter and no filter action', () => {
@@ -5975,7 +5974,7 @@ test('auditPayload accepts public add-block table payloads with top-level defaul
   assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
-test('auditPayload blocks public add-block table payloads whose top-level defaultFilter misses common business fields', () => {
+test('auditPayload accepts public add-block table payloads with narrow top-level defaultFilter coverage', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5990,11 +5989,8 @@ test('auditPayload blocks public add-block table payloads whose top-level defaul
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(
-    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
-    true,
-  );
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
 test('auditPayload blocks public add-block table payloads with empty top-level defaultFilter', () => {
@@ -6016,7 +6012,7 @@ test('auditPayload blocks public add-block table payloads with empty top-level d
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-test('auditPayload accepts public add-block table payloads with any non-empty defaultFilter when no common candidate fields exist', () => {
+test('auditPayload accepts public add-block table payloads with any non-empty defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -6110,7 +6106,7 @@ test('auditPayload validates add-block defaultActionSettings filterable fields a
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE'), true);
 });
 
-test('auditPayload blocks add-block defaultActionSettings.defaultFilter without explicit filterableFieldNames when common business fields are incomplete', () => {
+test('auditPayload accepts narrow add-block defaultActionSettings.defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -6127,14 +6123,11 @@ test('auditPayload blocks add-block defaultActionSettings.defaultFilter without 
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(
-    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
-    true,
-  );
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
-test('auditPayload does not apply common business field coverage when defaultActionSettings.filterableFieldNames is explicit but empty', () => {
+test('auditPayload keeps filterableFieldNames validation when defaultActionSettings.filterableFieldNames is explicit but empty', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -6154,10 +6147,6 @@ test('auditPayload does not apply common business field coverage when defaultAct
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_FILTERABLE_FIELDS_REQUIRED'), true);
-  assert.equal(
-    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
-    false,
-  );
 });
 
 test('auditPayload lets add-block defaultActionSettings.defaultFilter override block-level coverage', () => {
@@ -6207,7 +6196,7 @@ test('auditPayload blocks empty add-block defaultActionSettings.defaultFilter', 
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-test('auditPayload blocks public blocks payloads whose data-surface blocks omit block-level defaultFilter', () => {
+test('auditPayload allows public blocks payloads whose data-surface blocks omit block-level defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -6222,8 +6211,8 @@ test('auditPayload blocks public blocks payloads whose data-surface blocks omit 
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
 });
 
 test('auditPayload accepts public blocks payloads whose data-surface blocks keep top-level defaultFilter', () => {
@@ -6319,7 +6308,7 @@ test('auditPayload blocks public blocks payloads with normalized empty top-level
 });
 
 for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
-  test(`auditPayload blocks public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
+  test(`auditPayload allows public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
         target: { uid: 'grid-uid' },
@@ -6334,8 +6323,8 @@ for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
       mode: VALIDATION_CASE_MODE,
     });
 
-    assert.equal(result.ok, false);
-    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
   });
 
   test(`auditPayload accepts public blocks payloads whose ${dataSurfaceBlockType} blocks keep top-level defaultFilter`, () => {
@@ -6360,7 +6349,7 @@ for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
 }
 
 for (const dataSurfaceBlockType of ['calendar', 'kanban']) {
-  test(`auditPayload blocks public add-block ${dataSurfaceBlockType} payloads missing block-level defaultFilter`, () => {
+  test(`auditPayload allows public add-block ${dataSurfaceBlockType} payloads missing block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
         target: { uid: 'grid-uid' },
@@ -6371,8 +6360,8 @@ for (const dataSurfaceBlockType of ['calendar', 'kanban']) {
       mode: VALIDATION_CASE_MODE,
     });
 
-    assert.equal(result.ok, false);
-    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
   });
 
   test(`auditPayload accepts public add-block ${dataSurfaceBlockType} payloads with top-level defaultFilter`, () => {

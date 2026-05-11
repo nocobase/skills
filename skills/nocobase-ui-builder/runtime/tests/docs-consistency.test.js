@@ -1119,15 +1119,15 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.ok(defaultPrompt.length <= 1300, 'openai default_prompt should stay at or below 1300 chars');
 });
 
-test('data-surface docs require UI Builder supplied defaultFilter while keeping filter action routing visible', () => {
+test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
   const dataSurfacesPattern =
     /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar[\s\S]{0,100}kanban|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar[\s\S]{0,100}kanban/i;
-  const forbiddenDefaultFilterMaterializationPattern =
-    /defaultFilter[\s\S]{0,120}(?:may be omitted|may omit|omit ok|omitted)[\s\S]{0,180}(?:backend authoring|backend)[\s\S]{0,180}(?:materialize|materializes)|(?:may be omitted|may omit|omit ok|omitted)[\s\S]{0,120}defaultFilter[\s\S]{0,180}(?:backend authoring|backend)[\s\S]{0,180}(?:materialize|materializes)|(?:backend authoring|backend)[\s\S]{0,180}(?:materialize|materializes)[\s\S]{0,180}(?:omitted|may omit|may be omitted)[\s\S]{0,120}defaultFilter|defaultFilter[\s\S]{0,120}(?:省略|物化)|(?:省略|物化)[\s\S]{0,120}defaultFilter/i;
-  const requiredDefaultFilterPattern =
-    /(?:direct,?\s+)?non-template[\s\S]{0,160}(?:table|list|gridCard|calendar|kanban)[\s\S]{0,220}(?:must|required|requires?|provide|supplied|explicit effective)[\s\S]{0,160}defaultFilter|defaultFilter[\s\S]{0,160}(?:must|required|requires?|provide|supplied|explicit effective)[\s\S]{0,220}(?:table|list|gridCard|calendar|kanban)/i;
-  const missingDefaultFilterRejectedPattern =
-    /(?:missing|required)[\s\S]{0,120}defaultFilter[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected|reports?)|defaultFilter[\s\S]{0,160}(?:missing|required)[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected|reports?)/i;
+  const omittedDefaultFilterMaterializationPattern =
+    /(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter[\s\S]{0,260}(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)|(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)[\s\S]{0,220}(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter|omitted `?defaultFilter`?[\s\S]{0,160}(?:materialized|materialize)/i;
+  const generatedFieldCapPattern =
+    /(?:3-4|最多 4|at most 4|max(?:imum)? 4|<=4|caps? generated fields at 4)/i;
+  const forbiddenRequiredDefaultFilterPattern =
+    /(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)[\s\S]{0,180}defaultFilter|defaultFilter[\s\S]{0,180}(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)/i;
   const explicitDefaultFilterRejectedPattern =
     /defaultFilter[\s\S]{0,160}(?:explicit|supplied|provide)[\s\S]{0,220}(?:empty|invalid|unknown)[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected)|(?:empty|invalid|unknown)[\s\S]{0,180}defaultFilter[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected)/i;
   for (const relativePath of [
@@ -1152,30 +1152,40 @@ test('data-surface docs require UI Builder supplied defaultFilter while keeping 
     );
     assert.match(
       text,
-      requiredDefaultFilterPattern,
-      `${relativePath} should require an explicit effective defaultFilter for public data surfaces`,
+      omittedDefaultFilterMaterializationPattern,
+      `${relativePath} should document backend defaultFilter materialization when omitted`,
     );
     assert.match(
       text,
-      missingDefaultFilterRejectedPattern,
-      `${relativePath} should document aggregate rejection for missing defaultFilter`,
+      generatedFieldCapPattern,
+      `${relativePath} should document generated defaultFilter field cap`,
     );
     assert.match(
       text,
       explicitDefaultFilterRejectedPattern,
       `${relativePath} should document aggregate rejection for explicit invalid defaultFilter`,
     );
+    assert.match(
+      text,
+      /(?:every direct public data surface|direct public data-surface)[\s\S]{0,180}(?:partial `?actions`?|`?actions`? partials?)[\s\S]{0,180}filter[\s\S]{0,80}refresh[\s\S]{0,80}addNew[\s\S]{0,120}(?:table[\s\S]{0,80}bulkDelete|bulkDelete[\s\S]{0,80}table)/i,
+      `${relativePath} should document partial default action merge for all direct public data surfaces`,
+    );
+    assert.match(
+      text,
+      /table[\s\S]{0,120}(?:partial `?recordActions`?|`?recordActions`? partials?|recordActions)[\s\S]{0,160}view[\s\S]{0,80}edit[\s\S]{0,80}delete/i,
+      `${relativePath} should document table recordActions partial merge`,
+    );
     assert.doesNotMatch(
       text,
-      forbiddenDefaultFilterMaterializationPattern,
-      `${relativePath} should not claim backend defaultFilter materialization when omitted`,
+      forbiddenRequiredDefaultFilterPattern,
+      `${relativePath} should not require UI Builder supplied defaultFilter`,
     );
   }
 
   const pageBlueprint = read('references/page-blueprint.md');
   assert.match(
     pageBlueprint,
-    /effective `?defaultFilter`?[\s\S]{0,160}(?:required|must|provide)|(?:required|must|provide)[\s\S]{0,160}effective `?defaultFilter`?/i,
+    omittedDefaultFilterMaterializationPattern,
   );
   assert.doesNotMatch(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
   assert.doesNotMatch(
@@ -1195,7 +1205,7 @@ test('data-surface docs require UI Builder supplied defaultFilter while keeping 
   );
   assert.match(
     pageBlueprint,
-    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i,
+    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,160}(?:omit|omitted|may omit|may be omitted)[\s\S]{0,120}defaultFilter/i,
     'page-blueprint should scope block-level defaultFilter to direct non-template table/list/gridCard/calendar/kanban data surfaces',
   );
   assert.match(
@@ -1205,7 +1215,7 @@ test('data-surface docs require UI Builder supplied defaultFilter while keeping 
   );
   assert.match(
     pageBlueprint,
-    /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i,
+    /filterableFieldNames[\s\S]{0,180}settings\.defaultFilter[\s\S]{0,160}defaultActionSettings\.filter\.defaultFilter[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i,
     'page-blueprint should document effective defaultFilter coverage precedence',
   );
 
@@ -1235,7 +1245,7 @@ test('data-surface docs require UI Builder supplied defaultFilter while keeping 
 
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /\{\}[\s\S]{0,80}`?null`?[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\][\s\S]{0,80}rejected/i);
-  assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(helperContracts, /filterableFieldNames[\s\S]{0,180}settings\.defaultFilter[\s\S]{0,160}defaultActionSettings\.filter\.defaultFilter[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i);
   assert.match(
     helperContracts,
     /sortable public blocks[\s\S]{0,160}table[\s\S]{0,80}details[\s\S]{0,80}list[\s\S]{0,80}tree[\s\S]{0,80}kanban[\s\S]{0,80}gridCard[\s\S]{0,80}map[\s\S]{0,160}settings\.sort[\s\S]{0,80}settings\.sorting/i,
@@ -1258,14 +1268,14 @@ test('data-surface docs require UI Builder supplied defaultFilter while keeping 
   );
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i);
-  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}action-level\/defaultActionSettings `?defaultFilter`?[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,160}(?:omit|omitted|may omit|may be omitted)[\s\S]{0,120}defaultFilter/i);
+  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,180}action-level\/defaultActionSettings `?defaultFilter`?[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
-  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}required|required[\s\S]{0,60}defaultFilter/i);
-  assert.match(defaultPrompt, /missing[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}errors/i);
+  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}omit[\s\S]{0,60}backend(?:<=4|.{0,20}4)|backend(?:<=4|.{0,20}4)[\s\S]{0,60}defaultFilter/i);
+  assert.match(defaultPrompt, /explicit[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}errors/i);
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
 });
 
@@ -1307,8 +1317,8 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
   const kanbanBlock = read('references/blocks/kanban.md');
   assert.match(
     kanbanBlock,
-    /defaultFilter[\s\S]{0,160}(?:必须|explicit|required)[\s\S]{0,220}filter`? action|filter`? action[\s\S]{0,220}defaultFilter/i,
-    'kanban block doc should keep explicit defaultFilter and host-level filter action guidance together',
+    /defaultFilter[\s\S]{0,180}(?:省略|omit|omitted)[\s\S]{0,220}filter`? action|filter`? action[\s\S]{0,220}defaultFilter/i,
+    'kanban block doc should keep omitted defaultFilter and host-level filter action guidance together',
   );
 
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');

@@ -5,7 +5,6 @@ import {
   unique,
 } from "./utils.js";
 import { collectAssignValuesValidationIssues } from "./assign-values-validation.js";
-import { resolveDefaultFilterMinimumCandidateFieldNames } from "./default-filter-candidates.js";
 import { summarizeTemplateDecision } from "./template-decision-summary.js";
 import { ANT_DESIGN_ICON_NAMES } from "./ant-design-icon-names.js";
 import {
@@ -40,7 +39,7 @@ import {
   resolveReadableRelationTitleField,
   resolvePublicFieldPathInCollectionMetadata,
 } from "./public-block-contract.js";
-import { materializeDefaultTableRecordActions } from "./table-record-actions-defaults.js";
+import { materializeDefaultTableActionGroups } from "./table-record-actions-defaults.js";
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_EXPECTED_OUTER_TABS = 1;
@@ -3628,16 +3627,15 @@ function materializeBlockForWrite(block, options = {}) {
           recordActions: true,
         }),
     );
-  } else {
-    const nextWithDefaultRecordActions = materializeDefaultTableRecordActions(
-      nextBlock,
-      {
-        hasExplicitResourceBinding: isDataBlock(nextBlock),
-      },
-    );
-    if (nextWithDefaultRecordActions !== nextBlock) {
-      nextBlock = nextWithDefaultRecordActions;
-    }
+  }
+  const nextWithDefaultActionGroups = materializeDefaultTableActionGroups(
+    nextBlock,
+    {
+      hasExplicitResourceBinding: isDataBlock(nextBlock),
+    },
+  );
+  if (nextWithDefaultActionGroups !== nextBlock) {
+    nextBlock = nextWithDefaultActionGroups;
   }
   if (!hasOwn(nextBlock, "fieldsLayout")) {
     const synthesizedLayout = buildDefaultFieldsLayout(nextBlock);
@@ -5452,19 +5450,6 @@ function validateDataSurfaceDefaultFilterPathExists(
   );
 }
 
-function resolveDefaultFilterMinimumCandidateFieldNamesForBlock(block, state) {
-  const collection = getCollectionLabel(block);
-  const collectionMetadata = state.collectionMetadata || {};
-  if (!collection || Object.keys(collectionMetadata).length === 0) {
-    return [];
-  }
-  const collectionMeta = getCollectionMeta(collectionMetadata, collection);
-  if (!collectionMeta) {
-    return [];
-  }
-  return resolveDefaultFilterMinimumCandidateFieldNames(collectionMeta);
-}
-
 function validateDefaultFilterGroup(
   defaultFilter,
   fieldNames,
@@ -5474,17 +5459,6 @@ function validateDefaultFilterGroup(
   options = {},
 ) {
   const messagePrefix = normalizeText(options.messagePrefix, "defaultFilter");
-  const allowImplicitCommonFieldCoverage =
-    options.allowImplicitCommonFieldCoverage === true;
-  const minimumCandidateFieldNames = Array.isArray(
-    options.minimumCandidateFieldNames,
-  )
-    ? unique(
-        options.minimumCandidateFieldNames
-          .map((value) => normalizeText(value))
-          .filter(Boolean),
-      )
-    : [];
   const pushEmptyDefaultFilterError = (emptyPath = path) => {
     pushValidationError(
       state.errors,
@@ -5630,24 +5604,6 @@ function validateDefaultFilterGroup(
     );
   }
 
-  const coveredCandidateFieldCount = minimumCandidateFieldNames.filter(
-    (fieldName) => filterItemPaths.has(fieldName),
-  ).length;
-  if (
-    allowImplicitCommonFieldCoverage &&
-    minimumCandidateFieldNames.length > 0 &&
-    coveredCandidateFieldCount < minimumCandidateFieldNames.length
-  ) {
-    const collection = getCollectionLabel(block);
-    const collectionText = collection ? ` for collection ${collection}` : "";
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.items`,
-      "data-surface-default-filter-common-fields-incomplete",
-      `${messagePrefix}.items must cover at least ${minimumCandidateFieldNames.length} common business fields when available${collectionText}: ${minimumCandidateFieldNames.join(", ")}.`,
-    );
-  }
 }
 
 function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
@@ -5687,30 +5643,18 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
     return;
   }
 
-  if (!hasOwn(block, "defaultFilter")) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
+  if (hasOwn(block, "defaultFilter")) {
+    validateDefaultFilterGroup(
+      block.defaultFilter,
+      [],
       `${path}.defaultFilter`,
-      "data-surface-block-default-filter-required",
-      "Data-surface blocks of type table, list, gridCard, calendar, and kanban must include block-level defaultFilter.",
+      state,
+      block,
+      {
+        messagePrefix: "defaultFilter",
+      },
     );
-    return;
   }
-
-  validateDefaultFilterGroup(
-    block.defaultFilter,
-    [],
-    `${path}.defaultFilter`,
-    state,
-    block,
-    {
-      messagePrefix: "defaultFilter",
-      allowImplicitCommonFieldCoverage: true,
-      minimumCandidateFieldNames:
-        resolveDefaultFilterMinimumCandidateFieldNamesForBlock(block, state),
-    },
-  );
 }
 
 function validateDataSurfaceFilterActionSettings(block, path, state) {
@@ -5768,13 +5712,6 @@ function validateDataSurfaceFilterActionSettings(block, path, state) {
         block,
         {
           messagePrefix: "settings.defaultFilter",
-          allowImplicitCommonFieldCoverage: !hasFieldNames,
-          minimumCandidateFieldNames: !hasFieldNames
-            ? resolveDefaultFilterMinimumCandidateFieldNamesForBlock(
-                block,
-                state,
-              )
-            : [],
         },
       );
     } else if (hasFieldNames && hasOwn(block, "defaultFilter")) {
