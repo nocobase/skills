@@ -1953,6 +1953,54 @@
       ]
     },
     {
+      "id": "scene/block/metric-cards",
+      "tier": "safe",
+      "family": "scene/block",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block"
+      ],
+      "intentTags": [
+        "metric-cards",
+        "kpi",
+        "metrics",
+        "numeric-summary",
+        "request-data"
+      ],
+      "sceneHints": [
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "ctxRoots": [
+        "libs",
+        "makeResource",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "kpi",
+        "metrics",
+        "numeric-summary"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/block/metric-cards.md",
+      "relatedIds": [
+        "scene/block/list-summary",
+        "scene/block/text-summary"
+      ]
+    },
+    {
       "id": "scene/detail/status-tag",
       "tier": "safe",
       "family": "scene/detail",
@@ -1971,8 +2019,7 @@
       ],
       "modelUses": {
         "js-model.render": [
-          "JSFieldModel",
-          "JSItemActionModel"
+          "JSFieldModel"
         ]
       },
       "ctxRoots": [
@@ -2014,8 +2061,7 @@
       ],
       "modelUses": {
         "js-model.render": [
-          "JSFieldModel",
-          "JSItemActionModel"
+          "JSFieldModel"
         ]
       },
       "ctxRoots": [

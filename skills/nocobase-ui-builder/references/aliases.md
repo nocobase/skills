@@ -33,7 +33,8 @@ Use this file when natural-language wording is ambiguous and you still need to n
 
 | user expression | default narrowing path | when to stop and confirm |
 | --- | --- | --- |
-| 分析看板 / dashboard / trend / KPI / 概览 | default to chart / grid-card insight routing | when the user also adds explicit kanban cues in the same request |
+| 分析看板 / dashboard / trend / 概览 | default to chart / JSBlock insight routing; use chart for trend/distribution/ranking and JSBlock for numeric metrics | when the user also adds explicit kanban cues in the same request |
+| KPI / 指标卡 / 数字统计 / 统计卡 / 追踪产品数 / 待阅数 / 本周新增数 | narrow to `JSBlockModel` metric panel, not `GridCardBlockModel` | when the user explicitly wants record cards instead of numeric metrics |
 | 看板区块 / kanban / pipeline / status columns / 拖拽 / 泳道 / backlog | narrow to `KanbanBlockModel` | when neither a collection-bound kanban block nor an analytics page remains clearly supported |
 | plain `看板` with no kanban cues | keep the analytics/dashboard path by default; do not globally remap it to kanban | when the surrounding sentence gives neither analytics nor kanban cues |
 

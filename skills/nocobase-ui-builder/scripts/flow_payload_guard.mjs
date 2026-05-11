@@ -318,6 +318,7 @@ const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set([
   "calendar",
   "kanban",
 ]);
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 4;
 const FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE =
   "FilterFormRecordSelectFieldModel";
 const FORM_ASSOCIATION_FIELD_MODEL_USE = "RecordSelectFieldModel";
@@ -1732,6 +1733,30 @@ function validatePublicDefaultFilterGroup({
   if (filterItemCount === 0) {
     pushEmptyDefaultFilterFinding(`${pathValue}.items`);
     return;
+  }
+
+  if (
+    filterItemPaths.size <
+    PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT
+  ) {
+    pushFinding(
+      blockers,
+      seen,
+      createFinding({
+        severity: "blocker",
+        code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS",
+        message: `${messagePrefix} must include at least ${PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT} distinct filterable fields.`,
+        path: pathValue,
+        mode,
+        dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS:${pathValue}`,
+        details: {
+          fieldCount: filterItemPaths.size,
+          requiredFieldCount:
+            PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+          fieldNames: [...filterItemPaths],
+        },
+      }),
+    );
   }
 
   const missingFieldNames = fieldNames.filter(

@@ -11,6 +11,7 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
 
 - 横幅
 - 统计卡
+- KPI / 数字统计面板
 - 说明面板
 - 第三方可视化容器
 
@@ -117,6 +118,61 @@ ctx.render(
 
 - block payload 的 `dataScope.filter` 使用 `{ logic, items }`
 - RunJS 的 `ctx.request({ params: { filter } })` / `resource.setFilter()` 使用服务端 query object
+
+## 数字统计面板默认写法
+
+当用户要的是 `KPI`、`指标卡`、`数字统计`、`追踪产品数`、`待阅情报数`、`本周新增数` 这类一个或多个数字时，默认生成 JSBlock 统计面板，而不是 GridCard。GridCard 是记录展示块；统计数字需要 JSBlock 主动读取 resource meta count。
+
+```js
+const { Alert, Card, Col, Row, Statistic } = ctx.libs.antd;
+
+async function countRecords(collectionName, filter) {
+  const resource = ctx.makeResource
+    ? ctx.makeResource('MultiRecordResource')
+    : null;
+  if (!resource) {
+    throw new Error('MultiRecordResource is not available');
+  }
+  resource.setResourceName(collectionName);
+  resource.setPageSize?.(1);
+  if (filter) {
+    resource.setFilter?.(filter);
+  }
+  await resource.refresh();
+  return resource.getCount?.() ?? resource.getMeta?.()?.count ?? 0;
+}
+
+try {
+  const [trackedProducts, pendingIntel] = await Promise.all([
+    countRecords('ai_products', { is_tracking: { $eq: true } }),
+    countRecords('intelligenceEntries', { status: { $eq: '新收集' } }),
+  ]);
+
+  ctx.render(
+    <Row gutter={[12, 12]}>
+      <Col xs={24} sm={12} lg={6}>
+        <Card size="small">
+          <Statistic title={ctx.t('追踪产品数')} value={trackedProducts} />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12} lg={6}>
+        <Card size="small">
+          <Statistic title={ctx.t('待阅情报数')} value={pendingIntel} />
+        </Card>
+      </Col>
+    </Row>,
+  );
+} catch (error) {
+  ctx.render(
+    <Alert
+      type="error"
+      showIcon
+      message={ctx.t('统计数据加载失败')}
+      description={String(error?.message || error)}
+    />,
+  );
+}
+```
 
 ## 不要默认这么写
 

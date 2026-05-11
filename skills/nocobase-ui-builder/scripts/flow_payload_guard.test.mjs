@@ -276,6 +276,8 @@ const metadataWithAssociationFormInvalidTitleField = {
 function makePublicDefaultFilter(items = [
   { path: 'order_no', operator: '$includes', value: '' },
   { path: 'status', operator: '$eq', value: '' },
+  { path: 'start_at', operator: '$dateOnOrAfter', value: null },
+  { path: 'end_at', operator: '$dateOnOrBefore', value: null },
 ]) {
   return {
     logic: '$and',
@@ -5974,7 +5976,7 @@ test('auditPayload accepts public add-block table payloads with top-level defaul
   assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
-test('auditPayload accepts public add-block table payloads with narrow top-level defaultFilter coverage', () => {
+test('auditPayload blocks public add-block table payloads with narrow top-level defaultFilter coverage', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5989,8 +5991,8 @@ test('auditPayload accepts public add-block table payloads with narrow top-level
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'), true);
 });
 
 test('auditPayload blocks public add-block table payloads with empty top-level defaultFilter', () => {
@@ -6012,7 +6014,7 @@ test('auditPayload blocks public add-block table payloads with empty top-level d
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-test('auditPayload accepts public add-block table payloads with any non-empty defaultFilter', () => {
+test('auditPayload blocks public add-block table payloads with non-empty but narrow defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -6027,8 +6029,8 @@ test('auditPayload accepts public add-block table payloads with any non-empty de
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'), true);
 });
 
 test('auditPayload accepts template-backed public add-block table payloads without block-level defaultFilter', () => {
@@ -6106,13 +6108,13 @@ test('auditPayload validates add-block defaultActionSettings filterable fields a
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE'), true);
 });
 
-test('auditPayload accepts narrow add-block defaultActionSettings.defaultFilter', () => {
+test('auditPayload blocks narrow add-block defaultActionSettings.defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
       resourceInit: makeCollectionResourceInit('users'),
-      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email']),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'status']),
       defaultActionSettings: {
         filter: {
           defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname']),
@@ -6123,8 +6125,8 @@ test('auditPayload accepts narrow add-block defaultActionSettings.defaultFilter'
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'), true);
 });
 
 test('auditPayload keeps filterableFieldNames validation when defaultActionSettings.filterableFieldNames is explicit but empty', () => {
@@ -6133,7 +6135,7 @@ test('auditPayload keeps filterableFieldNames validation when defaultActionSetti
       target: { uid: 'grid-uid' },
       type: 'table',
       resourceInit: makeCollectionResourceInit('users'),
-      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email']),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'status']),
       defaultActionSettings: {
         filter: {
           filterableFieldNames: [],
@@ -6154,14 +6156,16 @@ test('auditPayload lets add-block defaultActionSettings.defaultFilter override b
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
-      resourceInit: makeCollectionResourceInit('orders'),
-      defaultFilter: makePublicDefaultFilter(),
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'status']),
       defaultActionSettings: {
         filter: {
-          filterableFieldNames: ['status', 'customer'],
+          filterableFieldNames: ['username', 'email', 'status', 'phone'],
           defaultFilter: makePublicDefaultFilter([
+            { path: 'username', operator: '$includes', value: '' },
+            { path: 'email', operator: '$includes', value: '' },
             { path: 'status', operator: '$eq', value: '' },
-            { path: 'customer', operator: '$eq', value: '' },
+            { path: 'phone', operator: '$includes', value: '' },
           ]),
         },
       },

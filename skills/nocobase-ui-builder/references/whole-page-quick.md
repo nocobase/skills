@@ -63,11 +63,11 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 11. If the page only says “增加筛选 / filter” on an existing or requested table/list/gridCard/calendar/kanban-like surface, or explicitly adds “搜索 / search” to that data surface, including wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, default to the block action slot instead:
    - use that same host's block-level `filter` action/button; shorthand or object action form is valid
-   - direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes one from live metadata with 3-4 scalar/filterable fields and at most 4 fields
-   - keep explicit block-level or filter action `defaultFilter` concrete and metadata-valid when overriding generated defaults; explicit empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through backend aggregate `errors[]`
+   - direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes one from live metadata with 4 scalar/filterable fields
+   - keep explicit block-level or filter action `defaultFilter` concrete, metadata-valid, and backed by at least 4 distinct fields when overriding generated defaults; explicit empty groups, invalid operators, relation fields used directly, unknown paths, and fewer-than-4-field filters are rejected through backend aggregate `errors[]`
    - for relation filters, write a relation child path such as `department.title`; do not write the relation field itself
    - the `filter` action is optional; if you also provide filter action `settings.defaultFilter`, that action-level payload takes precedence over `defaultActionSettings.filter.defaultFilter` and the block-level one
-   - for every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`), and partial table `recordActions` complete to `view` / `edit` / `delete`; set `skipDefaultActions: true` / `skipDefaultRecordActions: true` only when intentionally opting out
+   - for every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`), and partial table `recordActions` complete to `view` / `edit` / `delete`
    - do not upgrade that request into `filterForm` unless the user explicitly names a filter/search block, form, or query area
    - do not treat page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” as a filter request just because the page also mentions list/grid/card presentation, even if the same sentence also says “支持搜索”
    - if the user explicitly names the host, keep the action on that host type instead of silently moving it to another companion block

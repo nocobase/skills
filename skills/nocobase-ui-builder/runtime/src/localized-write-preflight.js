@@ -57,6 +57,7 @@ const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
 const CHART_PUBLIC_BLOCK_TYPES = new Set(['chart']);
 const GRID_CARD_PUBLIC_BLOCK_TYPES = new Set(['gridCard']);
 const GRID_CARD_LIVE_BLOCK_USES = new Set(['GridCardBlockModel']);
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 4;
 const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
   'title',
   'description',
@@ -612,6 +613,7 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     }
 
     let filterItemCount = 0;
+    const filterItemPaths = new Set();
 
     const visitGroup = (group, groupPath) => {
       const logic = normalizeText(group.logic);
@@ -667,6 +669,7 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
             'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_PATH_REQUIRED',
           );
         } else {
+          filterItemPaths.add(filterPath);
           const collectionName = getBlockCollectionName(block);
           if (collectionName && getCollectionMeta(metadata, collectionName) && !resolveFieldPathInMetadata(metadata, collectionName, filterPath)) {
             push(
@@ -702,6 +705,20 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
       return;
     }
 
+    if (filterItemPaths.size < PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT) {
+      push(
+        path,
+        'public-data-surface-default-filter-minimum-fields',
+        `defaultFilter must include at least ${PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT} distinct filterable fields.`,
+        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS',
+        {
+          fieldCount: filterItemPaths.size,
+          requiredFieldCount: PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+          fieldNames: [...filterItemPaths],
+        },
+      );
+    }
+
   };
 
   const visitBlock = (block, path) => {
@@ -734,6 +751,54 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
           blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
         });
       }
+    }
+    return errors;
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload?.blocks).forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  }
+  return errors;
+}
+
+function collectLocalizedDefaultActionOptOutErrors(payload, operation, metadata = {}) {
+  const errors = [];
+
+  const push = (path, keys) => {
+    if (!keys.length) return;
+    errors.push({
+      path,
+      ruleId: 'default-actions-opt-out-unsupported',
+      message: 'skipDefaultActions and skipDefaultRecordActions are unsupported; default actions always merge with explicit actions.',
+      code: 'DEFAULT_ACTIONS_OPT_OUT_UNSUPPORTED',
+      details: { keys },
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!isObjectRecord(block)) return;
+    push(
+      path,
+      ['skipDefaultActions', 'skipDefaultRecordActions'].filter((key) => Object.hasOwn(block, key)),
+    );
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
+  };
+
+  if (operation === 'add-block') {
+    visitBlock(payload, '$');
+    return errors;
+  }
+  if (operation === 'configure') {
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      const keys = ['skipDefaultActions', 'skipDefaultRecordActions'].filter((key) =>
+        Object.hasOwn(payload?.changes || {}, key),
+      );
+      push('$.changes', keys);
+      forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
+        blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+      });
     }
     return errors;
   }
@@ -2609,6 +2674,7 @@ export function runLocalizedWritePreflight({
   collectLocalizedMainBlockSectionErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedHiddenPopupContractErrorsForOperation(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicDataSurfaceDefaultFilterErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedDefaultActionOptOutErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedCalendarKanbanSemanticErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedJsItemActionSlotErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);

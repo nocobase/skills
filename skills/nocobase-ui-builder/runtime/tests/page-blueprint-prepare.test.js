@@ -210,6 +210,9 @@ const minimalUserCollectionMetadata = {
       fields: [
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'email' },
+        { name: 'phone', type: 'string', interface: 'phone' },
       ],
     },
   },
@@ -222,6 +225,25 @@ const minimalRoleCollectionMetadata = {
       fields: [
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'name', type: 'string', interface: 'input' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'description', type: 'string', interface: 'textarea' },
+        { name: 'scope', type: 'string', interface: 'select' },
+      ],
+    },
+  },
+};
+const userRolesAssociationMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'email' },
+        { name: 'phone', type: 'string', interface: 'phone' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
       ],
     },
   },
@@ -234,6 +256,9 @@ const userDepartmentAssociationMetadata = {
       fields: [
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'email' },
+        { name: 'phone', type: 'string', interface: 'phone' },
         { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments' },
       ],
     },
@@ -247,6 +272,9 @@ const minimalDepartmentCollectionMetadata = {
       fields: [
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'title', type: 'string', interface: 'input' },
+        { name: 'code', type: 'string', interface: 'input' },
+        { name: 'description', type: 'string', interface: 'textarea' },
+        { name: 'scope', type: 'string', interface: 'select' },
       ],
     },
   },
@@ -259,6 +287,9 @@ const departmentManagerAssociationMetadata = {
       fields: [
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'title', type: 'string', interface: 'input' },
+        { name: 'code', type: 'string', interface: 'input' },
+        { name: 'description', type: 'string', interface: 'textarea' },
+        { name: 'scope', type: 'string', interface: 'select' },
         { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'employees' },
       ],
     },
@@ -272,13 +303,16 @@ const minimalEmployeeCollectionMetadata = {
       fields: [
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'name', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'email' },
+        { name: 'phone', type: 'string', interface: 'phone' },
+        { name: 'status', type: 'string', interface: 'select' },
       ],
     },
   },
 };
 const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
-const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email'];
-const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
+const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email', 'phone'];
+const commonCalendarDefaultFilterFieldNames = ['nickname', 'status', 'createdAt', 'updatedAt'];
 
 function buildChartAsset(overrides = {}) {
   return {
@@ -408,9 +442,12 @@ function resolvePublicBlockCollectionName(block) {
 function buildDefaultBlockDefaultFilter(rawCollectionMetadata, collectionName) {
   const collectionEntry = getPrepareCollectionEntry(rawCollectionMetadata, collectionName);
   const suggestedGroup = buildSuggestedDefaultFilterGroup(collectionEntry);
+  if (suggestedGroup.items.length < 4) {
+    return undefined;
+  }
   return {
     logic: '$and',
-    items: suggestedGroup.items.length > 0 ? suggestedGroup.items : [{ path: 'nickname', operator: '$includes', value: '' }],
+    items: suggestedGroup.items,
   };
 }
 
@@ -421,7 +458,10 @@ function injectDefaultFiltersIntoBlockSpecs(blocks, rawCollectionMetadata) {
     const normalizedType = typeof block.type === 'string' ? block.type.trim() : '';
     const templateBacked = isObjectRecord(block.template) && typeof block.template.uid === 'string' && block.template.uid.trim();
     if (dataSurfaceBlockTypes.has(normalizedType) && !templateBacked && !Object.prototype.hasOwnProperty.call(block, 'defaultFilter')) {
-      block.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(block));
+      const defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(block));
+      if (defaultFilter) {
+        block.defaultFilter = defaultFilter;
+      }
     }
 
     if (isObjectRecord(block.popup)) {
@@ -472,7 +512,10 @@ function prepareApplyBlueprintRequest(input, options = {}) {
     injectDefaultFiltersIntoBlockSpecs(Array.isArray(blueprint.blocks) ? blueprint.blocks : [], rawCollectionMetadata);
     const templateBacked = isObjectRecord(blueprint.template) && typeof blueprint.template.uid === 'string' && blueprint.template.uid.trim();
     if (dataSurfaceBlockTypes.has(String(blueprint.type || '').trim()) && !templateBacked && !Object.prototype.hasOwnProperty.call(blueprint, 'defaultFilter')) {
-      blueprint.defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(blueprint));
+      const defaultFilter = buildDefaultBlockDefaultFilter(rawCollectionMetadata, resolvePublicBlockCollectionName(blueprint));
+      if (defaultFilter) {
+        blueprint.defaultFilter = defaultFilter;
+      }
     }
   }
 
@@ -560,6 +603,9 @@ test('prepareApplyBlueprintRequest auto-fills titleField for relation field obje
         titleField: 'nickname',
         fields: [
           { name: 'nickname', interface: 'input' },
+          { name: 'username', interface: 'input' },
+          { name: 'email', interface: 'email' },
+          { name: 'phone', interface: 'phone' },
           { name: 'roles', interface: 'm2m', target: 'roles' },
         ],
       },
@@ -722,6 +768,9 @@ test('prepareApplyBlueprintRequest auto-fills titleField for relation field obje
         titleField: 'nickname',
         fields: [
           { name: 'nickname', interface: 'input' },
+          { name: 'username', interface: 'input' },
+          { name: 'email', interface: 'input' },
+          { name: 'phone', interface: 'input' },
           { name: 'roles', interface: 'm2m', target: 'roles' },
         ],
       },
@@ -813,6 +862,9 @@ test('prepareApplyBlueprintRequest auto-fills titleField for popup-only relation
         titleField: 'nickname',
         fields: [
           { name: 'nickname', interface: 'input' },
+          { name: 'username', interface: 'input' },
+          { name: 'email', interface: 'input' },
+          { name: 'phone', interface: 'input' },
           { name: 'roles', interface: 'm2m', target: 'roles' },
         ],
       },
@@ -855,7 +907,7 @@ test('prepareApplyBlueprintRequest auto-fills titleField for popup-only relation
                 },
               },
             ],
-            actions: [defaultFilterAction(['nickname'])],
+            actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
           },
         ],
       },
@@ -898,7 +950,7 @@ test('prepareApplyBlueprintRequest auto-fills titleField for popup-only relation
                 },
               },
             ],
-            actions: [defaultFilterAction(['nickname'])],
+            actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
           },
         ],
       },
@@ -1073,7 +1125,7 @@ function buildFourBlockPopupBlocks() {
       title: 'Roles',
       collection: 'roles',
       fields: ['name'],
-      actions: [defaultFilterAction(['name', 'title', 'scope'])],
+      actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
     },
     {
       key: 'activity',
@@ -1081,7 +1133,7 @@ function buildFourBlockPopupBlocks() {
       title: 'Activity',
       collection: 'users',
       fields: ['status'],
-      actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+      actions: [defaultFilterAction(['nickname', 'email', 'status', 'phone'])],
     },
   ];
 }
@@ -1111,7 +1163,7 @@ function buildPopupModeBlueprint(popup) {
             title: 'Users table',
             collection: 'users',
             fields: ['nickname', 'email'],
-            actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            actions: [defaultFilterAction(['nickname', 'email', 'status', 'phone'])],
             recordActions: [
               {
                 type: 'view',
@@ -1323,8 +1375,6 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              skipDefaultActions: true,
-              skipDefaultRecordActions: true,
             },
           ],
         },
@@ -1397,9 +1447,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'status'])],
-              skipDefaultActions: true,
-              skipDefaultRecordActions: true,
+              actions: [defaultFilterAction(commonCalendarDefaultFilterFieldNames)],
             },
           ],
         },
@@ -1474,7 +1522,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
               template: { uid: 'users-table-template', mode: 'reference' },
               defaultActionSettings: {
                 filter: {
-                  filterableFieldNames: ['nickname', 'status'],
+                  filterableFieldNames: ['nickname', 'status', 'createdAt', 'updatedAt'],
                 },
               },
             },
@@ -1538,7 +1586,12 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(partialBlockDefaultFilter.ok, true, JSON.stringify(partialBlockDefaultFilter.errors));
+  assert.equal(partialBlockDefaultFilter.ok, false);
+  assert.ok(
+    partialBlockDefaultFilter.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
+    ),
+  );
 
   const emptyObjectDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -1640,7 +1693,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
   assert.equal(defaultFilterOnlyUnknownPath.ok, false);
   assert.ok(defaultFilterOnlyUnknownPath.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-unknown-field'));
 
-  const exactTwoCandidateCoverage = prepareWithDirectCollectionDefaults(
+  const exactFourCandidateCoverage = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -1662,7 +1715,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(exactTwoCandidateCoverage.ok, true);
+  assert.equal(exactFourCandidateCoverage.ok, true);
 
   const exactOneCandidateCoverage = prepareWithDirectCollectionDefaults(
     {
@@ -1686,9 +1739,14 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata: oneCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(exactOneCandidateCoverage.ok, true);
+  assert.equal(exactOneCandidateCoverage.ok, false);
+  assert.ok(
+    exactOneCandidateCoverage.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
+    ),
+  );
 
-  const zeroCandidateStillAllowsNonEmptyDefaultFilter = prepareWithDirectCollectionDefaults(
+  const zeroCandidateRejectsNonEmptyNarrowDefaultFilter = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -1710,7 +1768,12 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata: zeroCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(zeroCandidateStillAllowsNonEmptyDefaultFilter.ok, true);
+  assert.equal(zeroCandidateRejectsNonEmptyNarrowDefaultFilter.ok, false);
+  assert.ok(
+    zeroCandidateRejectsNonEmptyNarrowDefaultFilter.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
+    ),
+  );
 
   const incomplete = prepareWithDirectCollectionDefaults(
     {
@@ -1762,7 +1825,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
               title: 'Users grid',
               collection: 'users',
               fields: ['nickname'],
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               actions: [
                 {
                   type: 'filter',
@@ -1779,7 +1842,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     { collectionMetadata },
   );
   assert.equal(blockLevelIncomplete.ok, false);
-  assert.ok(blockLevelIncomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-items-incomplete'));
+  assert.ok(blockLevelIncomplete.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-item-not-filterable'));
 
   const actionDefaultFilterOverridesBlockLevelCoverage = prepareWithDirectCollectionDefaults(
     {
@@ -1812,7 +1875,12 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata },
   );
-  assert.equal(actionDefaultFilterOverridesBlockLevelCoverage.ok, true);
+  assert.equal(actionDefaultFilterOverridesBlockLevelCoverage.ok, false);
+  assert.ok(
+    actionDefaultFilterOverridesBlockLevelCoverage.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
+    ),
+  );
 
   const invalidSettingsShape = prepareWithDirectCollectionDefaults(
     {
@@ -1976,7 +2044,7 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
               title: 'Users table',
               collection: 'users',
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(['nickname', 'email', 'status', 'phone'])],
             },
           ],
         },
@@ -2027,7 +2095,8 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     },
     { collectionMetadata },
   );
-  assert.equal(nested.ok, true);
+  assert.equal(nested.ok, false);
+  assert.ok(nested.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'));
 
   const relationLeaf = prepareWithDirectCollectionDefaults(
     {
@@ -2060,7 +2129,8 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(relationLeaf.ok, true);
+  assert.equal(relationLeaf.ok, false);
+  assert.ok(relationLeaf.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'));
 
   const emptyActionDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -2287,7 +2357,12 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     },
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(partialActionDefaultFilter.ok, true, JSON.stringify(partialActionDefaultFilter.errors));
+  assert.equal(partialActionDefaultFilter.ok, false);
+  assert.ok(
+    partialActionDefaultFilter.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
+    ),
+  );
 
   const actionDefaultFilterRejectsExplicitEmptyFilterableFieldNames = prepareWithDirectCollectionDefaults(
     {
@@ -2309,7 +2384,7 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
                   type: 'filter',
                   settings: {
                     filterableFieldNames: [],
-                    defaultFilter: defaultFilterGroup(['nickname']),
+                    defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                   },
                 },
               ],
@@ -2959,9 +3034,9 @@ function buildUsersDepartmentDefaultsBlueprint(departmentField) {
             key: 'usersTable',
             type: 'table',
             collection: 'users',
-            defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+            defaultFilter: defaultFilterGroup(['nickname', 'email', 'status', 'phone']),
             fields: ['nickname'],
-            actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+            actions: [defaultFilterAction(['nickname', 'email', 'status', 'phone'])],
             recordActions: ['view'],
           },
         ],
@@ -3235,7 +3310,7 @@ test('prepareApplyBlueprintRequest requires collectionMetadata when field popups
             key: 'usersTable',
             type: 'table',
             collection: 'users',
-            defaultFilter: defaultFilterGroup(['nickname']),
+            defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
             fields: [
               {
                 field: 'nickname',
@@ -3276,7 +3351,7 @@ test('prepareApplyBlueprintRequest requires collectionMetadata when table defaul
             key: 'usersTable',
             type: 'table',
             collection: 'users',
-            defaultFilter: defaultFilterGroup(['nickname']),
+            defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
             fields: ['nickname'],
             recordActions: ['view'],
           },
@@ -3314,7 +3389,7 @@ test('prepareApplyBlueprintRequest treats empty collectionMetadata like missing 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
               recordActions: ['view'],
             },
@@ -3342,7 +3417,7 @@ test('prepareApplyBlueprintRequest requires collectionMetadata before resolving 
             key: 'usersTable',
             type: 'table',
             collection: 'users',
-            defaultFilter: defaultFilterGroup(['nickname']),
+            defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
             fields: ['nickname'],
             recordActions: [
               {
@@ -3627,9 +3702,9 @@ test('prepareApplyBlueprintRequest rejects missing large generated-popup fieldGr
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status', 'phone']),
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(['nickname', 'email', 'status', 'phone'])],
             },
           ],
         },
@@ -3721,9 +3796,9 @@ test('prepareApplyBlueprintRequest accepts explicit collection default fieldGrou
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+              defaultFilter: defaultFilterGroup(['nickname', 'email', 'status', 'phone']),
               fields: ['nickname'],
-              actions: [defaultFilterAction(['nickname', 'email', 'status'])],
+              actions: [defaultFilterAction(['nickname', 'email', 'status', 'phone'])],
             },
           ],
         },
@@ -5801,7 +5876,7 @@ test('prepareApplyBlueprintRequest strips titles from a single popup data block 
             title: 'Users table',
             collection: 'users',
             fields: ['nickname'],
-            actions: [defaultFilterAction(['nickname'])],
+            actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
             recordActions: [
               {
                 type: 'view',
@@ -7455,7 +7530,7 @@ test('prepareApplyBlueprintRequest does not treat collectionName metadata as a r
               type: 'table',
               collection: 'products',
               fields: ['name', 'website', 'category', 'legacyTargetCode'],
-              actions: [defaultFilterAction(['name', 'website', 'category'])],
+              actions: [defaultFilterAction(['name', 'website', 'category', 'legacyTargetCode'])],
             },
           ],
         },
@@ -7486,7 +7561,7 @@ test('prepareApplyBlueprintRequest does not treat collectionName metadata as a r
               type: 'table',
               collection: 'products',
               fields: ['name', 'product'],
-              actions: [defaultFilterAction(['name', 'website', 'category'])],
+              actions: [defaultFilterAction(['name', 'website', 'category', 'legacyTargetCode'])],
             },
           ],
         },
@@ -7536,7 +7611,7 @@ test('prepareApplyBlueprintRequest treats o2o and mbm metadata fields as relatio
                 type: 'table',
                 collection: 'users',
                 fields: ['nickname', fieldName],
-                actions: [defaultFilterAction(['nickname'])],
+                actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
               },
             ],
           },
@@ -7845,6 +7920,9 @@ test('prepareApplyBlueprintRequest auto-fills relation titleField inside inherit
         fields: [
           { name: 'id', type: 'integer', interface: 'number' },
           { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'username', type: 'string', interface: 'input' },
+          { name: 'email', type: 'string', interface: 'input' },
+          { name: 'phone', type: 'string', interface: 'input' },
           { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
         ],
       },
@@ -7901,7 +7979,7 @@ test('prepareApplyBlueprintRequest auto-fills relation titleField inside inherit
                 },
               },
             ],
-            actions: [defaultFilterAction(['nickname'])],
+            actions: [defaultFilterAction(commonUserDefaultFilterFieldNames)],
           },
         ],
       },
@@ -7949,8 +8027,8 @@ test('prepareApplyBlueprintRequest accepts relation field popup table with assoc
                         collectionName: 'roles',
                       },
                       fields: ['name'],
-                      actions: [defaultFilterAction(['name'])],
-                      defaultFilter: defaultFilterGroup(['name']),
+                      actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
+                      defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
                     },
                   ],
                 },
@@ -7993,8 +8071,8 @@ test('prepareApplyBlueprintRequest rejects relation field popup table without as
                       type: 'table',
                       collection: 'roles',
                       fields: ['title'],
-                      actions: [defaultFilterAction(['title'])],
-                      defaultFilter: defaultFilterGroup(['title']),
+                      actions: [defaultFilterAction(['title', 'code', 'description', 'scope'])],
+                      defaultFilter: defaultFilterGroup(['title', 'code', 'description', 'scope']),
                     },
                   ],
                 },
@@ -8251,7 +8329,7 @@ test('prepareApplyBlueprintRequest replaces invalid tree table dragSortBy with a
               collection: 'roles',
               settings: { treeTable: true, dragSort: true, dragSortBy: 'sortOrder' },
               fields: ['name'],
-              actions: [defaultFilterAction(['name'])],
+              actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
             },
           ],
         },
@@ -8265,10 +8343,13 @@ test('prepareApplyBlueprintRequest replaces invalid tree table dragSortBy with a
             titleField: 'name',
             filterTargetKey: 'id',
             fields: [
-              { name: 'id', type: 'integer', interface: 'number' },
-              { name: 'name', type: 'string', interface: 'input' },
-              { name: 'sortOrder', type: 'integer', interface: 'integer' },
-              { name: 'sort', type: 'integer', interface: 'sort' },
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'description', type: 'string', interface: 'textarea' },
+          { name: 'scope', type: 'string', interface: 'select' },
+          { name: 'sortOrder', type: 'integer', interface: 'integer' },
+          { name: 'sort', type: 'integer', interface: 'sort' },
             ],
           },
         },
@@ -8298,7 +8379,7 @@ test('prepareApplyBlueprintRequest removes invalid tree table dragSortBy when no
               collection: 'roles',
               settings: { treeTable: true, dragSort: true, dragSortBy: 'sortOrder' },
               fields: ['name'],
-              actions: [defaultFilterAction(['name'])],
+              actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
             },
           ],
         },
@@ -8312,9 +8393,12 @@ test('prepareApplyBlueprintRequest removes invalid tree table dragSortBy when no
             titleField: 'name',
             filterTargetKey: 'id',
             fields: [
-              { name: 'id', type: 'integer', interface: 'number' },
-              { name: 'name', type: 'string', interface: 'input' },
-              { name: 'sortOrder', type: 'integer', interface: 'integer' },
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'description', type: 'string', interface: 'textarea' },
+          { name: 'scope', type: 'string', interface: 'select' },
+          { name: 'sortOrder', type: 'integer', interface: 'integer' },
             ],
           },
         },
@@ -8348,7 +8432,7 @@ test('prepareApplyBlueprintRequest keeps valid tree table dragSortBy sort fields
               collection: 'roles',
               settings: { treeTable: true, dragSort: true, dragSortBy: 'sort' },
               fields: ['name'],
-              actions: [defaultFilterAction(['name'])],
+              actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
             },
           ],
         },
@@ -8364,6 +8448,9 @@ test('prepareApplyBlueprintRequest keeps valid tree table dragSortBy sort fields
             fields: [
               { name: 'id', type: 'integer', interface: 'number' },
               { name: 'name', type: 'string', interface: 'input' },
+              { name: 'title', type: 'string', interface: 'input' },
+              { name: 'description', type: 'string', interface: 'textarea' },
+              { name: 'scope', type: 'string', interface: 'select' },
               { name: 'sort', type: 'integer', interface: 'sort' },
             ],
           },
@@ -8393,7 +8480,7 @@ test('prepareApplyBlueprintRequest does not rewrite invalid dragSortBy on ordina
               collection: 'roles',
               settings: { dragSort: true, dragSortBy: 'sortOrder' },
               fields: ['name'],
-              actions: [defaultFilterAction(['name'])],
+              actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
             },
           ],
         },
@@ -8409,6 +8496,9 @@ test('prepareApplyBlueprintRequest does not rewrite invalid dragSortBy on ordina
             fields: [
               { name: 'id', type: 'integer', interface: 'number' },
               { name: 'name', type: 'string', interface: 'input' },
+              { name: 'title', type: 'string', interface: 'input' },
+              { name: 'description', type: 'string', interface: 'textarea' },
+              { name: 'scope', type: 'string', interface: 'select' },
               { name: 'sortOrder', type: 'integer', interface: 'integer' },
               { name: 'sort', type: 'integer', interface: 'sort' },
             ],
@@ -8484,7 +8574,7 @@ test('prepareApplyBlueprintRequest normalizes settings.sort on sortable non-tabl
             type: 'calendar',
             collection: 'calendar_events',
             settings: { sort: ['-createdAt'] },
-            defaultFilter: defaultFilterGroup(['title', 'status', 'startAt']),
+            defaultFilter: defaultFilterGroup(['title', 'status', 'createdAt', 'updatedAt']),
           },
         ],
       },
@@ -8731,6 +8821,7 @@ test('prepareApplyBlueprintRequest does not auto-upgrade nested calendar hidden 
         fields: [
           ...calendarCollectionMetadata.collections.users.fields,
           { name: 'email', type: 'string', interface: 'input' },
+          { name: 'phone', type: 'string', interface: 'input' },
         ],
       },
     },
@@ -8774,7 +8865,7 @@ test('prepareApplyBlueprintRequest does not auto-upgrade nested calendar hidden 
           type: 'calendar',
           title: 'User calendar',
           collection: 'users',
-          defaultFilter: defaultFilterGroup(['nickname', 'email', 'status']),
+          defaultFilter: defaultFilterGroup(['nickname', 'email', 'status', 'phone']),
           settings: {
             titleField: 'nickname',
             startField: 'createdAt',
@@ -9349,7 +9440,7 @@ test('prepare-write auto-resolves collectionMetadata when it is missing', async 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
             },
           ],
@@ -9657,7 +9748,7 @@ test('prepare-write resolves unique existing navigation group to routeId', async
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
             },
           ],
@@ -9970,7 +10061,7 @@ test('prepare-write does not fetch when complete collectionMetadata is supplied'
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
               },
             ],
@@ -10032,7 +10123,7 @@ test('prepare-write only fetches missing collectionMetadata entries', async () =
                 type: 'table',
                 title: 'Users',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
               },
               {
@@ -10040,7 +10131,7 @@ test('prepare-write only fetches missing collectionMetadata entries', async () =
                 type: 'table',
                 title: 'Roles',
                 collection: 'roles',
-                defaultFilter: defaultFilterGroup(['name']),
+                defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
                 fields: ['name'],
               },
             ],
@@ -10308,7 +10399,7 @@ test('prepare-write fetches missing metadata from kanban hidden popup blocks', a
                 key: 'usersKanban',
                 type: 'kanban',
                 collection: 'users',
-                fields: ['nickname', 'status'],
+                fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
                 defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 settings: {
                   cardPopup: {
@@ -10376,7 +10467,7 @@ test('prepare-write reports missing metadata from kanban hidden popup blocks whe
               key: 'usersKanban',
               type: 'kanban',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               settings: {
                 cardPopup: {
@@ -10447,7 +10538,7 @@ test('prepare-write resolves data-bound collections inside popups', async () => 
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
                 recordActions: [
                   {
@@ -10460,7 +10551,7 @@ test('prepare-write resolves data-bound collections inside popups', async () => 
                           type: 'table',
                           title: 'Roles',
                           collection: 'roles',
-                          defaultFilter: defaultFilterGroup(['name']),
+                          defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
                           fields: ['name'],
                         },
                       ],
@@ -10603,7 +10694,7 @@ test('prepare-write resolves associatedRecords targets over multiple metadata ro
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
                 recordActions: [
                   {
@@ -10619,7 +10710,7 @@ test('prepare-write resolves associatedRecords targets over multiple metadata ro
                             binding: 'associatedRecords',
                             associationField: 'roles',
                           },
-                          defaultFilter: defaultFilterGroup(['name']),
+                          defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
                           fields: ['name'],
                         },
                       ],
@@ -10641,7 +10732,7 @@ test('prepare-write resolves associatedRecords targets over multiple metadata ro
     stderr: stderr.stream,
     async fetchCollectionMetadata(collectionName) {
       fetched.push(collectionName);
-      if (collectionName === 'users') return oneCandidateCollectionMetadata;
+      if (collectionName === 'users') return userRolesAssociationMetadata;
       if (collectionName === 'roles') return minimalRoleCollectionMetadata;
       throw new Error(`unexpected fetch for ${collectionName}`);
     },
@@ -10695,7 +10786,7 @@ test('prepare-write resolves multi-hop association field paths over multiple met
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname', 'department.manager.name'],
               },
             ],
@@ -10759,7 +10850,7 @@ test('prepare-write resolves associatedRecords targets from associationPathName'
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
                 recordActions: [
                   {
@@ -10775,7 +10866,7 @@ test('prepare-write resolves associatedRecords targets from associationPathName'
                             binding: 'associatedRecords',
                             associationPathName: 'roles',
                           },
-                          defaultFilter: defaultFilterGroup(['name']),
+                          defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
                           fields: ['name'],
                         },
                       ],
@@ -10787,7 +10878,7 @@ test('prepare-write resolves associatedRecords targets from associationPathName'
           },
         ],
       },
-      collectionMetadata: oneCandidateCollectionMetadata,
+      collectionMetadata: userRolesAssociationMetadata,
     }),
   );
 
@@ -10828,7 +10919,7 @@ test('prepare-write keeps fail-closed behavior with no-auto metadata flag', asyn
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
             },
           ],
@@ -10876,7 +10967,7 @@ test('prepare-write falls back to missing collectionMetadata when auto metadata 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
             },
           ],
@@ -10922,7 +11013,7 @@ test('prepare-write falls back to missing collectionMetadata when explicit empty
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
               },
             ],
@@ -10983,7 +11074,7 @@ test('prepare-write falls back to missing collectionMetadata when partial metada
                 type: 'table',
                 title: 'Users',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
               },
               {
@@ -10991,7 +11082,7 @@ test('prepare-write falls back to missing collectionMetadata when partial metada
                 type: 'table',
                 title: 'Roles',
                 collection: 'roles',
-                defaultFilter: defaultFilterGroup(['name']),
+                defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
                 fields: ['name'],
               },
             ],
@@ -11043,7 +11134,7 @@ test('prepare-write preserves invalid explicit collectionMetadata errors', async
                 key: 'usersTable',
                 type: 'table',
                 collection: 'users',
-                defaultFilter: defaultFilterGroup(['nickname']),
+                defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 fields: ['nickname'],
               },
             ],
@@ -11170,7 +11261,7 @@ test('prepare-write falls back to missing collectionMetadata when auto metadata 
               key: 'usersTable',
               type: 'table',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               fields: ['nickname'],
             },
           ],
@@ -11378,7 +11469,7 @@ test('prepare-write merges partial table actions and record actions and skips ta
   assert.equal(Object.hasOwn(tableSelect, 'recordActions'), false);
 });
 
-test('prepare-write honors explicit table default action opt-outs', async () => {
+test('prepare-write rejects removed table default action opt-outs', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -11429,12 +11520,11 @@ test('prepare-write honors explicit table default action opt-outs', async () => 
     stderr: stderr.stream,
   });
 
-  assert.equal(exitCode, 0);
+  assert.equal(exitCode, 1);
   assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
-  const table = payload.cliBody.tabs[0].blocks[0];
-  assert.deepEqual(actionTypes(table.actions), ['filter']);
-  assert.deepEqual(actionTypes(table.recordActions), ['view']);
+  assert.equal(payload.ok, false);
+  assert.ok(payload.errors.some((issue) => issue.ruleId === 'default-actions-opt-out-unsupported'));
 });
 
 test('prepare-write defaults record actions for table blocks with empty template metadata', async () => {
@@ -11500,6 +11590,9 @@ test('prepareApplyBlueprintRequest skips template-backed and popup subtable mode
         fields: [
           { name: 'id', type: 'integer', interface: 'number' },
           { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'username', type: 'string', interface: 'input' },
+          { name: 'email', type: 'string', interface: 'email' },
+          { name: 'phone', type: 'string', interface: 'phone' },
         ],
       },
       roles: {
@@ -11509,6 +11602,8 @@ test('prepareApplyBlueprintRequest skips template-backed and popup subtable mode
           { name: 'id', type: 'integer', interface: 'number' },
           { name: 'name', type: 'string', interface: 'input' },
           { name: 'title', type: 'string', interface: 'input' },
+          { name: 'description', type: 'string', interface: 'textarea' },
+          { name: 'scope', type: 'string', interface: 'select' },
         ],
       },
     },
@@ -11560,9 +11655,9 @@ test('prepareApplyBlueprintRequest skips template-backed and popup subtable mode
             type: 'table',
             use: 'PopupSubTableFieldModel',
             collection: 'roles',
-            defaultFilter: defaultFilterGroup(['name', 'title']),
+            defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
             fields: ['name'],
-            actions: [defaultFilterAction(['name', 'title'])],
+            actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
           },
           {
             key: 'popupSubtableActions',
@@ -11570,9 +11665,9 @@ test('prepareApplyBlueprintRequest skips template-backed and popup subtable mode
             type: 'table',
             use: 'PopupSubTableActionsColumnModel',
             collection: 'roles',
-            defaultFilter: defaultFilterGroup(['name', 'title']),
+            defaultFilter: defaultFilterGroup(['name', 'title', 'description', 'scope']),
             fields: ['name'],
-            actions: [defaultFilterAction(['name', 'title'])],
+            actions: [defaultFilterAction(['name', 'title', 'description', 'scope'])],
           },
         ],
       },
@@ -11890,7 +11985,6 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on c
                 endField: 'updatedAt',
               },
               actions: ['today', 'turnPages', 'title', 'selectView', 'filter'],
-              skipDefaultActions: true,
             },
           ],
         },
@@ -11921,7 +12015,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on c
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'status']),
+              defaultFilter: defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']),
               settings: {
                 titleField: 'nickname',
                 startField: 'createdAt',
@@ -11938,7 +12032,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on c
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].type, 'calendar');
-  assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status']));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']));
 });
 
 test('prepareApplyBlueprintRequest preserves calendar popup settings for hidden popup hosts', () => {
@@ -12146,7 +12240,7 @@ test('prepareApplyBlueprintRequest auto-adds hidden popup template fallback for 
               type: 'kanban',
               title: 'User board',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
               actions: ['filter', 'addNew', 'popup', 'refresh'],
             },
@@ -12191,7 +12285,7 @@ test('prepareApplyBlueprintRequest allows kanban blocks without groupField when 
               title: 'User board',
               collection: 'users',
               fields: ['nickname'],
-              defaultFilter: defaultFilterGroup(['nickname']),
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               actions: ['filter', 'addNew', 'popup', 'refresh'],
             },
           ],
@@ -12242,7 +12336,7 @@ test('prepareApplyBlueprintRequest materializes prompt-like users calendar and k
               type: 'kanban',
               title: 'Users kanban',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
             },
           ],
@@ -12291,7 +12385,7 @@ test('prepareApplyBlueprintRequest rejects unsupported prompt-like calendar and 
               type: 'calendar',
               title: 'Users calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'accountLevel', 'username']),
+              defaultFilter: defaultFilterGroup(['nickname', 'accountLevel', 'username', 'country']),
               settings: {
                 titleField: 'nickname',
                 colorField: 'country',
@@ -12305,7 +12399,7 @@ test('prepareApplyBlueprintRequest rejects unsupported prompt-like calendar and 
               title: 'Users kanban',
               collection: 'users',
               fields: ['nickname', 'workMode', 'country'],
-              defaultFilter: defaultFilterGroup(['nickname', 'accountLevel', 'username']),
+              defaultFilter: defaultFilterGroup(['nickname', 'accountLevel', 'username', 'country']),
               settings: {
                 titleField: 'nickname',
                 groupField: 'workMode',
@@ -12381,7 +12475,7 @@ test('prepareApplyBlueprintRequest rejects large prompt-like calendar and kanban
               type: 'calendar',
               title: 'Users calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'title', 'username']),
+              defaultFilter: defaultFilterGroup(['nickname', 'title', 'username', 'email']),
               settings: {
                 titleField: 'nickname',
                 startField: 'createdAt',
@@ -12393,8 +12487,8 @@ test('prepareApplyBlueprintRequest rejects large prompt-like calendar and kanban
               type: 'kanban',
               title: 'Users kanban',
               collection: 'users',
-              fields: ['nickname', 'status'],
-              defaultFilter: defaultFilterGroup(['nickname', 'title', 'username']),
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              defaultFilter: defaultFilterGroup(['nickname', 'title', 'username', 'email']),
             },
           ],
         },
@@ -12459,7 +12553,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to calendar h
                       key: 'calendarQuickCreateForm',
                       type: 'createForm',
                       collection: 'users',
-                      fields: ['nickname', 'status'],
+                      fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
                     },
                   ],
                 },
@@ -12549,7 +12643,7 @@ test('prepareApplyBlueprintRequest preserves explicit hidden popup settings and 
               type: 'kanban',
               title: 'User board',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
               settings: {
                 quickCreateEnabled: false,
@@ -12615,7 +12709,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to kanban hid
               type: 'kanban',
               title: 'User board',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               settings: {
                 quickCreatePopup: {
@@ -12627,7 +12721,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to kanban hid
                       key: 'kanbanQuickCreateForm',
                       type: 'createForm',
                       collection: 'users',
-                      fields: ['nickname', 'status'],
+                      fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
                     },
                   ],
                 },
@@ -12872,7 +12966,7 @@ test('prepareApplyBlueprintRequest includes kanban hidden popup blocks in defaul
             type: 'kanban',
             title: 'User board',
             collection: 'users',
-            fields: ['nickname', 'status'],
+            fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
             defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
             settings: {
               cardPopup: {
@@ -12992,7 +13086,7 @@ test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'status']),
+              defaultFilter: defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']),
               settings: {
                 titleField: 'roles',
                 startField: 'nickname',
@@ -13135,7 +13229,7 @@ test('prepareApplyBlueprintRequest accepts jsItem collection actions on calendar
               type: 'kanban',
               collection: 'users',
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               actions: ['jsItem'],
             },
           ],
@@ -13204,9 +13298,8 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
               key: 'usersKanban',
               type: 'kanban',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               actions: ['filter', 'popup', 'refresh', 'js'],
-              skipDefaultActions: true,
             },
           ],
         },
@@ -13237,7 +13330,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
               key: 'usersKanban',
               type: 'kanban',
               collection: 'users',
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               actions: ['filter', 'addNew', 'popup', 'refresh', 'js'],
             },
@@ -13251,7 +13344,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
   assert.equal(valid.ok, true);
   assert.equal(valid.errors.length, 0);
   assert.equal(valid.cliBody.tabs[0].blocks[0].type, 'kanban');
-  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].fields, ['nickname', 'status']);
+  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].fields, ['nickname', 'status', 'createdAt', 'updatedAt']);
   assert.deepEqual(valid.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(commonUserDefaultFilterFieldNames));
 
   const templateBackedWithDefaultFilter = prepareApplyBlueprintRequest(
@@ -13300,7 +13393,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
               template: { uid: 'users-kanban-template', mode: 'reference' },
               defaultActionSettings: {
                 filter: {
-                  filterableFieldNames: ['nickname', 'status'],
+                  filterableFieldNames: ['nickname', 'status', 'createdAt', 'updatedAt'],
                 },
               },
             },
@@ -13334,7 +13427,7 @@ test('prepareApplyBlueprintRequest rejects fieldGroups fieldsLayout and recordAc
               type: 'kanban',
               collection: 'users',
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               fieldGroups: [
                 {
                   title: 'Main',
@@ -13381,7 +13474,7 @@ test('prepareApplyBlueprintRequest rejects unsupported actions on kanban blocks'
               type: 'kanban',
               collection: 'users',
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
-              fields: ['nickname', 'status'],
+              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               actions: ['today', 'turnPages', 'triggerWorkflow', 'view'],
             },
           ],
@@ -13408,7 +13501,7 @@ test('prepareApplyBlueprintRequest validates update action assignValues against 
             key: 'usersTable',
             type: 'table',
             collection: 'users',
-            fields: ['nickname', 'status'],
+            fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
             actions: [
               {
                 type: 'bulkUpdate',

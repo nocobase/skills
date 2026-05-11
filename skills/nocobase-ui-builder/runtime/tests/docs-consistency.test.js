@@ -1125,7 +1125,9 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
   const omittedDefaultFilterMaterializationPattern =
     /(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter[\s\S]{0,260}(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)|(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)[\s\S]{0,220}(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter|omitted `?defaultFilter`?[\s\S]{0,160}(?:materialized|materialize)/i;
   const generatedFieldCapPattern =
-    /(?:3-4|最多 4|at most 4|max(?:imum)? 4|<=4|caps? generated fields at 4)/i;
+    /(?:4 scalar\/filterable fields|4 generated filter fields|4 个标量\/可筛选字段|自动生成 4 个|backend4)/i;
+  const explicitDefaultFilterTooNarrowRejectedPattern =
+    /(?:fewer-than-4-field|fewer than 4|less than 4|at least 4 distinct fields|少于 4|至少 4 个)[\s\S]{0,180}(?:defaultFilter|filter)|(?:defaultFilter|filter)[\s\S]{0,180}(?:fewer-than-4-field|fewer than 4|less than 4|at least 4 distinct fields|少于 4|至少 4 个)/i;
   const forbiddenRequiredDefaultFilterPattern =
     /(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)[\s\S]{0,180}defaultFilter|defaultFilter[\s\S]{0,180}(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)/i;
   const explicitDefaultFilterRejectedPattern =
@@ -1167,6 +1169,11 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
     );
     assert.match(
       text,
+      explicitDefaultFilterTooNarrowRejectedPattern,
+      `${relativePath} should document aggregate rejection for explicit defaultFilter with fewer than 4 fields`,
+    );
+    assert.match(
+      text,
       /(?:every direct public data surface|direct public data-surface)[\s\S]{0,180}(?:partial `?actions`?|`?actions`? partials?)[\s\S]{0,180}filter[\s\S]{0,80}refresh[\s\S]{0,80}addNew[\s\S]{0,120}(?:table[\s\S]{0,80}bulkDelete|bulkDelete[\s\S]{0,80}table)/i,
       `${relativePath} should document partial default action merge for all direct public data surfaces`,
     );
@@ -1174,6 +1181,11 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
       text,
       /table[\s\S]{0,120}(?:partial `?recordActions`?|`?recordActions`? partials?|recordActions)[\s\S]{0,160}view[\s\S]{0,80}edit[\s\S]{0,80}delete/i,
       `${relativePath} should document table recordActions partial merge`,
+    );
+    assert.doesNotMatch(
+      text,
+      /skipDefaultActions|skipDefaultRecordActions/i,
+      `${relativePath} should not document removed default-action opt-out keys`,
     );
     assert.doesNotMatch(
       text,
@@ -1274,8 +1286,8 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
-  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}omit[\s\S]{0,60}backend(?:<=4|.{0,20}4)|backend(?:<=4|.{0,20}4)[\s\S]{0,60}defaultFilter/i);
-  assert.match(defaultPrompt, /explicit[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}errors/i);
+  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}omit[\s\S]{0,60}backend4|backend4[\s\S]{0,60}defaultFilter/i);
+  assert.match(defaultPrompt, /explicit[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}<4[\s\S]{0,36}errors/i);
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
 });
 
@@ -1284,6 +1296,72 @@ test('gridCard reference documents public settings.columns without removed colum
   const removedGridCardSetting = ['column', 'Count'].join('');
   assert.doesNotMatch(gridCardReference, new RegExp(removedGridCardSetting, 'i'));
   assert.match(gridCardReference, /settings[\s\S]{0,120}"columns"|"columns"[\s\S]{0,120}settings/i);
+});
+
+test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
+  const pageFirst = read('references/page-first-planning.md');
+  const gridCard = read('references/blocks/grid-card.md');
+  const chart = read('references/blocks/chart.md');
+  const aliases = read('references/aliases.md');
+  const blocksIndex = read('references/blocks/index.md');
+  const jsBlock = read('references/js-models/js-block.md');
+  const skill = read('SKILL.md');
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['page-first-planning', pageFirst],
+    ['grid-card', gridCard],
+    ['chart', chart],
+    ['aliases', aliases],
+    ['blocks-index', blocksIndex],
+    ['js-block', jsBlock],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /(?:KPI|指标卡|数字统计|统计卡)[\s\S]{0,160}JSBlock|JSBlock[\s\S]{0,160}(?:KPI|指标卡|数字统计|统计卡)/i,
+      `${label} should route numeric metrics to JSBlock`,
+    );
+    assert.doesNotMatch(
+      text,
+      /(?:数字摘要|KPI|指标卡)[\s\S]{0,80}优先\s*`?GridCardBlockModel`?|优先\s*grid card/i,
+      `${label} should not route numeric summaries to GridCard first`,
+    );
+  }
+
+  assert.match(
+    gridCard,
+    /record cards|卡片列表|多条业务记录|记录展示/i,
+    'grid-card docs should describe record-card usage',
+  );
+  assert.doesNotMatch(
+    skill,
+    /KPI[\s\S]{0,80}chart\/grid-card|chart\/grid-card[\s\S]{0,80}KPI/i,
+    'top-level SKILL router should not send KPI to chart/grid-card',
+  );
+  assert.doesNotMatch(
+    defaultPrompt,
+    /KPI[\s\S]{0,80}chart\/grid-card|chart\/grid-card[\s\S]{0,80}KPI|分析看板=chart\/grid-card/i,
+    'compressed prompt should not preserve old KPI chart/grid-card routing',
+  );
+});
+
+test('metric cards JSBlock safe snippet validates and stays cataloged', () => {
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const entry = catalog.snippets.find((item) => item.id === 'scene/block/metric-cards');
+  assert.ok(entry, 'metric cards snippet should be listed in catalog');
+  assert.equal(entry.tier, 'safe');
+  assert.equal(entry.doc, 'js-snippets/safe/scene/block/metric-cards.md');
+  assert.deepEqual(entry.modelUses['js-model.render'], ['JSBlockModel']);
+
+  const markdown = read(`references/${entry.doc}`);
+  const code = extractJsFenceAfterH2(markdown, 'Normalized snippet');
+  assert.match(code, /ctx\.makeResource/, 'metric snippet should create independent resources');
+  assert.match(code, /getCount/, 'metric snippet should read server-side meta count');
+  assert.match(code, /ctx\.render/, 'metric snippet should render explicitly');
+  validateRunjsSnippet('JSBlockModel', code);
 });
 
 test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel cues', () => {
@@ -1322,7 +1400,9 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
   );
 
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
-  assert.match(defaultPrompt, /分析看板[\s\S]{0,24}chart\/grid-card/i);
+  assert.match(defaultPrompt, /分析看板[\s\S]{0,36}trend\/chart/i);
+  assert.match(defaultPrompt, /KPI[\s\S]{0,24}JSBlock/i);
+  assert.match(defaultPrompt, /card[\s\S]{0,24}Grid/i);
   assert.match(defaultPrompt, /kanban\/pipeline\/status columns[\s\S]{0,24}Kanban/i);
 });
 

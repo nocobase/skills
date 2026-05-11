@@ -17,7 +17,7 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
 - `报表` / `dashboard`
 - `分析看板`（不是 kanban/pipeline/泳道 类看板）
 
-如果请求只是几个 KPI 数字摘要，没有明显图形语义，优先看 [grid-card.md](grid-card.md)。
+如果请求只是几个 KPI 数字摘要，没有明显图形语义，优先看 [../js-models/js-block.md](../js-models/js-block.md) 的 JSBlock 统计面板。
 
 如果请求带 `kanban / pipeline / 状态列 / 拖拽 / 泳道 / backlog / 看板区块` 这类明确 kanban cue，不要继续走 chart，改看 [kanban.md](kanban.md)。
 

@@ -135,6 +135,7 @@ const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set([
   "calendar",
   "kanban",
 ]);
+const DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 4;
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set([
   "table",
   "list",
@@ -5604,6 +5605,39 @@ function validateDefaultFilterGroup(
     );
   }
 
+  if (filterItemPaths.size < DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "data-surface-default-filter-minimum-fields",
+      `${messagePrefix} must include at least ${DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT} distinct filterable fields.`,
+      "DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS",
+      {
+        fieldCount: filterItemPaths.size,
+        requiredFieldCount: DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+        fieldNames: [...filterItemPaths],
+      },
+    );
+  }
+
+}
+
+function validateDefaultActionOptOuts(block, path, state) {
+  if (!isPlainObject(block)) return;
+  const removedKeys = ["skipDefaultActions", "skipDefaultRecordActions"].filter(
+    (key) => hasOwn(block, key),
+  );
+  if (removedKeys.length === 0) return;
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    "default-actions-opt-out-unsupported",
+    "skipDefaultActions and skipDefaultRecordActions are unsupported; default actions always merge with explicit actions.",
+    "DEFAULT_ACTIONS_OPT_OUT_UNSUPPORTED",
+    { keys: removedKeys },
+  );
 }
 
 function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
@@ -6517,6 +6551,7 @@ function validateBlock(block, path, state, parentContext = {}) {
     );
   }
 
+  validateDefaultActionOptOuts(block, path, state);
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
   validateDataSurfaceFilterActionSettings(block, path, state);
   validateBlockSettingsSortAlias(block, path, state);

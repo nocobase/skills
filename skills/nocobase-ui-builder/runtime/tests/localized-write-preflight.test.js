@@ -16,6 +16,7 @@ function makeMetadata() {
           { name: 'id', interface: 'integer', type: 'bigInt' },
           { name: 'nickname', interface: 'input' },
           { name: 'email', interface: 'email' },
+          { name: 'phone', interface: 'phone' },
           { name: 'status', interface: 'select' },
           { name: 'department', interface: 'm2o', type: 'belongsTo', target: 'departments' },
           { name: 'roles', interface: 'm2m', type: 'belongsToMany', target: 'roles' },
@@ -34,6 +35,8 @@ function makeMetadata() {
         fields: [
           { name: 'title', interface: 'input' },
           { name: 'status', interface: 'select' },
+          { name: 'category', interface: 'input' },
+          { name: 'priority', interface: 'select' },
           { name: 'startAt', interface: 'datetime' },
           { name: 'endAt', interface: 'datetime' },
         ],
@@ -43,6 +46,8 @@ function makeMetadata() {
         fields: [
           { name: 'title', interface: 'input' },
           { name: 'status', interface: 'select' },
+          { name: 'category', interface: 'input' },
+          { name: 'priority', interface: 'select' },
         ],
       },
       roles: {
@@ -52,6 +57,8 @@ function makeMetadata() {
           { name: 'id', interface: 'integer', type: 'bigInt' },
           { name: 'name', interface: 'input' },
           { name: 'title', interface: 'input' },
+          { name: 'description', interface: 'textarea' },
+          { name: 'scope', interface: 'select' },
         ],
       },
     },
@@ -252,7 +259,7 @@ test('runLocalizedWritePreflight defaults table actions and record actions for d
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         },
       ],
     },
@@ -277,7 +284,7 @@ test('runLocalizedWritePreflight accepts jsItem in public collection and record 
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           actions: ['jsItem'],
           recordActions: ['jsItem'],
         },
@@ -288,7 +295,7 @@ test('runLocalizedWritePreflight accepts jsItem in public collection and record 
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status', 'startAt']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'startAt']),
           settings: {
             titleField: 'title',
             startField: 'startAt',
@@ -303,8 +310,8 @@ test('runLocalizedWritePreflight accepts jsItem in public collection and record 
             dataSourceKey: 'main',
             collectionName: 'kanban_tasks',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status']),
-          fields: ['title', 'status'],
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
+          fields: ['title', 'status', 'category', 'priority'],
           actions: ['jsItem'],
         },
       ],
@@ -462,7 +469,7 @@ test('runLocalizedWritePreflight defaults record actions for nested popup table 
                       dataSourceKey: 'main',
                       collectionName: 'roles',
                     },
-                    defaultFilter: makeDefaultFilter(['name', 'title']),
+                    defaultFilter: makeDefaultFilter(['name', 'title', 'description', 'scope']),
                   },
                 ],
               },
@@ -491,7 +498,7 @@ test('runLocalizedWritePreflight merges partial table actions and record actions
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           actions: [{ type: 'filter', settings: { pinned: true } }],
           recordActions: [{ type: 'view' }],
         },
@@ -503,7 +510,7 @@ test('runLocalizedWritePreflight merges partial table actions and record actions
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         },
       ],
     },
@@ -518,7 +525,7 @@ test('runLocalizedWritePreflight merges partial table actions and record actions
   assert.equal(Object.hasOwn(result.cliBody.blocks[1], 'recordActions'), false);
 });
 
-test('runLocalizedWritePreflight honors explicit table default action opt-outs', () => {
+test('runLocalizedWritePreflight rejects removed table default action opt-outs', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',
     body: {
@@ -531,7 +538,7 @@ test('runLocalizedWritePreflight honors explicit table default action opt-outs',
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           actions: [{ type: 'filter' }],
           recordActions: [{ type: 'view' }],
           skipDefaultActions: true,
@@ -542,9 +549,8 @@ test('runLocalizedWritePreflight honors explicit table default action opt-outs',
     collectionMetadata: makeMetadata(),
   });
 
-  assert.equal(result.ok, true, JSON.stringify(result.errors));
-  assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['filter']);
-  assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view']);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'default-actions-opt-out-unsupported'));
 });
 
 test('runLocalizedWritePreflight does not default record actions during configure', () => {
@@ -586,7 +592,7 @@ test('runLocalizedWritePreflight skips template-backed and popup subtable model 
             dataSourceKey: 'main',
             collectionName: 'roles',
           },
-          defaultFilter: makeDefaultFilter(['name', 'title']),
+          defaultFilter: makeDefaultFilter(['name', 'title', 'description', 'scope']),
         },
         {
           key: 'popup-subtable-actions',
@@ -596,7 +602,7 @@ test('runLocalizedWritePreflight skips template-backed and popup subtable model 
             dataSourceKey: 'main',
             collectionName: 'roles',
           },
-          defaultFilter: makeDefaultFilter(['name', 'title']),
+          defaultFilter: makeDefaultFilter(['name', 'title', 'description', 'scope']),
         },
       ],
     },
@@ -623,7 +629,7 @@ test('runLocalizedWritePreflight defaults record actions for table blocks with e
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         },
       ],
     },
@@ -717,7 +723,7 @@ test('runLocalizedWritePreflight maps missing collection metadata to stable help
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         },
       ],
     },
@@ -750,7 +756,7 @@ test('runLocalizedWritePreflight collects nested field popup collection metadata
                       dataSourceKey: 'main',
                       collectionName: 'users',
                     },
-                    defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+                    defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
                   },
                 ],
               },
@@ -849,7 +855,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
             {
               field: 'roles',
               fieldType: 'popupSubTable',
-              fields: ['name', 'title'],
+              fields: ['name', 'title', 'description', 'scope'],
             },
           ],
         },
@@ -874,7 +880,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
               field: 'roles',
               fieldType: 'popupSubTable',
               titleField: 'name',
-              fields: ['name', 'title'],
+              fields: ['name', 'title', 'description', 'scope'],
             },
           ],
         },
@@ -893,7 +899,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
           {
             field: 'roles',
             fieldType: 'popupSubTable',
-            fields: ['name', 'title'],
+            fields: ['name', 'title', 'description', 'scope'],
           },
         ],
       },
@@ -913,7 +919,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
             field: 'roles',
             fieldType: 'popupSubTable',
             titleField: 'id',
-            fields: ['name', 'title'],
+            fields: ['name', 'title', 'description', 'scope'],
           },
         ],
       },
@@ -937,7 +943,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
             field: 'roles',
             fieldType: 'popupSubTable',
             titleField: 'summary',
-            fields: ['name', 'title'],
+            fields: ['name', 'title', 'description', 'scope'],
           },
         ],
       },
@@ -968,7 +974,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
                   field: 'roles',
                   fieldType: 'popupSubTable',
                   titleField: 'name',
-                  fields: ['name', 'title'],
+                  fields: ['name', 'title', 'description', 'scope'],
                 },
               ],
             },
@@ -992,7 +998,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
           fieldGroups: [
             {
               title: 'Assignments',
-              fields: [{ field: 'roles', fieldType: 'popupSubTable', fields: ['name', 'title'] }],
+              fields: [{ field: 'roles', fieldType: 'popupSubTable', fields: ['name', 'title', 'description', 'scope'] }],
             },
           ],
         },
@@ -1020,7 +1026,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
                   field: 'roles',
                   fieldType: 'popupSubTable',
                   titleField: 'id',
-                  fields: ['name', 'title'],
+                  fields: ['name', 'title', 'description', 'scope'],
                 },
               ],
             },
@@ -1078,7 +1084,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
             {
               field: 'roles',
               fieldType: 'popupSubTable',
-              fields: ['name', 'title'],
+              fields: ['name', 'title', 'description', 'scope'],
             },
           ],
         },
@@ -1099,7 +1105,7 @@ test('runLocalizedWritePreflight auto-fills titleField for relation field object
             field: 'roles',
             fieldType: 'popupSubTable',
             titleField: 'id',
-            fields: ['name', 'title'],
+            fields: ['name', 'title', 'description', 'scope'],
           },
         ],
       },
@@ -1169,7 +1175,7 @@ test('runLocalizedWritePreflight auto-fills titleField for popup-only relation f
           key: 'usersTable',
           type: 'table',
           resource: { dataSourceKey: 'main', collectionName: 'users' },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -1179,7 +1185,7 @@ test('runLocalizedWritePreflight auto-fills titleField for popup-only relation f
                     key: 'roleDetails',
                     type: 'details',
                     resource: { binding: 'currentRecord', collectionName: 'roles' },
-                    fields: ['name', 'title'],
+                    fields: ['name', 'title', 'description', 'scope'],
                   },
                 ],
               },
@@ -1208,7 +1214,7 @@ test('runLocalizedWritePreflight auto-fills titleField for popup-only relation f
                   key: 'roleDetails',
                   type: 'details',
                   resource: { binding: 'currentRecord', collectionName: 'roles' },
-                  fields: ['name', 'title'],
+                  fields: ['name', 'title', 'description', 'scope'],
                 },
               ],
             },
@@ -1240,7 +1246,7 @@ test('runLocalizedWritePreflight auto-fills relation titleField inside inherited
           key: 'usersTable',
           type: 'table',
           resource: { dataSourceKey: 'main', collectionName: 'users' },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -1283,7 +1289,7 @@ test('runLocalizedWritePreflight auto-fills relation titleField inside inherited
           key: 'usersTable',
           type: 'table',
           resource: { dataSourceKey: 'main', collectionName: 'users' },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -1409,7 +1415,7 @@ test('runLocalizedWritePreflight auto-fills relation titleField inside inherited
           key: 'usersTable',
           type: 'table',
           resource: { dataSourceKey: 'main', collectionName: 'users' },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -1495,7 +1501,7 @@ test('runLocalizedWritePreflight preserves canonicalized cliBody and localized f
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status', 'startAt']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'startAt']),
         },
       ],
     },
@@ -1504,7 +1510,7 @@ test('runLocalizedWritePreflight preserves canonicalized cliBody and localized f
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.blocks[0].type, 'calendar');
-  assert.deepEqual(result.cliBody.blocks[0].defaultFilter, makeDefaultFilter(['title', 'status', 'startAt']));
+  assert.deepEqual(result.cliBody.blocks[0].defaultFilter, makeDefaultFilter(['title', 'status', 'category', 'startAt']));
   assert.equal(result.facts.operation, 'add-blocks');
   assert.equal(result.facts.directBlockTypes.includes('calendar'), true);
 });
@@ -1650,7 +1656,7 @@ test('runLocalizedWritePreflight accepts gridCard settings.columns and rejects u
         dataSourceKey: 'main',
         collectionName: 'users',
       },
-      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
       settings: {
         columns: responsiveColumns,
         rowCount: 3,
@@ -1674,7 +1680,7 @@ test('runLocalizedWritePreflight accepts gridCard settings.columns and rejects u
           dataSourceKey: 'main',
           collectionName: 'users',
         },
-        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         settings: {
           [unsupportedKey]: { xs: 1, md: 2 },
         },
@@ -1693,7 +1699,7 @@ test('runLocalizedWritePreflight accepts gridCard settings.columns and rejects u
               dataSourceKey: 'main',
               collectionName: 'users',
             },
-            defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+            defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
             settings: {
               [unsupportedKey]: { xs: 1, md: 2 },
             },
@@ -1714,7 +1720,7 @@ test('runLocalizedWritePreflight accepts gridCard settings.columns and rejects u
               dataSourceKey: 'main',
               collectionName: 'users',
             },
-            defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+            defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
             settings: {
               [unsupportedKey]: { xs: 1, md: 2 },
             },
@@ -1772,7 +1778,7 @@ test('runLocalizedWritePreflight normalizes localized settings.sort alias to sor
         dataSourceKey: 'main',
         collectionName: 'users',
       },
-      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
       settings: {
         sort: ['-createdAt', 'nickname'],
       },
@@ -1799,7 +1805,7 @@ test('runLocalizedWritePreflight normalizes localized settings.sort alias to sor
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           settings: {
             sort: [{ field: 'nickname', direction: 'descend' }],
           },
@@ -1907,7 +1913,7 @@ test('runLocalizedWritePreflight normalizes localized settings.sort alias to sor
         dataSourceKey: 'main',
         collectionName: 'users',
       },
-      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+      defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
       settings: {
         sort: ['-createdAt'],
       },
@@ -1935,7 +1941,7 @@ test('runLocalizedWritePreflight rejects conflicting localized sort aliases', ()
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           settings: {
             sort: ['-createdAt'],
             sorting: [{ field: 'createdAt', direction: 'asc' }],
@@ -2010,7 +2016,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             'nickname',
             {
@@ -2052,7 +2058,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -2090,7 +2096,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -2105,7 +2111,7 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
                       associationField: 'roles',
                       collectionName: 'roles',
                     },
-                    defaultFilter: makeDefaultFilter(['name', 'title']),
+                    defaultFilter: makeDefaultFilter(['name', 'title', 'description', 'scope']),
                     fields: ['name'],
                   },
                 ],
@@ -2135,7 +2141,7 @@ test('runLocalizedWritePreflight rejects invalid relation field popup resources'
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -2179,7 +2185,7 @@ test('runLocalizedWritePreflight rejects invalid relation field popup resources'
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -2216,7 +2222,7 @@ test('runLocalizedWritePreflight rejects invalid relation field popup resources'
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'roles',
@@ -2226,7 +2232,7 @@ test('runLocalizedWritePreflight rejects invalid relation field popup resources'
                     key: 'rolesTable',
                     type: 'table',
                     collection: 'roles',
-                    defaultFilter: makeDefaultFilter(['name', 'title']),
+                    defaultFilter: makeDefaultFilter(['name', 'title', 'description', 'scope']),
                     fields: ['name'],
                   },
                 ],
@@ -2256,7 +2262,7 @@ test('runLocalizedWritePreflight does not apply relation popup binding rules to 
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
           fields: [
             {
               field: 'nickname',
@@ -2447,7 +2453,7 @@ test('runLocalizedWritePreflight accepts localized tree connectFields public sha
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         },
       ],
     },
@@ -2619,7 +2625,7 @@ test('runLocalizedWritePreflight resolves tree connectFields same-run targets wi
                   dataSourceKey: 'main',
                   collectionName: 'users',
                 },
-                defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+                defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
               },
             ],
           },
@@ -2643,7 +2649,7 @@ test('runLocalizedWritePreflight resolves tree connectFields same-run targets wi
             dataSourceKey: 'main',
             collectionName: 'users',
           },
-          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         },
         {
           key: 'host',
@@ -3007,7 +3013,7 @@ test('runLocalizedWritePreflight rejects unsupported calendar main-block section
               dataSourceKey: 'main',
               collectionName: 'calendar_events',
             },
-            defaultFilter: makeDefaultFilter(['title', 'status', 'startAt']),
+            defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'startAt']),
             ...item.payload,
           },
         ],
@@ -3069,7 +3075,7 @@ test('runLocalizedWritePreflight rejects unsupported kanban main-block sections 
               collectionName: 'kanban_tasks',
             },
             fields: ['title'],
-            defaultFilter: makeDefaultFilter(['title', 'status']),
+            defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
             ...item.payload,
           },
         ],
@@ -3095,7 +3101,7 @@ test('runLocalizedWritePreflight validates explicit calendar hidden popup settin
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             quickCreatePopup: {
               tryTemplate: 'yes',
@@ -3132,7 +3138,7 @@ test('runLocalizedWritePreflight validates explicit kanban hidden popup settings
             collectionName: 'kanban_tasks',
           },
           fields: ['title'],
-          defaultFilter: makeDefaultFilter(['title']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             cardPopup: {
               template: {
@@ -3169,7 +3175,7 @@ test('runLocalizedWritePreflight validates hidden popup descendant blocks and re
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             quickCreatePopup: {
               blocks: [
@@ -3209,7 +3215,7 @@ test('runLocalizedWritePreflight validates hidden popup descendant blocks and re
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             quickCreatePopup: {
               blocks: [
@@ -3268,7 +3274,7 @@ test('runLocalizedWritePreflight validates relation popup resources inside hidde
               },
             },
           ],
-          defaultFilter: makeDefaultFilter(['nickname']),
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'phone', 'status']),
           settings: {
             cardPopup: {
               blocks: [
@@ -3328,7 +3334,7 @@ test('runLocalizedWritePreflight validates localized calendar and kanban semanti
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             titleField: 'title',
             endField: 'missingField',
@@ -3356,7 +3362,7 @@ test('runLocalizedWritePreflight validates localized calendar and kanban semanti
             collectionName: 'kanban_tasks',
           },
           fields: ['title'],
-          defaultFilter: makeDefaultFilter(['title']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             groupField: 'title',
           },
@@ -3666,7 +3672,7 @@ test('runLocalizedWritePreflight validates hidden popup descendant main-block se
               type: 'kanban',
               collection: 'kanban_tasks',
               fields: ['title'],
-              defaultFilter: makeDefaultFilter(['title', 'status']),
+              defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
               fieldGroups: [
                 {
                   fields: ['title'],
@@ -3785,7 +3791,7 @@ test('runLocalizedWritePreflight validates compose update action assignValues ag
           dataSourceKey: 'main',
           collectionName: 'users',
         },
-        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status']),
+        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
         actions: [
           {
             type: 'bulkUpdate',

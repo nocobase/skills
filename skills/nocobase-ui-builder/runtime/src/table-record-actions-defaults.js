@@ -74,11 +74,11 @@ function mergeDefaultActionList(existing, defaults) {
 }
 
 export function isTableRecordActionsDefaultTarget(block, options = {}) {
-  return isTableDefaultActionTarget(block, options) && block.skipDefaultRecordActions !== true;
+  return isTableDefaultActionTarget(block, options);
 }
 
 export function materializeDefaultTableActions(block, options = {}) {
-  if (!isTableDefaultActionTarget(block, options) || block.skipDefaultActions === true) return block;
+  if (!isTableDefaultActionTarget(block, options)) return block;
   return {
     ...block,
     actions: mergeDefaultActionList(block.actions, DEFAULT_TABLE_ACTIONS),

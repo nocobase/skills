@@ -68,7 +68,7 @@ const DEFAULT_FILTER_PREFERRED_FIELD_NAMES = [
 ];
 
 export const DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
-export const DEFAULT_FILTER_MINIMUM_COVERAGE_FIELDS = 3;
+export const DEFAULT_FILTER_MINIMUM_COVERAGE_FIELDS = 4;
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
