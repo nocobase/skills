@@ -57,20 +57,23 @@ Do not prefer older low-level collection or nested field commands when the final
 
 # Core Rules
 
-1. Decide collection type first. Never infer `general`, `tree`, `file`, `calendar`, `sql`, `view`, or `inherit` from the name alone.
+1. Decide collection type first. Never infer `general`, `tree`, `file`, `calendar`, `comment`, `sql`, `view`, or `inherit` from the name alone.
 2. If the user explicitly asks for a file table, file collection, `template: "file"`, or uses wording such as "文件表", "合同文件", "扫描件", "证书文件", or "the file itself is the record", treat that as a binding collection-type requirement and choose `template: "file"` first.
-3. Do not reinterpret a file-first request as a `general` collection just because extra metadata fields are also needed.
-4. Prefer the compact payloads supported by `collections apply` and `fields apply`. Let the server fill derived defaults.
-5. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
-6. Relations come after the base collection and scalar fields are correct.
-7. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
-8. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
+3. If the user explicitly asks for a comment table, comment collection, comments, `template: "comment"`, "评论表", or "评论插件的表", treat that as a binding plugin-backed collection-type requirement and choose `template: "comment"` after the comments plugin gate.
+4. Do not reinterpret a file-first or comment-first request as a `general` collection just because extra metadata fields are also needed.
+5. Prefer the compact payloads supported by `collections apply` and `fields apply`. Let the server fill derived defaults.
+6. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
+7. Relations come after the base collection and scalar fields are correct.
+8. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
+9. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
+10. For business identifiers, prefer `sequence` when the user asks for 编码, 编号, 单号, 序号, 流水号, or similar auto-generated codes. Reserve `code` for code-editor content such as source code, SQL, JSON, or other syntax-oriented text.
 
 ## Compact Payload Rules
 
 - When creating a collection with `collections apply`, do not send built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`, or template-owned structural fields unless the current command help explicitly says they are required.
-- For `general`, `tree`, `file`, and other built-in templates, assume the server will create the template defaults. Only send business fields that the user is actually adding.
+- For `general`, `tree`, `file`, `calendar`, `comment`, and other supported templates, assume the server will create the template defaults. Only send business fields that the user is actually adding.
 - For `file`, do not manually send built-in fields such as `title`, `filename`, `extname`, `size`, `mimetype`, `path`, `url`, `preview`, `storage`, or `meta` unless the task is explicitly customizing one of those existing fields on an already-created collection.
+- For `comment`, do not manually send the template-owned `content` field in a compact create payload unless the task is explicitly customizing that existing field on an already-created comment collection. The server baseline owns `content`.
 - For `tree`, do not manually include `parentId`, `parent`, or `children` in the compact create payload unless you are intentionally overriding an existing schema with a fully expanded raw shape.
 - Every custom field supplied to `collections apply` or `fields apply` still needs an explicit `interface`. The compact API reduces derived options, but it does not infer business field interfaces from the field name alone.
 - For local choice fields passed through `collections apply` or `fields apply` (`select`, `multipleSelect`, `radioGroup`, `checkboxGroup`), every enum item must be an object with explicit `value`, `label`, and `color`. Do not use string shorthand such as `["draft", "paid"]`.
@@ -86,6 +89,7 @@ Do not prefer older low-level collection or nested field commands when the final
 - For long-form plain text without markdown semantics, prefer `textarea`.
 - For markdown content, prefer `vditor` first when the plugin capability is available.
 - Only fall back from `vditor` to ordinary `markdown` when the plugin is unavailable or the user explicitly wants the simpler markdown field.
+- For `comment` collections, let the template create the markdown-capable `content` field instead of adding a separate plain text substitute.
 - Do not add `tableoid` unless the user explicitly asks for that system-info field.
 - For map fields, use the exact interface requested by the spatial requirement, such as `point`, `lineString`, `circle`, or `polygon`. Do not collapse them into generic `json` or text.
 
@@ -170,14 +174,16 @@ After opening an index file, continue only into the matching subtype file that i
 - `tree`: hierarchical data.
 - `file`: file-centric records where the file is first-class.
 - `calendar`: schedule-oriented objects.
+- `comment`: plugin-backed comment records with a template-owned `content` field.
 - `sql`, `view`, `inherit`: only after capability and prerequisites are confirmed.
 
-Do not emulate `tree` or `file` with weaker general-table substitutes unless the user explicitly asks for that tradeoff.
+Do not emulate `tree`, `file`, or `comment` with weaker general-table substitutes unless the user explicitly asks for that tradeoff.
 
 Explicit override rule:
 
 - If the request contains "file collection", "file table", "文件表", or equivalent wording that makes the file the primary record, this overrides any default bias toward `general`.
 - When the request mentions contracts as managed files, scanned documents, certificates, invoices, archives, or uploaded document records, default to `file` unless the user explicitly says the file is only a subordinate attachment on another business table.
+- If the request contains "comment collection", "comment table", `template: "comment"`, "评论表", or "评论插件的表", this overrides any default bias toward `general`; confirm the comments plugin and use `template: "comment"`.
 
 # Field and Relation Safeguards
 

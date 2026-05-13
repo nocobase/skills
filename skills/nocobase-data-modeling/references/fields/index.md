@@ -32,5 +32,7 @@ Field-family decision rules:
 - choose a specialized scalar interface before falling back to plain `input`
 - choose local choice fields only when the option set is owned by the current collection
 - choose `attachment` when the file is subordinate to the record, but choose a real `file` collection when the file is first-class
+- choose `sequence` for business identifiers such as 编码, 编号, 单号, 序号, 流水号, 自动编码, and 自动编号
+- reserve `code` for code-editor content such as source code, SQL, JSON, scripts, or other syntax-oriented text
 - choose one primary-key strategy only
 - keep relation fields last unless the user is specifically debugging association behavior

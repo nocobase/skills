@@ -51,6 +51,7 @@ Use this matrix when you need a fast payload check before sending a create call.
 | Rich text or markdown | `name`, `interface`, optional `title` |
 | Attachment-like field | `name`, `interface`, optional `title`, target or other relation options when required |
 | Datetime field | `name`, `interface`, optional `title`, plus datetime-specific props only when the requirement really needs them |
+| Business code / number field | `name`, `interface: "sequence"`, optional `title`, `patterns` |
 | Preset audit field | normally omit from compact create payloads and let the template/server own them |
 | Primary key field | only when intentionally overriding the default id strategy |
 
@@ -138,6 +139,29 @@ When the user wording is specific, route by these exact meanings:
 - `Time` -> `interface: "time"`
 - `Unix Timestamp` -> `interface: "unixTimestamp"`
 
+## Business code routing shortcut
+
+When the requested field is a business-facing generated identifier, route to `interface: "sequence"` and read `references/fields/plugins/sequence.md` before creating it.
+
+Trigger wording includes:
+
+- 编码
+- 编号
+- 单号
+- 序号
+- 流水号
+- 自动编号
+- 自动编码
+- serial number
+- document number
+- order number
+- generated code
+- auto code
+- auto number
+
+Do not route these fields to ordinary `input`, `integer`, or plugin-backed `code` unless the user explicitly says the value is manually maintained and not generated.
+Use plugin-backed `code` only for syntax-oriented content such as source code, SQL, JSON snippets, scripts, or code-editor behavior.
+
 ## Practical field bundles
 
 ### Realistic business-table baseline
@@ -190,6 +214,7 @@ Do not mix multiple primary-key strategies in the same table unless the user exp
 
 - using `input` when a stronger specialized interface such as `email`, `url`, `phone`, or `password` is required;
 - forgetting validators or component props required by the chosen interface.
+- using `input`, `integer`, or `code` for generated business identifiers such as 编码, 编号, 单号, or 流水号; these should normally be `sequence`.
 
 ### Choice fields
 

@@ -52,6 +52,7 @@ Use when the model is:
 - `tree`
 - `file`
 - `calendar`
+- `comment`
 
 Recommended route:
 
@@ -91,6 +92,7 @@ Examples:
 - which table type
 - should this be general or tree
 - should this be file or attachment
+- should this be comment or general
 - should this be sql or view
 
 Open:
