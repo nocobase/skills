@@ -710,6 +710,108 @@ test('runLocalizedWritePreflight fails localized writes that use empty block-lev
   }
 });
 
+test('runLocalizedWritePreflight sizes defaultFilter minimum coverage from eligible direct interface fields', () => {
+  const metadata = makeMetadata();
+  metadata.collections.narrow_roles = {
+    name: 'narrow_roles',
+    fields: [
+      { name: 'title', type: 'string', interface: 'input' },
+      { name: 'name', type: 'string', interface: 'input' },
+      { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+    ],
+  };
+  metadata.collections.hidden_roles = {
+    name: 'hidden_roles',
+    fields: [
+      { name: 'title', type: 'string', interface: 'input' },
+      { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
+      { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+      { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+    ],
+  };
+  metadata.collections.options_only_roles = {
+    name: 'options_only_roles',
+    fields: [
+      { key: 'title', options: { type: 'string', interface: 'input' } },
+      { field: 'code', options: { type: 'string', interface: 'input' } },
+      { options: { name: 'scope', type: 'string', interface: 'select' } },
+      { name: 'internalName', options: { type: 'string', interface: 'input', hidden: true } },
+      { name: 'users', options: { type: 'belongsToMany', interface: 'm2m', target: 'users' } },
+    ],
+  };
+
+  const acceptedNarrow = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeDirectLocalizedBody('compose', {
+      type: 'table',
+      collectionName: 'narrow_roles',
+      defaultFilter: makeDefaultFilter(['title', 'name']),
+    }),
+    collectionMetadata: metadata,
+  });
+  assert.equal(acceptedNarrow.ok, true, JSON.stringify(acceptedNarrow.errors));
+
+  const rejectedNarrow = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeDirectLocalizedBody('compose', {
+      type: 'table',
+      collectionName: 'narrow_roles',
+      defaultFilter: makeDefaultFilter(['title']),
+    }),
+    collectionMetadata: metadata,
+  });
+  assert.equal(rejectedNarrow.ok, false);
+  assert.equal(
+    rejectedNarrow.errors.some(
+      (issue) => issue.ruleId === 'public-data-surface-default-filter-minimum-fields'
+        && issue.details?.requiredFieldCount === 2
+        && issue.details?.fieldCount === 1,
+    ),
+    true,
+  );
+
+  const hiddenFieldsDoNotRaiseMinimum = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeDirectLocalizedBody('compose', {
+      type: 'table',
+      collectionName: 'hidden_roles',
+      defaultFilter: makeDefaultFilter(['title']),
+    }),
+    collectionMetadata: metadata,
+  });
+  assert.equal(hiddenFieldsDoNotRaiseMinimum.ok, true, JSON.stringify(hiddenFieldsDoNotRaiseMinimum.errors));
+
+  const acceptedOptionsOnly = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeDirectLocalizedBody('compose', {
+      type: 'table',
+      collectionName: 'options_only_roles',
+      defaultFilter: makeDefaultFilter(['title', 'code', 'scope']),
+    }),
+    collectionMetadata: metadata,
+  });
+  assert.equal(acceptedOptionsOnly.ok, true, JSON.stringify(acceptedOptionsOnly.errors));
+
+  const rejectedOptionsOnly = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeDirectLocalizedBody('compose', {
+      type: 'table',
+      collectionName: 'options_only_roles',
+      defaultFilter: makeDefaultFilter(['title', 'code']),
+    }),
+    collectionMetadata: metadata,
+  });
+  assert.equal(rejectedOptionsOnly.ok, false);
+  assert.equal(
+    rejectedOptionsOnly.errors.some(
+      (issue) => issue.ruleId === 'public-data-surface-default-filter-minimum-fields'
+        && issue.details?.requiredFieldCount === 3
+        && issue.details?.fieldCount === 2,
+    ),
+    true,
+  );
+});
+
 test('runLocalizedWritePreflight maps missing collection metadata to stable helper rule id', () => {
   const result = runLocalizedWritePreflight({
     operation: 'compose',

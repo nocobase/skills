@@ -104,6 +104,8 @@ function normalizeCollectionField(field) {
     target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    hidden: field.hidden === true || options.hidden === true,
+    options: options.hidden === true ? { hidden: true } : undefined,
   };
 }
 

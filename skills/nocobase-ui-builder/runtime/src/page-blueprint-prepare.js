@@ -135,7 +135,33 @@ const DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES = new Set([
   "calendar",
   "kanban",
 ]);
-const DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 4;
+const DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 3;
+const DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
+const DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES = new Set([
+  "input",
+  "email",
+  "url",
+  "phone",
+  "textarea",
+  "select",
+  "radioGroup",
+]);
+const DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES = new Set([
+  "id",
+  "createdAt",
+  "updatedAt",
+  "deletedAt",
+  "createdBy",
+  "updatedBy",
+  "deletedBy",
+  "created_at",
+  "updated_at",
+  "deleted_at",
+  "created_by",
+  "updated_by",
+  "deleted_by",
+  "sort",
+]);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set([
   "table",
   "list",
@@ -1356,20 +1382,23 @@ function countPopupDirectEffectiveFields(blocks) {
 
 function normalizeCollectionFieldMetadata(field) {
   if (!isPlainObject(field)) return null;
-  const name = normalizeText(field.name || field.field || field.key);
+  const options = isPlainObject(field.options) ? field.options : {};
+  const name = normalizeText(field.name || field.field || field.key) || normalizeText(options.name);
   if (!name) return null;
   return {
     name,
-    interface: normalizeText(field.interface),
-    type: normalizeText(field.type),
-    target: normalizeText(field.target || field.targetCollection),
+    interface: normalizeText(field.interface) || normalizeText(options.interface),
+    type: normalizeText(field.type) || normalizeText(options.type),
+    target: normalizeText(field.target || field.targetCollection) || normalizeText(options.target),
     collectionName: normalizeText(field.collectionName),
-    foreignKey: normalizeText(field.foreignKey),
-    targetKey: normalizeText(field.targetKey),
+    foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
+    targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
     readOnly: Boolean(field.readOnly ?? field.readonly),
     writable: typeof field.writable === "boolean" ? field.writable : undefined,
     autoCreate: Boolean(field.autoCreate),
     autoIncrement: Boolean(field.autoIncrement),
+    hidden: field.hidden === true || options.hidden === true,
+    options: options.hidden === true ? { hidden: true } : undefined,
   };
 }
 
@@ -5605,22 +5634,61 @@ function validateDefaultFilterGroup(
     );
   }
 
-  if (filterItemPaths.size < DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT) {
+  const requiredFieldCount = resolveDataSurfaceDefaultFilterRequiredFieldCount(
+    block,
+    state,
+  );
+  if (filterItemPaths.size < requiredFieldCount) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       path,
       "data-surface-default-filter-minimum-fields",
-      `${messagePrefix} must include at least ${DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT} distinct filterable fields.`,
+      `${messagePrefix} must include at least ${requiredFieldCount} distinct filterable fields.`,
       "DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS",
       {
         fieldCount: filterItemPaths.size,
-        requiredFieldCount: DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+        requiredFieldCount,
         fieldNames: [...filterItemPaths],
       },
     );
   }
 
+}
+
+function resolveDataSurfaceDefaultFilterRequiredFieldCount(block, state) {
+  const collection = getCollectionLabel(block);
+  const collectionMetadata = state.collectionMetadata || {};
+  const collectionMeta =
+    collection && Object.keys(collectionMetadata).length
+      ? getCollectionMeta(collectionMetadata, collection)
+      : null;
+  if (!collectionMeta) {
+    return DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT;
+  }
+  const candidateFieldCount = ensureArray(collectionMeta.fields).filter(
+    isDataSurfaceDefaultFilterCandidateField,
+  ).length;
+  return Math.min(
+    DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+    Math.min(DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS, candidateFieldCount),
+  );
+}
+
+function isDataSurfaceDefaultFilterCandidateField(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  if (!fieldName || !fieldInterface) return false;
+  if (DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES.has(fieldName)) {
+    return false;
+  }
+  if (!DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
+    return false;
+  }
+  if (field?.hidden === true || field?.options?.hidden === true) {
+    return false;
+  }
+  return !isAssociationFieldMeta(field);
 }
 
 function validateDefaultActionOptOuts(block, path, state) {

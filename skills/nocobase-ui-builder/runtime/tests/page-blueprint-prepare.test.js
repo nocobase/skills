@@ -8,7 +8,11 @@ import {
   prepareApplyBlueprintRequest as rawPrepareApplyBlueprintRequest,
 } from '../src/page-blueprint-prepare.js';
 import { prepareApplyBlueprintWrite } from '../src/apply-blueprint-prepare.js';
-import { buildSuggestedDefaultFilterGroup } from '../src/default-filter-candidates.js';
+import {
+  buildSuggestedDefaultFilterGroup,
+  resolveDefaultFilterCandidateFieldNames,
+  resolveDefaultFilterRequiredFieldCount,
+} from '../src/default-filter-candidates.js';
 import { fetchCollectionMetadata } from '../src/collection-metadata-resolver.js';
 import { savePageIdentityRegistry } from '../../scripts/opaque_uid.mjs';
 
@@ -184,6 +188,24 @@ const zeroCandidateCollectionMetadata = {
         { name: 'id', type: 'integer', interface: 'number' },
         { name: 'createdAt', type: 'date', interface: 'datetime' },
         { name: 'updatedAt', type: 'date', interface: 'datetime' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+      ],
+    },
+  },
+};
+const sixCandidateCollectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'username', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'email' },
+        { name: 'phone', type: 'string', interface: 'phone' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'bio', type: 'text', interface: 'textarea' },
         { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
       ],
     },
@@ -450,6 +472,44 @@ function buildDefaultBlockDefaultFilter(rawCollectionMetadata, collectionName) {
     items: suggestedGroup.items,
   };
 }
+
+test('default filter candidate helper uses normalized option metadata and ignores hidden associations', () => {
+  const collectionMeta = {
+    titleField: 'title',
+    fields: [
+      { key: 'title', options: { type: 'string', interface: 'input' } },
+      { field: 'code', options: { type: 'string', interface: 'input' } },
+      { options: { name: 'scope', type: 'string', interface: 'select' } },
+      { name: 'internalName', options: { type: 'string', interface: 'input', hidden: true } },
+      { name: 'legacyTargetCode', options: { type: 'string', interface: 'input', target: 'legacyTargets' } },
+      { name: 'roles', options: { type: 'belongsToMany', interface: 'm2m', target: 'roles' } },
+    ],
+  };
+
+  assert.deepEqual(resolveDefaultFilterCandidateFieldNames(collectionMeta), ['title', 'code', 'scope']);
+  assert.equal(resolveDefaultFilterRequiredFieldCount(collectionMeta), 3);
+  assert.deepEqual(
+    buildSuggestedDefaultFilterGroup(collectionMeta).items,
+    [
+      { path: 'title', operator: '$includes', value: '' },
+      { path: 'code', operator: '$includes', value: '' },
+      { path: 'scope', operator: '$eq', value: '' },
+    ],
+  );
+});
+
+test('default filter candidate helper relaxes required coverage for narrow collections', () => {
+  const collectionMeta = {
+    fields: [
+      { name: 'title', type: 'string', interface: 'input' },
+      { name: 'name', type: 'string', interface: 'input' },
+      { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+    ],
+  };
+
+  assert.deepEqual(resolveDefaultFilterCandidateFieldNames(collectionMeta), ['name', 'title']);
+  assert.equal(resolveDefaultFilterRequiredFieldCount(collectionMeta), 2);
+});
 
 function injectDefaultFiltersIntoBlockSpecs(blocks, rawCollectionMetadata) {
   if (!Array.isArray(blocks)) return;
@@ -1589,7 +1649,240 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
   assert.equal(partialBlockDefaultFilter.ok, false);
   assert.ok(
     partialBlockDefaultFilter.errors.some(
-      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'
+        && issue.details?.requiredFieldCount === 3,
+    ),
+  );
+
+  const threeOfSixCandidateCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname', 'username', 'email']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: sixCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(threeOfSixCandidateCoverage.ok, true, JSON.stringify(threeOfSixCandidateCoverage.errors));
+
+  const twoOfSixCandidateCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Users table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(['nickname', 'username']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: sixCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(twoOfSixCandidateCoverage.ok, false);
+  assert.ok(
+    twoOfSixCandidateCoverage.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'
+        && issue.details?.requiredFieldCount === 3,
+    ),
+  );
+
+  const narrowCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      narrowRoles: {
+        titleField: 'title',
+        fields: [
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+    },
+  };
+  const narrowBlockDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Narrow roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Narrow roles table',
+              collection: 'narrowRoles',
+              fields: ['title', 'name'],
+              defaultFilter: defaultFilterGroup(['title', 'name']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: narrowCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(narrowBlockDefaultFilter.ok, true, JSON.stringify(narrowBlockDefaultFilter.errors));
+
+  const incompleteNarrowBlockDefaultFilter = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Narrow roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Narrow roles table',
+              collection: 'narrowRoles',
+              fields: ['title', 'name'],
+              defaultFilter: defaultFilterGroup(['title']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: narrowCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(incompleteNarrowBlockDefaultFilter.ok, false);
+  assert.ok(
+    incompleteNarrowBlockDefaultFilter.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'
+        && issue.details?.requiredFieldCount === 2,
+    ),
+  );
+
+  const hiddenCandidateCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      hiddenCandidateRoles: {
+        titleField: 'title',
+        fields: [
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
+          { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+    },
+  };
+  const hiddenCandidatesDoNotRaiseDefaultFilterMinimum = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Hidden candidate roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Hidden candidate roles table',
+              collection: 'hiddenCandidateRoles',
+              fields: ['title'],
+              defaultFilter: defaultFilterGroup(['title']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: hiddenCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(
+    hiddenCandidatesDoNotRaiseDefaultFilterMinimum.ok,
+    true,
+    JSON.stringify(hiddenCandidatesDoNotRaiseDefaultFilterMinimum.errors),
+  );
+
+  const optionsMetadataCollection = {
+    collections: {
+      ...collectionMetadata.collections,
+      optionsOnlyRoles: {
+        titleField: 'title',
+        fields: [
+          { name: 'title', options: { type: 'string', interface: 'input' } },
+          { name: 'code', options: { type: 'string', interface: 'input' } },
+          { name: 'scope', options: { type: 'string', interface: 'select' } },
+          { name: 'internalName', options: { type: 'string', interface: 'input', hidden: true } },
+          { name: 'users', options: { type: 'belongsToMany', interface: 'm2m', target: 'users' } },
+        ],
+      },
+    },
+  };
+  const optionsMetadataCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Options metadata roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Options metadata roles table',
+              collection: 'optionsOnlyRoles',
+              fields: ['title'],
+              defaultFilter: defaultFilterGroup(['title', 'code', 'scope']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: optionsMetadataCollection, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(optionsMetadataCoverage.ok, true, JSON.stringify(optionsMetadataCoverage.errors));
+
+  const incompleteOptionsMetadataCoverage = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Options metadata roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Options metadata roles table',
+              collection: 'optionsOnlyRoles',
+              fields: ['title'],
+              defaultFilter: defaultFilterGroup(['title', 'code']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: optionsMetadataCollection, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(incompleteOptionsMetadataCoverage.ok, false);
+  assert.ok(
+    incompleteOptionsMetadataCoverage.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'
+        && issue.details?.requiredFieldCount === 3,
     ),
   );
 
@@ -1739,14 +2032,9 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata: oneCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(exactOneCandidateCoverage.ok, false);
-  assert.ok(
-    exactOneCandidateCoverage.errors.some(
-      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
-    ),
-  );
+  assert.equal(exactOneCandidateCoverage.ok, true, JSON.stringify(exactOneCandidateCoverage.errors));
 
-  const zeroCandidateRejectsNonEmptyNarrowDefaultFilter = prepareWithDirectCollectionDefaults(
+  const zeroCandidateAllowsNonEmptyDefaultFilter = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -1768,12 +2056,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata: zeroCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(zeroCandidateRejectsNonEmptyNarrowDefaultFilter.ok, false);
-  assert.ok(
-    zeroCandidateRejectsNonEmptyNarrowDefaultFilter.errors.some(
-      (issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields',
-    ),
-  );
+  assert.equal(zeroCandidateAllowsNonEmptyDefaultFilter.ok, true, JSON.stringify(zeroCandidateAllowsNonEmptyDefaultFilter.errors));
 
   const incomplete = prepareWithDirectCollectionDefaults(
     {

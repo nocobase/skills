@@ -799,8 +799,8 @@ For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 - do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”
 - if the user explicitly names the host, keep the `filter` action on that same host type
-- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes one from live metadata with 4 scalar/filterable fields
-- explicit block-level or filter action `defaultFilter` overrides must contain concrete metadata-valid filter items backed by at least 4 distinct fields; explicit empty groups, invalid operators, relation fields used directly, unknown paths, and fewer-than-4-field filters are rejected through aggregate `errors[]`. For relation filters, write a relation child path such as `department.title`, not the relation field itself.
+- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes one from live metadata with up to 4 scalar/filterable fields
+- explicit block-level or filter action `defaultFilter` overrides must contain concrete metadata-valid filter items backed by at least the smaller of 3 and the collection's eligible direct interface-field count; explicit empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through aggregate `errors[]`. For relation filters, write a relation child path such as `department.title`, not the relation field itself.
 - for every direct public data surface, `actions` partials merge with that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`), and table `recordActions` partials merge with `view` / `edit` / `delete`
 
 For `calendar` blocks:
@@ -855,8 +855,8 @@ Optional explicit `defaultFilter` override plus filter action settings shape:
 
 Planning rules:
 
-- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend materializes generated defaults from live metadata with 4 scalar/filterable fields
-- explicit `defaultFilter` overrides must contain concrete filter items backed by at least 4 distinct fields; `{}`, `null`, `{ "logic": "$and", "items": [] }`, invalid operators, relation fields used directly, unknown paths, and fewer-than-4-field filters are rejected through backend aggregate `errors[]`
+- direct, non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend materializes generated defaults from live metadata with up to 4 scalar/filterable fields
+- explicit `defaultFilter` overrides must contain concrete filter items backed by at least the smaller of 3 and the collection's eligible direct interface-field count; `{}`, `null`, `{ "logic": "$and", "items": [] }`, invalid operators, relation fields used directly, and unknown paths are rejected through backend aggregate `errors[]`
 - a host-level `filter` action may be shorthand (`"filter"`) or an object; explicit action settings are optional for the first backend write
 - if explicit `filterableFieldNames` are provided, validate coverage against the effective default filter: filter action `settings.defaultFilter` when present, then `defaultActionSettings.filter.defaultFilter`, then block-level `defaultFilter`, otherwise the backend-generated default filter
 - for every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`); table partial `recordActions` complete to `view` / `edit` / `delete`

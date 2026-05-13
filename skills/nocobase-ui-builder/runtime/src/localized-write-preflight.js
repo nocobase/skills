@@ -57,7 +57,33 @@ const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
 const CHART_PUBLIC_BLOCK_TYPES = new Set(['chart']);
 const GRID_CARD_PUBLIC_BLOCK_TYPES = new Set(['gridCard']);
 const GRID_CARD_LIVE_BLOCK_USES = new Set(['GridCardBlockModel']);
-const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 4;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 3;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES = new Set([
+  'input',
+  'email',
+  'url',
+  'phone',
+  'textarea',
+  'select',
+  'radioGroup',
+]);
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES = new Set([
+  'id',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'createdBy',
+  'updatedBy',
+  'deletedBy',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+  'created_by',
+  'updated_by',
+  'deleted_by',
+  'sort',
+]);
 const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
   'title',
   'description',
@@ -705,15 +731,16 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
       return;
     }
 
-    if (filterItemPaths.size < PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT) {
+    const requiredFieldCount = resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata);
+    if (filterItemPaths.size < requiredFieldCount) {
       push(
         path,
         'public-data-surface-default-filter-minimum-fields',
-        `defaultFilter must include at least ${PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT} distinct filterable fields.`,
+        `defaultFilter must include at least ${requiredFieldCount} distinct filterable fields.`,
         'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS',
         {
           fieldCount: filterItemPaths.size,
-          requiredFieldCount: PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+          requiredFieldCount,
           fieldNames: [...filterItemPaths],
         },
       );
@@ -808,6 +835,35 @@ function collectLocalizedDefaultActionOptOutErrors(payload, operation, metadata 
   return errors;
 }
 
+function resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata) {
+  const collectionName = getBlockCollectionName(block);
+  const collectionMeta = collectionName ? getCollectionMeta(metadata || {}, collectionName) : null;
+  if (!collectionMeta) {
+    return PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT;
+  }
+  const candidateFieldCount = ensureArray(collectionMeta.fields).filter(isPublicDataSurfaceDefaultFilterCandidateField).length;
+  return Math.min(
+    PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+    Math.min(PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS, candidateFieldCount),
+  );
+}
+
+function isPublicDataSurfaceDefaultFilterCandidateField(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  if (!fieldName || !fieldInterface) return false;
+  if (PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES.has(fieldName)) {
+    return false;
+  }
+  if (!PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
+    return false;
+  }
+  if (field?.hidden === true || field?.options?.hidden === true) {
+    return false;
+  }
+  return !isAssociationField(field);
+}
+
 function normalizeMetadata(value) {
   if (typeof value === 'undefined' || value === null) {
     return {};
@@ -841,6 +897,8 @@ function normalizeCollectionField(field) {
     target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    hidden: field.hidden === true || options.hidden === true,
+    options: options.hidden === true ? { hidden: true } : undefined,
   };
 }
 

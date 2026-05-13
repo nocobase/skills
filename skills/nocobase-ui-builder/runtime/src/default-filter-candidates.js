@@ -68,7 +68,7 @@ const DEFAULT_FILTER_PREFERRED_FIELD_NAMES = [
 ];
 
 export const DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
-export const DEFAULT_FILTER_MINIMUM_COVERAGE_FIELDS = 4;
+export const DEFAULT_FILTER_MINIMUM_COVERAGE_FIELDS = 3;
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -80,19 +80,47 @@ function normalizeLowerText(value) {
   return normalizeText(value).toLowerCase();
 }
 
+function getFieldOptions(field) {
+  return field?.options && typeof field.options === 'object' && !Array.isArray(field.options)
+    ? field.options
+    : {};
+}
+
+function getFieldName(field) {
+  const options = getFieldOptions(field);
+  return normalizeText(field?.name) || normalizeText(field?.field) || normalizeText(field?.key) || normalizeText(options.name);
+}
+
+function getFieldInterface(field) {
+  const options = getFieldOptions(field);
+  return normalizeText(field?.interface) || normalizeText(options.interface);
+}
+
+function getFieldType(field) {
+  const options = getFieldOptions(field);
+  return normalizeText(field?.type) || normalizeText(options.type);
+}
+
+function getFieldTarget(field) {
+  const options = getFieldOptions(field);
+  return normalizeText(field?.target) || normalizeText(field?.targetCollection) || normalizeText(options.target);
+}
+
 function isAssociationFieldLike(field) {
   if (!field || typeof field !== 'object' || Array.isArray(field)) {
     return false;
   }
   return (
-    ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
-    || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(field.interface))
+    !!getFieldTarget(field)
+    ||
+    ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(getFieldType(field)))
+    || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(getFieldInterface(field)))
   );
 }
 
 function isCandidateBusinessField(field) {
-  const fieldName = normalizeText(field?.name || field?.field || field?.key);
-  const fieldInterface = normalizeText(field?.interface);
+  const fieldName = getFieldName(field);
+  const fieldInterface = getFieldInterface(field);
   if (!fieldName || !fieldInterface) {
     return false;
   }
@@ -102,7 +130,7 @@ function isCandidateBusinessField(field) {
   if (!DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
     return false;
   }
-  if (field?.hidden === true) {
+  if (field?.hidden === true || field?.options?.hidden === true) {
     return false;
   }
   return !isAssociationFieldLike(field);
@@ -120,7 +148,7 @@ export function resolveDefaultFilterCandidateFields(collectionMeta, options = {}
 
   const availableFields = collectionMeta.fields.filter(isCandidateBusinessField);
   const fieldsByName = new Map(
-    availableFields.map((field) => [normalizeText(field.name || field.field || field.key), field]),
+    availableFields.map((field) => [getFieldName(field), field]),
   );
   const selectedFields = [];
   const seenFieldNames = new Set();
@@ -145,7 +173,7 @@ export function resolveDefaultFilterCandidateFields(collectionMeta, options = {}
     if (selectedFields.length >= maxCandidates) {
       break;
     }
-    pushFieldByName(field.name || field.field || field.key);
+    pushFieldByName(getFieldName(field));
   }
 
   return selectedFields.slice(0, maxCandidates);
@@ -153,7 +181,7 @@ export function resolveDefaultFilterCandidateFields(collectionMeta, options = {}
 
 export function resolveDefaultFilterCandidateFieldNames(collectionMeta, options = {}) {
   return resolveDefaultFilterCandidateFields(collectionMeta, options).map((field) =>
-    normalizeText(field.name || field.field || field.key),
+    getFieldName(field),
   );
 }
 
@@ -166,10 +194,18 @@ export function resolveDefaultFilterMinimumCandidateFieldNames(collectionMeta, o
   return candidateFieldNames.slice(0, Math.min(minimumFields, candidateFieldNames.length));
 }
 
+export function resolveDefaultFilterRequiredFieldCount(collectionMeta, options = {}) {
+  const candidateFieldCount = resolveDefaultFilterCandidateFieldNames(collectionMeta, {
+    maxCandidates: DEFAULT_FILTER_MAX_CANDIDATE_FIELDS,
+    ...options,
+  }).length;
+  return Math.min(DEFAULT_FILTER_MINIMUM_COVERAGE_FIELDS, candidateFieldCount);
+}
+
 export function buildSuggestedDefaultFilterGroup(collectionMeta, options = {}) {
   const items = resolveDefaultFilterCandidateFields(collectionMeta, options).map((field) => ({
-    path: normalizeText(field.name || field.field || field.key),
-    operator: DEFAULT_FILTER_EQ_INTERFACES.has(normalizeText(field.interface)) ? '$eq' : '$includes',
+    path: getFieldName(field),
+    operator: DEFAULT_FILTER_EQ_INTERFACES.has(getFieldInterface(field)) ? '$eq' : '$includes',
     value: '',
   }));
   return {

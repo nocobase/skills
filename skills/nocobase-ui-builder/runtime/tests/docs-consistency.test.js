@@ -1125,9 +1125,9 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
   const omittedDefaultFilterMaterializationPattern =
     /(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter[\s\S]{0,260}(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)|(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)[\s\S]{0,220}(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter|omitted `?defaultFilter`?[\s\S]{0,160}(?:materialized|materialize)/i;
   const generatedFieldCapPattern =
-    /(?:4 scalar\/filterable fields|4 generated filter fields|4 个标量\/可筛选字段|自动生成 4 个|backend4)/i;
+    /(?:up to 4 scalar\/filterable fields|up to 4 generated filter fields|最多 4 个标量\/可筛选字段|自动生成最多 4 个|backend4)/i;
   const explicitDefaultFilterTooNarrowRejectedPattern =
-    /(?:fewer-than-4-field|fewer than 4|less than 4|at least 4 distinct fields|少于 4|至少 4 个)[\s\S]{0,180}(?:defaultFilter|filter)|(?:defaultFilter|filter)[\s\S]{0,180}(?:fewer-than-4-field|fewer than 4|less than 4|at least 4 distinct fields|少于 4|至少 4 个)/i;
+    /(?:fewer fields than the smaller of 3|smaller of 3|eligible direct interface-field count|collection eligible-field count)[\s\S]{0,220}(?:defaultFilter|filter)|(?:defaultFilter|filter)[\s\S]{0,220}(?:fewer fields than the smaller of 3|smaller of 3|eligible direct interface-field count|collection eligible-field count)/i;
   const forbiddenRequiredDefaultFilterPattern =
     /(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)[\s\S]{0,180}defaultFilter|defaultFilter[\s\S]{0,180}(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)/i;
   const explicitDefaultFilterRejectedPattern =
@@ -1170,7 +1170,7 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
     assert.match(
       text,
       explicitDefaultFilterTooNarrowRejectedPattern,
-      `${relativePath} should document aggregate rejection for explicit defaultFilter with fewer than 4 fields`,
+      `${relativePath} should document aggregate rejection for explicit defaultFilter below the collection-aware minimum`,
     );
     assert.match(
       text,

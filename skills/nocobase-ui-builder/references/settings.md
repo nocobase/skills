@@ -254,7 +254,7 @@ Create `createForm` and give it a title directly:
 }
 ```
 
-When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban`, `defaultFilter` may be omitted; backend authoring materializes one from live metadata with 4 scalar/filterable fields. Keep an explicit override top-level on the block-create envelope, not in `settings.defaultFilter`, and make it concrete, metadata-valid, and backed by at least 4 distinct fields. Relation filters must use a child path such as `department.title`, not the relation field itself. Template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
+When `add-block` creates a direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban`, `defaultFilter` may be omitted; backend authoring materializes one from live metadata with up to 4 scalar/filterable fields. Keep an explicit override top-level on the block-create envelope, not in `settings.defaultFilter`, and make it concrete, metadata-valid, and backed by at least the smaller of 3 and the collection's eligible direct interface-field count. Relation filters must use a child path such as `department.title`, not the relation field itself. Template-backed imports do not accept block-level `defaultFilter` or `defaultActionSettings`.
 
 When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block. Hidden quick-create / event popups live under `settings.quickCreatePopup` and `settings.eventPopup`.
 

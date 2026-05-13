@@ -6019,10 +6019,10 @@ test('auditPayload blocks public add-block table payloads with non-empty but nar
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
-      resourceInit: makeCollectionResourceInit('order_items'),
-      defaultFilter: makePublicDefaultFilterFromFieldNames(['quantity']),
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username']),
       settings: {
-        title: 'Order items',
+        title: 'Users',
       },
     },
     metadata,
@@ -6030,7 +6030,122 @@ test('auditPayload blocks public add-block table payloads with non-empty but nar
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'), true);
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'
+        && item.details?.requiredFieldCount === 3
+        && item.details?.fieldCount === 2,
+    ),
+    true,
+  );
+});
+
+test('auditPayload sizes defaultFilter minimum coverage from eligible direct interface fields', () => {
+  const metadataWithDefaultFilterCases = {
+    collections: {
+      ...metadata.collections,
+      narrow_roles: {
+        fields: [
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+      hidden_roles: {
+        fields: [
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
+          { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+      options_only_roles: {
+        fields: [
+          { key: 'title', options: { type: 'string', interface: 'input' } },
+          { field: 'code', options: { type: 'string', interface: 'input' } },
+          { options: { name: 'scope', type: 'string', interface: 'select' } },
+          { name: 'internalName', options: { type: 'string', interface: 'input', hidden: true } },
+          { name: 'users', options: { type: 'belongsToMany', interface: 'm2m', target: 'users' } },
+        ],
+      },
+    },
+  };
+
+  const acceptedNarrow = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('narrow_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title', 'name']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(acceptedNarrow.ok, true, JSON.stringify(acceptedNarrow.blockers));
+
+  const rejectedNarrow = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('narrow_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(rejectedNarrow.ok, false);
+  assert.equal(
+    rejectedNarrow.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'
+        && item.details?.requiredFieldCount === 2
+        && item.details?.fieldCount === 1,
+    ),
+    true,
+  );
+
+  const hiddenFieldsDoNotRaiseMinimum = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('hidden_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(hiddenFieldsDoNotRaiseMinimum.ok, true, JSON.stringify(hiddenFieldsDoNotRaiseMinimum.blockers));
+
+  const acceptedOptionsOnly = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('options_only_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title', 'code', 'scope']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(acceptedOptionsOnly.ok, true, JSON.stringify(acceptedOptionsOnly.blockers));
+
+  const rejectedOptionsOnly = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('options_only_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title', 'code']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(rejectedOptionsOnly.ok, false);
+  assert.equal(
+    rejectedOptionsOnly.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'
+        && item.details?.requiredFieldCount === 3
+        && item.details?.fieldCount === 2,
+    ),
+    true,
+  );
 });
 
 test('auditPayload accepts template-backed public add-block table payloads without block-level defaultFilter', () => {

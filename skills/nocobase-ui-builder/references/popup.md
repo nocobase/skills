@@ -6,7 +6,7 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 
 ## 1. Core Split
 
-- In **page blueprint**, popup appears inline under the field/action/record action that opens it.
+- In **page blueprint**, popup intent appears inline under the field/action/record action that opens it; backend authoring may satisfy that intent by binding a compatible popup template, with local `popup.blocks` used only as miss fallback.
 - In **localized low-level edits**, popup is handled through the corresponding action/field write plus popup follow-up APIs as needed.
 
 ## 2. Core Rules
@@ -37,7 +37,7 @@ For `addNew`, `view`, and `edit`:
 
 ## 4. Page-Blueprint Popup Guidance
 
-Use inline popup when the page as a whole is being created/replaced and the popup is part of that page structure.
+When the page as a whole is being created/replaced, express popup intent inline under the opener. This does not require the submitted local popup tree to persist if template selection finds a compatible popup; a `popup.template` binding is the expected successful reuse outcome.
 
 For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the default inline popup fallback, and preserve local popup content as the miss fallback when needed. When that inline popup should also become a reusable template immediately, keep `popup.saveAsTemplate={ name, description }` alongside the local fallback: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 
@@ -48,7 +48,7 @@ For the first whole-page `applyBlueprint`, when a first-layer inline popup omits
 
 This auto-upgrade is whole-page `applyBlueprint` only. Nested popups, explicit `popup.mode`, and template-bound popups keep their existing mode behavior.
 
-For whole-page `applyBlueprint`, a successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. Without that extra readback, describe popup or template outcomes only as the submitted/created structure or intent from the success response and sent blueprint; do not claim the final normalized popup subtree, template binding, or nested popup persistence as a readback-verified fact.
+For whole-page `applyBlueprint`, a successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. Without that extra readback, describe popup or template outcomes only as the submitted/created structure or intent from the success response and sent blueprint; do not claim the final normalized popup subtree, template binding, or nested popup persistence as a readback-verified fact. If the response already shows `popup.template` on one or more openers, treat that as successful template reuse and do not rerun the page to force local blocks unless the user explicitly requested local-only behavior.
 
 The popup subtree in public `applyBlueprint` still follows the same public page-blueprint rules:
 
@@ -246,7 +246,7 @@ Use this pattern when the task says:
 - clicking a shown role opens role details
 - user and role details each need nested edit-form popups
 
-This pattern is intentionally local/non-template. On fresh one-off pages, do not detour into template routing unless the task explicitly asks for reuse or the live target already carries a template reference.
+This pattern is the local fallback shape for a miss. Keep default template behavior (`popup.tryTemplate=true`) unless the user explicitly asks for local-only behavior; when the backend binds one or more compatible popup templates for this pattern, stop and report successful reuse instead of rewriting the page to force local popup blocks.
 
 ## 5. Low-level Popup Guidance
 

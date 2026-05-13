@@ -88,13 +88,31 @@ Rules that never change:
 
 - `popup.tryTemplate=true` is a write-time fallback, not a planning shortcut.
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` popup specs, and whole-page `applyBlueprint` inline popup specs.
+- When `popup.tryTemplate=true` hits a compatible popup template, that opener's popup creation is complete. Do not treat the absence of expanded local `popup.blocks` in the persisted response as a failure.
 - If `popup.tryTemplate=true` misses and local popup content exists, that local popup content is the fallback.
 - If `popup.tryTemplate=true` misses and there is no local popup content, let backend fallback continue. Do not invent a popup locally.
+- If several popup openers in one successful write bind existing templates, accept those bindings. Do not remove `popup.tryTemplate`, switch to `replace`, or force inline/local popup content unless the user explicitly requested local-only behavior.
 - `popup.saveAsTemplate={ name, description }` is the bootstrap path when the new local popup itself should become a reusable popup template immediately.
 - `popup.saveAsTemplate` cannot be combined with `popup.template`.
 - `popup.saveAsTemplate` may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved as a template.
 - For repeated popup scenes with no usable template yet, prefer `popup.saveAsTemplate={ name, description }` on the first explicit local popup instead of delaying template creation to a second step.
 - Backend authoring may auto-receive generated `popup.saveAsTemplate={ name, description }` for explicit local inline popups with `popup.blocks`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
+
+## Anti-Regression Scenario
+
+Scenario: create a users details page where a `详情` action opens a current-user popup, the popup contains user details and a related `roles` table in one row, shown roles open role details, and user/role details each expose edit-form popups.
+
+Correct behavior:
+
+- Author inline popup intent with local `popup.blocks` as fallback and keep `popup.tryTemplate=true`.
+- If the successful response binds the user details popup, role details popup, edit user popup, or edit role popup to existing `popup.template` references, stop and report successful template reuse.
+- If multiple compatible templates are found, rely on contextual ranking / backend order to select the usable candidate.
+
+Incorrect behavior:
+
+- Removing `popup.tryTemplate` after success because template reuse hid local fallback blocks.
+- Re-running `applyBlueprint replace` just to force the same popup structure to persist inline.
+- Converting a template reference to `copy` without explicit local-only, copy, or detach intent from the user.
 
 ## Auto-generated Name and Description
 

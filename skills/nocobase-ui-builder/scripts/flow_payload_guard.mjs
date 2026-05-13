@@ -318,7 +318,33 @@ const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set([
   "calendar",
   "kanban",
 ]);
-const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 4;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 3;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES = new Set([
+  "input",
+  "email",
+  "url",
+  "phone",
+  "textarea",
+  "select",
+  "radioGroup",
+]);
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES = new Set([
+  "id",
+  "createdAt",
+  "updatedAt",
+  "deletedAt",
+  "createdBy",
+  "updatedBy",
+  "deletedBy",
+  "created_at",
+  "updated_at",
+  "deleted_at",
+  "created_by",
+  "updated_by",
+  "deleted_by",
+  "sort",
+]);
 const FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE =
   "FilterFormRecordSelectFieldModel";
 const FORM_ASSOCIATION_FIELD_MODEL_USE = "RecordSelectFieldModel";
@@ -1101,17 +1127,26 @@ function normalizeCollectionField(field) {
     return null;
   }
   const options = isPlainObject(field.options) ? field.options : {};
-  const name = field.name || options.name;
+  const name =
+    normalizeOptionalText(field.name) ||
+    normalizeOptionalText(field.field) ||
+    normalizeOptionalText(field.key) ||
+    normalizeOptionalText(options.name);
   if (!name) {
     return null;
   }
   return {
     name,
-    type: field.type || options.type,
-    interface: field.interface || options.interface,
-    target: field.target || options.target,
-    foreignKey: field.foreignKey || options.foreignKey,
-    targetKey: field.targetKey || options.targetKey,
+    type: normalizeOptionalText(field.type) || normalizeOptionalText(options.type),
+    interface: normalizeOptionalText(field.interface) || normalizeOptionalText(options.interface),
+    target:
+      normalizeOptionalText(field.target) ||
+      normalizeOptionalText(field.targetCollection) ||
+      normalizeOptionalText(options.target),
+    foreignKey: normalizeOptionalText(field.foreignKey) || normalizeOptionalText(options.foreignKey),
+    targetKey: normalizeOptionalText(field.targetKey) || normalizeOptionalText(options.targetKey),
+    hidden: field.hidden === true || options.hidden === true,
+    options: options.hidden === true ? { hidden: true } : undefined,
   };
 }
 
@@ -1735,24 +1770,24 @@ function validatePublicDefaultFilterGroup({
     return;
   }
 
-  if (
-    filterItemPaths.size <
-    PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT
-  ) {
+  const requiredFieldCount = resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(
+    metadata,
+    collectionName,
+  );
+  if (filterItemPaths.size < requiredFieldCount) {
     pushFinding(
       blockers,
       seen,
       createFinding({
         severity: "blocker",
         code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS",
-        message: `${messagePrefix} must include at least ${PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT} distinct filterable fields.`,
+        message: `${messagePrefix} must include at least ${requiredFieldCount} distinct filterable fields.`,
         path: pathValue,
         mode,
         dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS:${pathValue}`,
         details: {
           fieldCount: filterItemPaths.size,
-          requiredFieldCount:
-            PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+          requiredFieldCount,
           fieldNames: [...filterItemPaths],
         },
       }),
@@ -1854,6 +1889,44 @@ function validatePublicFilterSettings({
       messagePrefix: "defaultFilter",
     });
   }
+}
+
+function resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(
+  metadata,
+  collectionName,
+) {
+  const collectionMeta = getCollectionMeta(metadata || {}, collectionName);
+  if (!collectionMeta) {
+    return PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT;
+  }
+  const fields = Array.isArray(collectionMeta.fields)
+    ? collectionMeta.fields
+    : [];
+  const candidateFieldCount = fields.filter(
+    isPublicDataSurfaceDefaultFilterCandidateField,
+  ).length;
+  return Math.min(
+    PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+    Math.min(PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS, candidateFieldCount),
+  );
+}
+
+function isPublicDataSurfaceDefaultFilterCandidateField(field) {
+  const fieldName = normalizeOptionalText(field?.name);
+  const fieldInterface = normalizeOptionalText(field?.interface);
+  if (!fieldName || !fieldInterface) {
+    return false;
+  }
+  if (PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES.has(fieldName)) {
+    return false;
+  }
+  if (!PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
+    return false;
+  }
+  if (field?.hidden === true || field?.options?.hidden === true) {
+    return false;
+  }
+  return !isAssociationField(field);
 }
 
 function validatePublicDataSurfaceFilterSettings(
@@ -2601,14 +2674,31 @@ function isAssociationField(field) {
   if (!field) {
     return false;
   }
+  const fieldType = normalizeOptionalText(field.type).toLowerCase();
+  const fieldInterface = normalizeOptionalText(field.interface).toLowerCase();
   return Boolean(
     field.target ||
     field.foreignKey ||
-    field.type === "belongsTo" ||
-    field.type === "hasMany" ||
-    field.type === "hasOne" ||
-    field.interface === "m2o" ||
-    field.interface === "o2m",
+    [
+      "belongsto",
+      "hasmany",
+      "hasone",
+      "belongstomany",
+      "belongstoarray",
+      "onetoone",
+    ].includes(fieldType) ||
+    [
+      "m2o",
+      "o2m",
+      "m2m",
+      "o2o",
+      "mbm",
+      "obo",
+      "oho",
+      "manytoone",
+      "onetomany",
+      "manytomany",
+    ].includes(fieldInterface),
   );
 }
 
