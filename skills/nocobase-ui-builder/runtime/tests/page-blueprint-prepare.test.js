@@ -8104,6 +8104,14 @@ test('prepareApplyBlueprintRequest accepts canonical relation field details popu
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
   assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].fields[1].popup.saveAsTemplate.name,
+    'Role details popup(users.roles)',
+  );
+  assert.match(
+    result.cliBody.tabs[0].blocks[0].fields[1].popup.saveAsTemplate.description,
+    /Scene: popup\. Collection: roles\. Host: users\. Trigger: field "roles"\. Context: relation users\.roles\./i,
+  );
 });
 
 test('prepareApplyBlueprintRequest normalizes legacy relation field details popup to currentRecord', () => {
@@ -8986,7 +8994,7 @@ test('prepareApplyBlueprintRequest defaults inline create-time popups to popup.t
   );
   assert.match(
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
-    /Reusable popup template for record action "view" on users/i,
+    /Scene: popup\. Collection: users\. Host: users\. Trigger: record action "view"\. Context: direct\/current record\./i,
   );
 });
 
@@ -9349,7 +9357,7 @@ test('prepareApplyBlueprintRequest auto-generates popup.saveAsTemplate metadata 
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name, '用户详情弹窗模板');
   assert.match(
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
-    /复用弹窗模板。宿主：users；触发器：记录操作“详情”；内容：/u,
+    /复用弹窗模板。场景：弹窗；集合：users；宿主：users；触发器：记录操作“详情”；上下文：直接\/当前记录；内容：/u,
   );
 });
 
@@ -12867,7 +12875,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to calendar h
   assert.equal(quickCreatePopup.saveAsTemplate.name, 'Create calendar user popup template');
   assert.match(
     quickCreatePopup.saveAsTemplate.description,
-    /Reusable popup template for action "quick create" on User schedule/i,
+    /Scene: popup\. Host: User schedule\. Trigger: action "quick create"\. Context: direct\/current record\./i,
   );
   assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
   assert.equal(eventPopup.mode, 'drawer');
@@ -13037,14 +13045,14 @@ test('prepareApplyBlueprintRequest applies popup template defaults to kanban hid
   assert.equal(quickCreatePopup.saveAsTemplate.name, 'Create kanban user popup template');
   assert.match(
     quickCreatePopup.saveAsTemplate.description,
-    /Reusable popup template for action "quick create" on User board/i,
+    /Scene: popup\. Host: User board\. Trigger: action "quick create"\. Context: direct\/current record\./i,
   );
   assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
   assert.equal(cardPopup.tryTemplate, true);
   assert.equal(cardPopup.saveAsTemplate.name, 'Kanban user details popup template');
   assert.match(
     cardPopup.saveAsTemplate.description,
-    /Reusable popup template for action "card click\/view" on User board/i,
+    /Scene: popup\. Host: User board\. Trigger: action "card click\/view"\. Context: direct\/current record\./i,
   );
   assert.equal(cardPopup.blocks[0].fieldsLayout.rows[0][1].key, 'email');
 });

@@ -1006,29 +1006,77 @@ function summarizePopupTemplateBlocks(blocks, locale) {
   return labels.join(locale === "zh" ? "、" : ", ");
 }
 
+function resolvePopupTemplateAssociationName(options = {}) {
+  const requirement = options.blockContext?.associationRequirement;
+  if (
+    requirement?.sourceCollection &&
+    requirement?.associationField
+  ) {
+    return `${requirement.sourceCollection}.${requirement.associationField}`;
+  }
+
+  const sourceCollection = getTraversalSurfaceCollection(
+    options.blockContext || {},
+  );
+  const associationField = getDefaultsAssociationFieldKey(
+    options.associationField,
+  );
+  if (sourceCollection && associationField) {
+    return `${sourceCollection}.${associationField}`;
+  }
+
+  return "";
+}
+
 function buildAutoSaveTemplateMetadata(popup, options = {}) {
   const locale = inferPopupTemplateMetadataLocale(popup, options);
   const popupTitle = normalizeText(popup?.title);
   const hostLabel = describePopupTemplateHost(options.hostBlock, locale);
+  const hostCollection = getTraversalSurfaceCollection(
+    options.blockContext || {},
+  );
   const triggerLabel = describePopupTemplateTrigger(
     options.triggerKind,
     options.triggerLabel,
     locale,
   );
   const contentLabel = summarizePopupTemplateBlocks(popup?.blocks, locale);
+  const associationName = resolvePopupTemplateAssociationName(options);
 
-  const name = popupTitle
+  const baseName = popupTitle
     ? locale === "zh"
-      ? `${popupTitle}弹窗模板`
-      : `${popupTitle} popup template`
+      ? `${popupTitle}弹窗`
+      : `${popupTitle} popup`
     : locale === "zh"
-      ? `${hostLabel} ${triggerLabel} 弹窗模板`
-      : `${hostLabel} ${triggerLabel} popup template`;
+      ? `${hostLabel} ${triggerLabel} 弹窗`
+      : `${hostLabel} ${triggerLabel} popup`;
+  const name = associationName
+    ? `${baseName}(${associationName})`
+    : popupTitle
+      ? locale === "zh"
+        ? `${popupTitle}弹窗模板`
+        : `${popupTitle} popup template`
+      : locale === "zh"
+        ? `${hostLabel} ${triggerLabel} 弹窗模板`
+        : `${hostLabel} ${triggerLabel} popup template`;
+
+  const collectionPart = hostCollection
+    ? locale === "zh"
+      ? `集合：${hostCollection}；`
+      : `Collection: ${hostCollection}. `
+    : "";
+  const contextPart = associationName
+    ? locale === "zh"
+      ? `上下文：关联 ${associationName}；`
+      : `Context: relation ${associationName}. `
+    : locale === "zh"
+      ? "上下文：直接/当前记录；"
+      : "Context: direct/current record. ";
 
   const description =
     locale === "zh"
-      ? `复用弹窗模板。宿主：${hostLabel}；触发器：${triggerLabel}；内容：${contentLabel}。`
-      : `Reusable popup template for ${triggerLabel} on ${hostLabel}. Content: ${contentLabel}.`;
+      ? `复用弹窗模板。场景：弹窗；${collectionPart}宿主：${hostLabel}；触发器：${triggerLabel}；${contextPart}内容：${contentLabel}。`
+      : `Reusable popup template. Scene: popup. ${collectionPart}Host: ${hostLabel}. Trigger: ${triggerLabel}. ${contextPart}Content: ${contentLabel}.`;
 
   return {
     name: trimLabel(name, MAX_AUTO_TEMPLATE_NAME_LENGTH),
@@ -3434,7 +3482,11 @@ function getRelationFieldPopupBlockContextForWrite(field, options = {}) {
     fieldPath,
   );
   if (!associationRequirement?.targetCollection) return fallbackContext;
-  return { surfaceCollection: associationRequirement.targetCollection };
+  return {
+    ...fallbackContext,
+    surfaceCollection: associationRequirement.targetCollection,
+    associationRequirement,
+  };
 }
 
 function materializeRelationFieldTitleFieldForWrite(field, options = {}) {
