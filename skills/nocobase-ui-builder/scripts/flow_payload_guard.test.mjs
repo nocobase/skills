@@ -276,8 +276,6 @@ const metadataWithAssociationFormInvalidTitleField = {
 function makePublicDefaultFilter(items = [
   { path: 'order_no', operator: '$includes', value: '' },
   { path: 'status', operator: '$eq', value: '' },
-  { path: 'start_at', operator: '$dateOnOrAfter', value: null },
-  { path: 'end_at', operator: '$dateOnOrBefore', value: null },
 ]) {
   return {
     logic: '$and',
@@ -6056,6 +6054,8 @@ test('auditPayload sizes defaultFilter minimum coverage from eligible direct int
           { name: 'title', type: 'string', interface: 'input' },
           { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
           { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+          { name: 'blockedCode', type: 'string', interface: 'input', filterable: false },
+          { name: 'blockedScope', type: 'string', interface: 'input', options: { filterable: false } },
           { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
         ],
       },
@@ -6114,6 +6114,24 @@ test('auditPayload sizes defaultFilter minimum coverage from eligible direct int
     mode: VALIDATION_CASE_MODE,
   });
   assert.equal(hiddenFieldsDoNotRaiseMinimum.ok, true, JSON.stringify(hiddenFieldsDoNotRaiseMinimum.blockers));
+
+  const rejectedUnfilterable = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('hidden_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['blockedCode']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(rejectedUnfilterable.ok, false);
+  assert.equal(
+    rejectedUnfilterable.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE',
+    ),
+    true,
+  );
 
   const acceptedOptionsOnly = auditPayload({
     payload: {
@@ -6424,6 +6442,98 @@ test('auditPayload blocks public blocks payloads with normalized empty top-level
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
+});
+
+test('auditPayload validates public data-surface defaultFilters inside hidden popup blocks', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'calendar',
+      resourceInit: makeCollectionResourceInit('orders'),
+      settings: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              type: 'table',
+              resourceInit: makeCollectionResourceInit('users'),
+              defaultFilter: makePublicDefaultFilterFromFieldNames(['roles']),
+            },
+          ],
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE'
+        && item.path === '$.settings.quickCreatePopup.blocks[0].defaultFilter.items[0].path',
+    ),
+    true,
+  );
+});
+
+test('auditPayload resolves associatedRecords inside relation field popup from popup target collection', () => {
+  const metadataWithRoleUsers = {
+    collections: {
+      ...metadata.collections,
+      roles: {
+        titleField: 'name',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'description', type: 'string', interface: 'textarea' },
+          { name: 'scope', type: 'string', interface: 'select' },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+    },
+  };
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resourceInit: makeCollectionResourceInit('users'),
+          defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'phone']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleUsersTable',
+                    type: 'table',
+                    resource: {
+                      binding: 'associatedRecords',
+                      associationField: 'users',
+                    },
+                    defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'phone']),
+                    fields: ['nickname'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    metadata: metadataWithRoleUsers,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.blockers));
+  assert.equal(
+    result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')),
+    false,
+  );
 });
 
 for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {

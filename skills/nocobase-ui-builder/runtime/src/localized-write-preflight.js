@@ -617,7 +617,7 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     });
   };
 
-  const validateDefaultFilterGroup = (defaultFilter, path, block) => {
+  const validateDefaultFilterGroup = (defaultFilter, path, block, blockContext = {}) => {
     if (defaultFilter === null || (isObjectRecord(defaultFilter) && Object.keys(defaultFilter).length === 0)) {
       push(
         path,
@@ -640,6 +640,7 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
 
     let filterItemCount = 0;
     const filterItemPaths = new Set();
+    const eligibleFilterItemPaths = new Set();
 
     const visitGroup = (group, groupPath) => {
       const logic = normalizeText(group.logic);
@@ -696,8 +697,12 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
           );
         } else {
           filterItemPaths.add(filterPath);
-          const collectionName = getBlockCollectionName(block);
-          if (collectionName && getCollectionMeta(metadata, collectionName) && !resolveFieldPathInMetadata(metadata, collectionName, filterPath)) {
+          const collectionName = getLocalizedDataSurfaceDefaultFilterCollectionName(block, blockContext);
+          const collectionMeta = getCollectionMeta(metadata, collectionName);
+          const resolved = collectionName
+            ? resolveFieldPathInMetadata(metadata, collectionName, filterPath)
+            : null;
+          if (collectionName && collectionMeta && !resolved) {
             push(
               `${itemPath}.path`,
               'public-data-surface-default-filter-unknown-field',
@@ -705,6 +710,22 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
               'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD',
               { collectionName, fieldPath: filterPath },
             );
+          } else {
+            const isEligible = collectionName && collectionMeta && resolved
+              ? isPublicDataSurfaceDefaultFilterDirectFieldPath(filterPath)
+                && isPublicDataSurfaceDefaultFilterCandidateField(resolved.field)
+              : true;
+            if (isEligible) {
+              eligibleFilterItemPaths.add(filterPath);
+            } else {
+              push(
+                `${itemPath}.path`,
+                'public-data-surface-default-filter-field-ineligible',
+                `defaultFilter.items path "${filterPath}" is not eligible for defaultFilter.`,
+                'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE',
+                { collectionName, fieldPath: filterPath },
+              );
+            }
           }
         }
 
@@ -731,33 +752,80 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
       return;
     }
 
-    const requiredFieldCount = resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata);
-    if (filterItemPaths.size < requiredFieldCount) {
+    const requiredFieldCount = resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata, blockContext);
+    if (eligibleFilterItemPaths.size < requiredFieldCount) {
       push(
         path,
         'public-data-surface-default-filter-minimum-fields',
         `defaultFilter must include at least ${requiredFieldCount} distinct filterable fields.`,
         'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS',
         {
-          fieldCount: filterItemPaths.size,
+          fieldCount: eligibleFilterItemPaths.size,
           requiredFieldCount,
-          fieldNames: [...filterItemPaths],
+          fieldNames: [...eligibleFilterItemPaths],
         },
       );
     }
 
   };
 
-  const visitBlock = (block, path) => {
+  const visitBlockChildren = (block, path, blockContext, directSettingsPath = false) => {
+    const childContext = {
+      surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext),
+      associationRequirement: blockContext?.associationRequirement || null,
+    };
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, childContext));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, childContext));
+    }
+    forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      if (!Array.isArray(popup?.blocks)) return;
+      const popupBlocksPath = directSettingsPath ? `${path}.${key}.blocks` : `${path}.settings.${key}.blocks`;
+      popup.blocks.forEach((child, index) => visitBlock(child, `${popupBlocksPath}[${index}]`, childContext));
+    });
+    for (const slot of ['actions', 'recordActions']) {
+      if (!Array.isArray(block[slot])) continue;
+      block[slot].forEach((item, index) => {
+        if (!Array.isArray(item?.popup?.blocks)) return;
+        item.popup.blocks.forEach((child, blockIndex) => {
+          visitBlock(child, `${path}.${slot}[${index}].popup.blocks[${blockIndex}]`, childContext);
+        });
+      });
+    }
+    const visitFieldPopup = (field, fieldPath) => {
+      if (!Array.isArray(field?.popup?.blocks)) return;
+      const fieldSurfaceContext = getLocalizedFieldPopupSurfaceContext(
+        metadata,
+        blockContext,
+        getPublicRelationFieldObjectPath(field),
+      );
+      field.popup.blocks.forEach((child, blockIndex) => {
+        visitBlock(child, `${fieldPath}.popup.blocks[${blockIndex}]`, fieldSurfaceContext);
+      });
+    };
+    if (Array.isArray(block.fields)) {
+      block.fields.forEach((field, index) => visitFieldPopup(field, `${path}.fields[${index}]`));
+    }
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        ensureArray(group?.fields).forEach((field, fieldIndex) => {
+          visitFieldPopup(field, `${path}.fieldGroups[${groupIndex}].fields[${fieldIndex}]`);
+        });
+      });
+    }
+  };
+
+  const visitBlock = (block, path, parentContext = {}, { directSettingsPath = false } = {}) => {
     if (!isObjectRecord(block)) return;
+    const blockContext = buildLocalizedBlockTraversalContext(block, parentContext, metadata);
     if (isPublicDataSurfaceBlockType(block.type) && !block.template) {
-      if (Object.hasOwn(block, 'defaultFilter')) {
-        validateDefaultFilterGroup(block.defaultFilter, `${path}.defaultFilter`, block);
+      if (Object.hasOwn(block, 'defaultFilter') && typeof block.defaultFilter !== 'undefined') {
+        validateDefaultFilterGroup(block.defaultFilter, `${path}.defaultFilter`, block, blockContext);
       }
     }
-    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
-      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
-    });
+    visitBlockChildren(block, path, blockContext, directSettingsPath);
   };
 
   if (operation === 'add-block') {
@@ -772,11 +840,9 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
           ...context.block,
           defaultFilter: payload.changes.defaultFilter,
         };
-        visitBlock(block, context.path);
+        visitBlock(block, context.path, {}, { directSettingsPath: true });
       } else {
-        forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
-          blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
-        });
+        visitBlock(context.block, context.path, {}, { directSettingsPath: true });
       }
     }
     return errors;
@@ -835,8 +901,12 @@ function collectLocalizedDefaultActionOptOutErrors(payload, operation, metadata 
   return errors;
 }
 
-function resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata) {
-  const collectionName = getBlockCollectionName(block);
+function getLocalizedDataSurfaceDefaultFilterCollectionName(block, blockContext = {}) {
+  return normalizeText(blockContext?.surfaceCollection) || getBlockCollectionName(block);
+}
+
+function resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata, blockContext = {}) {
+  const collectionName = getLocalizedDataSurfaceDefaultFilterCollectionName(block, blockContext);
   const collectionMeta = collectionName ? getCollectionMeta(metadata || {}, collectionName) : null;
   if (!collectionMeta) {
     return PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT;
@@ -861,7 +931,14 @@ function isPublicDataSurfaceDefaultFilterCandidateField(field) {
   if (field?.hidden === true || field?.options?.hidden === true) {
     return false;
   }
+  if (field?.filterable === false || field?.options?.filterable === false) {
+    return false;
+  }
   return !isAssociationField(field);
+}
+
+function isPublicDataSurfaceDefaultFilterDirectFieldPath(fieldPath) {
+  return normalizeText(fieldPath).split('.').filter(Boolean).length === 1;
 }
 
 function normalizeMetadata(value) {
@@ -890,6 +967,10 @@ function normalizeCollectionField(field) {
     : {};
   const name = normalizeText(field.name) || normalizeText(field.field) || normalizeText(field.key) || normalizeText(options.name);
   if (!name) return null;
+  const normalizedOptions = {
+    ...(options.hidden === true ? { hidden: true } : {}),
+    ...(options.filterable === false ? { filterable: false } : {}),
+  };
   return {
     name,
     interface: normalizeText(field.interface) || normalizeText(options.interface),
@@ -898,7 +979,11 @@ function normalizeCollectionField(field) {
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
     hidden: field.hidden === true || options.hidden === true,
-    options: options.hidden === true ? { hidden: true } : undefined,
+    filterable:
+      field.filterable === false || options.filterable === false
+        ? false
+        : undefined,
+    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }
 
@@ -1170,6 +1255,7 @@ function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fiel
   const targetCollection = normalizeText(resolved?.field?.target);
   if (!targetCollection) return null;
   return {
+    sourceCollection: sourceCollectionName,
     associationField: canonicalAssociationField,
     targetCollection,
   };
@@ -1195,12 +1281,15 @@ function buildLocalizedBlockTraversalContext(block, parentContext, metadata) {
   let associationRequirement = null;
 
   if (binding === 'associatedrecords') {
+    const inheritedAssociationRequirement = parentContext?.associationRequirement || null;
+    const associationSourceCollection =
+      inheritedAssociationRequirement?.sourceCollection || inheritedSurfaceCollection;
     associationRequirement = resolveAssociationFieldRequirement(
       metadata,
-      inheritedSurfaceCollection,
+      associationSourceCollection,
       getNodeAssociationField(block),
     );
-    surfaceCollection = normalizedDirectCollection || associationRequirement?.targetCollection || '';
+    surfaceCollection = associationRequirement?.targetCollection || normalizedDirectCollection || '';
   } else if (binding === 'currentrecord' && normalizedDirectCollection) {
     surfaceCollection = normalizedDirectCollection;
   }
@@ -1220,6 +1309,7 @@ function getLocalizedFieldPopupSurfaceContext(metadata, blockContext, fieldPath 
   );
   return {
     surfaceCollection: associationRequirement?.targetCollection || getLocalizedTraversalSurfaceCollection(blockContext),
+    associationRequirement: null,
   };
 }
 
@@ -1997,11 +2087,14 @@ function collectLocalizedRelationPopupResourceErrors(payload, operation = 'compo
           return;
         }
         const blockAssociationField = getDefaultsAssociationFieldKey(getNodeAssociationField(block));
-        if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField) {
+        const targetAssociationRequirement = targetCollection
+          ? resolveAssociationFieldRequirement(metadata, targetCollection, blockAssociationField)
+          : null;
+        if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField && !targetAssociationRequirement) {
           push(
             `${blockPath}.resource.associationField`,
             'relation-popup-associated-records-association-field-required',
-            `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}".`,
+            `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}" or use an association on popup target collection "${targetCollection}".`,
             'RELATION_POPUP_ASSOCIATED_RECORDS_ASSOCIATION_FIELD_REQUIRED',
             { expectedAssociationField: canonicalAssociationField, actualAssociationField: blockAssociationField },
           );

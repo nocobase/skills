@@ -318,6 +318,22 @@ const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set([
   "calendar",
   "kanban",
 ]);
+const PUBLIC_HIDDEN_POPUP_SETTINGS_BY_BLOCK_TYPE = new Map([
+  [
+    "calendar",
+    [
+      { key: "quickCreatePopup", triggerLabel: "quick create" },
+      { key: "eventPopup", triggerLabel: "event click/view" },
+    ],
+  ],
+  [
+    "kanban",
+    [
+      { key: "quickCreatePopup", triggerLabel: "quick create" },
+      { key: "cardPopup", triggerLabel: "card click/view" },
+    ],
+  ],
+]);
 const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 3;
 const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
 const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES = new Set([
@@ -1135,6 +1151,10 @@ function normalizeCollectionField(field) {
   if (!name) {
     return null;
   }
+  const normalizedOptions = {
+    ...(options.hidden === true ? { hidden: true } : {}),
+    ...(options.filterable === false ? { filterable: false } : {}),
+  };
   return {
     name,
     type: normalizeOptionalText(field.type) || normalizeOptionalText(options.type),
@@ -1146,7 +1166,11 @@ function normalizeCollectionField(field) {
     foreignKey: normalizeOptionalText(field.foreignKey) || normalizeOptionalText(options.foreignKey),
     targetKey: normalizeOptionalText(field.targetKey) || normalizeOptionalText(options.targetKey),
     hidden: field.hidden === true || options.hidden === true,
-    options: options.hidden === true ? { hidden: true } : undefined,
+    filterable:
+      field.filterable === false || options.filterable === false
+        ? false
+        : undefined,
+    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }
 
@@ -1451,6 +1475,21 @@ function isPublicDataSurfaceBlockType(type) {
   return PUBLIC_DATA_SURFACE_BLOCK_TYPES.has(normalizeOptionalText(type));
 }
 
+function getPublicHiddenPopupSettingsForBlockType(type) {
+  return PUBLIC_HIDDEN_POPUP_SETTINGS_BY_BLOCK_TYPE.get(normalizeOptionalText(type)) || [];
+}
+
+function forEachPublicBlockHiddenPopup(settings, block, visitor) {
+  if (!isPlainObject(settings)) {
+    return;
+  }
+  getPublicHiddenPopupSettingsForBlockType(block?.type).forEach((popupSetting) => {
+    if (Object.hasOwn(settings, popupSetting.key)) {
+      visitor(settings[popupSetting.key], popupSetting);
+    }
+  });
+}
+
 function hasPublicTemplateBinding(block) {
   return !!normalizeOptionalText(block?.template?.uid);
 }
@@ -1488,6 +1527,35 @@ function resolvePublicBlockCollectionName(block) {
     return resourceCollection;
   }
   return normalizeOptionalText(block.resourceInit?.collectionName);
+}
+
+function getPublicDataSurfaceDefaultFilterCollectionName(block, context = {}) {
+  return normalizeOptionalText(context?.surfaceCollection) || resolvePublicBlockCollectionName(block);
+}
+
+function isPublicDataSurfaceDefaultFilterDirectFieldPath(fieldPath) {
+  return normalizeOptionalText(fieldPath).split(".").filter(Boolean).length === 1;
+}
+
+function isPublicDataSurfaceDefaultFilterEligibleField(field) {
+  const fieldName = normalizeOptionalText(field?.name);
+  const fieldInterface = normalizeOptionalText(field?.interface);
+  if (!fieldName || !fieldInterface) {
+    return false;
+  }
+  if (PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES.has(fieldName)) {
+    return false;
+  }
+  if (!PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
+    return false;
+  }
+  if (field?.hidden === true || field?.options?.hidden === true) {
+    return false;
+  }
+  if (field?.filterable === false || field?.options?.filterable === false) {
+    return false;
+  }
+  return !isAssociationField(field);
 }
 
 function validatePublicFilterableFieldNames({
@@ -1540,10 +1608,33 @@ function validatePublicFilterableFieldNames({
   });
 
   normalizedFieldNames.forEach((fieldName, index) => {
-    if (
-      !collectionName ||
-      resolveFieldPathInMetadata(metadata, collectionName, fieldName) != null
-    ) {
+    if (!collectionName || !getCollectionMeta(metadata, collectionName)) {
+      return;
+    }
+    const resolvedFieldPath = resolveFieldPathInMetadata(metadata, collectionName, fieldName);
+    if (resolvedFieldPath != null) {
+      if (
+        isPublicDataSurfaceDefaultFilterDirectFieldPath(fieldName) &&
+        isPublicDataSurfaceDefaultFilterEligibleField(resolvedFieldPath.field)
+      ) {
+        return;
+      }
+      pushFinding(
+        blockers,
+        seen,
+        createFinding({
+          severity: "blocker",
+          code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE",
+          message: `${messagePrefix} includes ineligible field path "${fieldName}" for collection ${collectionName}.`,
+          path: `${pathValue}[${index}]`,
+          mode,
+          dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE:${collectionName}:${fieldName}`,
+          details: {
+            collectionName,
+            fieldPath: fieldName,
+          },
+        }),
+      );
       return;
     }
     pushFinding(
@@ -1576,8 +1667,13 @@ function validatePublicDefaultFilterGroup({
   blockers,
   seen,
   fieldNames = [],
+  blockContext = {},
   messagePrefix = "defaultFilter",
 }) {
+  const defaultFilterCollectionName = getPublicDataSurfaceDefaultFilterCollectionName(
+    { collection: collectionName },
+    blockContext,
+  );
   const pushEmptyDefaultFilterFinding = (emptyPath = pathValue) => {
     pushFinding(
       blockers,
@@ -1619,6 +1715,7 @@ function validatePublicDefaultFilterGroup({
 
   const fieldNameSet = new Set(fieldNames);
   const filterItemPaths = new Set();
+  const eligibleFilterItemPaths = new Set();
   let filterItemCount = 0;
 
   const visitGroup = (group, groupPath) => {
@@ -1707,6 +1804,16 @@ function validatePublicDefaultFilterGroup({
         );
       } else {
         filterItemPaths.add(fieldPath);
+        const resolvedField = defaultFilterCollectionName
+          ? resolveFieldPathInMetadata(metadata, defaultFilterCollectionName, fieldPath)?.field
+          : null;
+        const isEligiblePath =
+          !!resolvedField &&
+          isPublicDataSurfaceDefaultFilterDirectFieldPath(fieldPath) &&
+          isPublicDataSurfaceDefaultFilterEligibleField(resolvedField);
+        if (isEligiblePath) {
+          eligibleFilterItemPaths.add(fieldPath);
+        }
         if (fieldNameSet.size > 0 && !fieldNameSet.has(fieldPath)) {
           pushFinding(
             blockers,
@@ -1720,26 +1827,34 @@ function validatePublicDefaultFilterGroup({
               dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEM_NOT_FILTERABLE:${pathValue}:${fieldPath}`,
             }),
           );
-        } else if (
-          fieldNameSet.size === 0 &&
-          collectionName &&
-          resolveFieldPathInMetadata(metadata, collectionName, fieldPath) ==
-            null
-        ) {
+        } else if (fieldNameSet.size === 0 && defaultFilterCollectionName && resolvedField == null) {
           pushFinding(
             blockers,
             seen,
             createFinding({
               severity: "blocker",
               code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD",
-              message: `${messagePrefix}.items path "${fieldPath}" is unsupported for collection ${collectionName}.`,
+              message: `${messagePrefix}.items path "${fieldPath}" is unsupported for collection ${defaultFilterCollectionName}.`,
               path: `${itemPath}.path`,
               mode,
-              dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD:${collectionName}:${fieldPath}`,
+              dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD:${defaultFilterCollectionName}:${fieldPath}`,
               details: {
-                collectionName,
+                collectionName: defaultFilterCollectionName,
                 fieldPath,
               },
+            }),
+          );
+        } else if (fieldNameSet.size === 0 && defaultFilterCollectionName && !isEligiblePath) {
+          pushFinding(
+            blockers,
+            seen,
+            createFinding({
+              severity: "blocker",
+              code: "PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE",
+              message: `${messagePrefix}.items path "${fieldPath}" is not eligible for defaultFilter.`,
+              path: `${itemPath}.path`,
+              mode,
+              dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE:${defaultFilterCollectionName}:${fieldPath}`,
             }),
           );
         }
@@ -1772,9 +1887,9 @@ function validatePublicDefaultFilterGroup({
 
   const requiredFieldCount = resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(
     metadata,
-    collectionName,
+    defaultFilterCollectionName,
   );
-  if (filterItemPaths.size < requiredFieldCount) {
+  if (eligibleFilterItemPaths.size < requiredFieldCount) {
     pushFinding(
       blockers,
       seen,
@@ -1786,9 +1901,9 @@ function validatePublicDefaultFilterGroup({
         mode,
         dedupeKey: `PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS:${pathValue}`,
         details: {
-          fieldCount: filterItemPaths.size,
+          fieldCount: eligibleFilterItemPaths.size,
           requiredFieldCount,
-          fieldNames: [...filterItemPaths],
+          fieldNames: [...eligibleFilterItemPaths],
         },
       }),
     );
@@ -1821,6 +1936,7 @@ function validatePublicFilterSettings({
   settings,
   settingsPath,
   collectionName,
+  blockContext = {},
   blockDefaultFilter,
   blockDefaultFilterPath,
   metadata,
@@ -1846,12 +1962,16 @@ function validatePublicFilterSettings({
     return;
   }
 
+  const defaultFilterCollectionName = getPublicDataSurfaceDefaultFilterCollectionName(
+    { collection: collectionName },
+    blockContext,
+  );
   const hasFieldNames = Object.hasOwn(settings, "filterableFieldNames");
   const hasDefaultFilter = Object.hasOwn(settings, "defaultFilter");
   const fieldNames = hasFieldNames
     ? validatePublicFilterableFieldNames({
         fieldNames: settings.filterableFieldNames,
-        collectionName,
+        collectionName: defaultFilterCollectionName,
         pathValue: filterableFieldNamesPath,
         metadata,
         mode,
@@ -1864,13 +1984,14 @@ function validatePublicFilterSettings({
   if (hasDefaultFilter) {
     validatePublicDefaultFilterGroup({
       defaultFilter: settings.defaultFilter,
-      collectionName,
+      collectionName: defaultFilterCollectionName,
       fieldNames,
       pathValue: `${settingsPath}.defaultFilter`,
       metadata,
       mode,
       blockers,
       seen,
+      blockContext,
       messagePrefix: `${settingsPrefix}.defaultFilter`,
     });
     return;
@@ -1879,13 +2000,14 @@ function validatePublicFilterSettings({
   if (hasFieldNames && blockDefaultFilter !== undefined) {
     validatePublicDefaultFilterGroup({
       defaultFilter: blockDefaultFilter,
-      collectionName,
+      collectionName: defaultFilterCollectionName,
       fieldNames,
       pathValue: blockDefaultFilterPath,
       metadata,
       mode,
       blockers,
       seen,
+      blockContext,
       messagePrefix: "defaultFilter",
     });
   }
@@ -1912,21 +2034,7 @@ function resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(
 }
 
 function isPublicDataSurfaceDefaultFilterCandidateField(field) {
-  const fieldName = normalizeOptionalText(field?.name);
-  const fieldInterface = normalizeOptionalText(field?.interface);
-  if (!fieldName || !fieldInterface) {
-    return false;
-  }
-  if (PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES.has(fieldName)) {
-    return false;
-  }
-  if (!PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
-    return false;
-  }
-  if (field?.hidden === true || field?.options?.hidden === true) {
-    return false;
-  }
-  return !isAssociationField(field);
+  return isPublicDataSurfaceDefaultFilterEligibleField(field);
 }
 
 function validatePublicDataSurfaceFilterSettings(
@@ -1936,12 +2044,13 @@ function validatePublicDataSurfaceFilterSettings(
   mode,
   blockers,
   seen,
+  blockContext = {},
 ) {
   if (!isDirectPublicDataSurfaceBlock(block)) {
     return;
   }
 
-  const collectionName = resolvePublicBlockCollectionName(block);
+  const collectionName = getPublicDataSurfaceDefaultFilterCollectionName(block, blockContext);
   const blockDefaultFilter = Object.hasOwn(block, "defaultFilter")
     ? block.defaultFilter
     : undefined;
@@ -1960,6 +2069,7 @@ function validatePublicDataSurfaceFilterSettings(
         settings: action.settings,
         settingsPath: `${pathValue}.actions[${index}].settings`,
         collectionName,
+        blockContext,
         blockDefaultFilter,
         blockDefaultFilterPath,
         metadata,
@@ -1992,6 +2102,7 @@ function validatePublicDataSurfaceFilterSettings(
         settings: block.defaultActionSettings.filter,
         settingsPath: `${pathValue}.defaultActionSettings.filter`,
         collectionName,
+        blockContext,
         blockDefaultFilter,
         blockDefaultFilterPath,
         metadata,
@@ -2002,6 +2113,100 @@ function validatePublicDataSurfaceFilterSettings(
       });
     }
   }
+}
+
+function getPublicTraversalSurfaceCollection(context = {}) {
+  return normalizeOptionalText(context.surfaceCollection || context.currentCollection);
+}
+
+function getPublicNodeBinding(node) {
+  return normalizeOptionalText(
+    node?.binding ||
+      node?.resource?.binding ||
+      node?.resource?.resourceBinding,
+  ).toLowerCase();
+}
+
+function getPublicNodeAssociationField(node) {
+  return normalizeOptionalText(
+    node?.associationField ||
+      node?.associationPathName ||
+      node?.resource?.associationField ||
+      node?.resource?.associationPathName,
+  );
+}
+
+function getPublicAssociationFieldKey(fieldPath) {
+  return normalizeOptionalText(fieldPath).split(".").filter(Boolean)[0] || "";
+}
+
+function resolvePublicAssociationRequirement(metadata, sourceCollectionName, fieldPath) {
+  const sourceCollection = normalizeOptionalText(sourceCollectionName);
+  const associationField = getPublicAssociationFieldKey(fieldPath);
+  if (!sourceCollection || !associationField) {
+    return null;
+  }
+  const resolved = resolveFieldPathInMetadata(metadata, sourceCollection, associationField);
+  if (!isAssociationField(resolved?.field)) {
+    return null;
+  }
+  const targetCollection = normalizeOptionalText(resolved.field.target);
+  if (!targetCollection) {
+    return null;
+  }
+  return {
+    sourceCollection,
+    associationField,
+    targetCollection,
+  };
+}
+
+function buildPublicBlockTraversalContext(block, parentContext = {}, metadata = {}) {
+  const binding = getPublicNodeBinding(block);
+  const directCollection = resolvePublicBlockCollectionName(block);
+  const inheritedSurfaceCollection = getPublicTraversalSurfaceCollection(parentContext);
+  let associationRequirement = parentContext.associationRequirement || null;
+  let surfaceCollection = directCollection || inheritedSurfaceCollection;
+
+  if (binding === "associatedrecords") {
+    const sourceCollection =
+      associationRequirement?.sourceCollection || inheritedSurfaceCollection;
+    associationRequirement = resolvePublicAssociationRequirement(
+      metadata,
+      sourceCollection,
+      getPublicNodeAssociationField(block),
+    );
+    surfaceCollection = associationRequirement?.targetCollection || directCollection || "";
+  } else if (binding === "currentrecord" && directCollection) {
+    surfaceCollection = directCollection;
+  }
+
+  return {
+    surfaceCollection,
+    associationRequirement,
+    binding,
+  };
+}
+
+function getPublicFieldPopupSurfaceContext(metadata, blockContext, fieldPath = "") {
+  const associationRequirement = resolvePublicAssociationRequirement(
+    metadata,
+    getPublicTraversalSurfaceCollection(blockContext),
+    fieldPath,
+  );
+  return {
+    surfaceCollection:
+      associationRequirement?.targetCollection ||
+      getPublicTraversalSurfaceCollection(blockContext),
+    associationRequirement: null,
+  };
+}
+
+function getPublicFieldPopupFieldPath(item) {
+  if (typeof item === "string") {
+    return normalizeOptionalText(item);
+  }
+  return normalizeOptionalText(item?.field || item?.fieldPath || item?.path || item?.name);
 }
 
 function forEachPublicChildBlockContainer(block, pathValue, visitContainer) {
@@ -2015,6 +2220,11 @@ function forEachPublicChildBlockContainer(block, pathValue, visitContainer) {
   if (Array.isArray(block.popup?.blocks)) {
     visitContainer(block.popup.blocks, `${pathValue}.popup.blocks`);
   }
+  forEachPublicBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+    if (Array.isArray(popup?.blocks)) {
+      visitContainer(popup.blocks, `${pathValue}.settings.${key}.blocks`);
+    }
+  });
 
   ["actions", "recordActions", "fields"].forEach((slot) => {
     if (!Array.isArray(block[slot])) {
@@ -2054,10 +2264,78 @@ function inspectPublicDataSurfaceDefaultFilters(
   blockers,
   seen,
 ) {
-  const visitBlock = (block, pathValue) => {
+  const visitChildBlocks = (blocks, blocksPath, parentContext) => {
+    if (!Array.isArray(blocks)) {
+      return;
+    }
+    blocks.forEach((child, index) =>
+      visitBlock(child, `${blocksPath}[${index}]`, parentContext),
+    );
+  };
+
+  const visitBlockChildren = (block, pathValue, blockContext) => {
+    const childContext = {
+      surfaceCollection: getPublicTraversalSurfaceCollection(blockContext),
+      associationRequirement: blockContext.associationRequirement || null,
+    };
+    visitChildBlocks(block.blocks, `${pathValue}.blocks`, childContext);
+    visitChildBlocks(block.popup?.blocks, `${pathValue}.popup.blocks`, childContext);
+    forEachPublicBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      visitChildBlocks(popup?.blocks, `${pathValue}.settings.${key}.blocks`, childContext);
+    });
+
+    ["actions", "recordActions"].forEach((slot) => {
+      if (!Array.isArray(block[slot])) {
+        return;
+      }
+      block[slot].forEach((item, index) => {
+        visitChildBlocks(
+          item?.popup?.blocks,
+          `${pathValue}.${slot}[${index}].popup.blocks`,
+          childContext,
+        );
+      });
+    });
+
+    if (Array.isArray(block.fields)) {
+      block.fields.forEach((field, index) => {
+        visitChildBlocks(
+          field?.popup?.blocks,
+          `${pathValue}.fields[${index}].popup.blocks`,
+          getPublicFieldPopupSurfaceContext(
+            metadata,
+            blockContext,
+            getPublicFieldPopupFieldPath(field),
+          ),
+        );
+      });
+    }
+
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        if (!Array.isArray(group?.fields)) {
+          return;
+        }
+        group.fields.forEach((field, fieldIndex) => {
+          visitChildBlocks(
+            field?.popup?.blocks,
+            `${pathValue}.fieldGroups[${groupIndex}].fields[${fieldIndex}].popup.blocks`,
+            getPublicFieldPopupSurfaceContext(
+              metadata,
+              blockContext,
+              getPublicFieldPopupFieldPath(field),
+            ),
+          );
+        });
+      });
+    }
+  };
+
+  const visitBlock = (block, pathValue, parentContext = {}) => {
     if (!isPlainObject(block)) {
       return;
     }
+    const blockContext = buildPublicBlockTraversalContext(block, parentContext, metadata);
 
     if (
       isPublicDataSurfaceBlockType(block.type) &&
@@ -2103,12 +2381,13 @@ function inspectPublicDataSurfaceDefaultFilters(
       if (Object.hasOwn(block, "defaultFilter")) {
         validatePublicDefaultFilterGroup({
           defaultFilter: block.defaultFilter,
-          collectionName: resolvePublicBlockCollectionName(block),
+          collectionName: getPublicDataSurfaceDefaultFilterCollectionName(block, blockContext),
           pathValue: `${pathValue}.defaultFilter`,
           metadata,
           mode,
           blockers,
           seen,
+          blockContext,
         });
       }
       validatePublicDataSurfaceFilterSettings(
@@ -2118,14 +2397,11 @@ function inspectPublicDataSurfaceDefaultFilters(
         mode,
         blockers,
         seen,
+        blockContext,
       );
     }
 
-    forEachPublicChildBlockContainer(block, pathValue, (blocks, blocksPath) => {
-      blocks.forEach((child, index) =>
-        visitBlock(child, `${blocksPath}[${index}]`),
-      );
-    });
+    visitBlockChildren(block, pathValue, blockContext);
   };
 
   if (!isPlainObject(payload)) {

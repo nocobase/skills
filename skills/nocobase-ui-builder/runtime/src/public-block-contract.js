@@ -127,6 +127,7 @@ function normalizeCollectionField(field) {
   if (Array.isArray(options.options)) normalizedOptions.options = cloneSerializable(options.options);
   if (isPlainObject(options.validation)) normalizedOptions.validation = cloneSerializable(options.validation);
   if (isPlainObject(options.uiSchema)) normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
+  if (options.filterable === false) normalizedOptions.filterable = false;
   return {
     name,
     interface: normalizeText(field.interface) || normalizeText(options.interface),
@@ -139,6 +140,10 @@ function normalizeCollectionField(field) {
     ...(uiSchema ? { uiSchema } : {}),
     ...(descriptionBehavior ? { descriptionBehavior } : {}),
     hidden: field.hidden === true || options.hidden === true,
+    filterable:
+      field.filterable === false || options.filterable === false
+        ? false
+        : undefined,
     options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }

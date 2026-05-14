@@ -59,6 +59,7 @@ function makeMetadata() {
           { name: 'title', interface: 'input' },
           { name: 'description', interface: 'textarea' },
           { name: 'scope', interface: 'select' },
+          { name: 'users', interface: 'm2m', type: 'belongsToMany', target: 'users' },
         ],
       },
     },
@@ -295,7 +296,7 @@ test('runLocalizedWritePreflight accepts jsItem in public collection and record 
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'startAt']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
           settings: {
             titleField: 'title',
             startField: 'startAt',
@@ -726,6 +727,8 @@ test('runLocalizedWritePreflight sizes defaultFilter minimum coverage from eligi
       { name: 'title', type: 'string', interface: 'input' },
       { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
       { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+      { name: 'blockedCode', type: 'string', interface: 'input', filterable: false },
+      { name: 'blockedScope', type: 'string', interface: 'input', options: { filterable: false } },
       { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
     ],
   };
@@ -780,6 +783,23 @@ test('runLocalizedWritePreflight sizes defaultFilter minimum coverage from eligi
     collectionMetadata: metadata,
   });
   assert.equal(hiddenFieldsDoNotRaiseMinimum.ok, true, JSON.stringify(hiddenFieldsDoNotRaiseMinimum.errors));
+
+  const rejectedUnfilterable = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeDirectLocalizedBody('compose', {
+      type: 'table',
+      collectionName: 'hidden_roles',
+      defaultFilter: makeDefaultFilter(['blockedCode']),
+    }),
+    collectionMetadata: metadata,
+  });
+  assert.equal(rejectedUnfilterable.ok, false);
+  assert.equal(
+    rejectedUnfilterable.errors.some(
+      (issue) => issue.ruleId === 'public-data-surface-default-filter-field-ineligible',
+    ),
+    true,
+  );
 
   const acceptedOptionsOnly = runLocalizedWritePreflight({
     operation: 'compose',
@@ -1603,7 +1623,7 @@ test('runLocalizedWritePreflight preserves canonicalized cliBody and localized f
             dataSourceKey: 'main',
             collectionName: 'calendar_events',
           },
-          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'startAt']),
+          defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
         },
       ],
     },
@@ -1612,7 +1632,7 @@ test('runLocalizedWritePreflight preserves canonicalized cliBody and localized f
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.blocks[0].type, 'calendar');
-  assert.deepEqual(result.cliBody.blocks[0].defaultFilter, makeDefaultFilter(['title', 'status', 'category', 'startAt']));
+  assert.deepEqual(result.cliBody.blocks[0].defaultFilter, makeDefaultFilter(['title', 'status', 'category', 'priority']));
   assert.equal(result.facts.operation, 'add-blocks');
   assert.equal(result.facts.directBlockTypes.includes('calendar'), true);
 });
@@ -2228,6 +2248,51 @@ test('runLocalizedWritePreflight validates and normalizes relation field popup r
 
   assert.equal(associatedTable.ok, true);
   assert.equal(associatedTable.cliBody.blocks[0].fields[0].popup.blocks[0].resource.binding, 'associatedRecords');
+
+  const nestedAssociatedTable = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
+          fields: [
+            {
+              field: 'roles',
+              titleField: 'name',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleUsersTable',
+                    type: 'table',
+                    resource: {
+                      binding: 'associatedRecords',
+                      associationField: 'users',
+                    },
+                    defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
+                    fields: ['nickname'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(nestedAssociatedTable.ok, true, JSON.stringify(nestedAssociatedTable.errors));
+  assert.equal(
+    nestedAssociatedTable.errors.some((issue) => issue.ruleId === 'public-data-surface-default-filter-unknown-field'),
+    false,
+  );
 });
 
 test('runLocalizedWritePreflight rejects invalid relation field popup resources', () => {
@@ -3115,7 +3180,7 @@ test('runLocalizedWritePreflight rejects unsupported calendar main-block section
               dataSourceKey: 'main',
               collectionName: 'calendar_events',
             },
-            defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'startAt']),
+            defaultFilter: makeDefaultFilter(['title', 'status', 'category', 'priority']),
             ...item.payload,
           },
         ],

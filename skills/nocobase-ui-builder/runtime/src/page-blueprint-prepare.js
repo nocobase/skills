@@ -1261,6 +1261,11 @@ function resolvePopupTemplateAssociationName(options = {}) {
     return `${requirement.sourceCollection}.${requirement.associationField}`;
   }
 
+  const templateRequirement = options.blockContext?.templateAssociationRequirement;
+  if (templateRequirement?.sourceCollection && templateRequirement?.associationField) {
+    return `${templateRequirement.sourceCollection}.${templateRequirement.associationField}`;
+  }
+
   const sourceCollection = getTraversalSurfaceCollection(
     options.blockContext || {},
   );
@@ -1711,6 +1716,7 @@ function normalizeCollectionFieldMetadata(field) {
     normalizedOptions.validation = cloneSerializable(options.validation);
   if (isPlainObject(options.uiSchema))
     normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
+  if (options.filterable === false) normalizedOptions.filterable = false;
   return {
     name,
     interface:
@@ -1733,6 +1739,10 @@ function normalizeCollectionFieldMetadata(field) {
     autoCreate: Boolean(field.autoCreate),
     autoIncrement: Boolean(field.autoIncrement),
     hidden: field.hidden === true || options.hidden === true,
+    filterable:
+      field.filterable === false || options.filterable === false
+        ? false
+        : undefined,
     options: Object.keys(normalizedOptions).length
       ? normalizedOptions
       : undefined,
@@ -1815,6 +1825,10 @@ function isAssociationFieldMeta(field) {
 
 function getCollectionMeta(collectionMetadata, collectionName) {
   return getPublicCollectionMeta(collectionMetadata, collectionName);
+}
+
+function getDataSurfaceDefaultFilterCollectionName(block, blockContext) {
+  return normalizeText(blockContext?.surfaceCollection) || getCollectionLabel(block);
 }
 
 function getCollectionFieldMeta(collectionMetadata, collectionName, fieldName) {
@@ -2249,15 +2263,19 @@ function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
   let associationRequirement = parentContext?.associationRequirement || null;
 
   if (binding === "associatedrecords") {
+    const inheritedAssociationRequirement =
+      parentContext?.associationRequirement || null;
+    const associationSourceCollection =
+      inheritedAssociationRequirement?.sourceCollection ||
+      inheritedSurfaceCollection;
     associationRequirement = resolveAssociationRequirement(
       collectionMetadata,
-      inheritedSurfaceCollection,
+      associationSourceCollection,
       getNodeAssociationField(block),
-      normalizedDirectCollection,
     );
     surfaceCollection =
-      normalizedDirectCollection ||
       associationRequirement?.targetCollection ||
+      normalizedDirectCollection ||
       "";
   } else if (binding === "currentrecord" && normalizedDirectCollection) {
     surfaceCollection = normalizedDirectCollection;
@@ -2268,6 +2286,8 @@ function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
     surfaceCollection,
     directCollection: directCollectionScope,
     associationRequirement,
+    templateAssociationRequirement:
+      parentContext?.templateAssociationRequirement || null,
     binding,
   };
 }
@@ -3873,7 +3893,8 @@ function getRelationFieldPopupBlockContextForWrite(field, options = {}) {
   return {
     ...fallbackContext,
     surfaceCollection: associationRequirement.targetCollection,
-    associationRequirement,
+    associationRequirement: null,
+    templateAssociationRequirement: associationRequirement,
   };
 }
 
@@ -5294,6 +5315,7 @@ function getValidationPopupSurfaceContext(state, blockContext, fieldPath = "") {
     surfaceCollection:
       associationRequirement?.targetCollection ||
       getTraversalSurfaceCollection(blockContext),
+    associationRequirement: null,
   };
 }
 
@@ -5718,16 +5740,24 @@ function validateRelationFieldPopupResourceBindings(
       const blockAssociationField = getDefaultsAssociationFieldKey(
         getNodeAssociationField(block),
       );
+      const targetAssociationRequirement = targetCollection
+        ? resolveAssociationRequirement(
+            state.collectionMetadata || {},
+            targetCollection,
+            blockAssociationField,
+          )
+        : null;
       if (
         canonicalAssociationField &&
-        blockAssociationField !== canonicalAssociationField
+        blockAssociationField !== canonicalAssociationField &&
+        !targetAssociationRequirement
       ) {
         pushValidationError(
           state.errors,
           state.seenErrors,
           `${blockPath}.resource.associationField`,
           "relation-popup-associated-records-association-field-required",
-          `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}".`,
+          `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}" or use an association on popup target collection "${targetCollection}".`,
         );
       }
     }
@@ -6165,9 +6195,10 @@ function validateDataSurfaceDefaultFilterFieldsExist(
   block,
   path,
   state,
+  blockContext,
 ) {
   if (!fieldNames.length) return;
-  const collection = getCollectionLabel(block);
+  const collection = getDataSurfaceDefaultFilterCollectionName(block, blockContext);
   const collectionMetadata = state.collectionMetadata || {};
   if (
     !collection ||
@@ -6200,6 +6231,18 @@ function validateDataSurfaceDefaultFilterFieldsExist(
       collection,
       `filterableFieldNames field path`,
     );
+    if (
+      !isDataSurfaceDefaultFilterDirectFieldPath(fieldName) ||
+      !isDataSurfaceDefaultFilterCandidateField(resolved.field)
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        "data-surface-default-filter-field-ineligible",
+        `filterableFieldNames includes ineligible field path "${fieldName}" for collection ${collection}.`,
+      );
+    }
   }
 }
 
@@ -6264,10 +6307,11 @@ function validateDataSurfaceDefaultFilterPathExists(
   block,
   path,
   state,
+  blockContext,
   messagePrefix = "defaultFilter",
 ) {
   if (!fieldName) return;
-  const collection = getCollectionLabel(block);
+  const collection = getDataSurfaceDefaultFilterCollectionName(block, blockContext);
   const collectionMetadata = state.collectionMetadata || {};
   if (
     !collection ||
@@ -6299,6 +6343,38 @@ function validateDataSurfaceDefaultFilterPathExists(
     collection,
     `${messagePrefix}.items path`,
   );
+  if (
+    !isDataSurfaceDefaultFilterDirectFieldPath(fieldName) ||
+    !isDataSurfaceDefaultFilterCandidateField(resolved.field)
+  ) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "data-surface-default-filter-field-ineligible",
+      `${messagePrefix}.items path "${fieldName}" is not eligible for defaultFilter.`,
+      "DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE",
+      {
+        fieldPath: fieldName,
+        collectionName: collection,
+        fieldName: getDataSurfaceDefaultFilterFieldName(resolved.field),
+      },
+    );
+  }
+}
+
+function isDataSurfaceDefaultFilterDirectFieldPath(fieldName) {
+  const segments = normalizeText(fieldName).split(".").filter(Boolean);
+  return segments.length === 1;
+}
+
+function getDataSurfaceDefaultFilterFieldName(field) {
+  return (
+    normalizeText(field?.name) ||
+    normalizeText(field?.field) ||
+    normalizeText(field?.key) ||
+    normalizeText(field?.options?.name)
+  );
 }
 
 function validateDefaultFilterGroup(
@@ -6307,6 +6383,7 @@ function validateDefaultFilterGroup(
   path,
   state,
   block,
+  blockContext,
   options = {},
 ) {
   const messagePrefix = normalizeText(options.messagePrefix, "defaultFilter");
@@ -6341,6 +6418,7 @@ function validateDefaultFilterGroup(
 
   const fieldNameSet = new Set(fieldNames);
   const filterItemPaths = new Set();
+  const eligibleFilterItemPaths = new Set();
   let filterItemCount = 0;
 
   const visitGroup = (group, groupPath) => {
@@ -6413,14 +6491,23 @@ function validateDefaultFilterGroup(
             `${messagePrefix}.items path "${filterPath}" must also appear in filterableFieldNames.`,
           );
         }
-        if (fieldNameSet.size === 0) {
-          validateDataSurfaceDefaultFilterPathExists(
+        validateDataSurfaceDefaultFilterPathExists(
+          filterPath,
+          block,
+          `${itemPath}.path`,
+          state,
+          blockContext,
+          messagePrefix,
+        );
+        if (
+          isDataSurfaceDefaultFilterPathEligibleForCoverage(
             filterPath,
             block,
-            `${itemPath}.path`,
             state,
-            messagePrefix,
-          );
+            blockContext,
+          )
+        ) {
+          eligibleFilterItemPaths.add(filterPath);
         }
       }
       if (!normalizeText(item.operator)) {
@@ -6458,8 +6545,9 @@ function validateDefaultFilterGroup(
   const requiredFieldCount = resolveDataSurfaceDefaultFilterRequiredFieldCount(
     block,
     state,
+    blockContext,
   );
-  if (filterItemPaths.size < requiredFieldCount) {
+  if (eligibleFilterItemPaths.size < requiredFieldCount) {
     pushValidationError(
       state.errors,
       state.seenErrors,
@@ -6468,16 +6556,37 @@ function validateDefaultFilterGroup(
       `${messagePrefix} must include at least ${requiredFieldCount} distinct filterable fields.`,
       "DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS",
       {
-        fieldCount: filterItemPaths.size,
+        fieldCount: eligibleFilterItemPaths.size,
         requiredFieldCount,
-        fieldNames: [...filterItemPaths],
+        fieldNames: [...eligibleFilterItemPaths],
       },
     );
   }
 }
 
-function resolveDataSurfaceDefaultFilterRequiredFieldCount(block, state) {
-  const collection = getCollectionLabel(block);
+function isDataSurfaceDefaultFilterPathEligibleForCoverage(fieldName, block, state, blockContext) {
+  if (!isDataSurfaceDefaultFilterDirectFieldPath(fieldName)) {
+    return false;
+  }
+  const collection = getDataSurfaceDefaultFilterCollectionName(block, blockContext);
+  const collectionMetadata = state.collectionMetadata || {};
+  const collectionMeta =
+    collection && Object.keys(collectionMetadata).length
+      ? getCollectionMeta(collectionMetadata, collection)
+      : null;
+  if (!collectionMeta) {
+    return true;
+  }
+  const resolved = resolveFieldPathInCollectionMetadata(
+    collectionMetadata,
+    collection,
+    fieldName,
+  );
+  return !!resolved && isDataSurfaceDefaultFilterCandidateField(resolved.field);
+}
+
+function resolveDataSurfaceDefaultFilterRequiredFieldCount(block, state, blockContext) {
+  const collection = getDataSurfaceDefaultFilterCollectionName(block, blockContext);
   const collectionMetadata = state.collectionMetadata || {};
   const collectionMeta =
     collection && Object.keys(collectionMetadata).length
@@ -6511,6 +6620,9 @@ function isDataSurfaceDefaultFilterCandidateField(field) {
   if (field?.hidden === true || field?.options?.hidden === true) {
     return false;
   }
+  if (field?.filterable === false || field?.options?.filterable === false) {
+    return false;
+  }
   return !isAssociationFieldMeta(field);
 }
 
@@ -6531,7 +6643,7 @@ function validateDefaultActionOptOuts(block, path, state) {
   );
 }
 
-function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
+function validateBlockLevelDataSurfaceDefaultFilter(block, path, state, blockContext = {}) {
   if (
     !DATA_SURFACE_DEFAULT_FILTER_BLOCK_TYPES.has(normalizeText(block?.type))
   ) {
@@ -6575,6 +6687,7 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
       `${path}.defaultFilter`,
       state,
       block,
+      blockContext,
       {
         messagePrefix: "defaultFilter",
       },
@@ -6582,7 +6695,7 @@ function validateBlockLevelDataSurfaceDefaultFilter(block, path, state) {
   }
 }
 
-function validateDataSurfaceFilterActionSettings(block, path, state) {
+function validateDataSurfaceFilterActionSettings(block, path, state, blockContext = {}) {
   if (!isDataSurfaceDefaultFilterBlock(block)) {
     return;
   }
@@ -6626,6 +6739,7 @@ function validateDataSurfaceFilterActionSettings(block, path, state) {
         block,
         `${settingsPath}.filterableFieldNames`,
         state,
+        blockContext,
       );
     }
     if (hasDefaultFilter) {
@@ -6635,6 +6749,7 @@ function validateDataSurfaceFilterActionSettings(block, path, state) {
         `${settingsPath}.defaultFilter`,
         state,
         block,
+        blockContext,
         {
           messagePrefix: "settings.defaultFilter",
         },
@@ -6646,6 +6761,7 @@ function validateDataSurfaceFilterActionSettings(block, path, state) {
         `${path}.defaultFilter`,
         state,
         block,
+        blockContext,
         { messagePrefix: "defaultFilter" },
       );
     }
@@ -7443,8 +7559,8 @@ function validateBlock(block, path, state, parentContext = {}) {
   }
 
   validateDefaultActionOptOuts(block, path, state);
-  validateBlockLevelDataSurfaceDefaultFilter(block, path, state);
-  validateDataSurfaceFilterActionSettings(block, path, state);
+  validateBlockLevelDataSurfaceDefaultFilter(block, path, state, blockContext);
+  validateDataSurfaceFilterActionSettings(block, path, state, blockContext);
   validateBlockSettingsSortAlias(block, path, state);
   validateChartBlockSettings(block, path, state);
   validateGridCardBlockSettings(block, path, state);

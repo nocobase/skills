@@ -334,7 +334,7 @@ const minimalEmployeeCollectionMetadata = {
 };
 const dataSurfaceBlockTypes = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
 const commonUserDefaultFilterFieldNames = ['nickname', 'username', 'email', 'phone'];
-const commonCalendarDefaultFilterFieldNames = ['nickname', 'status', 'createdAt', 'updatedAt'];
+const commonCalendarDefaultFilterFieldNames = ['nickname', 'status'];
 
 function buildChartAsset(overrides = {}) {
   return {
@@ -3719,7 +3719,7 @@ test('prepareApplyBlueprintRequest materializes description linkage inside hidde
             key: 'usersCalendar',
             type: 'calendar',
             collection: 'users',
-            defaultFilter: defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']),
+            defaultFilter: defaultFilterGroup(['nickname', 'status', 'approvalComment']),
             settings: {
               titleField: 'nickname',
               startField: 'createdAt',
@@ -4127,7 +4127,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
               template: { uid: 'users-table-template', mode: 'reference' },
               defaultActionSettings: {
                 filter: {
-                  filterableFieldNames: ['nickname', 'status', 'createdAt', 'updatedAt'],
+                  filterableFieldNames: ['nickname', 'status'],
                 },
               },
             },
@@ -4329,6 +4329,8 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
           { name: 'title', type: 'string', interface: 'input' },
           { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
           { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+          { name: 'blockedCode', type: 'string', interface: 'input', filterable: false },
+          { name: 'blockedScope', type: 'string', interface: 'input', options: { filterable: false } },
           { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
         ],
       },
@@ -4360,6 +4362,35 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     hiddenCandidatesDoNotRaiseDefaultFilterMinimum.ok,
     true,
     JSON.stringify(hiddenCandidatesDoNotRaiseDefaultFilterMinimum.errors),
+  );
+
+  const unfilterableCandidateIsRejected = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Hidden candidate roles' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              type: 'table',
+              title: 'Hidden candidate roles table',
+              collection: 'hiddenCandidateRoles',
+              fields: ['title'],
+              defaultFilter: defaultFilterGroup(['blockedCode']),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: hiddenCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+  assert.equal(unfilterableCandidateIsRejected.ok, false);
+  assert.ok(
+    unfilterableCandidateIsRejected.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-field-ineligible',
+    ),
   );
 
   const optionsMetadataCollection = {
@@ -4579,7 +4610,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
   );
   assert.equal(exactOneCandidateCoverage.ok, true, JSON.stringify(exactOneCandidateCoverage.errors));
 
-  const zeroCandidateAllowsNonEmptyDefaultFilter = prepareWithDirectCollectionDefaults(
+  const zeroCandidateRejectsIneligibleDefaultFilter = prepareWithDirectCollectionDefaults(
     {
       version: '1',
       mode: 'create',
@@ -4601,7 +4632,12 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on d
     },
     { collectionMetadata: zeroCandidateCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
-  assert.equal(zeroCandidateAllowsNonEmptyDefaultFilter.ok, true, JSON.stringify(zeroCandidateAllowsNonEmptyDefaultFilter.errors));
+  assert.equal(zeroCandidateRejectsIneligibleDefaultFilter.ok, false);
+  assert.ok(
+    zeroCandidateRejectsIneligibleDefaultFilter.errors.some(
+      (issue) => issue.ruleId === 'data-surface-default-filter-field-ineligible',
+    ),
+  );
 
   const incomplete = prepareWithDirectCollectionDefaults(
     {
@@ -4958,7 +4994,7 @@ test('prepareApplyBlueprintRequest accepts default filter settings and validates
     { collectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
   assert.equal(relationLeaf.ok, false);
-  assert.ok(relationLeaf.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-minimum-fields'));
+  assert.ok(relationLeaf.errors.some((issue) => issue.ruleId === 'data-surface-default-filter-field-ineligible'));
 
   const emptyActionDefaultFilter = prepareWithDirectCollectionDefaults(
     {
@@ -7162,6 +7198,80 @@ test('prepareApplyBlueprintRequest does not invent self-associations when nested
       },
     ],
   });
+});
+
+test('prepareApplyBlueprintRequest resolves associatedRecords inside relation field popup from popup target collection', () => {
+  const nestedPopupMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      roles: {
+        ...collectionMetadata.collections.roles,
+        fields: [
+          ...collectionMetadata.collections.roles.fields,
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'roles',
+                  popup: {
+                    title: 'Role users popup',
+                    blocks: [
+                      {
+                        key: 'roleUsersTable',
+                        type: 'table',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'users',
+                        },
+                        fields: ['nickname'],
+                        recordActions: ['view'],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['users', 'roles'],
+      collectionMetadata: nestedPopupMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.defaultsRequirements.associations, [
+    {
+      sourceCollection: 'roles',
+      associationField: 'users',
+      targetCollection: 'users',
+      popupActions: ['addNew', 'edit', 'view'],
+    },
+    {
+      sourceCollection: 'users',
+      associationField: 'roles',
+      targetCollection: 'roles',
+      popupActions: ['addNew', 'edit', 'view'],
+    },
+  ]);
 });
 
 test('prepareApplyBlueprintRequest keeps fixed association defaults when popup.template is explicit', () => {
@@ -14971,7 +15081,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on c
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']),
+              defaultFilter: defaultFilterGroup(['nickname', 'status']),
               settings: {
                 titleField: 'nickname',
                 startField: 'createdAt',
@@ -14988,7 +15098,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on c
 
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].type, 'calendar');
-  assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(['nickname', 'status']));
 });
 
 test('prepareApplyBlueprintRequest preserves calendar popup settings for hidden popup hosts', () => {
@@ -16042,7 +16152,7 @@ test('prepareApplyBlueprintRequest rejects unsupported actions and invalid field
               key: 'usersCalendar',
               type: 'calendar',
               collection: 'users',
-              defaultFilter: defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']),
+              defaultFilter: defaultFilterGroup(['nickname', 'status']),
               settings: {
                 titleField: 'roles',
                 startField: 'nickname',
@@ -16349,7 +16459,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
               template: { uid: 'users-kanban-template', mode: 'reference' },
               defaultActionSettings: {
                 filter: {
-                  filterableFieldNames: ['nickname', 'status', 'createdAt', 'updatedAt'],
+                  filterableFieldNames: ['nickname', 'status'],
                 },
               },
             },

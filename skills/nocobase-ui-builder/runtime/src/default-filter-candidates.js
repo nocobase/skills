@@ -133,6 +133,9 @@ function isCandidateBusinessField(field) {
   if (field?.hidden === true || field?.options?.hidden === true) {
     return false;
   }
+  if (field?.filterable === false || field?.options?.filterable === false) {
+    return false;
+  }
   return !isAssociationFieldLike(field);
 }
 
