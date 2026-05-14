@@ -16,6 +16,18 @@ import {
   collectPopupDocumentContractIssues,
   hasTemplateDocument,
 } from "./popup-contract.js";
+import {
+  applyFieldDescriptionSettings,
+  deriveDescriptionFieldBehavior,
+  DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES,
+  FIELD_LINKAGE_REACTION_TYPE,
+  getFieldLinkageRuleSemanticKey,
+} from "./description-form-behavior.js";
+import {
+  collectDescriptionDrivenFieldLinkageItems,
+  getFieldEntryPathForDescription,
+  mergeDescriptionDrivenFieldLinkageItems,
+} from "./form-behavior-targets.js";
 import { collectBuilderChartRelationFieldIssues } from "./chart-query-validation.js";
 import { canonicalizeRunJSPayload } from "../../scripts/runjs_guard.mjs";
 import {
@@ -59,12 +71,22 @@ const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set([
 ]);
 const TAB_ILLEGAL_KEYS = new Set(["pageSchemaUid", "requestBody", "target"]);
 const DEFAULTS_ROOT_ALLOWED_KEYS = new Set(["collections"]);
-const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set(["fieldGroups", "popups"]);
+const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set([
+  "fieldGroups",
+  "popups",
+  "formBehavior",
+]);
 const DEFAULTS_FIELD_GROUP_ALLOWED_KEYS = new Set(["key", "title", "fields"]);
 const DEFAULTS_FIELD_GROUP_FIELD_ALLOWED_KEYS = new Set([
   "field",
   "titleField",
 ]);
+const DEFAULTS_FORM_BEHAVIOR_ALLOWED_KEYS = new Set(["addNew", "edit"]);
+const DEFAULTS_FORM_BEHAVIOR_SCENE_ALLOWED_KEYS = new Set([
+  "fields",
+  "fieldLinkageRules",
+]);
+const DEFAULTS_FORM_BEHAVIOR_FIELD_ALLOWED_KEYS = new Set(["settings"]);
 const DEFAULTS_POPUPS_ALLOWED_KEYS = new Set([
   "view",
   "addNew",
@@ -337,13 +359,7 @@ const FIELD_GROUP_BLOCK_TYPES = new Set(["createForm", "editForm", "details"]);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(["createForm", "editForm"]);
 const FORM_SUBMIT_ACTION_KEY = "submitAction";
 const FORM_SUBMIT_ACTION_TYPE = "submit";
-const FIELD_LINKAGE_REACTION_TYPE = "setFieldLinkageRules";
 const FIELD_STATE_ACTION_TYPE = "setFieldState";
-const DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES = new Set([
-  "createForm",
-  "editForm",
-  "filterForm",
-]);
 const FIELD_STATE_BOOLEAN_SHORTHANDS = {
   disabled: { true: "disabled", false: "enabled" },
   enabled: { true: "enabled", false: "disabled" },
@@ -396,16 +412,6 @@ function normalizeText(value, fallback = "") {
     typeof value === "string" || typeof value === "number" ? String(value) : "";
   const normalized = source.replace(/\s+/g, " ").trim();
   return normalized || fallback;
-}
-
-function normalizeLooseText(value) {
-  return normalizeText(value)
-    .toLowerCase()
-    .replace(/[\s_\-.,;:，。；：、()（）"'“”‘’[\]{}<>《》]+/g, "");
-}
-
-function escapeRegExp(value) {
-  return normalizeText(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeFilterTargetKeyValue(value) {
@@ -603,7 +609,8 @@ function visitActionPopupReactionTargets(
   for (const [actionIndex, action] of ensureArray(block[slotName]).entries()) {
     const actionInfo = resolveActionLocalKey(action, actionIndex);
     if (!actionInfo) continue;
-    const actionRequiresExplicitKey = requiresExplicitKey || !actionInfo.explicit;
+    const actionRequiresExplicitKey =
+      requiresExplicitKey || !actionInfo.explicit;
     const actionPath = `${path}.${slotName}[${actionIndex}]`;
     const actionTarget = buildScopedKey(blockTarget, actionInfo.key);
     if (
@@ -1250,10 +1257,7 @@ function summarizePopupTemplateBlocks(blocks, locale) {
 
 function resolvePopupTemplateAssociationName(options = {}) {
   const requirement = options.blockContext?.associationRequirement;
-  if (
-    requirement?.sourceCollection &&
-    requirement?.associationField
-  ) {
+  if (requirement?.sourceCollection && requirement?.associationField) {
     return `${requirement.sourceCollection}.${requirement.associationField}`;
   }
 
@@ -1667,9 +1671,24 @@ function countPopupDirectEffectiveFields(blocks) {
 function normalizeCollectionFieldMetadata(field) {
   if (!isPlainObject(field)) return null;
   const options = isPlainObject(field.options) ? field.options : {};
-  const name = normalizeText(field.name || field.field || field.key) || normalizeText(options.name);
+  const descriptionBehavior =
+    isPlainObject(field.descriptionBehavior) ||
+    isPlainObject(options.descriptionBehavior) ||
+    isPlainObject(field.uiSchema?.descriptionBehavior) ||
+    isPlainObject(options.uiSchema?.descriptionBehavior)
+      ? cloneSerializable(
+          field.descriptionBehavior ||
+            options.descriptionBehavior ||
+            field.uiSchema?.descriptionBehavior ||
+            options.uiSchema?.descriptionBehavior,
+        )
+      : undefined;
+  const name =
+    normalizeText(field.name || field.field || field.key) ||
+    normalizeText(options.name);
   if (!name) return null;
-  const description = normalizeText(field.description) || normalizeText(options.description);
+  const description =
+    normalizeText(field.description) || normalizeText(options.description);
   const validation = isPlainObject(field.validation)
     ? cloneSerializable(field.validation)
     : isPlainObject(options.validation)
@@ -1682,26 +1701,41 @@ function normalizeCollectionFieldMetadata(field) {
       : undefined;
   const normalizedOptions = {};
   if (options.hidden === true) normalizedOptions.hidden = true;
-  if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
-  if (isPlainObject(options.validation)) normalizedOptions.validation = cloneSerializable(options.validation);
-  if (isPlainObject(options.uiSchema)) normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
+  if (normalizeText(options.description))
+    normalizedOptions.description = normalizeText(options.description);
+  if (Array.isArray(field.options))
+    normalizedOptions.options = cloneSerializable(field.options);
+  if (Array.isArray(options.options))
+    normalizedOptions.options = cloneSerializable(options.options);
+  if (isPlainObject(options.validation))
+    normalizedOptions.validation = cloneSerializable(options.validation);
+  if (isPlainObject(options.uiSchema))
+    normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
   return {
     name,
-    interface: normalizeText(field.interface) || normalizeText(options.interface),
+    interface:
+      normalizeText(field.interface) || normalizeText(options.interface),
     type: normalizeText(field.type) || normalizeText(options.type),
-    target: normalizeText(field.target || field.targetCollection) || normalizeText(options.target),
+    target:
+      normalizeText(field.target || field.targetCollection) ||
+      normalizeText(options.target),
     collectionName: normalizeText(field.collectionName),
-    foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
-    targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    foreignKey:
+      normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
+    targetKey:
+      normalizeText(field.targetKey) || normalizeText(options.targetKey),
     ...(description ? { description } : {}),
     ...(validation ? { validation } : {}),
     ...(uiSchema ? { uiSchema } : {}),
+    ...(descriptionBehavior ? { descriptionBehavior } : {}),
     readOnly: Boolean(field.readOnly ?? field.readonly),
     writable: typeof field.writable === "boolean" ? field.writable : undefined,
     autoCreate: Boolean(field.autoCreate),
     autoIncrement: Boolean(field.autoIncrement),
     hidden: field.hidden === true || options.hidden === true,
-    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
+    options: Object.keys(normalizedOptions).length
+      ? normalizedOptions
+      : undefined,
   };
 }
 
@@ -2018,6 +2052,7 @@ function createDefaultsCollectionRequirement(collectionName) {
     collection: collectionName,
     popupActions: new Set(),
     fieldGroupActions: new Set(),
+    formBehaviorActions: new Set(),
     requiredFieldGroupCoverageKeys: new Set(),
   };
 }
@@ -2083,6 +2118,32 @@ function addCollectionFieldGroupRequirement(
   requirements.collections.set(normalizedCollection, existing);
 }
 
+function addCollectionFormBehaviorRequirement(
+  requirements,
+  targetCollection,
+  action,
+) {
+  const normalizedCollection = normalizeText(targetCollection);
+  const normalizedAction = normalizePopupActionType(action);
+  if (
+    !normalizedCollection ||
+    (normalizedAction !== "addNew" && normalizedAction !== "edit")
+  ) {
+    return;
+  }
+  const scene = buildDefaultFormBehaviorSceneForCollection(
+    requirements.collectionMetadata,
+    normalizedCollection,
+    normalizedAction,
+  );
+  if (!scene) return;
+  const existing =
+    requirements.collections.get(normalizedCollection) ||
+    createDefaultsCollectionRequirement(normalizedCollection);
+  existing.formBehaviorActions.add(normalizedAction);
+  requirements.collections.set(normalizedCollection, existing);
+}
+
 function addAssociationPopupRequirement(
   requirements,
   sourceCollection,
@@ -2114,6 +2175,11 @@ function addAssociationPopupRequirement(
   existing.popupActions.add(normalizedAction);
   requirements.associations.set(key, existing);
   addCollectionFieldGroupRequirement(
+    requirements,
+    normalizedTargetCollection,
+    normalizedAction,
+  );
+  addCollectionFormBehaviorRequirement(
     requirements,
     normalizedTargetCollection,
     normalizedAction,
@@ -2448,12 +2514,18 @@ function buildDefaultsRequirementsSummary(requirements) {
   return {
     collections: Array.from(requirements.collections.values())
       .sort((left, right) => left.collection.localeCompare(right.collection))
-      .map((entry) => ({
-        collection: entry.collection,
-        popupActions: Array.from(entry.popupActions).sort(),
-        requiresFieldGroups: entry.fieldGroupActions.size > 0,
-        fieldGroupActions: Array.from(entry.fieldGroupActions).sort(),
-      })),
+      .map((entry) => {
+        const formBehaviorActions = Array.from(
+          entry.formBehaviorActions,
+        ).sort();
+        return {
+          collection: entry.collection,
+          popupActions: Array.from(entry.popupActions).sort(),
+          requiresFieldGroups: entry.fieldGroupActions.size > 0,
+          fieldGroupActions: Array.from(entry.fieldGroupActions).sort(),
+          ...(formBehaviorActions.length ? { formBehaviorActions } : {}),
+        };
+      }),
     associations: Array.from(requirements.associations.values())
       .sort((left, right) =>
         `${left.sourceCollection}.${left.associationField}`.localeCompare(
@@ -2641,6 +2713,23 @@ function validateRequiredDefaultPopupValue(
   }
 }
 
+function validateRequiredDefaultFormBehaviorScene(
+  defaultValue,
+  path,
+  errors,
+  seenErrors,
+) {
+  if (!isPlainObject(defaultValue)) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      path,
+      "missing-default-form-behavior",
+      `${path} must be present because description-derived form behavior is required for this generated popup form.`,
+    );
+  }
+}
+
 function validateRequiredDefaultFieldGroups(
   fieldGroups,
   path,
@@ -2751,6 +2840,18 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
         entry.collection,
         entry.requiredFieldGroupCoverageKeys,
         collectionMetadata,
+        errors,
+        seenErrors,
+      );
+    }
+
+    const formBehavior = isPlainObject(collectionDefaults.formBehavior)
+      ? collectionDefaults.formBehavior
+      : null;
+    for (const action of entry.formBehaviorActions) {
+      validateRequiredDefaultFormBehaviorScene(
+        formBehavior?.[action],
+        `${collectionPath}.formBehavior.${action}`,
         errors,
         seenErrors,
       );
@@ -3710,296 +3811,6 @@ function resolveFieldMetadataForWrite(fieldPath, options = {}) {
   return resolved?.field || null;
 }
 
-function isFormFieldDescriptionSettingsHost(options = {}) {
-  return DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES.has(
-    normalizeText(options.hostBlock?.type),
-  );
-}
-
-function getDescriptionRequiredHint(description) {
-  const compact = normalizeLooseText(description);
-  if (!compact) return undefined;
-  if (
-    compact.includes("notrequired") ||
-    compact.includes("optional") ||
-    compact.includes("nonrequired") ||
-    compact.includes("notmandatory") ||
-    compact.includes("非必填") ||
-    compact.includes("无需必填") ||
-    compact.includes("不必填") ||
-    compact.includes("不是必填") ||
-    compact.includes("可选") ||
-    compact.includes("选填")
-  ) {
-    return false;
-  }
-  if (
-    compact.includes("required") ||
-    compact.includes("mandatory") ||
-    compact.includes("mustfill") ||
-    compact.includes("mustprovide") ||
-    compact.includes("必填") ||
-    compact.includes("必录") ||
-    compact.includes("必须填写") ||
-    compact.includes("必须提供") ||
-    compact.includes("不能为空") ||
-    compact.includes("不可为空")
-  ) {
-    return true;
-  }
-  return undefined;
-}
-
-function hasFieldDescriptionBehavior(description) {
-  return (
-    typeof getDescriptionRequiredHint(description) === "boolean" ||
-    !!normalizeText(description)
-  );
-}
-
-function getDescriptionStateKeyword(description) {
-  const normalized = normalizeLooseText(description);
-  if (!normalized) return "";
-  if (
-    normalized.includes("notrequired") ||
-    normalized.includes("nonrequired") ||
-    normalized.includes("notmandatory") ||
-    normalized.includes("nonmandatory") ||
-    normalized.includes("optional") ||
-    normalized.includes("非必填") ||
-    normalized.includes("无需必填") ||
-    normalized.includes("不必填") ||
-    normalized.includes("不是必填") ||
-    normalized.includes("可选") ||
-    normalized.includes("选填")
-  ) {
-    return "notRequired";
-  }
-  if (
-    normalized.includes("required") ||
-    normalized.includes("mandatory") ||
-    normalized.includes("mustfill") ||
-    normalized.includes("mustprovide") ||
-    normalized.includes("必填") ||
-    normalized.includes("必录") ||
-    normalized.includes("必须填写") ||
-    normalized.includes("必须提供") ||
-    normalized.includes("不能为空") ||
-    normalized.includes("不可为空")
-  ) {
-    return "required";
-  }
-  if (
-    normalized.includes("disabled") ||
-    normalized.includes("禁用") ||
-    normalized.includes("不可编辑") ||
-    normalized.includes("只读")
-  ) {
-    return "disabled";
-  }
-  if (
-    normalized.includes("hidden") ||
-    normalized.includes("隐藏")
-  ) {
-    return "hidden";
-  }
-  return "";
-}
-
-function getDescriptionConditionFieldName(description, collectionMeta, currentFieldName) {
-  const normalized = normalizeLooseText(description);
-  if (!normalized) return "";
-  const candidateNames = ensureArray(collectionMeta?.fields)
-    .map((field) => normalizeText(field?.name))
-    .filter((fieldName) => fieldName && fieldName !== currentFieldName)
-    .sort((left, right) => right.length - left.length);
-  for (const candidateName of candidateNames) {
-    if (normalized.includes(normalizeLooseText(candidateName))) {
-      return candidateName;
-    }
-  }
-  return "";
-}
-
-function hasDescriptionConditionCue(description) {
-  const normalized = normalizeText(description);
-  if (!normalized) return false;
-  return (
-    /\b(?:when|whenever|if|provided\s+that)\b/i.test(normalized) ||
-    /(?:^|[\s,，。；;、])(?:当|如果|若|仅当)/.test(normalized)
-  );
-}
-
-function parseDescriptionConditionValue(conditionText, conditionFieldName = "") {
-  const normalized = normalizeText(conditionText);
-  if (!normalized) {
-    return { operator: "", value: undefined };
-  }
-
-  const fieldName = normalizeText(conditionFieldName);
-  let workingText = normalized;
-  if (fieldName) {
-    const fieldPattern = new RegExp(
-      `(?:^|[\\s,，。；;:：()（）\\[\\]{}、])(?:when|if|当|如果|若|如)?\\s*${escapeRegExp(fieldName)}\\s*`,
-      "i",
-    );
-    const fieldMatch = workingText.match(fieldPattern);
-    if (fieldMatch) {
-      workingText = workingText.slice(
-        (fieldMatch.index || 0) + fieldMatch[0].length,
-      );
-    }
-  }
-
-  workingText = normalizeText(workingText);
-  if (!workingText) {
-    return { operator: "", value: undefined };
-  }
-  workingText = workingText.replace(
-    /^[\s,，。；;:：()（）\[\]{}、]+/,
-    "",
-  );
-  workingText = workingText.replace(
-    /^(?:is|equals?|equal(?:\s+to)?|becomes|为|是|等于|=|:|：)\s*/i,
-    "",
-  );
-
-  const compact = normalizeLooseText(workingText);
-  if (
-    compact.includes("notempty") ||
-    compact.includes("hasvalue") ||
-    compact.includes("不为空") ||
-    compact.includes("有值") ||
-    compact.includes("已填")
-  ) {
-    return { operator: "$notEmpty", value: null };
-  }
-  if (
-    compact.includes("empty") ||
-    compact.includes("isempty") ||
-    compact.includes("notfilled") ||
-    compact.includes("blank") ||
-    compact.includes("为空") ||
-    compact.includes("未填") ||
-    compact.includes("无值")
-  ) {
-    return { operator: "$empty", value: null };
-  }
-
-  const quotedValueMatch = workingText.match(
-    /^[`"'“”‘’]([^`"'“”‘’]+)[`"'“”‘’]/i,
-  );
-  const unquotedValueMatch = quotedValueMatch
-    ? null
-    : workingText.match(/^([^\s，。,；;:：]+)/i);
-  const valueMatch = quotedValueMatch || unquotedValueMatch;
-  if (!valueMatch) {
-    return { operator: "", value: undefined };
-  }
-
-  const rawValue = normalizeText(valueMatch[1]);
-  if (!rawValue) {
-    return { operator: "", value: undefined };
-  }
-  if (/^(true|false)$/i.test(rawValue)) {
-    return { operator: "$eq", value: rawValue.toLowerCase() === "true" };
-  }
-  if (/^(yes|no)$/i.test(rawValue)) {
-    return { operator: "$eq", value: rawValue.toLowerCase() === "yes" };
-  }
-  return { operator: "$eq", value: rawValue };
-}
-
-function resolveDescriptionDrivenFieldLinkage(fieldMeta, options = {}) {
-  const description = normalizeText(fieldMeta?.description);
-  if (!description) return null;
-  const state = getDescriptionStateKeyword(description);
-  if (!["required", "disabled", "hidden"].includes(state)) return null;
-  const collectionName =
-    normalizeText(options.collectionName) ||
-    getTraversalSurfaceCollection(options.blockContext || {});
-  const collectionMeta = getCollectionMeta(
-    options.collectionMetadata || {},
-    collectionName,
-  );
-  if (!collectionMeta) return null;
-  const currentFieldName = normalizeText(options.fieldName);
-  const conditionFieldName = getDescriptionConditionFieldName(
-    description,
-    collectionMeta,
-    currentFieldName,
-  );
-  if (!conditionFieldName) return null;
-  const availableFieldNames = new Set(
-    ensureArray(options.availableFieldNames)
-      .map((fieldName) => normalizeText(fieldName))
-      .filter(Boolean),
-  );
-  if (
-    availableFieldNames.size > 0 &&
-    !availableFieldNames.has(conditionFieldName)
-  ) {
-    return null;
-  }
-
-  const parsedCondition = parseDescriptionConditionValue(
-    description,
-    conditionFieldName,
-  );
-  if (!parsedCondition.operator) {
-    return null;
-  }
-
-  return {
-    key: `description-${normalizeApplyBlueprintToken(currentFieldName || "field")}-${normalizeApplyBlueprintToken(conditionFieldName)}-${state}`,
-    when: {
-      logic: "$and",
-      items: [
-        {
-          path: `formValues.${conditionFieldName}`,
-          operator: parsedCondition.operator,
-          ...(typeof parsedCondition.value === "undefined" ? {} : { value: parsedCondition.value }),
-        },
-      ],
-    },
-    then: [
-      {
-        type: "setFieldState",
-        fieldPaths: [currentFieldName],
-        state,
-      },
-    ],
-  };
-}
-
-function applyFieldDescriptionSettings(field, fieldMeta, options = {}) {
-  if (!isFormFieldDescriptionSettingsHost(options)) return field;
-  const description = normalizeText(fieldMeta?.description);
-  if (!description || !hasFieldDescriptionBehavior(description)) return field;
-
-  const nextField = isPlainObject(field)
-    ? cloneSerializable(field)
-    : { field: normalizeText(field) };
-  const currentSettings = isPlainObject(nextField.settings)
-    ? nextField.settings
-    : {};
-  const nextSettings = { ...currentSettings };
-  const required = options.descriptionBehavior?.required;
-  if (required === true && !hasOwn(nextSettings, "required")) {
-    nextSettings.required = true;
-  }
-  if (
-    !hasOwn(nextSettings, "extra") &&
-    !hasOwn(nextSettings, "tooltip")
-  ) {
-    nextSettings.extra = description;
-  }
-  if (Object.keys(nextSettings).length > 0) {
-    nextField.settings = nextSettings;
-  }
-  return nextField;
-}
-
 function materializeFieldForWrite(field, options = {}) {
   const fieldPath =
     typeof field === "string"
@@ -4008,43 +3819,16 @@ function materializeFieldForWrite(field, options = {}) {
         ? normalizeText(field.field)
         : "";
   const fieldMeta = resolveFieldMetadataForWrite(fieldPath, options);
-  const description = normalizeText(fieldMeta?.description);
-  const collectionName =
-    normalizeText(options.collectionName) ||
-    getTraversalSurfaceCollection(options.blockContext || {});
-  const collectionMeta = getCollectionMeta(
-    options.collectionMetadata || {},
-    collectionName,
-  );
-  const currentFieldName = normalizeText(fieldPath);
-  const conditionFieldName = description
-    ? getDescriptionConditionFieldName(
-        description,
-        collectionMeta,
-        currentFieldName,
-      )
-    : "";
-  const hasConditionCue = hasDescriptionConditionCue(description);
   const descriptionBehavior = fieldMeta
-    ? {
-        description,
-        required: conditionFieldName || hasConditionCue
-          ? undefined
-          : getDescriptionRequiredHint(fieldMeta.description),
-        linkage: resolveDescriptionDrivenFieldLinkage(fieldMeta, {
-          ...options,
-          fieldName: fieldPath,
-        }),
-      }
+    ? deriveDescriptionFieldBehavior(fieldMeta, {
+        ...options,
+        fieldName: fieldPath,
+      })
     : null;
-  const describedField = applyFieldDescriptionSettings(
-    field,
-    fieldMeta,
-    {
-      ...options,
-      descriptionBehavior,
-    },
-  );
+  const describedField = applyFieldDescriptionSettings(field, fieldMeta, {
+    ...options,
+    descriptionBehavior,
+  });
   if (!isPlainObject(describedField)) {
     return describedField;
   }
@@ -4172,335 +3956,6 @@ function materializeFieldGroupForWrite(group, options = {}) {
   return nextGroup;
 }
 
-function getFieldEntryPathForDescription(field) {
-  if (typeof field === "string") return normalizeText(field);
-  if (!isPlainObject(field)) return "";
-  return normalizeText(field.field);
-}
-
-function hasExplicitFieldStateSetting(field, state) {
-  if (!isPlainObject(field) || !isPlainObject(field.settings)) return false;
-  if (state === "required") return hasOwn(field.settings, "required");
-  if (state === "disabled") return hasOwn(field.settings, "disabled");
-  if (state === "hidden") return hasOwn(field.settings, "hidden");
-  return false;
-}
-
-function collectDescriptionDrivenFieldLinkageRulesFromItems(
-  items,
-  options = {},
-) {
-  const rules = [];
-  for (const field of ensureArray(items)) {
-    const fieldPath = getFieldEntryPathForDescription(field);
-    if (!fieldPath) continue;
-    const fieldMeta = resolveFieldMetadataForWrite(fieldPath, options);
-    const linkage = resolveDescriptionDrivenFieldLinkage(fieldMeta, {
-      ...options,
-      fieldName: fieldPath,
-    });
-    if (!linkage || hasExplicitFieldStateSetting(field, linkage.then?.[0]?.state)) {
-      continue;
-    }
-    rules.push(linkage);
-  }
-  return rules;
-}
-
-function collectDescriptionDrivenFieldLinkageRulesFromBlock(
-  block,
-  target,
-  options = {},
-) {
-  if (
-    !target ||
-    !DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES.has(normalizeText(block?.type))
-  ) {
-    return [];
-  }
-
-  const availableFieldNames = getBlockFieldEntries(block)
-    .map((field) => getFieldEntryPathForDescription(field))
-    .filter(Boolean);
-  const rules = [
-    ...collectDescriptionDrivenFieldLinkageRulesFromItems(
-      block.fields,
-      { ...options, availableFieldNames },
-    ),
-  ];
-  forEachFieldGroup(block.fieldGroups, (group) => {
-    rules.push(
-      ...collectDescriptionDrivenFieldLinkageRulesFromItems(
-        group.fields,
-        { ...options, availableFieldNames },
-      ),
-    );
-  });
-  return rules;
-}
-
-function appendDescriptionDrivenFieldLinkageRules(
-  itemsByTarget,
-  target,
-  block,
-  options,
-) {
-  const rules = collectDescriptionDrivenFieldLinkageRulesFromBlock(
-    block,
-    target,
-    options,
-  );
-  if (!rules.length) return;
-  const existing = itemsByTarget.get(target) || [];
-  existing.push(...rules);
-  itemsByTarget.set(target, existing);
-}
-
-function collectDescriptionDrivenFieldLinkageItemsFromPopup(
-  popup,
-  popupTarget,
-  parentContext,
-  options,
-  itemsByTarget,
-) {
-  if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return;
-  for (const block of ensureArray(popup.blocks)) {
-    if (!isPlainObject(block)) continue;
-    const blockKey = normalizeText(block.key);
-    if (!blockKey) continue;
-    const blockContext = buildBlockTraversalContext(
-      block,
-      parentContext || {},
-      options.collectionMetadata || {},
-    );
-    collectDescriptionDrivenFieldLinkageItemsFromBlock(
-      block,
-      buildScopedKey(popupTarget, blockKey),
-      blockContext,
-      options,
-      itemsByTarget,
-    );
-  }
-}
-
-function collectDescriptionDrivenFieldLinkageItemsFromActionPopups(
-  block,
-  blockTarget,
-  blockContext,
-  slotName,
-  options,
-  itemsByTarget,
-) {
-  for (const action of ensureArray(block[slotName])) {
-    if (!isPlainObject(action) || !isPlainObject(action.popup)) continue;
-    const actionKey = normalizeText(action.key);
-    if (!actionKey) continue;
-    collectDescriptionDrivenFieldLinkageItemsFromPopup(
-      action.popup,
-      buildScopedKey(blockTarget, `${slotName}.${actionKey}`),
-      blockContext,
-      options,
-      itemsByTarget,
-    );
-  }
-}
-
-function collectDescriptionDrivenFieldLinkageItemsFromFieldPopups(
-  fields,
-  blockTarget,
-  blockContext,
-  options,
-  itemsByTarget,
-) {
-  for (const [fieldIndex, field] of ensureArray(fields).entries()) {
-    if (!isPlainObject(field) || !isPlainObject(field.popup)) continue;
-    const fieldInfo = resolveFieldReactionHostLocalKey(field, fieldIndex);
-    if (!fieldInfo?.explicit) continue;
-    const popupBlockContext = getRelationFieldPopupBlockContextForWrite(
-      field,
-      {
-        ...options,
-        blockContext,
-      },
-    );
-    collectDescriptionDrivenFieldLinkageItemsFromPopup(
-      field.popup,
-      buildScopedKey(blockTarget, `fields.${fieldInfo.key}`),
-      popupBlockContext,
-      options,
-      itemsByTarget,
-    );
-  }
-}
-
-function collectDescriptionDrivenFieldLinkageItemsFromBlockFieldPopups(
-  block,
-  blockTarget,
-  blockContext,
-  options,
-  itemsByTarget,
-) {
-  collectDescriptionDrivenFieldLinkageItemsFromFieldPopups(
-    block.fields,
-    blockTarget,
-    blockContext,
-    options,
-    itemsByTarget,
-  );
-  forEachFieldGroup(block.fieldGroups, (group) => {
-    collectDescriptionDrivenFieldLinkageItemsFromFieldPopups(
-      group.fields,
-      blockTarget,
-      blockContext,
-      options,
-      itemsByTarget,
-    );
-  });
-}
-
-function collectDescriptionDrivenFieldLinkageItemsFromBlock(
-  block,
-  target,
-  blockContext,
-  options,
-  itemsByTarget,
-) {
-  appendDescriptionDrivenFieldLinkageRules(itemsByTarget, target, block, {
-    ...options,
-    hostBlock: block,
-    blockContext,
-  });
-
-  collectDescriptionDrivenFieldLinkageItemsFromActionPopups(
-    block,
-    target,
-    blockContext,
-    "actions",
-    options,
-    itemsByTarget,
-  );
-  collectDescriptionDrivenFieldLinkageItemsFromActionPopups(
-    block,
-    target,
-    blockContext,
-    "recordActions",
-    options,
-    itemsByTarget,
-  );
-  collectDescriptionDrivenFieldLinkageItemsFromBlockFieldPopups(
-    block,
-    target,
-    blockContext,
-    options,
-    itemsByTarget,
-  );
-  if (isPlainObject(block.popup)) {
-    collectDescriptionDrivenFieldLinkageItemsFromPopup(
-      block.popup,
-      buildScopedKey(target, "popup"),
-      blockContext,
-      options,
-      itemsByTarget,
-    );
-  }
-  forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
-    collectDescriptionDrivenFieldLinkageItemsFromPopup(
-      popup,
-      buildScopedKey(target, `settings.${key}`),
-      blockContext,
-      options,
-      itemsByTarget,
-    );
-  });
-}
-
-function collectDescriptionDrivenFieldLinkageItems(blueprint, options = {}) {
-  if (!isPlainObject(options.collectionMetadata)) return [];
-  const itemsByTarget = new Map();
-
-  for (const tab of ensureArray(blueprint?.tabs)) {
-    if (!isPlainObject(tab)) continue;
-    const tabKey = normalizeText(tab.key);
-    if (!tabKey) continue;
-    for (const block of ensureArray(tab.blocks)) {
-      if (!isPlainObject(block)) continue;
-      const blockKey = normalizeText(block.key);
-      if (!blockKey) continue;
-      const blockContext = buildBlockTraversalContext(
-        block,
-        {},
-        options.collectionMetadata || {},
-      );
-      collectDescriptionDrivenFieldLinkageItemsFromBlock(
-        block,
-        buildScopedKey(tabKey, blockKey),
-        blockContext,
-        options,
-        itemsByTarget,
-      );
-    }
-  }
-
-  return Array.from(itemsByTarget.entries()).map(([target, rules]) => ({
-    type: FIELD_LINKAGE_REACTION_TYPE,
-    target,
-    rules,
-  }));
-}
-
-function mergeDescriptionDrivenFieldLinkageItems(blueprint, generatedItems) {
-  if (!generatedItems.length) return blueprint;
-  if (hasOwn(blueprint, "reaction") && !isPlainObject(blueprint.reaction)) {
-    return blueprint;
-  }
-  if (
-    isPlainObject(blueprint.reaction) &&
-    hasOwn(blueprint.reaction, "items") &&
-    !Array.isArray(blueprint.reaction.items)
-  ) {
-    return blueprint;
-  }
-
-  const reaction = isPlainObject(blueprint.reaction)
-    ? { ...blueprint.reaction }
-    : {};
-  const items = Array.isArray(reaction.items)
-    ? reaction.items.map((item) => cloneSerializable(item))
-    : [];
-  for (const generatedItem of generatedItems) {
-    const existingItem = items.find(
-      (item) =>
-        isPlainObject(item) &&
-        normalizeText(item.type) === FIELD_LINKAGE_REACTION_TYPE &&
-        normalizeText(item.target) === normalizeText(generatedItem.target),
-    );
-    if (!existingItem) {
-      items.push(generatedItem);
-      continue;
-    }
-    if (hasOwn(existingItem, "rules") && !Array.isArray(existingItem.rules)) {
-      continue;
-    }
-    const existingRuleKeys = new Set(
-      ensureArray(existingItem.rules)
-        .map((rule) => normalizeText(rule?.key))
-        .filter(Boolean),
-    );
-    existingItem.rules = [
-      ...ensureArray(existingItem.rules),
-      ...ensureArray(generatedItem.rules).filter((rule) => {
-        const key = normalizeText(rule?.key);
-        if (!key || existingRuleKeys.has(key)) return false;
-        existingRuleKeys.add(key);
-        return true;
-      }),
-    ];
-  }
-  reaction.items = items;
-  blueprint.reaction = reaction;
-  return blueprint;
-}
-
 function materializeDefaultFieldGroupRelationTitleFieldForWrite(
   field,
   sourceCollection,
@@ -4559,6 +4014,227 @@ function materializeDefaultCollectionFieldGroupsForWrite(
   return { ...collectionDefaults, fieldGroups };
 }
 
+function buildDefaultFormBehaviorSceneForCollection(
+  collectionMetadata,
+  collectionName,
+  action,
+) {
+  const sceneFieldPaths = buildDefaultPopupSceneFieldPaths(
+    collectionMetadata,
+    collectionName,
+    action,
+  ).filter((fieldPath) => !normalizeText(fieldPath).includes("."));
+  if (!sceneFieldPaths.length) return null;
+  const availableFieldNames = new Set(sceneFieldPaths);
+  const fields = {};
+  const fieldLinkageRules = [];
+  for (const fieldPath of sceneFieldPaths) {
+    const fieldMeta = getCollectionFieldMeta(
+      collectionMetadata,
+      collectionName,
+      fieldPath,
+    );
+    if (!fieldMeta) continue;
+    const behavior = deriveDescriptionFieldBehavior(fieldMeta, {
+      collectionMetadata,
+      collectionName,
+      fieldName: fieldPath,
+      availableFieldNames,
+    });
+    if (Object.keys(behavior.settings || {}).length > 0) {
+      fields[fieldPath] = {
+        settings: cloneSerializable(behavior.settings),
+      };
+    }
+    if (behavior.linkage) {
+      fieldLinkageRules.push(behavior.linkage);
+    }
+  }
+  const scene = {};
+  if (Object.keys(fields).length) {
+    scene.fields = fields;
+  }
+  if (fieldLinkageRules.length) {
+    scene.fieldLinkageRules = fieldLinkageRules;
+  }
+  return Object.keys(scene).length ? scene : null;
+}
+
+function buildDefaultFormBehaviorForCollection(
+  collectionMetadata,
+  collectionName,
+) {
+  const formBehavior = {};
+  for (const action of ["addNew", "edit"]) {
+    const scene = buildDefaultFormBehaviorSceneForCollection(
+      collectionMetadata,
+      collectionName,
+      action,
+    );
+    if (scene) {
+      formBehavior[action] = scene;
+    }
+  }
+  return Object.keys(formBehavior).length ? formBehavior : undefined;
+}
+
+function mergeDefaultFormBehaviorFields(explicitFields, generatedFields) {
+  if (!isPlainObject(generatedFields) || !Object.keys(generatedFields).length) {
+    return explicitFields;
+  }
+  if (!isPlainObject(explicitFields)) {
+    return cloneSerializable(generatedFields);
+  }
+  const nextFields = cloneSerializable(explicitFields);
+  for (const [fieldPath, generatedField] of Object.entries(generatedFields)) {
+    const explicitField = nextFields[fieldPath];
+    if (!isPlainObject(explicitField)) {
+      if (typeof explicitField === "undefined") {
+        nextFields[fieldPath] = cloneSerializable(generatedField);
+      }
+      continue;
+    }
+    if (!isPlainObject(generatedField)) continue;
+    nextFields[fieldPath] = {
+      ...cloneSerializable(generatedField),
+      ...explicitField,
+      settings: {
+        ...(isPlainObject(generatedField.settings)
+          ? cloneSerializable(generatedField.settings)
+          : {}),
+        ...(isPlainObject(explicitField.settings)
+          ? cloneSerializable(explicitField.settings)
+          : {}),
+      },
+    };
+    if (!Object.keys(nextFields[fieldPath].settings).length) {
+      delete nextFields[fieldPath].settings;
+    }
+  }
+  return nextFields;
+}
+
+function mergeDefaultFormBehaviorRules(explicitRules, generatedRules) {
+  if (Array.isArray(explicitRules)) {
+    const nextRules = cloneSerializable(explicitRules);
+    if (!explicitRules.length) {
+      return nextRules;
+    }
+    const existingRuleKeys = new Set();
+    const existingRuleSemantics = new Set();
+    for (const rule of nextRules) {
+      const key = normalizeText(rule?.key);
+      if (key) existingRuleKeys.add(key);
+      const semanticKey = getFieldLinkageRuleSemanticKey(rule);
+      if (semanticKey) existingRuleSemantics.add(semanticKey);
+    }
+    for (const rule of ensureArray(generatedRules)) {
+      const key = normalizeText(rule?.key);
+      const semanticKey = getFieldLinkageRuleSemanticKey(rule);
+      if (key && existingRuleKeys.has(key)) continue;
+      if (semanticKey && existingRuleSemantics.has(semanticKey)) continue;
+      nextRules.push(cloneSerializable(rule));
+      if (key) existingRuleKeys.add(key);
+      if (semanticKey) existingRuleSemantics.add(semanticKey);
+    }
+    return nextRules;
+  }
+  if (!Array.isArray(generatedRules) || !generatedRules.length) {
+    return explicitRules;
+  }
+  return cloneSerializable(generatedRules);
+}
+
+function mergeDefaultFormBehaviorScene(explicitScene, generatedScene) {
+  if (!isPlainObject(generatedScene)) return explicitScene;
+  if (!isPlainObject(explicitScene)) {
+    return typeof explicitScene === "undefined"
+      ? cloneSerializable(generatedScene)
+      : explicitScene;
+  }
+  const nextScene = cloneSerializable(explicitScene);
+  const mergedFields = mergeDefaultFormBehaviorFields(
+    explicitScene.fields,
+    generatedScene.fields,
+  );
+  if (isPlainObject(mergedFields) && Object.keys(mergedFields).length) {
+    nextScene.fields = mergedFields;
+  }
+  const hasExplicitRules = hasOwn(explicitScene, "fieldLinkageRules");
+  const mergedRules = mergeDefaultFormBehaviorRules(
+    hasExplicitRules ? explicitScene.fieldLinkageRules : undefined,
+    generatedScene.fieldLinkageRules,
+  );
+  if (Array.isArray(mergedRules)) {
+    nextScene.fieldLinkageRules = mergedRules;
+  }
+  return nextScene;
+}
+
+function mergeDefaultFormBehavior(explicitBehavior, generatedBehavior) {
+  if (!isPlainObject(generatedBehavior)) {
+    return explicitBehavior;
+  }
+  if (!isPlainObject(explicitBehavior)) {
+    return typeof explicitBehavior === "undefined"
+      ? cloneSerializable(generatedBehavior)
+      : explicitBehavior;
+  }
+  const nextBehavior = cloneSerializable(explicitBehavior);
+  for (const action of ["addNew", "edit"]) {
+    const mergedScene = mergeDefaultFormBehaviorScene(
+      explicitBehavior[action],
+      generatedBehavior[action],
+    );
+    if (typeof mergedScene !== "undefined") {
+      nextBehavior[action] = mergedScene;
+    }
+  }
+  return nextBehavior;
+}
+
+function materializeDefaultCollectionFormBehaviorForWrite(
+  collectionDefaults,
+  collectionName,
+  options = {},
+) {
+  if (!isPlainObject(collectionDefaults)) {
+    return collectionDefaults;
+  }
+  const collectionMetadata = options.collectionMetadata || {};
+  const generatedBehavior = buildDefaultFormBehaviorForCollection(
+    collectionMetadata,
+    collectionName,
+  );
+  if (!generatedBehavior) {
+    return collectionDefaults;
+  }
+  return {
+    ...collectionDefaults,
+    formBehavior: mergeDefaultFormBehavior(
+      collectionDefaults.formBehavior,
+      generatedBehavior,
+    ),
+  };
+}
+
+function materializeDefaultCollectionForWrite(
+  collectionDefaults,
+  collectionName,
+  options = {},
+) {
+  const withFieldGroups = materializeDefaultCollectionFieldGroupsForWrite(
+    collectionDefaults,
+    collectionName,
+    options,
+  );
+  return materializeDefaultCollectionFormBehaviorForWrite(
+    withFieldGroups,
+    collectionName,
+    options,
+  );
+}
+
 function materializeActionForWrite(action, options = {}) {
   if (!isPlainObject(action)) {
     return action;
@@ -4599,14 +4275,11 @@ function materializeBlockForWrite(block, options = {}) {
     hasOwn(nextBlock, "settings") ||
     getHiddenPopupSettingsForBlockType(nextBlock.type).length > 0
   ) {
-    const materializedSettings = materializeSettingsForWrite(
-      nextBlock,
-      {
-        ...options,
-        hostBlock: nextBlock,
-        blockContext,
-      },
-    );
+    const materializedSettings = materializeSettingsForWrite(nextBlock, {
+      ...options,
+      hostBlock: nextBlock,
+      blockContext,
+    });
     if (isPlainObject(materializedSettings) || hasOwn(nextBlock, "settings")) {
       nextBlock.settings = materializedSettings;
     }
@@ -4696,7 +4369,7 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
             if (!isPlainObject(popups?.associations)) {
               return [
                 collectionName,
-                materializeDefaultCollectionFieldGroupsForWrite(
+                materializeDefaultCollectionForWrite(
                   collectionDefaults,
                   collectionName,
                   options,
@@ -4705,7 +4378,7 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
             }
             return [
               collectionName,
-              materializeDefaultCollectionFieldGroupsForWrite(
+              materializeDefaultCollectionForWrite(
                 {
                   ...collectionDefaults,
                   popups: {
@@ -4743,7 +4416,15 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
   });
   mergeDescriptionDrivenFieldLinkageItems(
     nextBlueprint,
-    collectDescriptionDrivenFieldLinkageItems(nextBlueprint, materializeOptions),
+    collectDescriptionDrivenFieldLinkageItems(nextBlueprint, {
+      ...materializeOptions,
+      buildBlockTraversalContext,
+      forEachBlockHiddenPopup,
+      forEachFieldGroup,
+      getBlockFieldEntries,
+      getRelationFieldPopupBlockContext: getRelationFieldPopupBlockContextForWrite,
+      resolveFieldMetadata: resolveFieldMetadataForWrite,
+    }),
   );
   return nextBlueprint;
 }
@@ -5382,6 +5063,143 @@ function validateDefaultPopups(popups, path, state) {
   }
 }
 
+function validateDefaultFormBehaviorField(fieldConfig, path, state) {
+  if (!isPlainObject(fieldConfig)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "invalid-default-form-behavior-field",
+      "defaults.collections.*.formBehavior.*.fields.* values must be one object.",
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    fieldConfig,
+    path,
+    DEFAULTS_FORM_BEHAVIOR_FIELD_ALLOWED_KEYS,
+    state,
+    "unsupported-default-form-behavior-field-key",
+    "defaults formBehavior field",
+  );
+  if (typeof fieldConfig.settings !== "undefined") {
+    if (!isPlainObject(fieldConfig.settings)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings`,
+        "invalid-default-form-behavior-field-settings",
+        "defaults.collections.*.formBehavior.*.fields.*.settings must be one object.",
+      );
+      return;
+    }
+    if (
+      typeof fieldConfig.settings.rules !== "undefined" &&
+      !Array.isArray(fieldConfig.settings.rules)
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings.rules`,
+        "invalid-default-form-behavior-field-rules",
+        "defaults.collections.*.formBehavior.*.fields.*.settings.rules must be an array when present.",
+      );
+    }
+  }
+}
+
+function validateDefaultFormBehaviorScene(scene, path, state) {
+  if (typeof scene === "undefined") return;
+  if (!isPlainObject(scene)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "invalid-default-form-behavior-scene",
+      "defaults.collections.*.formBehavior.addNew/edit must be one object.",
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    scene,
+    path,
+    DEFAULTS_FORM_BEHAVIOR_SCENE_ALLOWED_KEYS,
+    state,
+    "unsupported-default-form-behavior-scene-key",
+    "defaults formBehavior scene",
+  );
+  if (typeof scene.fields !== "undefined") {
+    if (!isPlainObject(scene.fields)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.fields`,
+        "invalid-default-form-behavior-fields",
+        "defaults.collections.*.formBehavior.*.fields must be one object keyed by field path.",
+      );
+    } else {
+      for (const [fieldPath, fieldConfig] of Object.entries(scene.fields)) {
+        if (!normalizeText(fieldPath)) {
+          pushValidationError(
+            state.errors,
+            state.seenErrors,
+            `${path}.fields`,
+            "invalid-default-form-behavior-field-key",
+            "defaults.collections.*.formBehavior.*.fields keys must be non-empty field paths.",
+          );
+          continue;
+        }
+        validateDefaultFormBehaviorField(
+          fieldConfig,
+          `${path}.fields.${fieldPath}`,
+          state,
+        );
+      }
+    }
+  }
+  if (
+    typeof scene.fieldLinkageRules !== "undefined" &&
+    !Array.isArray(scene.fieldLinkageRules)
+  ) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldLinkageRules`,
+      "invalid-default-form-behavior-linkage-rules",
+      "defaults.collections.*.formBehavior.*.fieldLinkageRules must be an array when present.",
+    );
+  }
+}
+
+function validateDefaultFormBehavior(formBehavior, path, state) {
+  if (typeof formBehavior === "undefined") return;
+  if (!isPlainObject(formBehavior)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "invalid-default-form-behavior",
+      "defaults.collections.*.formBehavior must be one object.",
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    formBehavior,
+    path,
+    DEFAULTS_FORM_BEHAVIOR_ALLOWED_KEYS,
+    state,
+    "unsupported-default-form-behavior-key",
+    "defaults formBehavior",
+  );
+  for (const action of ["addNew", "edit"]) {
+    validateDefaultFormBehaviorScene(
+      formBehavior[action],
+      `${path}.${action}`,
+      state,
+    );
+  }
+}
+
 function validateBlueprintDefaults(blueprint, state) {
   if (!hasOwn(blueprint, "defaults")) return;
   const defaults = blueprint.defaults;
@@ -5456,6 +5274,11 @@ function validateBlueprintDefaults(blueprint, state) {
     validateDefaultPopups(
       collectionDefaults.popups,
       `${collectionPath}.popups`,
+      state,
+    );
+    validateDefaultFormBehavior(
+      collectionDefaults.formBehavior,
+      `${collectionPath}.formBehavior`,
       state,
     );
   }
@@ -6651,7 +6474,6 @@ function validateDefaultFilterGroup(
       },
     );
   }
-
 }
 
 function resolveDataSurfaceDefaultFilterRequiredFieldCount(block, state) {
@@ -6669,7 +6491,10 @@ function resolveDataSurfaceDefaultFilterRequiredFieldCount(block, state) {
   ).length;
   return Math.min(
     DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
-    Math.min(DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS, candidateFieldCount),
+    Math.min(
+      DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS,
+      candidateFieldCount,
+    ),
   );
 }
 

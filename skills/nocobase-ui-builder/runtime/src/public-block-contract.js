@@ -1,4 +1,4 @@
-import { isPlainObject } from './utils.js';
+import { cloneSerializable, isPlainObject } from './utils.js';
 
 const CALENDAR_TITLE_FIELD_INTERFACES = new Set(['input', 'select', 'phone', 'email', 'radioGroup']);
 const CALENDAR_COLOR_FIELD_INTERFACES = new Set(['select', 'radioGroup']);
@@ -95,6 +95,18 @@ function normalizeCollectionField(field) {
     return null;
   }
   const options = isPlainObject(field.options) ? field.options : {};
+  const descriptionBehavior =
+    isPlainObject(field.descriptionBehavior) ||
+    isPlainObject(options.descriptionBehavior) ||
+    isPlainObject(field.uiSchema?.descriptionBehavior) ||
+    isPlainObject(options.uiSchema?.descriptionBehavior)
+      ? cloneSerializable(
+          field.descriptionBehavior ||
+            options.descriptionBehavior ||
+            field.uiSchema?.descriptionBehavior ||
+            options.uiSchema?.descriptionBehavior,
+        )
+      : undefined;
   const name = normalizeText(field.name) || normalizeText(field.field) || normalizeText(field.key) || normalizeText(options.name);
   if (!name) return null;
   const description = normalizeText(field.description) || normalizeText(options.description);
@@ -111,6 +123,8 @@ function normalizeCollectionField(field) {
   const normalizedOptions = {};
   if (options.hidden === true) normalizedOptions.hidden = true;
   if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
+  if (Array.isArray(field.options)) normalizedOptions.options = cloneSerializable(field.options);
+  if (Array.isArray(options.options)) normalizedOptions.options = cloneSerializable(options.options);
   if (isPlainObject(options.validation)) normalizedOptions.validation = cloneSerializable(options.validation);
   if (isPlainObject(options.uiSchema)) normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
   return {
@@ -123,6 +137,7 @@ function normalizeCollectionField(field) {
     ...(description ? { description } : {}),
     ...(validation ? { validation } : {}),
     ...(uiSchema ? { uiSchema } : {}),
+    ...(descriptionBehavior ? { descriptionBehavior } : {}),
     hidden: field.hidden === true || options.hidden === true,
     options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };

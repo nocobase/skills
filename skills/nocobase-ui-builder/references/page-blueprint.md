@@ -48,7 +48,7 @@ Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file own
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, field-specific `type`, or behavior inferred from collection field `description` is required.
 - In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. The popup content must also use the correct resource binding: `details` / `editForm` for the clicked relation record use `resource.binding = "currentRecord"`, while relation lists use `resource.binding = "associatedRecords"` plus `resource.associationField`. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. Prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
-- When a form field's live metadata has a `description`, treat it as behavior input, not passive text. Clear static required wording becomes `settings.required=true`; other clear constraints become `settings.extra` / `settings.tooltip`; and unambiguous same-form conditional required/disabled/hidden wording can be represented as top-level `reaction.items[]` on a keyed form block. Do not add a NocoBase backend fallback parser for this; keep ambiguous description text as helper copy instead of guessing behavior.
+- When a form field's live metadata has a `description`, treat it as behavior input, not passive text. Use agent/LLM semantic extraction for arbitrary languages, but emit only structured public settings and field-linkage rules; when carrying extracted intent through metadata, use `descriptionBehavior.{settings,linkage}` instead of adding more language-specific keyword rules. Clear static required wording becomes `settings.required=true`; clear low-risk constraints can become `settings.rules` / `settings.maxCount` plus helper copy; and unambiguous same-form conditional required/disabled/hidden wording can be represented as top-level `reaction.items[]` on a keyed local form block. Map condition values through live option `value` / localized `label` metadata when available. For backend-generated add/edit popups, put the same derived behavior under target-scoped `defaults.collections.<collection>.formBehavior`; do not add a NocoBase backend fallback parser for raw descriptions. Keep ambiguous description text as helper copy instead of guessing behavior.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
 - `calendar` main blocks do not support direct `fields[]`, `fieldGroups[]`, or `recordActions[]`. Bind only calendar settings such as `titleField` / `colorField` / `startField` / `endField` on the main block; event content fields belong in quick-create / event-view popup hosts.
@@ -145,6 +145,7 @@ Payload boundary:
 - For each whole-page draft, recompute the involved target collections from live metadata and rebuild `defaults.collections` from scratch instead of copying a stale fragment.
 - Every involved direct collection always uses top-level `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}`, and any `table` block always pulls that collection into the `addNew` threshold evaluation even when the blueprint omitted an explicit `addNew` opener.
 - Use top-level `defaults.collections.<collection>.fieldGroups` as collection-level candidate groups for backend-generated `details`, `createForm`, and `editForm` popup content only when one of those fixed popup scenes should still have more than 10 effective fields after scene filtering.
+- Use top-level `defaults.collections.<collection>.formBehavior.addNew/edit` for settings and field linkage rules derived from live field descriptions when the add/edit form is backend-generated. Put relation popup behavior on the relation target collection entry, not under `popups.associations`.
 - Generate these groups from live collection metadata only for large generated popups. For 10 or fewer effective fields, omit `defaults.collections.<collection>.fieldGroups` and let the backend keep a flat popup.
 - After generating defaults fieldGroups, run one compact self-review with a short structured verdict (`approve` or `regenerate`) that checks semantic grouping, required-field coverage, group balance, and group title specificity. Use the lowest practical reasoning effort / no-think mode, do not ask for chain-of-thought, and if the verdict is `regenerate`, regenerate once from live metadata and stop after that single retry.
 - With live metadata, missing `fieldGroups` for large generated popups can be a backend hard validation error. Regenerate explicit semantic `fieldGroups` from the live fields, and make sure they cover every required generated-popup field.
@@ -152,6 +153,7 @@ Payload boundary:
 - The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted, but a provided small `fieldGroups` payload can still force divider-style generated forms, so do not emit it for small scenes.
 - Use `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}` for the fixed collection record popup descriptor trio.
 - Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.{name,description}` for the fixed relation-field popup descriptor trio. Use `associations`, not `relations`. Key it only by the first relation segment from the field path, not by deeper nested relation chains. These relation popup descriptors stay separate from `fieldGroups`: the grouped fields still come only from the target collection entry when needed.
+- `formBehavior.fieldLinkageRules` uses the same rule shape as `reaction.items[].rules` for `setFieldLinkageRules`, but without a `target`; the backend binds those rules to the generated form block. An explicit empty array clears description-derived defaults; a non-empty explicit array is merged with non-conflicting derived rules by key/semantic rule shape, with explicit rules winning conflicts.
 - Explicit local `popup.blocks` still count when backend authoring recomputes defaults scope, even if that popup also carries `popup.template` or `popup.tryTemplate`; template reuse only changes popup content sourcing.
 - For compatibility, backend authoring can normalize deeper `popups.associations` keys such as `department.manager` back to that first relation segment; when both a one-level key and a deeper alias exist, the explicit one-level key wins.
 - Popup defaults must be `{ name, description }` only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
@@ -187,6 +189,31 @@ Example:
               "addNew": { "name": "Create user role", "description": "Create one related user role." },
               "edit": { "name": "Edit user role", "description": "Edit one related user role." }
             }
+          }
+        },
+        "formBehavior": {
+          "addNew": {
+            "fields": {
+              "username": {
+                "settings": {
+                  "required": true,
+                  "extra": "必填。最多 50 个字符。",
+                  "rules": [{ "max": 50, "message": "最多 50 个字符。" }]
+                }
+              }
+            }
+          },
+          "edit": {
+            "fieldLinkageRules": [
+              {
+                "key": "description-approvalComment-status-required",
+                "when": {
+                  "logic": "$and",
+                  "items": [{ "path": "formValues.status", "operator": "$eq", "value": "published" }]
+                },
+                "then": [{ "type": "setFieldState", "fieldPaths": ["approvalComment"], "state": "required" }]
+              }
+            ]
           }
         }
       },
@@ -731,10 +758,10 @@ Default to a simple string whenever the field only needs normal display/edit beh
 
 For `createForm`, `editForm`, and `filterForm`, read the field `description` from live collection metadata before finalizing fields. Use it conservatively:
 
-- Static required wording such as "required" / "必填" becomes `settings.required=true`.
+- Static required intent extracted by the agent/LLM becomes `settings.required=true`; deterministic wording checks are only a conservative fallback, not the arbitrary-language strategy.
 - Explanatory or constraint text becomes `settings.extra` or `settings.tooltip` unless the field already has explicit helper settings.
-- Clear conditional same-form rules such as "when `status` is `published`, this field is required" become top-level `reaction.items[]` targeting the keyed form block.
-- Description-derived conditional reactions are auto-generated for any keyed form block inside the same local popup chain, including field/action/recordAction/hidden popup nests when the popup contains local `blocks`. Keep helper/settings-only behavior only for ambiguous descriptions or popup scenes without a stable keyed form target.
+- Clear conditional same-form rules extracted from any language become structured `descriptionBehavior.linkage` or top-level `reaction.items[]` targeting the stable local form block.
+- Description-derived conditional reactions are auto-generated for any stable form block inside the same local popup chain, including field/action/recordAction/hidden popup nests when the popup contains local `blocks`. Prepare materializes generated local keys only when a derived reaction needs them. Resolve option conditions through live `value` / localized `label` metadata where possible. Keep helper/settings-only behavior for ambiguous descriptions, missing condition cues, or popup scenes without a stable form target.
 - If the description names unclear fields, unsupported actions, or ambiguous conditions, keep it as helper text and do not guess a reaction rule.
 
 When the user says clicking a shown record / relation record should open details, prefer a field object with inline `popup` so the field itself is the opener. Readback commonly normalizes this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the requirement explicitly says button / action column.
