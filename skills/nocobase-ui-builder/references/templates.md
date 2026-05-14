@@ -120,8 +120,9 @@ When the skill auto-creates a template:
 
 - keep `name` short, readable, and in the current conversation language
 - keep direct/current-record popup names in the existing readable form, such as `用户详情弹窗模板` / `User details popup template`
-- for relation-scoped popup seeds, append the association path to the readable popup name and omit the generic template suffix, such as `角色详情弹窗(users.roles)` / `Role details popup(users.roles)`
+- for relation-scoped popup seeds, append the association path to the readable popup name and omit both the generic template suffix and extra `弹窗`/`popup` wording, such as `角色详情(users.roles)` / `Role details(users.roles)`
 - keep most structural/search detail in `description`, not `name`
+- popup template reuse is semantic: field-opened and action-opened popups should share a template when the scene, collection/resource, relation context, and content shape are compatible; host/trigger wording belongs in `description` and must not be the only reason to create another template
 - `description` should include reusable scene, collection/resource/host/trigger context, direct/current-record vs relation context, and key popup content clues that help later contextual search
 - for popup seeds, include opener/resource or relation context so later contextual search can rank it higher
 - avoid timestamps or hashes unless a real name collision forces them

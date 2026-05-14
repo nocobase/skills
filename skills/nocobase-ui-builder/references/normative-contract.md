@@ -76,7 +76,7 @@ The public `applyBlueprint` payload is:
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
 - for normal single-page requests, default to exactly one real tab; do not carry empty / placeholder tabs in the draft
 - do not add placeholder content such as `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them
-- field entries default to simple string field names; use a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required
+- field entries default to simple string field names; use a field object only when `popup`, `target`, `renderer`, field-specific `type`, or clear form behavior inferred from live field `description` is required
 - when the intent is "click the shown record / relation record to open details", the canonical page-blueprint authoring is a field-level inline `popup`; backend / readback may normalize this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the request explicitly asks for a button or action column.
 
 ### nb body rule
@@ -182,7 +182,7 @@ For `replace` runs:
 - `target.pageSchemaUid` is required
 - omitted page-level fields are left unchanged
 - blueprint tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
-- before the first `applyBlueprint`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, there is no placeholder `markdown` / note / banner block, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`
+- before the first `applyBlueprint`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, there is no placeholder `markdown` / note / banner block, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` / description-derived form behavior is actually required, and every custom `edit` popup contains exactly one `editForm`
 - if the current page has `enableTabs = false` and the new blueprint contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
@@ -241,7 +241,8 @@ Field addability rule:
 
 - A field is authorable into page-blueprint `fields[]` only if the live collection metadata truth above shows a non-empty `interface` for that field.
 - If a field exists but `interface` is empty / null there, do **not** author it into any `details` / `table` / `editForm` / `createForm` / nested-popup block `fields[]`.
-- If a field only needs normal display/edit behavior, keep it as a simple string entry in blueprint `fields[]`; only upgrade it to an object when a documented public field behavior is needed.
+- If a field only needs normal display/edit behavior, keep it as a simple string entry in blueprint `fields[]`; only upgrade it to an object when a documented public field behavior is needed, including clear form settings inferred from live field `description`.
+- Description-derived conditional reactions require a keyed form block and a condition field present in that same form. The target may be a top-level form or a form inside a local field/action/recordAction/hidden popup chain with explicit local `popup.blocks`; otherwise keep the description as helper/settings rather than inferring template-only or cross-form behavior.
 - Schema existence alone is not enough for UI authoring. Example: a field like `roles.description` may exist in collection metadata, but if its `interface` is `null`, the skill must omit it instead of attempting `addField` / `applyBlueprint` authoring.
 - Only override this rule when another live read proves a supported UI path for that exact field and target.
 

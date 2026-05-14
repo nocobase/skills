@@ -45,9 +45,10 @@ Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file own
 ```
 
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
-- Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
+- Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, field-specific `type`, or behavior inferred from collection field `description` is required.
 - In display blocks (`table`, `details`, `list`, `gridCard`), a first-level relation field such as `roles` must not stay as shorthand ``"roles"`` or `{ "field": "roles" }`. Write it as `{ "field": "roles", "popup": { ... } }` so the relation has an explicit detail popup. The popup content must also use the correct resource binding: `details` / `editForm` for the clicked relation record use `resource.binding = "currentRecord"`, while relation lists use `resource.binding = "associatedRecords"` plus `resource.associationField`. This rule does not apply to dotted paths such as `department.title`, and it does not apply to `createForm` / `editForm`.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. Prefer `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
+- When a form field's live metadata has a `description`, treat it as behavior input, not passive text. Clear static required wording becomes `settings.required=true`; other clear constraints become `settings.extra` / `settings.tooltip`; and unambiguous same-form conditional required/disabled/hidden wording can be represented as top-level `reaction.items[]` on a keyed form block. Do not add a NocoBase backend fallback parser for this; keep ambiguous description text as helper copy instead of guessing behavior.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
 - `calendar` main blocks do not support direct `fields[]`, `fieldGroups[]`, or `recordActions[]`. Bind only calendar settings such as `titleField` / `colorField` / `startField` / `endField` on the main block; event content fields belong in quick-create / event-view popup hosts.
@@ -726,7 +727,15 @@ A field entry may be:
 - a string, for example `"nickname"`
 - an object with optional `key`, `field`, `renderer`, `type`, optional `target`, `settings`, and optional inline `popup`
 
-Default to a simple string whenever the field only needs normal display/edit behavior. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is actually required. Do not invent ad-hoc extra keys in field objects.
+Default to a simple string whenever the field only needs normal display/edit behavior. Upgrade to a field object only when `popup`, `target`, `renderer`, field-specific `type`, or form behavior inferred from live field `description` is actually required. Do not invent ad-hoc extra keys in field objects.
+
+For `createForm`, `editForm`, and `filterForm`, read the field `description` from live collection metadata before finalizing fields. Use it conservatively:
+
+- Static required wording such as "required" / "必填" becomes `settings.required=true`.
+- Explanatory or constraint text becomes `settings.extra` or `settings.tooltip` unless the field already has explicit helper settings.
+- Clear conditional same-form rules such as "when `status` is `published`, this field is required" become top-level `reaction.items[]` targeting the keyed form block.
+- Description-derived conditional reactions are auto-generated for any keyed form block inside the same local popup chain, including field/action/recordAction/hidden popup nests when the popup contains local `blocks`. Keep helper/settings-only behavior only for ambiguous descriptions or popup scenes without a stable keyed form target.
+- If the description names unclear fields, unsupported actions, or ambiguous conditions, keep it as helper text and do not guess a reaction rule.
 
 When the user says clicking a shown record / relation record should open details, prefer a field object with inline `popup` so the field itself is the opener. Readback commonly normalizes this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the requirement explicitly says button / action column.
 

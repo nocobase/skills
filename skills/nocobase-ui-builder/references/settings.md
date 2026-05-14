@@ -354,6 +354,8 @@ Common field settings suitable for direct inline use:
 - `tooltip`
 - `extra`
 
+When live collection metadata exposes a field `description`, use it as the first source for these form-field settings. Convert only clear static hints directly: required wording maps to `required`, and explanatory constraints map to `tooltip` / `extra`. Conditional same-form behavior belongs to reaction authoring (`setFieldLinkageRules`) rather than ad-hoc settings. The automatic description-derived reaction path may target any keyed form block inside the same local popup chain when the popup has local `blocks`; otherwise keep description text as helper/settings.
+
 ### `add-action`
 
 Create a submit button and set its title and type directly:

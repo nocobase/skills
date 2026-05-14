@@ -339,6 +339,11 @@ const FORM_SUBMIT_ACTION_KEY = "submitAction";
 const FORM_SUBMIT_ACTION_TYPE = "submit";
 const FIELD_LINKAGE_REACTION_TYPE = "setFieldLinkageRules";
 const FIELD_STATE_ACTION_TYPE = "setFieldState";
+const DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES = new Set([
+  "createForm",
+  "editForm",
+  "filterForm",
+]);
 const FIELD_STATE_BOOLEAN_SHORTHANDS = {
   disabled: { true: "disabled", false: "enabled" },
   enabled: { true: "enabled", false: "disabled" },
@@ -391,6 +396,16 @@ function normalizeText(value, fallback = "") {
     typeof value === "string" || typeof value === "number" ? String(value) : "";
   const normalized = source.replace(/\s+/g, " ").trim();
   return normalized || fallback;
+}
+
+function normalizeLooseText(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[\s_\-.,;:，。；：、()（）"'“”‘’[\]{}<>《》]+/g, "");
+}
+
+function escapeRegExp(value) {
+  return normalizeText(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeFilterTargetKeyValue(value) {
@@ -473,9 +488,239 @@ function resolveActionLocalKey(action, index) {
   return resolveBlueprintLocalKey(action.key, `${type}_${index + 1}`);
 }
 
-function buildReactionTargetRegistry(blueprint) {
-  const blockTargets = new Map();
-  const actionTargets = new Map();
+function resolveFieldReactionHostLocalKey(field, index) {
+  if (!isPlainObject(field)) return null;
+  const explicitKey = normalizeText(field.key);
+  if (explicitKey) {
+    return { key: explicitKey, explicit: true };
+  }
+  const fieldPath = normalizeText(field.field);
+  if (fieldPath) {
+    return { key: fieldPath, explicit: true };
+  }
+  const fallback = resolveBlueprintFieldLocalKey(field, index);
+  return fallback ? { key: fallback, explicit: false } : null;
+}
+
+function visitPopupReactionTargets(
+  popup,
+  popupTarget,
+  path,
+  requiresExplicitKey,
+  visitor,
+) {
+  if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return false;
+  for (const [blockIndex, block] of ensureArray(popup.blocks).entries()) {
+    if (!isPlainObject(block)) continue;
+    const blockInfo = resolveBlockLocalKey(block, blockIndex);
+    const blockTarget = buildScopedKey(popupTarget, blockInfo.key);
+    if (
+      visitBlockReactionTarget(
+        block,
+        blockTarget,
+        `${path}.blocks[${blockIndex}]`,
+        requiresExplicitKey || !blockInfo.explicit,
+        visitor,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function visitFieldPopupReactionTargets(
+  fields,
+  fieldsPath,
+  blockTarget,
+  requiresExplicitKey,
+  visitor,
+) {
+  for (const [fieldIndex, field] of ensureArray(fields).entries()) {
+    if (!isPlainObject(field) || !isPlainObject(field.popup)) continue;
+    const fieldInfo = resolveFieldReactionHostLocalKey(field, fieldIndex);
+    if (!fieldInfo) continue;
+    const popupTarget = buildScopedKey(blockTarget, `fields.${fieldInfo.key}`);
+    if (
+      visitPopupReactionTargets(
+        field.popup,
+        popupTarget,
+        `${fieldsPath}[${fieldIndex}].popup`,
+        requiresExplicitKey || !fieldInfo.explicit,
+        visitor,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function visitBlockFieldPopupReactionTargets(
+  block,
+  blockTarget,
+  path,
+  requiresExplicitKey,
+  visitor,
+) {
+  if (
+    visitFieldPopupReactionTargets(
+      block.fields,
+      `${path}.fields`,
+      blockTarget,
+      requiresExplicitKey,
+      visitor,
+    )
+  ) {
+    return true;
+  }
+
+  for (const [groupIndex, group] of ensureArray(block.fieldGroups).entries()) {
+    if (!isPlainObject(group)) continue;
+    if (
+      visitFieldPopupReactionTargets(
+        group.fields,
+        `${path}.fieldGroups[${groupIndex}].fields`,
+        blockTarget,
+        requiresExplicitKey,
+        visitor,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function visitActionPopupReactionTargets(
+  block,
+  blockTarget,
+  path,
+  requiresExplicitKey,
+  slotName,
+  visitor,
+) {
+  for (const [actionIndex, action] of ensureArray(block[slotName]).entries()) {
+    const actionInfo = resolveActionLocalKey(action, actionIndex);
+    if (!actionInfo) continue;
+    const actionRequiresExplicitKey = requiresExplicitKey || !actionInfo.explicit;
+    const actionPath = `${path}.${slotName}[${actionIndex}]`;
+    const actionTarget = buildScopedKey(blockTarget, actionInfo.key);
+    if (
+      visitor({
+        kind: "action",
+        target: actionTarget,
+        path: actionPath,
+        requiresExplicitKey: actionRequiresExplicitKey,
+        hostBlockType: normalizeText(block.type),
+        action,
+      })
+    ) {
+      return true;
+    }
+    if (!isPlainObject(action?.popup)) continue;
+    const popupTarget = buildScopedKey(
+      blockTarget,
+      `${slotName}.${actionInfo.key}`,
+    );
+    if (
+      visitPopupReactionTargets(
+        action.popup,
+        popupTarget,
+        `${actionPath}.popup`,
+        actionRequiresExplicitKey,
+        visitor,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function visitBlockReactionTarget(
+  block,
+  blockTarget,
+  path,
+  requiresExplicitKey,
+  visitor,
+) {
+  if (!isPlainObject(block) || !blockTarget) return false;
+  if (
+    visitor({
+      kind: "block",
+      target: blockTarget,
+      path,
+      requiresExplicitKey,
+      block,
+    })
+  ) {
+    return true;
+  }
+
+  if (
+    visitActionPopupReactionTargets(
+      block,
+      blockTarget,
+      path,
+      requiresExplicitKey,
+      "actions",
+      visitor,
+    )
+  ) {
+    return true;
+  }
+  if (
+    visitActionPopupReactionTargets(
+      block,
+      blockTarget,
+      path,
+      requiresExplicitKey,
+      "recordActions",
+      visitor,
+    )
+  ) {
+    return true;
+  }
+  if (
+    visitBlockFieldPopupReactionTargets(
+      block,
+      blockTarget,
+      path,
+      requiresExplicitKey,
+      visitor,
+    )
+  ) {
+    return true;
+  }
+  if (
+    isPlainObject(block.popup) &&
+    visitPopupReactionTargets(
+      block.popup,
+      buildScopedKey(blockTarget, "popup"),
+      `${path}.popup`,
+      requiresExplicitKey,
+      visitor,
+    )
+  ) {
+    return true;
+  }
+
+  let stopped = false;
+  forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+    if (stopped || !isPlainObject(popup)) return;
+    stopped = visitPopupReactionTargets(
+      popup,
+      buildScopedKey(blockTarget, `settings.${key}`),
+      `${path}.settings.${key}`,
+      requiresExplicitKey,
+      visitor,
+    );
+  });
+  return stopped;
+}
+
+function visitBlueprintReactionTargets(blueprint, visitor) {
   const usedTabKeys = new Set();
 
   for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
@@ -486,40 +731,43 @@ function buildReactionTargetRegistry(blueprint) {
       if (!isPlainObject(block)) continue;
       const blockInfo = resolveBlockLocalKey(block, blockIndex);
       const blockTarget = buildScopedKey(tabInfo.key, blockInfo.key);
-      blockTargets.set(blockTarget, {
-        path: `tabs[${tabIndex}].blocks[${blockIndex}]`,
-        requiresExplicitKey: !tabInfo.explicit || !blockInfo.explicit,
-      });
-
-      for (const [actionIndex, action] of ensureArray(
-        block.actions,
-      ).entries()) {
-        const actionInfo = resolveActionLocalKey(action, actionIndex);
-        if (!actionInfo) continue;
-        const actionTarget = buildScopedKey(blockTarget, actionInfo.key);
-        actionTargets.set(actionTarget, {
-          path: `tabs[${tabIndex}].blocks[${blockIndex}].actions[${actionIndex}]`,
-          requiresExplicitKey:
-            !tabInfo.explicit || !blockInfo.explicit || !actionInfo.explicit,
-          hostBlockType: normalizeText(block.type),
-        });
-      }
-
-      for (const [actionIndex, action] of ensureArray(
-        block.recordActions,
-      ).entries()) {
-        const actionInfo = resolveActionLocalKey(action, actionIndex);
-        if (!actionInfo) continue;
-        const actionTarget = buildScopedKey(blockTarget, actionInfo.key);
-        actionTargets.set(actionTarget, {
-          path: `tabs[${tabIndex}].blocks[${blockIndex}].recordActions[${actionIndex}]`,
-          requiresExplicitKey:
-            !tabInfo.explicit || !blockInfo.explicit || !actionInfo.explicit,
-          hostBlockType: normalizeText(block.type),
-        });
+      if (
+        visitBlockReactionTarget(
+          block,
+          blockTarget,
+          `tabs[${tabIndex}].blocks[${blockIndex}]`,
+          !tabInfo.explicit || !blockInfo.explicit,
+          visitor,
+        )
+      ) {
+        return true;
       }
     }
   }
+  return false;
+}
+
+function buildReactionTargetRegistry(blueprint) {
+  const blockTargets = new Map();
+  const actionTargets = new Map();
+
+  visitBlueprintReactionTargets(blueprint, (entry) => {
+    if (entry.kind === "block") {
+      blockTargets.set(entry.target, {
+        path: entry.path,
+        requiresExplicitKey: entry.requiresExplicitKey,
+      });
+      return false;
+    }
+    if (entry.kind === "action") {
+      actionTargets.set(entry.target, {
+        path: entry.path,
+        requiresExplicitKey: entry.requiresExplicitKey,
+        hostBlockType: entry.hostBlockType,
+      });
+    }
+    return false;
+  });
 
   return {
     blockTargets,
@@ -540,22 +788,16 @@ function splitActionReactionTarget(target) {
 }
 
 function findBlockByReactionTarget(blueprint, blockTarget) {
-  const usedTabKeys = new Set();
-
-  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
-    if (!isPlainObject(tab)) continue;
-    const tabInfo = resolveTabLocalKey(tab, tabIndex, usedTabKeys);
-
-    for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
-      if (!isPlainObject(block)) continue;
-      const blockInfo = resolveBlockLocalKey(block, blockIndex);
-      if (buildScopedKey(tabInfo.key, blockInfo.key) === blockTarget) {
-        return { tabIndex, blockIndex, block };
-      }
+  const normalizedTarget = normalizeText(blockTarget);
+  let match = null;
+  visitBlueprintReactionTargets(blueprint, (entry) => {
+    if (entry.kind === "block" && entry.target === normalizedTarget) {
+      match = { path: entry.path, block: entry.block };
+      return true;
     }
-  }
-
-  return null;
+    return false;
+  });
+  return match;
 }
 
 function normalizeSubmitActionOnFormBlock(block) {
@@ -1043,13 +1285,7 @@ function buildAutoSaveTemplateMetadata(popup, options = {}) {
   const contentLabel = summarizePopupTemplateBlocks(popup?.blocks, locale);
   const associationName = resolvePopupTemplateAssociationName(options);
 
-  const baseName = popupTitle
-    ? locale === "zh"
-      ? `${popupTitle}弹窗`
-      : `${popupTitle} popup`
-    : locale === "zh"
-      ? `${hostLabel} ${triggerLabel} 弹窗`
-      : `${hostLabel} ${triggerLabel} popup`;
+  const baseName = popupTitle || `${hostLabel} ${triggerLabel}`;
   const name = associationName
     ? `${baseName}(${associationName})`
     : popupTitle
@@ -1433,6 +1669,22 @@ function normalizeCollectionFieldMetadata(field) {
   const options = isPlainObject(field.options) ? field.options : {};
   const name = normalizeText(field.name || field.field || field.key) || normalizeText(options.name);
   if (!name) return null;
+  const description = normalizeText(field.description) || normalizeText(options.description);
+  const validation = isPlainObject(field.validation)
+    ? cloneSerializable(field.validation)
+    : isPlainObject(options.validation)
+      ? cloneSerializable(options.validation)
+      : undefined;
+  const uiSchema = isPlainObject(field.uiSchema)
+    ? cloneSerializable(field.uiSchema)
+    : isPlainObject(options.uiSchema)
+      ? cloneSerializable(options.uiSchema)
+      : undefined;
+  const normalizedOptions = {};
+  if (options.hidden === true) normalizedOptions.hidden = true;
+  if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
+  if (isPlainObject(options.validation)) normalizedOptions.validation = cloneSerializable(options.validation);
+  if (isPlainObject(options.uiSchema)) normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
   return {
     name,
     interface: normalizeText(field.interface) || normalizeText(options.interface),
@@ -1441,12 +1693,15 @@ function normalizeCollectionFieldMetadata(field) {
     collectionName: normalizeText(field.collectionName),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    ...(description ? { description } : {}),
+    ...(validation ? { validation } : {}),
+    ...(uiSchema ? { uiSchema } : {}),
     readOnly: Boolean(field.readOnly ?? field.readonly),
     writable: typeof field.writable === "boolean" ? field.writable : undefined,
     autoCreate: Boolean(field.autoCreate),
     autoIncrement: Boolean(field.autoIncrement),
     hidden: field.hidden === true || options.hidden === true,
-    options: options.hidden === true ? { hidden: true } : undefined,
+    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }
 
@@ -1925,7 +2180,7 @@ function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
   let surfaceCollection =
     normalizedDirectCollection || inheritedSurfaceCollection;
   let directCollectionScope = normalizedDirectCollection;
-  let associationRequirement = null;
+  let associationRequirement = parentContext?.associationRequirement || null;
 
   if (binding === "associatedrecords") {
     associationRequirement = resolveAssociationRequirement(
@@ -3440,11 +3695,360 @@ function materializeSettingsForWrite(block, options = {}) {
   };
 }
 
-function materializeFieldForWrite(field, options = {}) {
-  if (!isPlainObject(field)) {
-    return field;
+function resolveFieldMetadataForWrite(fieldPath, options = {}) {
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedFieldPath) return null;
+  const collectionName = getTraversalSurfaceCollection(
+    options.blockContext || {},
+  );
+  if (!collectionName) return null;
+  const resolved = resolveFieldPathInCollectionMetadata(
+    options.collectionMetadata || {},
+    collectionName,
+    normalizedFieldPath,
+  );
+  return resolved?.field || null;
+}
+
+function isFormFieldDescriptionSettingsHost(options = {}) {
+  return DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES.has(
+    normalizeText(options.hostBlock?.type),
+  );
+}
+
+function getDescriptionRequiredHint(description) {
+  const compact = normalizeLooseText(description);
+  if (!compact) return undefined;
+  if (
+    compact.includes("notrequired") ||
+    compact.includes("optional") ||
+    compact.includes("nonrequired") ||
+    compact.includes("notmandatory") ||
+    compact.includes("非必填") ||
+    compact.includes("无需必填") ||
+    compact.includes("不必填") ||
+    compact.includes("不是必填") ||
+    compact.includes("可选") ||
+    compact.includes("选填")
+  ) {
+    return false;
   }
-  const nextField = cloneSerializable(field);
+  if (
+    compact.includes("required") ||
+    compact.includes("mandatory") ||
+    compact.includes("mustfill") ||
+    compact.includes("mustprovide") ||
+    compact.includes("必填") ||
+    compact.includes("必录") ||
+    compact.includes("必须填写") ||
+    compact.includes("必须提供") ||
+    compact.includes("不能为空") ||
+    compact.includes("不可为空")
+  ) {
+    return true;
+  }
+  return undefined;
+}
+
+function hasFieldDescriptionBehavior(description) {
+  return (
+    typeof getDescriptionRequiredHint(description) === "boolean" ||
+    !!normalizeText(description)
+  );
+}
+
+function getDescriptionStateKeyword(description) {
+  const normalized = normalizeLooseText(description);
+  if (!normalized) return "";
+  if (
+    normalized.includes("notrequired") ||
+    normalized.includes("nonrequired") ||
+    normalized.includes("notmandatory") ||
+    normalized.includes("nonmandatory") ||
+    normalized.includes("optional") ||
+    normalized.includes("非必填") ||
+    normalized.includes("无需必填") ||
+    normalized.includes("不必填") ||
+    normalized.includes("不是必填") ||
+    normalized.includes("可选") ||
+    normalized.includes("选填")
+  ) {
+    return "notRequired";
+  }
+  if (
+    normalized.includes("required") ||
+    normalized.includes("mandatory") ||
+    normalized.includes("mustfill") ||
+    normalized.includes("mustprovide") ||
+    normalized.includes("必填") ||
+    normalized.includes("必录") ||
+    normalized.includes("必须填写") ||
+    normalized.includes("必须提供") ||
+    normalized.includes("不能为空") ||
+    normalized.includes("不可为空")
+  ) {
+    return "required";
+  }
+  if (
+    normalized.includes("disabled") ||
+    normalized.includes("禁用") ||
+    normalized.includes("不可编辑") ||
+    normalized.includes("只读")
+  ) {
+    return "disabled";
+  }
+  if (
+    normalized.includes("hidden") ||
+    normalized.includes("隐藏")
+  ) {
+    return "hidden";
+  }
+  return "";
+}
+
+function getDescriptionConditionFieldName(description, collectionMeta, currentFieldName) {
+  const normalized = normalizeLooseText(description);
+  if (!normalized) return "";
+  const candidateNames = ensureArray(collectionMeta?.fields)
+    .map((field) => normalizeText(field?.name))
+    .filter((fieldName) => fieldName && fieldName !== currentFieldName)
+    .sort((left, right) => right.length - left.length);
+  for (const candidateName of candidateNames) {
+    if (normalized.includes(normalizeLooseText(candidateName))) {
+      return candidateName;
+    }
+  }
+  return "";
+}
+
+function hasDescriptionConditionCue(description) {
+  const normalized = normalizeText(description);
+  if (!normalized) return false;
+  return (
+    /\b(?:when|whenever|if|provided\s+that)\b/i.test(normalized) ||
+    /(?:^|[\s,，。；;、])(?:当|如果|若|仅当)/.test(normalized)
+  );
+}
+
+function parseDescriptionConditionValue(conditionText, conditionFieldName = "") {
+  const normalized = normalizeText(conditionText);
+  if (!normalized) {
+    return { operator: "", value: undefined };
+  }
+
+  const fieldName = normalizeText(conditionFieldName);
+  let workingText = normalized;
+  if (fieldName) {
+    const fieldPattern = new RegExp(
+      `(?:^|[\\s,，。；;:：()（）\\[\\]{}、])(?:when|if|当|如果|若|如)?\\s*${escapeRegExp(fieldName)}\\s*`,
+      "i",
+    );
+    const fieldMatch = workingText.match(fieldPattern);
+    if (fieldMatch) {
+      workingText = workingText.slice(
+        (fieldMatch.index || 0) + fieldMatch[0].length,
+      );
+    }
+  }
+
+  workingText = normalizeText(workingText);
+  if (!workingText) {
+    return { operator: "", value: undefined };
+  }
+  workingText = workingText.replace(
+    /^[\s,，。；;:：()（）\[\]{}、]+/,
+    "",
+  );
+  workingText = workingText.replace(
+    /^(?:is|equals?|equal(?:\s+to)?|becomes|为|是|等于|=|:|：)\s*/i,
+    "",
+  );
+
+  const compact = normalizeLooseText(workingText);
+  if (
+    compact.includes("notempty") ||
+    compact.includes("hasvalue") ||
+    compact.includes("不为空") ||
+    compact.includes("有值") ||
+    compact.includes("已填")
+  ) {
+    return { operator: "$notEmpty", value: null };
+  }
+  if (
+    compact.includes("empty") ||
+    compact.includes("isempty") ||
+    compact.includes("notfilled") ||
+    compact.includes("blank") ||
+    compact.includes("为空") ||
+    compact.includes("未填") ||
+    compact.includes("无值")
+  ) {
+    return { operator: "$empty", value: null };
+  }
+
+  const quotedValueMatch = workingText.match(
+    /^[`"'“”‘’]([^`"'“”‘’]+)[`"'“”‘’]/i,
+  );
+  const unquotedValueMatch = quotedValueMatch
+    ? null
+    : workingText.match(/^([^\s，。,；;:：]+)/i);
+  const valueMatch = quotedValueMatch || unquotedValueMatch;
+  if (!valueMatch) {
+    return { operator: "", value: undefined };
+  }
+
+  const rawValue = normalizeText(valueMatch[1]);
+  if (!rawValue) {
+    return { operator: "", value: undefined };
+  }
+  if (/^(true|false)$/i.test(rawValue)) {
+    return { operator: "$eq", value: rawValue.toLowerCase() === "true" };
+  }
+  if (/^(yes|no)$/i.test(rawValue)) {
+    return { operator: "$eq", value: rawValue.toLowerCase() === "yes" };
+  }
+  return { operator: "$eq", value: rawValue };
+}
+
+function resolveDescriptionDrivenFieldLinkage(fieldMeta, options = {}) {
+  const description = normalizeText(fieldMeta?.description);
+  if (!description) return null;
+  const state = getDescriptionStateKeyword(description);
+  if (!["required", "disabled", "hidden"].includes(state)) return null;
+  const collectionName =
+    normalizeText(options.collectionName) ||
+    getTraversalSurfaceCollection(options.blockContext || {});
+  const collectionMeta = getCollectionMeta(
+    options.collectionMetadata || {},
+    collectionName,
+  );
+  if (!collectionMeta) return null;
+  const currentFieldName = normalizeText(options.fieldName);
+  const conditionFieldName = getDescriptionConditionFieldName(
+    description,
+    collectionMeta,
+    currentFieldName,
+  );
+  if (!conditionFieldName) return null;
+  const availableFieldNames = new Set(
+    ensureArray(options.availableFieldNames)
+      .map((fieldName) => normalizeText(fieldName))
+      .filter(Boolean),
+  );
+  if (
+    availableFieldNames.size > 0 &&
+    !availableFieldNames.has(conditionFieldName)
+  ) {
+    return null;
+  }
+
+  const parsedCondition = parseDescriptionConditionValue(
+    description,
+    conditionFieldName,
+  );
+  if (!parsedCondition.operator) {
+    return null;
+  }
+
+  return {
+    key: `description-${normalizeApplyBlueprintToken(currentFieldName || "field")}-${normalizeApplyBlueprintToken(conditionFieldName)}-${state}`,
+    when: {
+      logic: "$and",
+      items: [
+        {
+          path: `formValues.${conditionFieldName}`,
+          operator: parsedCondition.operator,
+          ...(typeof parsedCondition.value === "undefined" ? {} : { value: parsedCondition.value }),
+        },
+      ],
+    },
+    then: [
+      {
+        type: "setFieldState",
+        fieldPaths: [currentFieldName],
+        state,
+      },
+    ],
+  };
+}
+
+function applyFieldDescriptionSettings(field, fieldMeta, options = {}) {
+  if (!isFormFieldDescriptionSettingsHost(options)) return field;
+  const description = normalizeText(fieldMeta?.description);
+  if (!description || !hasFieldDescriptionBehavior(description)) return field;
+
+  const nextField = isPlainObject(field)
+    ? cloneSerializable(field)
+    : { field: normalizeText(field) };
+  const currentSettings = isPlainObject(nextField.settings)
+    ? nextField.settings
+    : {};
+  const nextSettings = { ...currentSettings };
+  const required = options.descriptionBehavior?.required;
+  if (required === true && !hasOwn(nextSettings, "required")) {
+    nextSettings.required = true;
+  }
+  if (
+    !hasOwn(nextSettings, "extra") &&
+    !hasOwn(nextSettings, "tooltip")
+  ) {
+    nextSettings.extra = description;
+  }
+  if (Object.keys(nextSettings).length > 0) {
+    nextField.settings = nextSettings;
+  }
+  return nextField;
+}
+
+function materializeFieldForWrite(field, options = {}) {
+  const fieldPath =
+    typeof field === "string"
+      ? normalizeText(field)
+      : isPlainObject(field)
+        ? normalizeText(field.field)
+        : "";
+  const fieldMeta = resolveFieldMetadataForWrite(fieldPath, options);
+  const description = normalizeText(fieldMeta?.description);
+  const collectionName =
+    normalizeText(options.collectionName) ||
+    getTraversalSurfaceCollection(options.blockContext || {});
+  const collectionMeta = getCollectionMeta(
+    options.collectionMetadata || {},
+    collectionName,
+  );
+  const currentFieldName = normalizeText(fieldPath);
+  const conditionFieldName = description
+    ? getDescriptionConditionFieldName(
+        description,
+        collectionMeta,
+        currentFieldName,
+      )
+    : "";
+  const hasConditionCue = hasDescriptionConditionCue(description);
+  const descriptionBehavior = fieldMeta
+    ? {
+        description,
+        required: conditionFieldName || hasConditionCue
+          ? undefined
+          : getDescriptionRequiredHint(fieldMeta.description),
+        linkage: resolveDescriptionDrivenFieldLinkage(fieldMeta, {
+          ...options,
+          fieldName: fieldPath,
+        }),
+      }
+    : null;
+  const describedField = applyFieldDescriptionSettings(
+    field,
+    fieldMeta,
+    {
+      ...options,
+      descriptionBehavior,
+    },
+  );
+  if (!isPlainObject(describedField)) {
+    return describedField;
+  }
+  const nextField = cloneSerializable(describedField);
   materializeRelationFieldTitleFieldForWrite(nextField, options);
   if (isPlainObject(nextField.popup)) {
     const popupDepth =
@@ -3568,6 +4172,335 @@ function materializeFieldGroupForWrite(group, options = {}) {
   return nextGroup;
 }
 
+function getFieldEntryPathForDescription(field) {
+  if (typeof field === "string") return normalizeText(field);
+  if (!isPlainObject(field)) return "";
+  return normalizeText(field.field);
+}
+
+function hasExplicitFieldStateSetting(field, state) {
+  if (!isPlainObject(field) || !isPlainObject(field.settings)) return false;
+  if (state === "required") return hasOwn(field.settings, "required");
+  if (state === "disabled") return hasOwn(field.settings, "disabled");
+  if (state === "hidden") return hasOwn(field.settings, "hidden");
+  return false;
+}
+
+function collectDescriptionDrivenFieldLinkageRulesFromItems(
+  items,
+  options = {},
+) {
+  const rules = [];
+  for (const field of ensureArray(items)) {
+    const fieldPath = getFieldEntryPathForDescription(field);
+    if (!fieldPath) continue;
+    const fieldMeta = resolveFieldMetadataForWrite(fieldPath, options);
+    const linkage = resolveDescriptionDrivenFieldLinkage(fieldMeta, {
+      ...options,
+      fieldName: fieldPath,
+    });
+    if (!linkage || hasExplicitFieldStateSetting(field, linkage.then?.[0]?.state)) {
+      continue;
+    }
+    rules.push(linkage);
+  }
+  return rules;
+}
+
+function collectDescriptionDrivenFieldLinkageRulesFromBlock(
+  block,
+  target,
+  options = {},
+) {
+  if (
+    !target ||
+    !DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES.has(normalizeText(block?.type))
+  ) {
+    return [];
+  }
+
+  const availableFieldNames = getBlockFieldEntries(block)
+    .map((field) => getFieldEntryPathForDescription(field))
+    .filter(Boolean);
+  const rules = [
+    ...collectDescriptionDrivenFieldLinkageRulesFromItems(
+      block.fields,
+      { ...options, availableFieldNames },
+    ),
+  ];
+  forEachFieldGroup(block.fieldGroups, (group) => {
+    rules.push(
+      ...collectDescriptionDrivenFieldLinkageRulesFromItems(
+        group.fields,
+        { ...options, availableFieldNames },
+      ),
+    );
+  });
+  return rules;
+}
+
+function appendDescriptionDrivenFieldLinkageRules(
+  itemsByTarget,
+  target,
+  block,
+  options,
+) {
+  const rules = collectDescriptionDrivenFieldLinkageRulesFromBlock(
+    block,
+    target,
+    options,
+  );
+  if (!rules.length) return;
+  const existing = itemsByTarget.get(target) || [];
+  existing.push(...rules);
+  itemsByTarget.set(target, existing);
+}
+
+function collectDescriptionDrivenFieldLinkageItemsFromPopup(
+  popup,
+  popupTarget,
+  parentContext,
+  options,
+  itemsByTarget,
+) {
+  if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return;
+  for (const block of ensureArray(popup.blocks)) {
+    if (!isPlainObject(block)) continue;
+    const blockKey = normalizeText(block.key);
+    if (!blockKey) continue;
+    const blockContext = buildBlockTraversalContext(
+      block,
+      parentContext || {},
+      options.collectionMetadata || {},
+    );
+    collectDescriptionDrivenFieldLinkageItemsFromBlock(
+      block,
+      buildScopedKey(popupTarget, blockKey),
+      blockContext,
+      options,
+      itemsByTarget,
+    );
+  }
+}
+
+function collectDescriptionDrivenFieldLinkageItemsFromActionPopups(
+  block,
+  blockTarget,
+  blockContext,
+  slotName,
+  options,
+  itemsByTarget,
+) {
+  for (const action of ensureArray(block[slotName])) {
+    if (!isPlainObject(action) || !isPlainObject(action.popup)) continue;
+    const actionKey = normalizeText(action.key);
+    if (!actionKey) continue;
+    collectDescriptionDrivenFieldLinkageItemsFromPopup(
+      action.popup,
+      buildScopedKey(blockTarget, `${slotName}.${actionKey}`),
+      blockContext,
+      options,
+      itemsByTarget,
+    );
+  }
+}
+
+function collectDescriptionDrivenFieldLinkageItemsFromFieldPopups(
+  fields,
+  blockTarget,
+  blockContext,
+  options,
+  itemsByTarget,
+) {
+  for (const [fieldIndex, field] of ensureArray(fields).entries()) {
+    if (!isPlainObject(field) || !isPlainObject(field.popup)) continue;
+    const fieldInfo = resolveFieldReactionHostLocalKey(field, fieldIndex);
+    if (!fieldInfo?.explicit) continue;
+    const popupBlockContext = getRelationFieldPopupBlockContextForWrite(
+      field,
+      {
+        ...options,
+        blockContext,
+      },
+    );
+    collectDescriptionDrivenFieldLinkageItemsFromPopup(
+      field.popup,
+      buildScopedKey(blockTarget, `fields.${fieldInfo.key}`),
+      popupBlockContext,
+      options,
+      itemsByTarget,
+    );
+  }
+}
+
+function collectDescriptionDrivenFieldLinkageItemsFromBlockFieldPopups(
+  block,
+  blockTarget,
+  blockContext,
+  options,
+  itemsByTarget,
+) {
+  collectDescriptionDrivenFieldLinkageItemsFromFieldPopups(
+    block.fields,
+    blockTarget,
+    blockContext,
+    options,
+    itemsByTarget,
+  );
+  forEachFieldGroup(block.fieldGroups, (group) => {
+    collectDescriptionDrivenFieldLinkageItemsFromFieldPopups(
+      group.fields,
+      blockTarget,
+      blockContext,
+      options,
+      itemsByTarget,
+    );
+  });
+}
+
+function collectDescriptionDrivenFieldLinkageItemsFromBlock(
+  block,
+  target,
+  blockContext,
+  options,
+  itemsByTarget,
+) {
+  appendDescriptionDrivenFieldLinkageRules(itemsByTarget, target, block, {
+    ...options,
+    hostBlock: block,
+    blockContext,
+  });
+
+  collectDescriptionDrivenFieldLinkageItemsFromActionPopups(
+    block,
+    target,
+    blockContext,
+    "actions",
+    options,
+    itemsByTarget,
+  );
+  collectDescriptionDrivenFieldLinkageItemsFromActionPopups(
+    block,
+    target,
+    blockContext,
+    "recordActions",
+    options,
+    itemsByTarget,
+  );
+  collectDescriptionDrivenFieldLinkageItemsFromBlockFieldPopups(
+    block,
+    target,
+    blockContext,
+    options,
+    itemsByTarget,
+  );
+  if (isPlainObject(block.popup)) {
+    collectDescriptionDrivenFieldLinkageItemsFromPopup(
+      block.popup,
+      buildScopedKey(target, "popup"),
+      blockContext,
+      options,
+      itemsByTarget,
+    );
+  }
+  forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+    collectDescriptionDrivenFieldLinkageItemsFromPopup(
+      popup,
+      buildScopedKey(target, `settings.${key}`),
+      blockContext,
+      options,
+      itemsByTarget,
+    );
+  });
+}
+
+function collectDescriptionDrivenFieldLinkageItems(blueprint, options = {}) {
+  if (!isPlainObject(options.collectionMetadata)) return [];
+  const itemsByTarget = new Map();
+
+  for (const tab of ensureArray(blueprint?.tabs)) {
+    if (!isPlainObject(tab)) continue;
+    const tabKey = normalizeText(tab.key);
+    if (!tabKey) continue;
+    for (const block of ensureArray(tab.blocks)) {
+      if (!isPlainObject(block)) continue;
+      const blockKey = normalizeText(block.key);
+      if (!blockKey) continue;
+      const blockContext = buildBlockTraversalContext(
+        block,
+        {},
+        options.collectionMetadata || {},
+      );
+      collectDescriptionDrivenFieldLinkageItemsFromBlock(
+        block,
+        buildScopedKey(tabKey, blockKey),
+        blockContext,
+        options,
+        itemsByTarget,
+      );
+    }
+  }
+
+  return Array.from(itemsByTarget.entries()).map(([target, rules]) => ({
+    type: FIELD_LINKAGE_REACTION_TYPE,
+    target,
+    rules,
+  }));
+}
+
+function mergeDescriptionDrivenFieldLinkageItems(blueprint, generatedItems) {
+  if (!generatedItems.length) return blueprint;
+  if (hasOwn(blueprint, "reaction") && !isPlainObject(blueprint.reaction)) {
+    return blueprint;
+  }
+  if (
+    isPlainObject(blueprint.reaction) &&
+    hasOwn(blueprint.reaction, "items") &&
+    !Array.isArray(blueprint.reaction.items)
+  ) {
+    return blueprint;
+  }
+
+  const reaction = isPlainObject(blueprint.reaction)
+    ? { ...blueprint.reaction }
+    : {};
+  const items = Array.isArray(reaction.items)
+    ? reaction.items.map((item) => cloneSerializable(item))
+    : [];
+  for (const generatedItem of generatedItems) {
+    const existingItem = items.find(
+      (item) =>
+        isPlainObject(item) &&
+        normalizeText(item.type) === FIELD_LINKAGE_REACTION_TYPE &&
+        normalizeText(item.target) === normalizeText(generatedItem.target),
+    );
+    if (!existingItem) {
+      items.push(generatedItem);
+      continue;
+    }
+    if (hasOwn(existingItem, "rules") && !Array.isArray(existingItem.rules)) {
+      continue;
+    }
+    const existingRuleKeys = new Set(
+      ensureArray(existingItem.rules)
+        .map((rule) => normalizeText(rule?.key))
+        .filter(Boolean),
+    );
+    existingItem.rules = [
+      ...ensureArray(existingItem.rules),
+      ...ensureArray(generatedItem.rules).filter((rule) => {
+        const key = normalizeText(rule?.key);
+        if (!key || existingRuleKeys.has(key)) return false;
+        existingRuleKeys.add(key);
+        return true;
+      }),
+    ];
+  }
+  reaction.items = items;
+  blueprint.reaction = reaction;
+  return blueprint;
+}
+
 function materializeDefaultFieldGroupRelationTitleFieldForWrite(
   field,
   sourceCollection,
@@ -3658,6 +4591,9 @@ function materializeBlockForWrite(block, options = {}) {
     options.blockContext || {},
     options.collectionMetadata || {},
   );
+  const availableFieldNames = getBlockFieldEntries(nextBlock)
+    .map((field) => getFieldEntryPathForDescription(field))
+    .filter(Boolean);
   normalizeCalendarFieldBindingsOnBlock(nextBlock);
   if (
     hasOwn(nextBlock, "settings") ||
@@ -3665,7 +4601,11 @@ function materializeBlockForWrite(block, options = {}) {
   ) {
     const materializedSettings = materializeSettingsForWrite(
       nextBlock,
-      options,
+      {
+        ...options,
+        hostBlock: nextBlock,
+        blockContext,
+      },
     );
     if (isPlainObject(materializedSettings) || hasOwn(nextBlock, "settings")) {
       nextBlock.settings = materializedSettings;
@@ -3677,6 +4617,7 @@ function materializeBlockForWrite(block, options = {}) {
         ...options,
         hostBlock: nextBlock,
         blockContext,
+        availableFieldNames,
       }),
     );
   }
@@ -3686,6 +4627,7 @@ function materializeBlockForWrite(block, options = {}) {
         ...options,
         hostBlock: nextBlock,
         blockContext,
+        availableFieldNames,
       }),
     );
   }
@@ -3799,6 +4741,10 @@ function materializeBlueprintForWrite(blueprint, options = {}) {
       blocks,
     };
   });
+  mergeDescriptionDrivenFieldLinkageItems(
+    nextBlueprint,
+    collectDescriptionDrivenFieldLinkageItems(nextBlueprint, materializeOptions),
+  );
   return nextBlueprint;
 }
 

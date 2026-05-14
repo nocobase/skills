@@ -47,7 +47,7 @@ Use this path when the user is describing one entire page.
 1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md) and [page-blueprint.md](./page-blueprint.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real nb body.
 2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch. Whole-page includes whole-page create / replace, one route-backed tab full build, complex multi-block pages, nested-popup pages, and pages with multiple reaction families.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
-4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
+4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, field-specific `type`, or clear form behavior inferred from live field `description` is actually required.
 5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
 6. Before the first write, confirm the draft can satisfy backend authoring validation:
    - in `create`, every newly created `navigation.group` / `navigation.item` carries a semantic Ant Design icon

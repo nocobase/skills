@@ -1420,6 +1420,1014 @@ test('prepareApplyBlueprintRequest accepts public blueprint envelope with metada
   assert.equal(result.cliBody.page.title, 'Employees');
 });
 
+test('prepareApplyBlueprintRequest materializes collection field description hints into form field settings', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          {
+            name: 'title',
+            interface: 'input',
+            description: '必填。用于任务标题，最多 50 个字符。',
+          },
+          {
+            name: 'notes',
+            interface: 'textarea',
+            options: {
+              description: '填写补充说明，提交后会展示给处理人。',
+            },
+          },
+          {
+            name: 'owner',
+            interface: 'm2o',
+            target: 'users',
+          },
+        ],
+      },
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [
+          { name: 'nickname', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: [
+              'title',
+              {
+                field: 'notes',
+                settings: {
+                  extra: 'Existing helper stays.',
+                },
+              },
+              'owner',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const [titleField, notesField, ownerField] = result.cliBody.tabs[0].blocks[0].fields;
+  assert.deepEqual(titleField, {
+    field: 'title',
+    settings: {
+      required: true,
+      extra: '必填。用于任务标题，最多 50 个字符。',
+    },
+  });
+  assert.deepEqual(notesField, {
+    field: 'notes',
+    settings: {
+      extra: 'Existing helper stays.',
+    },
+  });
+  assert.equal(ownerField, 'owner');
+});
+
+test('prepareApplyBlueprintRequest keeps English static required descriptions from becoming conditional cues', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'identityProof',
+        fields: [
+          {
+            name: 'identityProof',
+            interface: 'input',
+            description: 'Identification required for audit.',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['identityProof'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[0], {
+    field: 'identityProof',
+    settings: {
+      required: true,
+      extra: 'Identification required for audit.',
+    },
+  });
+  assert.equal(result.cliBody.reaction, undefined);
+});
+
+test('prepareApplyBlueprintRequest materializes clear collection field description linkage into form reactions', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['title', 'status', 'approvalComment'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 published 时必填。',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.taskForm',
+      rules: [
+        {
+          key: 'description-approvalComment-status-required',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'published',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['approvalComment'],
+              state: 'required',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest materializes clear collection field description hidden linkage into form reactions', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'auditNote',
+            interface: 'textarea',
+            description: '当 status 为 archived 时隐藏。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['title', 'status', 'auditNote'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[2], {
+    field: 'auditNote',
+    settings: {
+      extra: '当 status 为 archived 时隐藏。',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.taskForm',
+      rules: [
+        {
+          key: 'description-auditNote-status-hidden',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'archived',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['auditNote'],
+              state: 'hidden',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest keeps negative conditional required descriptions as helper text only', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 draft 时非必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['title', 'status', 'approvalComment'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 draft 时非必填。',
+    },
+  });
+  assert.equal(result.cliBody.reaction, undefined);
+});
+
+test('prepareApplyBlueprintRequest materializes English collection field description linkage into form reactions', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: 'When status is published, this field is required.',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['title', 'status', 'approvalComment'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: 'When status is published, this field is required.',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.taskForm',
+      rules: [
+        {
+          key: 'description-approvalComment-status-required',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'published',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['approvalComment'],
+              state: 'required',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest does not generate description linkage when the condition field is outside the form', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['title', 'approvalComment'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[1], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 published 时必填。',
+    },
+  });
+  assert.equal(result.cliBody.reaction, undefined);
+});
+
+test('prepareApplyBlueprintRequest keeps ambiguous conditional required descriptions as helper text only', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: 'When external approval is complete, this field is required.',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['title', 'approvalComment'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[1], {
+    field: 'approvalComment',
+    settings: {
+      extra: 'When external approval is complete, this field is required.',
+    },
+  });
+  assert.equal(result.cliBody.reaction, undefined);
+});
+
+test('prepareApplyBlueprintRequest materializes description linkage inside record action popup forms', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskDetails',
+            type: 'details',
+            collection: 'tasks',
+            fields: ['title', 'status'],
+            recordActions: [
+              {
+                key: 'editTask',
+                type: 'edit',
+                popup: {
+                  blocks: [
+                    {
+                      key: 'popupTaskForm',
+                      type: 'editForm',
+                      collection: 'tasks',
+                      fields: ['title', 'status', 'approvalComment'],
+                      actions: ['submit'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const popupForm = result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0];
+  assert.deepEqual(popupForm.fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 published 时必填。',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.taskDetails.recordActions.editTask.popupTaskForm',
+      rules: [
+        {
+          key: 'description-approvalComment-status-required',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'published',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['approvalComment'],
+              state: 'required',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest materializes description linkage inside field popup forms', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'assignee', interface: 'm2o', target: 'users' },
+        ],
+      },
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [
+          { name: 'nickname', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: 'When status is active, this field is required.',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskDetails',
+            type: 'details',
+            collection: 'tasks',
+            fields: [
+              'title',
+              {
+                field: 'assignee',
+                popup: {
+                  blocks: [
+                    {
+                      key: 'assigneeForm',
+                      type: 'editForm',
+                      collection: 'users',
+                      fields: ['nickname', 'status', 'approvalComment'],
+                      actions: ['submit'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks', 'users'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const assigneeForm = result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0];
+  assert.deepEqual(assigneeForm.fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: 'When status is active, this field is required.',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.taskDetails.fields.assignee.assigneeForm',
+      rules: [
+        {
+          key: 'description-approvalComment-status-required',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'active',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['approvalComment'],
+              state: 'required',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest materializes description linkage inside hidden settings popup forms', () => {
+  const descriptionMetadata = {
+    collections: {
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'createdAt', type: 'date', interface: 'datetime' },
+          { name: 'updatedAt', type: 'date', interface: 'datetime' },
+          {
+            name: 'approvalComment',
+            type: 'text',
+            interface: 'textarea',
+            description: '当 status 为 active 时必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users calendar' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCalendar',
+            type: 'calendar',
+            collection: 'users',
+            defaultFilter: defaultFilterGroup(['nickname', 'status', 'createdAt', 'updatedAt']),
+            settings: {
+              titleField: 'nickname',
+              startField: 'createdAt',
+              endField: 'updatedAt',
+              quickCreatePopup: {
+                blocks: [
+                  {
+                    key: 'quickCreateForm',
+                    type: 'createForm',
+                    collection: 'users',
+                    fields: ['nickname', 'status', 'approvalComment'],
+                    actions: ['submit'],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['users'],
+    collectionMetadata: descriptionMetadata,
+    injectDataSurfaceDefaultFilter: false,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const quickCreateForm = result.cliBody.tabs[0].blocks[0].settings.quickCreatePopup.blocks[0];
+  assert.deepEqual(quickCreateForm.fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 active 时必填。',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.usersCalendar.settings.quickCreatePopup.quickCreateForm',
+      rules: [
+        {
+          key: 'description-approvalComment-status-required',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'active',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['approvalComment'],
+              state: 'required',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest materializes description linkage inside nested popup forms', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskDetails',
+            type: 'details',
+            collection: 'tasks',
+            fields: ['title'],
+            actions: [
+              {
+                key: 'openFirst',
+                type: 'popup',
+                popup: {
+                  blocks: [
+                    {
+                      key: 'firstDetails',
+                      type: 'details',
+                      collection: 'tasks',
+                      fields: ['title'],
+                      actions: [
+                        {
+                          key: 'openSecond',
+                          type: 'popup',
+                          popup: {
+                            blocks: [
+                              {
+                                key: 'secondForm',
+                                type: 'editForm',
+                                collection: 'tasks',
+                                fields: ['title', 'status', 'approvalComment'],
+                                actions: ['submit'],
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const nestedForm = result.cliBody.tabs[0].blocks[0].actions[0].popup.blocks[0].actions[0].popup.blocks[0];
+  assert.deepEqual(nestedForm.fields[2], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 published 时必填。',
+    },
+  });
+  assert.deepEqual(result.cliBody.reaction.items, [
+    {
+      type: 'setFieldLinkageRules',
+      target: 'main.taskDetails.actions.openFirst.firstDetails.actions.openSecond.secondForm',
+      rules: [
+        {
+          key: 'description-approvalComment-status-required',
+          when: {
+            logic: '$and',
+            items: [
+              {
+                path: 'formValues.status',
+                operator: '$eq',
+                value: 'published',
+              },
+            ],
+          },
+          then: [
+            {
+              type: 'setFieldState',
+              fieldPaths: ['approvalComment'],
+              state: 'required',
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest keeps popup conditional descriptions as helper text when condition field is outside that popup form', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
+          },
+        ],
+      },
+    },
+  };
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskDetails',
+            type: 'details',
+            collection: 'tasks',
+            fields: ['title'],
+            recordActions: [
+              {
+                key: 'editTask',
+                type: 'edit',
+                popup: {
+                  blocks: [
+                    {
+                      key: 'popupTaskForm',
+                      type: 'editForm',
+                      collection: 'tasks',
+                      fields: ['title', 'approvalComment'],
+                      actions: ['submit'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const popupForm = result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0];
+  assert.deepEqual(popupForm.fields[1], {
+    field: 'approvalComment',
+    settings: {
+      extra: '当 status 为 published 时必填。',
+    },
+  });
+  assert.equal(result.cliBody.reaction, undefined);
+});
+
 test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on data-surface blocks while keeping filter actions optional', () => {
   const missing = prepareWithDirectCollectionDefaults(
     {
@@ -7408,6 +8416,100 @@ test('prepareApplyBlueprintRequest accepts whole-page submit guards when the for
   assert.equal(result.errors.length, 0);
 });
 
+test('prepareApplyBlueprintRequest accepts nested popup submit guards when the popup form submit action has an explicit key', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Employees' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.userDetails.actions.openFirst.firstDetails.actions.openEdit.editUserForm.submitAction',
+          rules: [
+            {
+              key: 'disableNestedSubmitUntilReady',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$empty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            title: 'User details',
+            collection: 'users',
+            fields: ['username'],
+            actions: [
+              {
+                key: 'openFirst',
+                type: 'popup',
+                popup: {
+                  blocks: [
+                    {
+                      key: 'firstDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['username'],
+                      actions: [
+                        {
+                          key: 'openEdit',
+                          type: 'popup',
+                          popup: {
+                            blocks: [
+                              {
+                                key: 'editUserForm',
+                                type: 'editForm',
+                                collection: 'users',
+                                fields: ['username'],
+                                actions: ['submit'],
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }, { collections: ['users'] });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].actions[0].popup.blocks[0].actions[0].popup.blocks[0].actions[0].key,
+    'submitAction',
+  );
+  assert.equal(
+    result.cliBody.reaction.items[0].target,
+    'main.userDetails.actions.openFirst.firstDetails.actions.openEdit.editUserForm.submitAction',
+  );
+});
+
 test('prepareApplyBlueprintRequest keys string submit actions targeted by whole-page submit guards', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
@@ -8089,6 +9191,24 @@ test('prepareApplyBlueprintRequest accepts canonical relation field details popu
                       type: 'details',
                       resource: { binding: 'currentRecord', collectionName: 'roles' },
                       fields: ['title', 'name'],
+                      recordActions: [
+                        {
+                          title: 'Edit role',
+                          type: 'edit',
+                          popup: {
+                            title: 'Edit role',
+                            blocks: [
+                              {
+                                key: 'roleEditForm',
+                                type: 'editForm',
+                                collection: 'roles',
+                                fields: ['title', 'name'],
+                                actions: ['submit'],
+                              },
+                            ],
+                          },
+                        },
+                      ],
                     },
                   ],
                 },
@@ -8106,11 +9226,19 @@ test('prepareApplyBlueprintRequest accepts canonical relation field details popu
   assert.equal(result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].resource.binding, 'currentRecord');
   assert.equal(
     result.cliBody.tabs[0].blocks[0].fields[1].popup.saveAsTemplate.name,
-    'Role details popup(users.roles)',
+    'Role details(users.roles)',
   );
   assert.match(
     result.cliBody.tabs[0].blocks[0].fields[1].popup.saveAsTemplate.description,
     /Scene: popup\. Collection: roles\. Host: users\. Trigger: field "roles"\. Context: relation users\.roles\./i,
+  );
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].recordActions[0].popup.saveAsTemplate.name,
+    'Edit role(users.roles)',
+  );
+  assert.match(
+    result.cliBody.tabs[0].blocks[0].fields[1].popup.blocks[0].recordActions[0].popup.saveAsTemplate.description,
+    /Scene: popup\. Collection: roles\. Host: roles\. Trigger: record action "Edit role"\. Context: relation users\.roles\./i,
   );
 });
 
@@ -12875,7 +14003,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to calendar h
   assert.equal(quickCreatePopup.saveAsTemplate.name, 'Create calendar user popup template');
   assert.match(
     quickCreatePopup.saveAsTemplate.description,
-    /Scene: popup\. Host: User schedule\. Trigger: action "quick create"\. Context: direct\/current record\./i,
+    /Scene: popup\. Collection: users\. Host: User schedule\. Trigger: action "quick create"\. Context: direct\/current record\./i,
   );
   assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
   assert.equal(eventPopup.mode, 'drawer');
@@ -13045,14 +14173,14 @@ test('prepareApplyBlueprintRequest applies popup template defaults to kanban hid
   assert.equal(quickCreatePopup.saveAsTemplate.name, 'Create kanban user popup template');
   assert.match(
     quickCreatePopup.saveAsTemplate.description,
-    /Scene: popup\. Host: User board\. Trigger: action "quick create"\. Context: direct\/current record\./i,
+    /Scene: popup\. Collection: users\. Host: User board\. Trigger: action "quick create"\. Context: direct\/current record\./i,
   );
   assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
   assert.equal(cardPopup.tryTemplate, true);
   assert.equal(cardPopup.saveAsTemplate.name, 'Kanban user details popup template');
   assert.match(
     cardPopup.saveAsTemplate.description,
-    /Scene: popup\. Host: User board\. Trigger: action "card click\/view"\. Context: direct\/current record\./i,
+    /Scene: popup\. Collection: users\. Host: User board\. Trigger: action "card click\/view"\. Context: direct\/current record\./i,
   );
   assert.equal(cardPopup.blocks[0].fieldsLayout.rows[0][1].key, 'email');
 });

@@ -97,6 +97,22 @@ function normalizeCollectionField(field) {
   const options = isPlainObject(field.options) ? field.options : {};
   const name = normalizeText(field.name) || normalizeText(field.field) || normalizeText(field.key) || normalizeText(options.name);
   if (!name) return null;
+  const description = normalizeText(field.description) || normalizeText(options.description);
+  const validation = isPlainObject(field.validation)
+    ? cloneSerializable(field.validation)
+    : isPlainObject(options.validation)
+      ? cloneSerializable(options.validation)
+      : undefined;
+  const uiSchema = isPlainObject(field.uiSchema)
+    ? cloneSerializable(field.uiSchema)
+    : isPlainObject(options.uiSchema)
+      ? cloneSerializable(options.uiSchema)
+      : undefined;
+  const normalizedOptions = {};
+  if (options.hidden === true) normalizedOptions.hidden = true;
+  if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
+  if (isPlainObject(options.validation)) normalizedOptions.validation = cloneSerializable(options.validation);
+  if (isPlainObject(options.uiSchema)) normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
   return {
     name,
     interface: normalizeText(field.interface) || normalizeText(options.interface),
@@ -104,8 +120,11 @@ function normalizeCollectionField(field) {
     target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    ...(description ? { description } : {}),
+    ...(validation ? { validation } : {}),
+    ...(uiSchema ? { uiSchema } : {}),
     hidden: field.hidden === true || options.hidden === true,
-    options: options.hidden === true ? { hidden: true } : undefined,
+    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }
 
