@@ -103,9 +103,10 @@ Core rules:
 - Preferred agent entry is `nb api flow-surfaces set-event-flows`.
 - Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
-- For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.
+- Frontend-created event-flow steps use `use` for the action name and `defaultParams` for that action's settings. Do not author new event-flow steps with `name` / `params`.
+- For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `defaultParams.code`.
 - Do not invent event names, flow keys, step keys, or step payload shapes locally when the live readback has not shown them yet.
-- If `on` is an object instead of a bare string, preserve its `eventName / phase / flowKey / stepKey` structure from readback.
+- If `on` is an object instead of a bare string, preserve its `eventName / phase / flowKey / stepKey / defaultParams` structure from readback. Event trigger conditions live under `on.defaultParams.condition`.
 
 nb body shape:
 
@@ -118,7 +119,8 @@ nb body shape:
       "on": "click",
       "steps": {
         "runJsStep": {
-          "params": {
+          "use": "runjs",
+          "defaultParams": {
             "code": "ctx.message.success(ctx.t('Saved'));\nawait ctx.resource?.refresh?.();"
           }
         }
@@ -131,6 +133,7 @@ nb body shape:
 Notes:
 
 - `submitFlow` and `runJsStep` above are placeholders for the live keys you first read back from the target.
+- Frontend save/readback may include each step's `key`, `flowKey`, and `sort`; preserve them when present.
 - When binding relative to a built-in flow or built-in step, `on` may need the object form:
 
 ```json
@@ -139,12 +142,28 @@ Notes:
     "eventName": "submit",
     "phase": "beforeStep",
     "flowKey": "formSettings",
-    "stepKey": "refresh"
+    "stepKey": "refresh",
+    "defaultParams": {
+      "condition": {
+        "logic": "$and",
+        "items": []
+      }
+    }
   }
 }
 ```
 
-- If the current target has no event-flow definitions yet, first create or inspect one through the live product/runtime path, then reuse that readback shape instead of guessing a brand-new step schema from prose alone.
+- If the current target has no event-flow definitions yet, first create or inspect one through the live product/runtime path, then reuse that readback shape instead of guessing a brand-new `flowRegistry` from prose alone.
+
+Common dynamic step actions for interpreting readback and preserving existing step settings:
+
+- `runjs`: `defaultParams.code`
+- `refreshTargetBlocks`: `defaultParams.targets`
+- `navigateToURL`: `defaultParams.value.url`, `defaultParams.value.searchParams`, `defaultParams.value.openInNewWindow`
+- `showMessage`: `defaultParams.value.type`, `defaultParams.value.content`, `defaultParams.value.duration`
+- `showNotification`: `defaultParams.value.type`, `defaultParams.value.title`, `defaultParams.value.description`, `defaultParams.value.duration`, `defaultParams.value.placement`
+- `setTargetDataScope`: `defaultParams.targetBlockUid`, `defaultParams.filter`
+- `customVariable`: `defaultParams.variables`
 
 ## Legal Shapes of `settings`
 

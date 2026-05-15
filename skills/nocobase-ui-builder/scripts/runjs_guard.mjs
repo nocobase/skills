@@ -3609,8 +3609,16 @@ export async function inspectRunJSCode({
   };
 }
 
+function isEventFlowStepPath(pathValue) {
+  return typeof pathValue === 'string'
+    && pathValue.includes('flowRegistry')
+    && pathValue.includes('steps');
+}
+
 function walkPayload(value, visitor, currentPath = '$', context = { nearestUse: null, parentKey: null, parentNode: null }) {
-  const nextNearestUse = isPlainObject(value) && typeof value.use === 'string' ? value.use : context.nearestUse;
+  const nextNearestUse = isPlainObject(value) && typeof value.use === 'string' && !isEventFlowStepPath(currentPath)
+    ? value.use
+    : context.nearestUse;
   visitor(value, currentPath, { ...context, nearestUse: nextNearestUse });
   if (Array.isArray(value)) {
     value.forEach((item, index) => walkPayload(item, visitor, `${currentPath}[${index}]`, {
@@ -3732,12 +3740,35 @@ function inferExplicitModelSurface(modelUse) {
   return null;
 }
 
+function getEventFlowRunJSNode(node, pathValue) {
+  if (!isPlainObject(node) || !isEventFlowStepPath(pathValue)) {
+    return null;
+  }
+  if (node.use === 'runjs' && typeof node.defaultParams?.code === 'string') {
+    return {
+      path: `${pathValue}.defaultParams.code`,
+      code: node.defaultParams.code,
+      version: node.defaultParams.version,
+      setCode(nextCode) {
+        node.defaultParams.code = nextCode;
+      },
+    };
+  }
+  if (node.name === 'runjs' && typeof node.params?.code === 'string') {
+    return {
+      path: `${pathValue}.params.code`,
+      code: node.params.code,
+      version: node.params.version,
+      setCode(nextCode) {
+        node.params.code = nextCode;
+      },
+    };
+  }
+  return null;
+}
+
 function isEventFlowRunJSNode(node, pathValue) {
-  return isPlainObject(node)
-    && node.name === 'runjs'
-    && typeof node.params?.code === 'string'
-    && pathValue.includes('flowRegistry')
-    && pathValue.includes('steps');
+  return Boolean(getEventFlowRunJSNode(node, pathValue));
 }
 
 function isLinkageRunJSNode(node) {
@@ -3757,9 +3788,13 @@ function inferGenericRunJSSurface(node, pathValue, context) {
 }
 
 function isKnownRunJSContainerValueObject(pathValue, context) {
-  return context.parentKey === 'params'
-    && pathValue.endsWith('.params')
-    && isEventFlowRunJSNode(context.parentNode, pathValue.replace(/\.params$/, ''));
+  if (context.parentKey === 'params' && pathValue.endsWith('.params')) {
+    return isEventFlowRunJSNode(context.parentNode, pathValue.replace(/\.params$/, ''));
+  }
+  if (context.parentKey === 'defaultParams' && pathValue.endsWith('.defaultParams')) {
+    return isEventFlowRunJSNode(context.parentNode, pathValue.replace(/\.defaultParams$/, ''));
+  }
+  return false;
 }
 
 function visitRunJSNodes(payload, visitor) {
@@ -3781,16 +3816,15 @@ function visitRunJSNodes(payload, visitor) {
     if (!isPlainObject(node)) return;
     const modelUse = context.nearestUse;
 
-    if (isEventFlowRunJSNode(node, pathValue)) {
+    const eventFlowRunJSNode = getEventFlowRunJSNode(node, pathValue);
+    if (eventFlowRunJSNode) {
       pushNode({
-        path: `${pathValue}.params.code`,
-        code: node.params.code,
-        version: node.params.version,
+        path: eventFlowRunJSNode.path,
+        code: eventFlowRunJSNode.code,
+        version: eventFlowRunJSNode.version,
         modelUse,
         surface: 'event-flow.execute-javascript',
-        setCode(nextCode) {
-          node.params.code = nextCode;
-        },
+        setCode: eventFlowRunJSNode.setCode,
       });
     }
 

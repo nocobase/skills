@@ -14,7 +14,7 @@ Read this after [../js.md](../js.md) when the task is already known to be JS / R
 
 | Surface | Read first | Editor scene | Writeback path | Validation style |
 | --- | --- | --- | --- | --- |
-| Event Flow `Execute JavaScript` | [event-flow.md](./event-flow.md) | `eventFlow` | `flowRegistry.*.steps.*.params.code` | action-style |
+| Event Flow `Execute JavaScript` | [event-flow.md](./event-flow.md) | `eventFlow` | `flowRegistry.*.steps.*.defaultParams.code` | action-style |
 | Linkage `Execute JavaScript` | [linkage.md](./linkage.md) | `linkage` | `actions[].name="linkageRunjs" -> params.value.script` | action-style |
 | Field/default/copy value RunJS | [value-return.md](./value-return.md) | usually `formValue` | `value.source="runjs"` | value-return |
 | Custom-variable RunJS | [value-return.md](./value-return.md) | `customVariable` | `variables[].runjs` | value-return |

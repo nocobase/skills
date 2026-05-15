@@ -29,6 +29,7 @@ Canonical write path is `nb api flow-surfaces <action>`. Use this file for the r
 - When authoring direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, `defaultFilter` may be omitted; backend authoring materializes one from live metadata with up to 4 scalar/filterable fields. Explicit `defaultFilter` overrides must be concrete, metadata-valid, and backed by at least the smaller of 3 and the collection's eligible direct interface-field count; empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through aggregate `errors[]`. Use scalar fields or relation child paths such as `department.title`, not `department` itself. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional. For every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`), and partial table `recordActions` complete to `view` / `edit` / `delete`.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, whole-page `applyBlueprint` inline popup specs, and calendar/kanban hidden popup specs. In whole-page `create`, the backend can auto-add missing direct non-template calendar/kanban hidden popup specs with `tryTemplate=true`; local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
+- `popup.tryTemplate=false` is a hard backend no-reuse switch. Emit it only when the user explicitly asks for no template / no reuse / local-only / current-only / copy / detach behavior, not merely because inline `popup.blocks` are present.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - For localized create/append writes, do not assume the request body is the final action list; read back the persisted surface before adding more actions or popup wiring.
 - When the intended UX is "click the shown title/name to open details", prefer field popup / `clickToOpen` / `openView` semantics and avoid adding a redundant `view` record action unless the user explicitly asked for a button/action column.
@@ -156,7 +157,8 @@ nb request body:
       "on": "click",
       "steps": {
         "runJsStep": {
-          "params": {
+          "use": "runjs",
+          "defaultParams": {
             "code": "ctx.message.success(ctx.t('Saved'));"
           }
         }
@@ -190,7 +192,8 @@ Notes:
 
 - Prefer `flowRegistry` over `flows`.
 - `submitFlow`, `submitHook`, and `runJsStep` are placeholders for live keys copied from readback.
-- For `Execute JavaScript`, keep the existing step shape and update only `params.code` after local RunJS validation.
+- For `Execute JavaScript`, keep the existing step shape and update only `defaultParams.code` after local RunJS validation. Frontend-created steps use `use: "runjs"` with `defaultParams`, not `name` with `params`.
+- If an event condition is configured, it belongs under object-form `on.defaultParams.condition`.
 - Do not guess unsupported `eventName`, `phase`, `flowKey`, or `stepKey`; keep the live contract from readback.
 
 Wrong wrapped body:
@@ -205,7 +208,8 @@ Wrong wrapped body:
         "on": "click",
         "steps": {
           "runJsStep": {
-            "params": {
+            "use": "runjs",
+            "defaultParams": {
               "code": "ctx.message.success(ctx.t('Saved'));"
             }
           }
@@ -613,7 +617,7 @@ Notes:
 - For `table` / `list` / `gridCard` / `calendar` / `kanban`, keep filtering/search as a normal block-level `filter` action unless the user explicitly asked for `filterForm`.
 - Direct non-template `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes generated default filters with up to 4 scalar/filterable fields.
 - Calendar and kanban hidden popup hosts follow [page-blueprint.md](./page-blueprint.md): configure calendar `settings.quickCreatePopup` / `settings.eventPopup` and kanban `settings.quickCreatePopup` / `settings.cardPopup`; put template choices there, not as a main-block `popup.template`. Backend authoring validates and materializes compatible defaults for these hidden popup settings; [helper-contracts.md](./helper-contracts.md) only records deprecated local-helper compatibility notes.
-- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
+- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` exists or the user explicitly asked for the hard no-reuse path (`popup.tryTemplate=false`).
 - After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
 
 ### `configure`

@@ -5,7 +5,8 @@ Use this surface for event-flow steps whose action title is `Execute JavaScript`
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `eventFlow`
-- Writeback path in this skill: `flowRegistry.*.steps.*.params.code`
+- Writeback path in this skill: `flowRegistry.*.steps.*.defaultParams.code`
+- Step action shape: `flowRegistry.*.steps.*.use = "runjs"` with settings under `defaultParams`
 - Validation style: action-style
 - Return is optional. Do not force `ctx.render(...)`, and do not silently treat this as `JSBlockModel`.
 - Before writing back, return to [../settings.md](../settings.md) for full `flowRegistry` replacement rules.

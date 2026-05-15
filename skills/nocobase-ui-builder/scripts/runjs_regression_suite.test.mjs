@@ -19,7 +19,7 @@ function buildPayloadForCase(runjsCase) {
   const runJs = { code: runjsCase.code, version: 'v1' };
   switch (runjsCase.surface) {
     case 'event-flow.execute-javascript':
-      return { flowRegistry: { main: { steps: [{ name: 'runjs', params: runJs }] } } };
+      return { flowRegistry: { main: { steps: { runjsStep: { use: 'runjs', defaultParams: runJs } } } } };
     case 'linkage.execute-javascript':
       return { actions: [{ name: 'linkageRunjs', params: { value: { script: runjsCase.code, version: 'v1' } } }] };
     case 'reaction.value-runjs':

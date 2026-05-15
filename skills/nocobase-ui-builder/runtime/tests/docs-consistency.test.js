@@ -789,6 +789,11 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   assert.match(surfaceIndex, /snippet-manifest\.json/i, 'js-surfaces/index should expose the snippet manifest');
   assert.match(surfaceIndex, /js-snippets\/catalog\.json/i, 'js-surfaces/index should expose the snippet catalog');
   assert.match(surfaceIndex, /Event Flow `?Execute JavaScript`?/i, 'js-surfaces/index should route event-flow RunJS');
+  assert.match(
+    surfaceIndex,
+    /\| Event Flow `?Execute JavaScript`? \|[^\n]*flowRegistry\.\*\.steps\.\*\.defaultParams\.code/i,
+    'js-surfaces/index should expose the frontend event-flow defaultParams code path',
+  );
   assert.match(surfaceIndex, /Linkage `?Execute JavaScript`?/i, 'js-surfaces/index should route linkage RunJS');
   assert.match(surfaceIndex, /value-return/i, 'js-surfaces/index should route value-return RunJS');
   assert.match(surfaceIndex, /js-model-render\.md/i, 'js-surfaces/index should route render JS models');
@@ -796,7 +801,8 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   assert.match(surfaceIndex, /\[..\/*js-models\/index\.md\]/i, 'js-surfaces/index should keep js-models as a later hop');
 
   const eventFlow = read('references/js-surfaces/event-flow.md');
-  assert.match(eventFlow, /flowRegistry\.\*\.steps\.\*\.params\.code/i, 'event-flow surface doc should expose the writeback path');
+  assert.match(eventFlow, /flowRegistry\.\*\.steps\.\*\.defaultParams\.code/i, 'event-flow surface doc should expose the writeback path');
+  assert.match(eventFlow, /use = "runjs"/i, 'event-flow surface doc should expose the frontend step action shape');
   assert.match(eventFlow, /action-style/i, 'event-flow surface doc should describe action-style validation');
 
   const linkage = read('references/js-surfaces/linkage.md');
@@ -839,6 +845,12 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   );
   const safeIds = new Set(catalog.snippets.filter((entry) => entry.tier === 'safe').map((entry) => entry.id));
   const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+  const eventFlowSurface = manifest.surfaces.find((surface) => surface.id === 'event-flow.execute-javascript');
+  assert.deepEqual(
+    eventFlowSurface?.writePathHints,
+    ['flowRegistry.*.steps.*.defaultParams.code'],
+    'event-flow manifest should expose the frontend defaultParams code path',
+  );
   const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
   assert.deepEqual(
     renderSurface?.recommendedBySceneHint?.popup,
@@ -1003,13 +1015,17 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   const settings = read('references/settings.md');
   assert.match(settings, /Event-flow Replacement/i, 'settings.md should document event-flow replacement explicitly');
   assert.match(settings, /flowRegistry/i, 'settings.md should describe flowRegistry shape');
-  assert.match(settings, /params\.code/i, 'settings.md should explain how Execute JavaScript code is written back');
+  assert.match(settings, /\bdefaultParams\.code\b/i, 'settings.md should explain how Execute JavaScript code is written back');
+  assert.match(settings, /use[`"'\s:]*runjs/i, 'settings.md should document the frontend runjs step action shape');
+  assert.match(settings, /\bon\.defaultParams\.condition\b/i, 'settings.md should document event trigger condition placement');
   assert.match(settings, /\[js\.md\]/i, 'settings.md should route JS validation back to js.md');
 
   const shapes = read('references/tool-shapes.md');
   assert.match(shapes, /### `set-event-flows`/i, 'tool-shapes should contain a set-event-flows section');
   assert.match(shapes, /flowRegistry/i, 'tool-shapes should show flowRegistry body shape');
-  assert.match(shapes, /params\.code/i, 'tool-shapes should mention Execute JavaScript step code location');
+  assert.match(shapes, /\bdefaultParams\.code\b/i, 'tool-shapes should mention Execute JavaScript step code location');
+  assert.match(shapes, /use: "runjs"|\"use\": \"runjs\"/i, 'tool-shapes should document the frontend runjs step action shape');
+  assert.match(shapes, /\bon\.defaultParams\.condition\b/i, 'tool-shapes should document event trigger condition placement');
 });
 
 test('low-level set-layout docs keep runtime rows/sizes separate from whole-page layout grammar', () => {

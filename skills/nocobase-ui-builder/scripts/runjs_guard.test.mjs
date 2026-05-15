@@ -87,8 +87,8 @@ test('collectRunJSNodes discovers event-flow, linkage, value-return and custom-v
       clickSettings: {
         steps: {
           runjsStep: {
-            name: 'runjs',
-            params: {
+            use: 'runjs',
+            defaultParams: {
               code: "ctx.message.success(String(ctx.record?.title ?? 'ok'));",
             },
           },
@@ -139,7 +139,7 @@ test('collectRunJSNodes discovers event-flow, linkage, value-return and custom-v
     nodes.map((item) => ({ path: item.path, surface: item.surface, modelUse: item.modelUse })),
     [
       {
-        path: '$.flowRegistry.clickSettings.steps.runjsStep.params.code',
+        path: '$.flowRegistry.clickSettings.steps.runjsStep.defaultParams.code',
         surface: 'event-flow.execute-javascript',
         modelUse: 'TableBlockModel',
       },
@@ -156,6 +156,36 @@ test('collectRunJSNodes discovers event-flow, linkage, value-return and custom-v
       {
         path: '$.variables[0].runjs',
         surface: 'custom-variable.runjs',
+        modelUse: 'TableBlockModel',
+      },
+    ],
+  );
+});
+
+test('collectRunJSNodes still discovers legacy event-flow params shape', () => {
+  const payload = {
+    use: 'TableBlockModel',
+    flowRegistry: {
+      clickSettings: {
+        steps: {
+          runjsStep: {
+            name: 'runjs',
+            params: {
+              code: "ctx.message.success(ctx.t('legacy'));",
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const nodes = collectRunJSNodes(payload);
+  assert.deepEqual(
+    nodes.map((item) => ({ path: item.path, surface: item.surface, modelUse: item.modelUse })),
+    [
+      {
+        path: '$.flowRegistry.clickSettings.steps.runjsStep.params.code',
+        surface: 'event-flow.execute-javascript',
         modelUse: 'TableBlockModel',
       },
     ],
@@ -341,8 +371,8 @@ test('inspectRunJSPayloadStatic validates value-return, linkage and event-flow s
         clickSettings: {
           steps: {
             runjsStep: {
-              name: 'runjs',
-              params: {
+              use: 'runjs',
+              defaultParams: {
                 code: "ctx.message.success(ctx.t('ok'));",
               },
             },

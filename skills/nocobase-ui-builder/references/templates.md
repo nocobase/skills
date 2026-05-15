@@ -88,6 +88,7 @@ Rules that never change:
 
 - `popup.tryTemplate=true` is a write-time fallback, not a planning shortcut.
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` popup specs, and whole-page `applyBlueprint` inline popup specs.
+- `popup.tryTemplate=false` is a hard backend opt-out from popup template reuse. Emit it only when the user explicitly asks for no template / no reuse / local-only / current-only / copy / detach behavior. Do not add it merely because you supplied inline `popup.blocks`.
 - When `popup.tryTemplate=true` hits a compatible popup template, that opener's popup creation is complete. Do not treat the absence of expanded local `popup.blocks` in the persisted response as a failure.
 - If `popup.tryTemplate=true` misses and local popup content exists, that local popup content is the fallback.
 - If `popup.tryTemplate=true` misses and there is no local popup content, let backend fallback continue. Do not invent a popup locally.
@@ -95,8 +96,9 @@ Rules that never change:
 - `popup.saveAsTemplate={ name, description }` is the bootstrap path when the new local popup itself should become a reusable popup template immediately.
 - `popup.saveAsTemplate` cannot be combined with `popup.template`.
 - `popup.saveAsTemplate` may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved as a template.
+- `popup.saveAsTemplate` still prefers compatible existing popup templates unless `popup.tryTemplate=false` was explicit. Do not use `saveAsTemplate` as a way to force duplicate templates.
 - For repeated popup scenes with no usable template yet, prefer `popup.saveAsTemplate={ name, description }` on the first explicit local popup instead of delaying template creation to a second step.
-- Backend authoring may auto-receive generated `popup.saveAsTemplate={ name, description }` for explicit local inline popups with `popup.blocks`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
+- Backend authoring may auto-receive generated `popup.saveAsTemplate={ name, description }` for explicit local inline popups with `popup.blocks`; keep `popup.tryTemplate=true` unless the user explicitly requested the hard reuse opt-out and the blueprint intentionally sets `popup.tryTemplate=false`.
 
 ## Anti-Regression Scenario
 
