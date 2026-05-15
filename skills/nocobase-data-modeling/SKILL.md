@@ -41,6 +41,9 @@ Use only this final data-modeling operation surface:
 - Inspect collections: `collections list`
 - Inspect one collection: `collections get`
 - Inspect fields in one collection: `collections fields list`
+- Inspect enabled external data sources: `dataSources list-enabled`
+- Inspect collections in one external data source: `dataSources collections list`
+- Inspect fields in one external data source collection: `dataSourcesCollections.fields list`
 - Create or update a collection with compact payload: `collections apply`
 - Create or update fields with compact payload: `fields apply`
 - Create or update external data source fields with compact payload: `dataSourcesCollections.fields apply`
@@ -52,7 +55,10 @@ When the transport is CLI-based, prefer learning exact flags from help instead o
 - `nb api data-modeling collections apply --help`
 - `nb api data-modeling collections fields list --help`
 - `nb api data-modeling fields apply --help`
-- `nb api data-source-manager data-sources-collections fields apply --help`
+- `nb api data-modeling data-sources list-enabled --help`
+- `nb api data-modeling data-sources collections list --help`
+- `nb api data-modeling data-sources-collections fields list --help`
+- `nb api data-modeling data-sources-collections fields apply --help`
 - `nb api data-modeling collections destroy --help`
 
 Do not prefer older low-level collection or nested field commands when the final command surface can handle the task.
@@ -136,6 +142,7 @@ Summarize the intended model in natural language before destructive or broad cha
 
 - Use `collections apply` for collection-level creation or updates.
 - Use `fields apply` for targeted field creation or updates.
+- Use `dataSources list-enabled`, `dataSources collections list`, and `dataSourcesCollections.fields list` to inspect external data source metadata before writing relation fields.
 - Use `dataSourcesCollections.fields apply` for external data source field metadata updates, especially relation fields on external data source collections.
 - Use `collections destroy` only for explicit delete requests.
 
