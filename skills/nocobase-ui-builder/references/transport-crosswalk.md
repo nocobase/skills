@@ -20,6 +20,8 @@ Use it when you already know the task family, but need the exact backend action 
 | localized content compose | `compose` | [tool-shapes.md](./tool-shapes.md) |
 | semantic small update | `configure` | [tool-shapes.md](./tool-shapes.md) + [settings.md](./settings.md) |
 | path-level fine-grained patch | `update-settings` | [settings.md](./settings.md) |
+| event-flow discovery | `get-event-flow-meta` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) |
+| localized event-flow write | `add-event-flow` / `set-event-flow` / `remove-event-flow` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) + [js.md](./js.md) |
 | event-flow replacement | `set-event-flows` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) + [js.md](./js.md) |
 | menu lifecycle | `create-menu` / `update-menu` | [tool-shapes.md](./tool-shapes.md) |
 | page lifecycle | `create-page` / `destroy-page` | [tool-shapes.md](./tool-shapes.md) |

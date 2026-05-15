@@ -949,6 +949,8 @@ test('safe RunJS snippets read record values through ctx.getVar', () => {
 test('key upstream js snapshot pages route back to skill contracts', () => {
   const eventFlow = read('runtime/reference-assets/upstream-js/interface-builder/event-flow.md');
   assert.match(eventFlow, /settings\.md/i, 'event-flow snapshot should route writes back to settings.md');
+  assert.match(eventFlow, /get-event-flow-meta/i, 'event-flow snapshot should mention event-flow meta discovery');
+  assert.match(eventFlow, /add-event-flow|set-event-flow|remove-event-flow/i, 'event-flow snapshot should mention fine-grained event-flow writes');
   assert.match(eventFlow, /set-event-flows/i, 'event-flow snapshot should mention set-event-flows');
   assert.match(eventFlow, /js\.md/i, 'event-flow snapshot should keep JS validator boundary visible');
 
@@ -989,9 +991,17 @@ test('canonical patched JS examples satisfy skill-mode minimum contracts', () =>
 
 test('event-flow JS write contract stays discoverable across routing docs', () => {
   const cli = read('references/cli-command-surface.md');
+  assert.match(cli, /get-event-flow-meta/i, 'cli-command-surface should route event-flow discovery to get-event-flow-meta');
+  assert.match(cli, /add-event-flow/i, 'cli-command-surface should expose add-event-flow');
+  assert.match(cli, /set-event-flow/i, 'cli-command-surface should expose set-event-flow');
+  assert.match(cli, /remove-event-flow/i, 'cli-command-surface should expose remove-event-flow');
   assert.match(cli, /set-event-flows/i, 'cli-command-surface should route event-flow replacement to set-event-flows');
 
   const runtime = read('references/runtime-playbook.md');
+  assert.match(runtime, /get-event-flow-meta/i, 'runtime-playbook should start localized event-flow work from get-event-flow-meta');
+  assert.match(runtime, /add-event-flow/i, 'runtime-playbook should expose add-event-flow');
+  assert.match(runtime, /set-event-flow/i, 'runtime-playbook should expose set-event-flow');
+  assert.match(runtime, /remove-event-flow/i, 'runtime-playbook should expose remove-event-flow');
   assert.match(runtime, /set-event-flows/i, 'runtime-playbook should route event-flow replacement to set-event-flows');
   assert.match(
     runtime,
@@ -1010,10 +1020,19 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
+  assert.match(crosswalk, /get-event-flow-meta/i, 'transport-crosswalk should expose get-event-flow-meta');
+  assert.match(crosswalk, /add-event-flow/i, 'transport-crosswalk should expose add-event-flow');
+  assert.match(crosswalk, /set-event-flow/i, 'transport-crosswalk should expose set-event-flow');
+  assert.match(crosswalk, /remove-event-flow/i, 'transport-crosswalk should expose remove-event-flow');
   assert.match(crosswalk, /set-event-flows/i, 'transport-crosswalk should expose the backend action for set-event-flows');
 
   const settings = read('references/settings.md');
+  assert.match(settings, /Event-flow Discovery And Writes/i, 'settings.md should document event-flow discovery and fine-grained writes');
   assert.match(settings, /Event-flow Replacement/i, 'settings.md should document event-flow replacement explicitly');
+  assert.match(settings, /get-event-flow-meta/i, 'settings.md should document event-flow meta discovery');
+  assert.match(settings, /add-event-flow/i, 'settings.md should document add-event-flow');
+  assert.match(settings, /set-event-flow/i, 'settings.md should document set-event-flow');
+  assert.match(settings, /remove-event-flow/i, 'settings.md should document remove-event-flow');
   assert.match(settings, /flowRegistry/i, 'settings.md should describe flowRegistry shape');
   assert.match(settings, /\bdefaultParams\.code\b/i, 'settings.md should explain how Execute JavaScript code is written back');
   assert.match(settings, /use[`"'\s:]*runjs/i, 'settings.md should document the frontend runjs step action shape');
@@ -1021,6 +1040,10 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   assert.match(settings, /\[js\.md\]/i, 'settings.md should route JS validation back to js.md');
 
   const shapes = read('references/tool-shapes.md');
+  assert.match(shapes, /### `get-event-flow-meta`/i, 'tool-shapes should contain a get-event-flow-meta section');
+  assert.match(shapes, /### `add-event-flow`/i, 'tool-shapes should contain an add-event-flow section');
+  assert.match(shapes, /### `set-event-flow`/i, 'tool-shapes should contain a set-event-flow section');
+  assert.match(shapes, /### `remove-event-flow`/i, 'tool-shapes should contain a remove-event-flow section');
   assert.match(shapes, /### `set-event-flows`/i, 'tool-shapes should contain a set-event-flows section');
   assert.match(shapes, /flowRegistry/i, 'tool-shapes should show flowRegistry body shape');
   assert.match(shapes, /\bdefaultParams\.code\b/i, 'tool-shapes should mention Execute JavaScript step code location');

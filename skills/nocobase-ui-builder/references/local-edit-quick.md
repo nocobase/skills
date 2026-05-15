@@ -50,7 +50,8 @@ When the user gives a NocoBase admin URL for a precise edit on an existing page,
 | --- | --- |
 | add/update content under an existing surface | `compose` / `add-*` / `configure` / `update-settings` |
 | replace one existing full grid layout | `set-layout` |
-| replace existing event flow | `set-event-flows` |
+| localized event-flow edit | `get-event-flow-meta` -> `add-event-flow` / `set-event-flow` / `remove-event-flow` |
+| replace existing event flow registry | `set-event-flows` |
 | reorder/remove tabs or popup tabs | `move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
 | reorder/remove nodes | `move-node` / `remove-node` |
 

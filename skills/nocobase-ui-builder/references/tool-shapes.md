@@ -142,6 +142,93 @@ Notes:
 - Reuse the returned capability `fingerprint` in the matching `set-*` write.
 - Use `flow-surfaces context` only when you still need lower-level ctx paths beyond the returned metadata.
 
+### `get-event-flow-meta`
+
+Use `get-event-flow-meta` before localized Event Flow authoring. It returns the current `flowRegistry`, supported events/phases, step actions, ctx variable metadata, and a `fingerprint`.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" }
+}
+```
+
+### `add-event-flow`
+
+Use `add-event-flow` to add one Event Flow without replacing neighboring flows. MVP creation supports `beforeAllFlows`; omit `phase` to use that default.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "eventName": "submit",
+  "steps": {
+    "runGuard": {
+      "use": "runjs",
+      "defaultParams": {
+        "code": "ctx.message.success(ctx.t('Saved'));"
+      }
+    }
+  },
+  "condition": {
+    "logic": "$and",
+    "items": []
+  },
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
+Notes:
+
+- `condition` is persisted as `on.defaultParams.condition`.
+- For `Execute JavaScript`, validate first and write code to `defaultParams.code`.
+
+### `set-event-flow`
+
+Use `set-event-flow` to replace one existing or intentionally keyed Event Flow without replacing neighboring flows.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "flow": {
+    "key": "submitGuard",
+    "on": {
+      "eventName": "submit",
+      "phase": "beforeAllFlows"
+    },
+    "steps": {
+      "runGuard": {
+        "use": "runjs",
+        "defaultParams": {
+          "code": "ctx.message.success(ctx.t('Updated'));"
+        }
+      }
+    }
+  },
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
+### `remove-event-flow`
+
+Use `remove-event-flow` to delete one Event Flow by key without replacing neighboring flows.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
 ### `set-event-flows`
 
 Use `set-event-flows` only for full replacement of a target node's instance-level `flowRegistry`.
@@ -191,6 +278,7 @@ Alternative `on` shape when the flow is inserted relative to a built-in flow/ste
 Notes:
 
 - Prefer `flowRegistry` over `flows`.
+- Prefer `get-event-flow-meta` plus `add-event-flow` / `set-event-flow` / `remove-event-flow` for localized edits.
 - `submitFlow`, `submitHook`, and `runJsStep` are placeholders for live keys copied from readback.
 - For `Execute JavaScript`, keep the existing step shape and update only `defaultParams.code` after local RunJS validation. Frontend-created steps use `use: "runjs"` with `defaultParams`, not `name` with `params`.
 - If an event condition is configured, it belongs under object-form `on.defaultParams.condition`.

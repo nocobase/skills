@@ -30,6 +30,8 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 | menu lifecycle | `nb api flow-surfaces create-menu` / `update-menu` / `create-page` / `destroy-page` |
 | tab lifecycle | `nb api flow-surfaces add-tab` / `update-tab` / `move-tab` / `remove-tab` |
 | popup-tab lifecycle | `nb api flow-surfaces add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` |
+| event-flow discovery | `nb api flow-surfaces get-event-flow-meta` |
+| localized event-flow edit | `nb api flow-surfaces add-event-flow` / `set-event-flow` / `remove-event-flow` |
 | event-flow replacement | `nb api flow-surfaces set-event-flows` |
 | reaction discovery | `nb api flow-surfaces get-reaction-meta` |
 | reaction write | `nb api flow-surfaces set-field-value-rules` / `set-field-linkage-rules` / `set-block-linkage-rules` / `set-action-linkage-rules` |
@@ -39,7 +41,7 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 - Whole-page page-building starts from one draft page blueprint JSON sent through `nb api flow-surfaces apply-blueprint --body-file <payload>.json -j`.
 - The backend authoring compiler normalizes compatible payloads and rejects hard validation failures with aggregate `errors[]` before write side effects.
 - Localized edits still use the same flow-surfaces families documented in `runtime-playbook.md`; the agent-facing front door is `nb api flow-surfaces`.
-- Existing-surface event-flow replacement routes through `nb api flow-surfaces set-event-flows`; keep the full `flowRegistry` shape from live readback instead of inventing a partial patch.
+- Existing-surface localized event-flow work starts with `nb api flow-surfaces get-event-flow-meta`, then uses `add-event-flow`, `set-event-flow`, or `remove-event-flow`. Full replacement still routes through `set-event-flows`; keep the full `flowRegistry` shape from live readback instead of inventing a partial replacement.
 - Reaction work still starts from `get-reaction-meta`, then writes the matching `set-*` rules command through `nb api flow-surfaces`.
 
 ## Payload Rule

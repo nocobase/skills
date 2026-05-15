@@ -2,7 +2,7 @@
 
 Read this file first when you already know you are creating a block / field / action / record action, and the user also requires frequent public attributes such as title, label, required, or button style. The goal is to inline public semantic `settings` directly into `add*`, rather than creating an empty node first and then mechanically adding a separate `configure`. Whether `catalog` is mandatory is governed by [normative-contract.md](./normative-contract.md).
 
-Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, and `set-event-flows`. JSON examples below use the raw business object passed through `--body` / `--body-file`. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
+Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **low-level write APIs** such as `add-*`, `configure`, `update-settings`, `set-layout`, `get-event-flow-meta`, `add-event-flow`, `set-event-flow`, `remove-event-flow`, and `set-event-flows`. JSON examples below use the raw business object passed through `--body` / `--body-file`. For body details, see [tool-shapes.md](./tool-shapes.md). It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
 
 ## Contents
 
@@ -11,7 +11,7 @@ Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **l
 3. Legal shapes of `settings`
 4. High-impact reminders
 5. Layout replacement
-6. Event-flow replacement
+6. Event-flow discovery and writes
 7. Frequent templates
 8. When not to force something into `settings`
 9. Readback mental model
@@ -35,12 +35,13 @@ Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **l
 | switch an existing relation field presentation | `configure(changes)` on `wrapperUid` | use flat `fieldType` with optional `fields` / `titleField`; for `picker`, `fields` configures the selector table columns; use `popupSubTable` for 弹窗子表格 and `subTable` only for inline/editable subtable; do not send internal model keys |
 | path-level fine-grained patch | `update-settings` | the live environment only exposes a domain contract, without a public semantic entry |
 | layout | `set-layout` | only when the user explicitly accepts whole-layout replacement and the full current layout has already been read back |
-| event flows | `set-event-flows` | only when the user explicitly accepts full instance-level flow replacement and the full current flow has already been read back |
+| localized event flow edit | `get-event-flow-meta` -> `add-event-flow` / `set-event-flow` / `remove-event-flow` | default path for adding, updating, or deleting one flow while preserving neighbors |
+| event-flow replacement | `set-event-flows` | only when the user explicitly accepts full instance-level flow replacement and the full current flow has already been read back |
 
 ## High-Impact Reminders
 
 - `set-layout` and `set-event-flows` are not ordinary patches. Both are high-impact full-replace APIs.
-- Do not default to them just because "only one layout item" or "only one flow" is changing. If the user is not asking for whole replacement, prefer `compose/add*`, `configure`, or `update-settings` instead.
+- Do not default to them just because "only one layout item" or "only one flow" is changing. If the user is not asking for whole replacement, prefer `compose/add*`, `configure`, `update-settings`, or the fine-grained event-flow APIs instead.
 - Once you use them, read the full current state before writing, and validate against the full post-write state. Do not rely on local delta only.
 
 ## Layout Replacement
@@ -94,6 +95,46 @@ Representative wrong shape:
 
 For the full transport shape and additional anti-examples, see [tool-shapes.md](./tool-shapes.md).
 
+## Event-flow Discovery And Writes
+
+Default localized event-flow route:
+
+1. Read `get-event-flow-meta` for the target uid.
+2. Use returned `events`, `phases`, `stepActions`, `vars`, current `flowRegistry`, and `fingerprint`.
+3. For one new flow, use `add-event-flow`. MVP creation defaults to and only supports `beforeAllFlows`.
+4. For one exact replacement, use `set-event-flow`.
+5. For one deletion, use `remove-event-flow`.
+
+Minimal `add-event-flow` body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "eventName": "submit",
+  "steps": {
+    "runGuard": {
+      "use": "runjs",
+      "defaultParams": {
+        "code": "ctx.message.success(ctx.t('Saved'));"
+      }
+    }
+  },
+  "condition": {
+    "logic": "$and",
+    "items": []
+  },
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
+Notes:
+
+- `condition` persists to `on.defaultParams.condition`.
+- New `Execute JavaScript` steps use `use: "runjs"` and `defaultParams.code`.
+- Use `expectedFingerprint` from `get-event-flow-meta` when you are guarding against concurrent edits.
+- `add-event-flow` is for new `beforeAllFlows` flows. For `beforeStep`, `afterStep`, `beforeFlow`, `afterFlow`, or preserving an unusual existing shape, use `set-event-flow` with the full single flow object read from or designed against meta.
+
 ## Event-flow Replacement
 
 Use `set-event-flows` when the target already exists and the user explicitly accepts whole instance-level event-flow replacement.
@@ -102,6 +143,7 @@ Core rules:
 
 - Preferred agent entry is `nb api flow-surfaces set-event-flows`.
 - Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
+- Prefer `get-event-flow-meta` plus `add-event-flow` / `set-event-flow` / `remove-event-flow` for localized edits.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
 - Frontend-created event-flow steps use `use` for the action name and `defaultParams` for that action's settings. Do not author new event-flow steps with `name` / `params`.
 - For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `defaultParams.code`.

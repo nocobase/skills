@@ -25,6 +25,7 @@ Agent-facing write path for flow-surfaces is `nb api flow-surfaces <action>` wit
 - richer public surface snapshot -> `nb api flow-surfaces describe-surface`
 - capability uncertainty -> `nb api flow-surfaces catalog`
 - reaction-capability uncertainty -> `nb api flow-surfaces get-reaction-meta`
+- event-flow capability uncertainty -> `nb api flow-surfaces get-event-flow-meta`
 - context-variable uncertainty -> `nb api flow-surfaces context` as lower-level supplement
 
 ## 3. Default Write Routing
@@ -38,6 +39,7 @@ Agent-facing write path for flow-surfaces is `nb api flow-surfaces <action>` wit
 | add/update content under an existing surface | `nb api flow-surfaces compose` / `add-block` / `add-blocks` / `configure` / `update-settings` |
 | replace one existing full grid layout | `nb api flow-surfaces set-layout` |
 | edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
+| localized event-flow edit | read `get-event-flow-meta` -> `add-event-flow` / `set-event-flow` / `remove-event-flow` |
 | replace existing instance-level event flows | `nb api flow-surfaces set-event-flows` |
 | localized reaction edit | read `get-reaction-meta` -> matching `set-*` rules |
 | reorder/remove tab or popup tab | `nb api flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
@@ -81,7 +83,7 @@ Do not put `navigation.routeId` or `page.pageSchemaUid` only inside explanatory 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
 - If a localized edit hits an existing template reference, route through [templates.md](./templates.md) before writing: template-owned edits default to the template source, host/openView config stays local, page-scoped wording alone does not justify `copy`, and unresolved scope should be clarified instead of auto-detaching.
-- If the request is about an existing target's event flow or `Execute JavaScript` step, route to `get` / `describe-surface` readback first, then `set-event-flows` with the full `flowRegistry`.
+- If the request is about an existing target's event flow or `Execute JavaScript` step, route to `get-event-flow-meta` first. Use `add-event-flow`, `set-event-flow`, or `remove-event-flow` for localized edits; use `set-event-flows` only for explicit full replacement.
 - If the request is about default values, linkage, computed fields, show/hide, required/disabled, or action state, route to reaction authoring before considering raw configure keys.
 - For localized reaction work, do not start from `context`; start from `get-reaction-meta` and use `context` only when raw variable paths are still missing.
 - If the request crosses families or the target is not unique, narrow the target before writing.
