@@ -17,11 +17,12 @@ Common collection types to mention first:
 - `tree`
 - `file`
 - `calendar`
+- `comment`
 - `sql`
 - `view`
 - `inherit`
 
-Do not over-claim beyond instance capability. `sql`, `view`, and `inherit` may depend on plugins, data-source capability, or current server configuration.
+Do not over-claim beyond instance capability. `comment`, `sql`, `view`, and `inherit` may depend on plugins, data-source capability, or current server configuration.
 
 ## Selection rules
 
@@ -29,6 +30,7 @@ Do not over-claim beyond instance capability. `sql`, `view`, and `inherit` may d
 - `tree`: parent-child hierarchy is intrinsic to the model.
 - `file`: the uploaded file itself is the primary business record.
 - `calendar`: the record is mainly scheduled or displayed on calendars.
+- `comment`: the record is a plugin-backed comment with a markdown-capable content baseline.
 - `sql`: the collection is intentionally defined by SQL.
 - `view`: the collection should synchronize from an existing database view.
 - `inherit`: a parent collection defines shared fields and child collections extend it.
@@ -39,6 +41,7 @@ Do not over-claim beyond instance capability. `sql`, `view`, and `inherit` may d
 - Choose `tree` for departments, categories, folders, region trees, account hierarchies, and other parent-child structures.
 - Choose `file` for attachments, scanned documents, photos, certificates, vouchers, and other records where the file itself is the record.
 - Choose `calendar` for events, appointments, schedules, shifts, or other records centered on calendar display and recurrence.
+- Choose `comment` for comment plugin tables, 评论表, threaded/comment records, and other records where the expected baseline is a `content` markdown field owned by the comments plugin.
 - Choose `sql` only when the record structure is intentionally defined by SQL rather than ordinary field-by-field modeling.
 - Choose `view` only when the collection should mirror an existing database view.
 - Choose `inherit` only when shared fields belong on a parent model and specialized fields belong on child models.
@@ -49,6 +52,7 @@ Do not over-claim beyond instance capability. `sql`, `view`, and `inherit` may d
 - Do not use `file` just because a table contains one attachment field. Use `file` when the file record is first-class.
 - Do not use `tree` just because a table has a self-relation. Use `tree` when hierarchy is the core structure.
 - Do not use `calendar` just because a table has one date field. Use `calendar` when scheduling behavior is central.
+- Do not use `general` plus a manually added `content` field when the user asked for a real comment plugin table. Use `comment` after the plugin gate.
 
 ## Modeling rule
 
@@ -56,7 +60,7 @@ Before creating a collection:
 
 1. pick the collection type;
 2. load the matching payload reference if one exists;
-3. inspect plugin capability if the type is `sql`, `view`, or `inherit`;
+3. inspect plugin capability if the type is `comment`, `sql`, `view`, or `inherit`;
 4. only then build the create payload.
 
 ## Collection-type references in this folder
@@ -65,8 +69,9 @@ Before creating a collection:
 - `file.md`
 - `tree.md`
 - `calendar.md`
+- `comment.md`
 - `sql.md`
 - `view.md`
 - `inherit.md`
 
-For `sql`, `view`, and `inherit`, inspect the current app capability first and then use the dedicated special-type reference instead of guessing a payload.
+For `comment`, `sql`, `view`, and `inherit`, inspect the current app capability first and then use the dedicated special-type reference instead of guessing a payload.

@@ -174,6 +174,24 @@ Failure pattern:
 
 - a `general` table with URL-like fields was created instead of a real file collection
 
+### Comment
+
+Verify:
+
+- the collection uses `template = "comment"`
+- the `content` field exists after apply
+- `content.interface = "vditor"`
+- `content.type = "text"`
+- `content.length = "long"`
+- `content.deletable = false`
+- preset audit fields exist
+
+Failure patterns:
+
+- the collection was created with a comment template but `content` is missing
+- the `content` field was downgraded to a plain text substitute
+- the model was accepted as a generic table with an ad hoc remark field instead of the comment template baseline
+
 ### Calendar
 
 Verify:
