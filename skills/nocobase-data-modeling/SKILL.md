@@ -64,7 +64,7 @@ Do not prefer older low-level collection or nested field commands when the final
 5. Prefer the compact payloads supported by `collections apply` and `fields apply`. Let the server fill derived defaults.
 6. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
 7. Relations come after the base collection and scalar fields are correct.
-8. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
+8. Prefer the structured response returned by `collections apply` or `fields apply` for routine post-mutation confirmation. Use follow-up `collections get` or `collections fields list` only when the apply response is missing details needed for the task, or when relation/template side effects must be inspected in full.
 9. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
 10. For business identifiers, prefer `sequence` when the user asks for 编码, 编号, 单号, 序号, 流水号, or similar auto-generated codes. Reserve `code` for code-editor content such as source code, SQL, JSON, or other syntax-oriented text.
 
@@ -146,7 +146,9 @@ For collection creation, this usually means:
 
 ## 4. Verify
 
-After each mutation, usually read back with `collections get`. When normalized diagnostics are needed, rely on the verification result returned by `collections apply`.
+After each mutation, first inspect the apply response. `collections apply` should return key collection summary fields, applied field summaries, and verification diagnostics. `fields apply` should return the applied field summary.
+
+Do not automatically run a second `get` or `list` after every successful apply. Read back only when the apply response does not include the details needed to prove the requested outcome, or when the task involves relation ownership, reverse fields, plugin/template side effects, or a user explicitly asks for a full read-back.
 
 Confirm:
 
