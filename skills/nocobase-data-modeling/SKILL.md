@@ -109,6 +109,55 @@ Do not prefer older low-level collection or nested field commands when the final
 - In compact payloads, prefer only the parameters that are actually needed, usually `name`, `title`, `interface`, `expression`, and optional `engine` or `dataType`.
 - If the intended engine or syntax is unclear, stop and ask instead of guessing.
 
+## Server-Side Field Validation Rule
+
+NocoBase supports server-side field validation through field options. These rules run in repository `create` and `update`, and are based on Joi. They are different from frontend `uiSchema.x-validator`; do not use `x-validator` when the user asks for service-side or database-model validation.
+
+Prefer the compact `validators` shorthand in `fields apply` or nested collection fields. The server converts it to `validation.rules`, fills missing rule keys, and infers `validation.type` from the field interface:
+
+```json
+{
+  "collectionName": "contacts",
+  "name": "email",
+  "title": "Email",
+  "interface": "email",
+  "validators": ["required", "email"]
+}
+```
+
+Use full `validation` when the Joi type or rule shape must be explicit:
+
+```json
+{
+  "collectionName": "orders",
+  "name": "amount",
+  "interface": "number",
+  "validation": {
+    "type": "number",
+    "rules": [
+      { "key": "required", "name": "required" },
+      { "key": "min", "name": "min", "args": { "limit": 0 } },
+      { "key": "precision", "name": "precision", "args": { "limit": 2 } }
+    ]
+  }
+}
+```
+
+Common Joi-based rules:
+
+- `string`: `required`, `min`, `max`, `length`, `pattern`, `email`, `uri`, `uuid`, `hex`.
+- `number`: `required`, `min`, `max`, `greater`, `less`, `integer`, `multiple`, `precision`.
+- `date`: `required`, `min`, `max`, `greater`, `less`, `timestamp`.
+- `boolean` and `object`: mainly `required`.
+
+Argument conventions:
+
+- Rules such as `min`, `max`, `length`, and `precision` use `args: { "limit": value }`.
+- `pattern` uses `args: { "regex": "^[A-Z]+$" }`.
+- Rules that expect a Joi options object, such as `email`, `uuid`, or `uri`, may use `paramsType: "object"` with an options object in `args`.
+
+Add validation rules when the business requirement says a value is required, must match a format, must stay within a length or numeric range, must use a fixed decimal precision, or must match a stable identifier format. Avoid adding strict rules just from field names alone if the requirement is ambiguous.
+
 ## Relation Key Rule
 
 - For relation fields, read `references/relation-fields.md` before mutation.
