@@ -43,6 +43,7 @@ Use only this final data-modeling operation surface:
 - Inspect fields in one collection: `collections fields list`
 - Create or update a collection with compact payload: `collections apply`
 - Create or update fields with compact payload: `fields apply`
+- Create or update external data source fields with compact payload: `dataSourcesCollections.fields apply`
 - Delete a collection: `collections destroy`
 - Inspect database views: `db-views list|get`
 
@@ -51,6 +52,7 @@ When the transport is CLI-based, prefer learning exact flags from help instead o
 - `nb api data-modeling collections apply --help`
 - `nb api data-modeling collections fields list --help`
 - `nb api data-modeling fields apply --help`
+- `nb api data-source-manager data-sources-collections fields apply --help`
 - `nb api data-modeling collections destroy --help`
 
 Do not prefer older low-level collection or nested field commands when the final command surface can handle the task.
@@ -134,9 +136,12 @@ Summarize the intended model in natural language before destructive or broad cha
 
 - Use `collections apply` for collection-level creation or updates.
 - Use `fields apply` for targeted field creation or updates.
+- Use `dataSourcesCollections.fields apply` for external data source field metadata updates, especially relation fields on external data source collections.
 - Use `collections destroy` only for explicit delete requests.
 
 Compact payloads are preferred. Supply only the fields the command contract requires, such as collection template/name/title and field name/title/interface, plus any necessary special options that cannot be derived safely.
+
+For external data source relation fields, do not use main data source `fields apply`. Use `dataSourcesCollections.fields apply` with the external collection locator and compact relation interface, for example `interface: "m2o"`, `name`, `target`, and explicit keys when stable names matter.
 
 For collection creation, this usually means:
 
