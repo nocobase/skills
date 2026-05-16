@@ -2750,6 +2750,56 @@
     "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
   },
   {
+    "id": "negative-render-switch-default-truthy-before-default-or-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = 1;\nconst flag = await ctx.getVar('ctx.record.flag');\nswitch (flag) { default: main ||= 1; }\nswitch (flag) { case 'x': break; default: main ||= () => { ctx.render('no'); }; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-switch-default-falsy-before-default-and-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = 0;\nconst flag = await ctx.getVar('ctx.record.flag');\nswitch (flag) { default: main &&= 0; }\nswitch (flag) { case 'x': break; default: main &&= () => { ctx.render('no'); }; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-switch-default-member-nonnull-before-default-nullish-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: null };\nconst flag = await ctx.getVar('ctx.record.flag');\nswitch (flag) { default: helpers.main ??= 1; }\nswitch (flag) { case 'x': break; default: helpers.main ??= () => { ctx.render('no'); }; }\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-switch-default-member-truthy-before-default-or-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: 1 };\nconst flag = await ctx.getVar('ctx.record.flag');\nswitch (flag) { default: helpers.main ||= 1; }\nswitch (flag) { case 'x': break; default: helpers.main ||= () => { ctx.render('no'); }; }\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-switch-default-member-falsy-before-default-and-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: 0 };\nconst flag = await ctx.getVar('ctx.record.flag');\nswitch (flag) { default: helpers.main &&= 0; }\nswitch (flag) { case 'x': break; default: helpers.main &&= () => { ctx.render('no'); }; }\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
     "id": "negative-render-catch-nullish-assignment-skips-after-conditioned-throw",
     "intent": "render-helper",
     "surface": "js-model.render",
@@ -2776,6 +2826,66 @@
     "modelOrHost": "JSBlockModel",
     "preferredSnippetIds": ["render/text-from-record"],
     "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { if (flag) { main &&= 0; throw 1; } } catch { main &&= () => { ctx.render('no'); }; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-nullish-assignment-skips-after-switch-throw-union",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = null;\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'x': main ??= 1; throw 1; default: main ??= 1; throw 1; } } catch { main ??= () => { ctx.render('no'); }; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-or-assignment-skips-after-switch-throw-union",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = 0;\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'x': main ||= 1; throw 1; default: main ||= 1; throw 1; } } catch { main ||= () => { ctx.render('no'); }; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-and-assignment-skips-after-switch-throw-union",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'x': main &&= 0; throw 1; default: main &&= 0; throw 1; } } catch { main &&= () => { ctx.render('no'); }; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-member-nullish-assignment-skips-after-switch-throw-union",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: null };\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'x': helpers.main ??= 1; throw 1; default: helpers.main ??= 1; throw 1; } } catch { helpers.main ??= () => { ctx.render('no'); }; }\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-member-or-assignment-skips-after-switch-throw-union",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: 0 };\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'x': helpers.main ||= 1; throw 1; default: helpers.main ||= 1; throw 1; } } catch { helpers.main ||= () => { ctx.render('no'); }; }\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-member-and-assignment-skips-after-switch-throw-union",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: () => {} };\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'x': helpers.main &&= 0; throw 1; default: helpers.main &&= 0; throw 1; } } catch { helpers.main &&= () => { ctx.render('no'); }; }\nhelpers.main();",
     "expectedOk": false,
     "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
   },

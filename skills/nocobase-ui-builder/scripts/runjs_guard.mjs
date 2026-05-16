@@ -3296,6 +3296,8 @@ function createRenderExecutionScope(parent = null, { varTarget = null } = {}) {
     containerAliases: new Map(),
     staticContainers: new Map(),
     activeConditionKeys: normalizeRenderExecutionConditionKeys(parent?.activeConditionKeys || []),
+    activeThrowScopes: Array.isArray(parent?.activeThrowScopes) ? [...parent.activeThrowScopes] : [],
+    activeThrowScopesExhaustive: Boolean(parent?.activeThrowScopesExhaustive),
     strict: Boolean(parent?.strict),
   };
   nextRenderExecutionScopeId += 1;
@@ -3325,6 +3327,8 @@ function cloneRenderExecutionScopeChain(scope, cloned = new Map()) {
       Array.from(scope.staticContainers.entries(), ([name, info]) => [name, cloneStaticContainerInfo(info)]),
     ),
     activeConditionKeys: normalizeRenderExecutionConditionKeys(scope.activeConditionKeys || []),
+    activeThrowScopes: Array.isArray(scope.activeThrowScopes) ? [...scope.activeThrowScopes] : [],
+    activeThrowScopesExhaustive: Boolean(scope.activeThrowScopesExhaustive),
     strict: scope.strict,
     varTarget: null,
   };
@@ -3364,6 +3368,8 @@ function snapshotRenderExecutionScopeChain(scope) {
         Array.from(current.staticContainers.entries(), ([name, info]) => [name, cloneStaticContainerInfo(info)]),
       ),
       activeConditionKeys: normalizeRenderExecutionConditionKeys(current.activeConditionKeys || []),
+      activeThrowScopes: Array.isArray(current.activeThrowScopes) ? [...current.activeThrowScopes] : [],
+      activeThrowScopesExhaustive: Boolean(current.activeThrowScopesExhaustive),
       strict: current.strict,
     });
     current = current.parent;
@@ -3388,6 +3394,8 @@ function restoreRenderExecutionScopeChain(snapshots) {
       Array.from(snapshot.staticContainers.entries(), ([name, info]) => [name, cloneStaticContainerInfo(info)]),
     );
     snapshot.scope.activeConditionKeys = normalizeRenderExecutionConditionKeys(snapshot.activeConditionKeys || []);
+    snapshot.scope.activeThrowScopes = Array.isArray(snapshot.activeThrowScopes) ? [...snapshot.activeThrowScopes] : [];
+    snapshot.scope.activeThrowScopesExhaustive = Boolean(snapshot.activeThrowScopesExhaustive);
     snapshot.scope.strict = snapshot.strict;
   }
 }
@@ -3416,6 +3424,13 @@ function addActiveRenderExecutionConditionKeys(scope, conditionKeys) {
   scope.activeConditionKeys = mergeRenderExecutionConditionKeys(scope.activeConditionKeys, conditionKeys);
 }
 
+function setActiveRenderExecutionThrowScopes(scope, throwScopes, { exhaustive = false } = {}) {
+  if (!scope) return;
+  scope.activeThrowScopes = (Array.isArray(throwScopes) ? throwScopes : [])
+    .filter((entry) => entry?.clonedScope);
+  scope.activeThrowScopesExhaustive = Boolean(exhaustive && scope.activeThrowScopes.length > 0);
+}
+
 function conditionKeysImply(activeKeys, conditionKeys) {
   const active = new Set(normalizeRenderExecutionConditionKeys(activeKeys));
   const required = normalizeRenderExecutionConditionKeys(conditionKeys);
@@ -3433,6 +3448,50 @@ function getFunctionDefinitionValueState(definition) {
   if (typeof definition.truthy === 'boolean') state.truthy = definition.truthy;
   if (typeof definition.nonNullish === 'boolean') state.nonNullish = definition.nonNullish;
   return Object.keys(state).length > 0 ? state : null;
+}
+
+function mergeCompatibleStaticValueStates(states) {
+  const normalizedStates = (Array.isArray(states) ? states : []).filter(Boolean);
+  if (normalizedStates.length === 0) return null;
+  const merged = {};
+  for (const key of ['truthy', 'nonNullish']) {
+    const values = normalizedStates.map((state) => state?.[key]);
+    if (
+      values.every((value) => typeof value === 'boolean')
+      && values.every((value) => value === values[0])
+    ) {
+      merged[key] = values[0];
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
+function getGuaranteedValueStateFromScopeName(scope, name, referenceStart = null) {
+  if (!scope || !name) return null;
+  const definitions = resolveFunctionDefinitionsFromScopeName(scope, name, referenceStart);
+  if (definitions?.length > 0) {
+    const states = definitions.map((definition) => getFunctionDefinitionValueState(definition));
+    if (states.some((state) => !state)) return null;
+    return mergeCompatibleStaticValueStates(states);
+  }
+  if (scopeHasKnownContainerPath(scope, name)) {
+    return { truthy: true, nonNullish: true };
+  }
+  return null;
+}
+
+function resolveActiveThrowScopeTargetValueState(scope, targetName, referenceStart = null) {
+  if (!scope?.activeThrowScopesExhaustive || !targetName) return null;
+  const throwScopes = (Array.isArray(scope.activeThrowScopes) ? scope.activeThrowScopes : [])
+    .filter((entry) => entry?.clonedScope);
+  if (throwScopes.length === 0) return null;
+  const states = [];
+  for (const entry of throwScopes) {
+    const state = getGuaranteedValueStateFromScopeName(entry.clonedScope, targetName, referenceStart);
+    if (!state) return null;
+    states.push(state);
+  }
+  return mergeCompatibleStaticValueStates(states);
 }
 
 function applyRenderExecutionDefinitionConditions(definition, { conditional = false, conditionKeys = [] } = {}) {
@@ -5458,7 +5517,8 @@ function resolveActivePathTargetValueState(node, scope, referenceStart = null) {
   const targetName = getStaticAssignmentTargetName(node);
   if (!targetName) return null;
   const activeConditionKeys = normalizeRenderExecutionConditionKeys(scope?.activeConditionKeys || []);
-  if (activeConditionKeys.length === 0) return null;
+  const throwScopeState = resolveActiveThrowScopeTargetValueState(scope, targetName, referenceStart);
+  if (activeConditionKeys.length === 0) return throwScopeState;
   const definitions = resolveFunctionDefinitionsFromScopeName(scope, targetName, referenceStart) || [];
   let latestState = null;
   for (const definition of definitions) {
@@ -5474,7 +5534,7 @@ function resolveActivePathTargetValueState(node, scope, referenceStart = null) {
     const state = getFunctionDefinitionValueState(definition);
     if (state) latestState = state;
   }
-  return latestState;
+  return latestState || throwScopeState;
 }
 
 function shouldEvaluateLogicalAssignmentRight(expression, scope, executionStart) {
@@ -6775,6 +6835,11 @@ function analyzeSwitchExecutionPath(statement, scope, executionStart, seen) {
   let mayThrow = switchMayThrow;
   let throwScopes = [...switchThrowScopes];
   const switchCases = statement.cases || [];
+  const canSelectEveryRuntimePath = defaultIndex >= 0 && switchCases.length > 0;
+  let analyzedSelectedPathCount = 0;
+  let allSelectedPathsTerminate = canSelectEveryRuntimePath;
+  let allSelectedPathsThrow = canSelectEveryRuntimePath;
+  let selectedPathTermination = null;
   for (let startIndex = 0; startIndex < switchCases.length; startIndex += 1) {
     const cloned = cloneRenderExecutionScopeChainWithMap(switchScope);
     const conditionKeys = createRenderExecutionSwitchCaseConditionKeys(
@@ -6796,6 +6861,8 @@ function analyzeSwitchExecutionPath(statement, scope, executionStart, seen) {
       throwScopes = [...throwScopes, ...getThrowScopes(testResult)];
       if (testResult.terminated) {
         testPathBlocked = true;
+        allSelectedPathsTerminate = false;
+        allSelectedPathsThrow = false;
         if (testResult.termination === 'throw') {
           addConditionalThrowScope(testResult, switchScope, cloned.scope);
           throwScopes = [...throwScopes, ...getThrowScopes(testResult)];
@@ -6811,12 +6878,39 @@ function analyzeSwitchExecutionPath(statement, scope, executionStart, seen) {
     if (result.hasRender) return { hasRender: true, terminated: false, throws: false };
     mayThrow = mayThrow || result.mayThrow;
     throwScopes = [...throwScopes, ...getThrowScopes(result)];
+    analyzedSelectedPathCount += 1;
+    if (!result.terminated || result.termination === 'break') {
+      allSelectedPathsTerminate = false;
+      allSelectedPathsThrow = false;
+    } else {
+      allSelectedPathsThrow = allSelectedPathsThrow && result.termination === 'throw';
+      selectedPathTermination = selectedPathTermination
+        ? combineBranchTermination(
+          {
+            terminated: true,
+            throws: selectedPathTermination === 'throw',
+            termination: selectedPathTermination,
+          },
+          result,
+        )
+        : result.termination;
+    }
     if (!result.terminated || result.termination === 'break') {
       mergeConditionalDefinitionsFromScopeClone(switchScope, cloned.scope, { conditionKeys });
     } else if (result.termination === 'throw') {
       addConditionalThrowScope(result, switchScope, cloned.scope, { conditionKeys });
       throwScopes = [...throwScopes, ...getThrowScopes(result)];
     }
+  }
+  if (allSelectedPathsTerminate && analyzedSelectedPathCount === switchCases.length) {
+    return {
+      hasRender: false,
+      terminated: true,
+      throws: allSelectedPathsThrow,
+      mayThrow,
+      termination: allSelectedPathsThrow ? 'throw' : (selectedPathTermination || 'loop'),
+      throwScopes,
+    };
   }
   return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
 }
@@ -6837,6 +6931,7 @@ function analyzeTryExecutionPath(statement, scope, executionStart, seen) {
   if ((tryResult.throws || tryResult.mayThrow) && statement.handler?.body) {
     const catchStatements = statement.handler.body.body || [];
     const cloned = cloneRenderExecutionScopeChainWithThrowScopes(scope, tryThrowScopes);
+    setActiveRenderExecutionThrowScopes(cloned.scope, tryThrowScopes, { exhaustive: tryResult.throws });
     addActiveRenderExecutionConditionKeys(cloned.scope, getCommonThrowScopeConditionKeys(tryThrowScopes));
     const catchScope = createInitializedExecutionScope(cloned.scope, catchStatements, {
       params: statement.handler.param ? [statement.handler.param] : [],
