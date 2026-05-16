@@ -276,6 +276,18 @@ const REPAIR_METADATA_BY_CODE = {
     suggestedSnippetIds: ['render/text-from-record', 'render/status-tag', 'render/null-when-empty'],
     retryable: true,
   },
+  RUNJS_RENDER_TOP_LEVEL_FUNCTION_WRAPPER_FORBIDDEN: {
+    repairClass: 'render-top-level-function-wrapper',
+    preferredFix: 'Move the function body to the top level and call ctx.render(...) on the executed top-level path.',
+    suggestedSnippetIds: ['render/text-from-record', 'render/status-tag', 'render/null-when-empty'],
+    retryable: true,
+  },
+  RUNJS_RENDER_UNREACHABLE_RENDER_CALL: {
+    repairClass: 'render-unreachable-render-call',
+    preferredFix: 'Move ctx.render(...) into the top-level execution path of the render-model script.',
+    suggestedSnippetIds: ['render/text-from-record', 'render/status-tag', 'render/null-when-empty'],
+    retryable: true,
+  },
   RUNJS_SURFACE_UNRESOLVED: {
     repairClass: 'unknown-surface-stop',
     preferredFix: 'Stop and lock the authoring surface before generating code.',
@@ -3197,13 +3209,3000 @@ function buildAllowedCtxRoots(contract, modelUses = [], extraRoots = []) {
   return allowedRoots;
 }
 
+function getScanNodeLocation(scan, node) {
+  const sourceOffset = Number(scan?.sourceOffset || 0);
+  const sourceStart = Math.max(0, Number(node?.start || 0) - sourceOffset);
+  return getLineColumnFromPos(scan?.source || '', sourceStart);
+}
+
+function isFunctionExpressionAssignment(statement) {
+  const expression = statement?.type === 'ExpressionStatement' ? statement.expression : null;
+  return expression?.type === 'AssignmentExpression' && isFunctionNode(expression.right);
+}
+
+function isBareFunctionExpressionStatement(statement) {
+  const expression = statement?.type === 'ExpressionStatement' ? unwrapChainNode(statement.expression) : null;
+  return isFunctionNode(expression);
+}
+
+function isFunctionVariableDeclaration(statement) {
+  return statement?.type === 'VariableDeclaration'
+    && Array.isArray(statement.declarations)
+    && statement.declarations.length > 0
+    && statement.declarations.every((declarator) => isFunctionNode(declarator?.init));
+}
+
+function isTopLevelFunctionDefinitionStatement(statement) {
+  return statement?.type === 'FunctionDeclaration'
+    || isBareFunctionExpressionStatement(statement)
+    || isFunctionVariableDeclaration(statement)
+    || isFunctionExpressionAssignment(statement);
+}
+
+function hasOnlyTopLevelFunctionDefinitions(scan) {
+  const statements = (scan?.wrappedStatements || []).filter((statement) => statement?.type !== 'EmptyStatement');
+  return statements.length > 0 && statements.every((statement) => isTopLevelFunctionDefinitionStatement(statement));
+}
+
+function findAnyCtxRenderCall(scan) {
+  return (scan?.semanticNodes?.ctxCallSites || []).find((entry) => entry.path === 'render') || null;
+}
+
+function unwrapChainNode(node) {
+  return node?.type === 'ChainExpression' ? node.expression : node;
+}
+
+function isCtxRenderCallExpression(node) {
+  const expression = unwrapChainNode(node);
+  const callee = unwrapChainNode(expression?.callee);
+  return expression?.type === 'CallExpression' && isCtxMemberExpression(callee, 'render');
+}
+
+function addFunctionDefinition(definitions, name, definition) {
+  if (!name || !definition) return;
+  if (!definitions.has(name)) {
+    definitions.set(name, []);
+  }
+  definitions.get(name).push(definition);
+}
+
+function addFunctionDefinitionToScope(scope, name, definition) {
+  if (!name || !definition?.node) return;
+  scope.declared.add(name);
+  addUnavailableStaticPrimitiveDefinitionToScope(scope, name, definition.initializedAt);
+  unmarkContainerPath(scope, name);
+  removeContainerAliasesForPath(scope, name);
+  addFunctionDefinition(scope.definitions, name, definition);
+}
+
+function addStaticPrimitiveDefinition(definitions, name, definition) {
+  if (!name || !definition) return;
+  if (!definitions.has(name)) {
+    definitions.set(name, []);
+  }
+  definitions.get(name).push(definition);
+}
+
+function createRenderExecutionScope(parent = null, { varTarget = null } = {}) {
+  const scope = {
+    parent,
+    declared: new Set(),
+    definitions: new Map(),
+    staticPrimitives: new Map(),
+    containers: new Set(),
+    containerAliases: new Map(),
+    staticContainers: new Map(),
+    strict: Boolean(parent?.strict),
+  };
+  scope.varTarget = varTarget || scope;
+  return scope;
+}
+
+function cloneRenderExecutionScopeChain(scope, cloned = new Map()) {
+  if (!scope) return null;
+  if (cloned.has(scope)) return cloned.get(scope);
+  const parent = cloneRenderExecutionScopeChain(scope.parent, cloned);
+  const clone = {
+    parent,
+    declared: new Set(scope.declared),
+    definitions: new Map(
+      Array.from(scope.definitions.entries(), ([name, definitions]) => [name, [...definitions]]),
+    ),
+    staticPrimitives: new Map(
+      Array.from(scope.staticPrimitives.entries(), ([name, definitions]) => [name, [...definitions]]),
+    ),
+    containers: new Set(scope.containers),
+    containerAliases: new Map(
+      Array.from(scope.containerAliases.entries(), ([name, aliases]) => [name, new Set(aliases)]),
+    ),
+    staticContainers: new Map(
+      Array.from(scope.staticContainers.entries(), ([name, info]) => [name, cloneStaticContainerInfo(info)]),
+    ),
+    strict: scope.strict,
+    varTarget: null,
+  };
+  cloned.set(scope, clone);
+  clone.varTarget = scope.varTarget
+    ? cloneRenderExecutionScopeChain(scope.varTarget, cloned)
+    : clone;
+  return clone;
+}
+
+function cloneRenderExecutionScopeChainWithMap(scope) {
+  const cloned = new Map();
+  return {
+    scope: cloneRenderExecutionScopeChain(scope, cloned),
+    cloned,
+  };
+}
+
+function snapshotRenderExecutionScopeChain(scope) {
+  const snapshots = [];
+  let current = scope;
+  while (current) {
+    snapshots.push({
+      scope: current,
+      declared: new Set(current.declared),
+      definitions: new Map(
+        Array.from(current.definitions.entries(), ([name, definitions]) => [name, [...definitions]]),
+      ),
+      staticPrimitives: new Map(
+        Array.from(current.staticPrimitives.entries(), ([name, definitions]) => [name, [...definitions]]),
+      ),
+      containers: new Set(current.containers),
+      containerAliases: new Map(
+        Array.from(current.containerAliases.entries(), ([name, aliases]) => [name, new Set(aliases)]),
+      ),
+      staticContainers: new Map(
+        Array.from(current.staticContainers.entries(), ([name, info]) => [name, cloneStaticContainerInfo(info)]),
+      ),
+      strict: current.strict,
+    });
+    current = current.parent;
+  }
+  return snapshots;
+}
+
+function restoreRenderExecutionScopeChain(snapshots) {
+  for (const snapshot of snapshots || []) {
+    snapshot.scope.declared = new Set(snapshot.declared);
+    snapshot.scope.definitions = new Map(
+      Array.from(snapshot.definitions.entries(), ([name, definitions]) => [name, [...definitions]]),
+    );
+    snapshot.scope.staticPrimitives = new Map(
+      Array.from(snapshot.staticPrimitives.entries(), ([name, definitions]) => [name, [...definitions]]),
+    );
+    snapshot.scope.containers = new Set(snapshot.containers);
+    snapshot.scope.containerAliases = new Map(
+      Array.from(snapshot.containerAliases.entries(), ([name, aliases]) => [name, new Set(aliases)]),
+    );
+    snapshot.scope.staticContainers = new Map(
+      Array.from(snapshot.staticContainers.entries(), ([name, info]) => [name, cloneStaticContainerInfo(info)]),
+    );
+    snapshot.scope.strict = snapshot.strict;
+  }
+}
+
+function cloneRenderExecutionScopeChainWithThrowScopes(scope, throwScopes) {
+  const snapshots = snapshotRenderExecutionScopeChain(scope);
+  mergeThrowScopesIntoOriginal(throwScopes, { conditional: true });
+  const cloned = cloneRenderExecutionScopeChainWithMap(scope);
+  restoreRenderExecutionScopeChain(snapshots);
+  return cloned;
+}
+
+function createFunctionDefinition(node, { hoisted, initializedAt, conditional = false }) {
+  return {
+    node,
+    hoisted,
+    initializedAt: Number.isInteger(initializedAt) ? initializedAt : null,
+    declarationStart: Number.isInteger(node?.start) ? node.start : (Number.isInteger(initializedAt) ? initializedAt : null),
+    conditional,
+  };
+}
+
+function createUnavailableFunctionDefinition({ initializedAt, conditional = false }) {
+  return {
+    node: null,
+    hoisted: false,
+    initializedAt: Number.isInteger(initializedAt) ? initializedAt : null,
+    declarationStart: Number.isInteger(initializedAt) ? initializedAt : null,
+    conditional,
+  };
+}
+
+function createStaticPrimitiveDefinition(value, { initializedAt, conditional = false, unavailable = false }) {
+  return {
+    value,
+    initializedAt: Number.isInteger(initializedAt) ? initializedAt : null,
+    conditional,
+    unavailable,
+  };
+}
+
+function addStaticPrimitiveDefinitionToScope(scope, name, value, initializedAt, { conditional = false } = {}) {
+  if (!name || !isStaticPrimitiveValue(value)) return;
+  scope.declared.add(name);
+  addStaticPrimitiveDefinition(scope.staticPrimitives, name, createStaticPrimitiveDefinition(value, {
+    initializedAt,
+    conditional,
+  }));
+}
+
+function addUnavailableStaticPrimitiveDefinitionToScope(scope, name, initializedAt) {
+  if (!name) return;
+  addStaticPrimitiveDefinition(scope.staticPrimitives, name, createStaticPrimitiveDefinition(STATIC_PRIMITIVE_UNKNOWN, {
+    initializedAt,
+    unavailable: true,
+  }));
+}
+
+function registerStaticPrimitiveInvalidation(scope, name, initializedAt) {
+  if (!name) return;
+  const targetScope = findAssignmentTargetScope(scope, name);
+  addUnavailableStaticPrimitiveDefinitionToScope(targetScope, name, initializedAt);
+}
+
+function registerStaticPrimitiveDefinitionFromNode(
+  scope,
+  name,
+  node,
+  initializedAt,
+  { resolveScope = scope, referenceStart = initializedAt, conditional = false } = {},
+) {
+  const primitive = resolveStaticPrimitiveValue(node, resolveScope, referenceStart);
+  if (primitive !== STATIC_PRIMITIVE_UNKNOWN) {
+    addStaticPrimitiveDefinitionToScope(scope, name, primitive, initializedAt, { conditional });
+  }
+}
+
+function registerStaticPrimitiveDefinitionFromSourcePath(
+  scope,
+  name,
+  sourcePath,
+  initializedAt,
+  { resolveScope = scope, referenceStart = initializedAt, conditional = false } = {},
+) {
+  if (!Array.isArray(sourcePath) || sourcePath.length === 0) return;
+  const primitive = resolveStaticPrimitiveFromScopeName(resolveScope, sourcePath.join('.'), referenceStart);
+  if (primitive !== STATIC_PRIMITIVE_UNKNOWN) {
+    addStaticPrimitiveDefinitionToScope(scope, name, primitive, initializedAt, { conditional });
+  }
+}
+
+function mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditional = false } = {}) {
+  let original = originalScope;
+  let cloned = clonedScope;
+  while (original && cloned) {
+    for (const [name, clonedDefinitions] of cloned.definitions.entries()) {
+      const originalDefinitions = original.definitions.get(name) || [];
+      const newDefinitions = clonedDefinitions.slice(originalDefinitions.length);
+      let lastUnconditionalIndex = -1;
+      for (let index = 0; index < newDefinitions.length; index += 1) {
+        if (!newDefinitions[index].conditional) lastUnconditionalIndex = index;
+      }
+      const definitionsToMerge = lastUnconditionalIndex >= 0
+        ? newDefinitions.slice(lastUnconditionalIndex)
+        : newDefinitions;
+      for (const definition of definitionsToMerge) {
+        addFunctionDefinition(original.definitions, name, {
+          ...definition,
+          conditional: Boolean(conditional || definition.conditional),
+        });
+      }
+    }
+    for (const [name, clonedDefinitions] of cloned.staticPrimitives.entries()) {
+      const originalDefinitions = original.staticPrimitives.get(name) || [];
+      const newDefinitions = clonedDefinitions.slice(originalDefinitions.length);
+      for (const definition of newDefinitions) {
+        addStaticPrimitiveDefinition(original.staticPrimitives, name, {
+          ...definition,
+          conditional: Boolean(conditional || definition.conditional),
+        });
+      }
+    }
+    for (const name of new Set([...original.staticContainers.keys(), ...cloned.staticContainers.keys()])) {
+      const originalInfo = original.staticContainers.get(name) || null;
+      const clonedInfo = cloned.staticContainers.get(name) || null;
+      if (staticContainerInfosEqual(originalInfo, clonedInfo)) continue;
+      if (conditional) {
+        const mergedInfo = cloneStaticContainerInfo(originalInfo || clonedInfo);
+        if (mergedInfo) {
+          mergedInfo.exact = false;
+          original.staticContainers.set(name, mergedInfo);
+        }
+      } else if (clonedInfo) {
+        original.staticContainers.set(name, cloneStaticContainerInfo(clonedInfo));
+        replaceScopedDefinitionsFromScopeClone(original, cloned, name);
+      } else {
+        original.staticContainers.delete(name);
+        replaceScopedDefinitionsFromScopeClone(original, cloned, name);
+      }
+    }
+    original = original.parent;
+    cloned = cloned.parent;
+  }
+}
+
+function replaceScopedDefinitionsFromScopeClone(original, cloned, name) {
+  if (!original || !cloned || !name) return;
+  const inScope = (key) => key === name || key.startsWith(`${name}.`);
+  for (const key of [...original.definitions.keys()]) {
+    if (inScope(key)) original.definitions.delete(key);
+  }
+  for (const key of [...original.staticPrimitives.keys()]) {
+    if (inScope(key)) original.staticPrimitives.delete(key);
+  }
+  for (const [key, definitions] of cloned.definitions.entries()) {
+    if (inScope(key)) original.definitions.set(key, [...definitions]);
+  }
+  for (const [key, definitions] of cloned.staticPrimitives.entries()) {
+    if (inScope(key)) original.staticPrimitives.set(key, [...definitions]);
+  }
+}
+
+function mergeConditionalDefinitionsFromScopeClone(originalScope, clonedScope) {
+  mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditional: true });
+}
+
+function predeclareFunctionScopeBindings(scope, statements) {
+  for (const statement of statements || []) {
+    if (statement?.type === 'FunctionDeclaration' && statement.id?.type === 'Identifier') {
+      addFunctionDefinitionToScope(scope, statement.id.name, createFunctionDefinition(statement, {
+        hoisted: true,
+        initializedAt: statement.start,
+      }));
+      continue;
+    }
+    if (statement?.type === 'VariableDeclaration') {
+      const declarationScope = statement.kind === 'var' ? scope.varTarget : scope;
+      for (const declarator of statement.declarations || []) {
+        for (const name of collectAssignmentTargetIdentifiers(declarator?.id)) {
+          declarationScope.declared.add(name);
+        }
+      }
+    }
+  }
+}
+
+function predeclareUnavailableBindings(scope, bindings) {
+  for (const binding of bindings || []) {
+    const initializedAt = Number.isInteger(binding?.start) ? binding.start : null;
+    for (const name of collectAssignmentTargetIdentifiers(binding)) {
+      scope.declared.add(name);
+      addFunctionDefinition(scope.definitions, name, createUnavailableFunctionDefinition({ initializedAt }));
+    }
+  }
+}
+
+function statementListHasUseStrictDirective(statements) {
+  for (const statement of statements || []) {
+    if (
+      statement?.type === 'ExpressionStatement'
+      && statement.expression?.type === 'Literal'
+      && typeof statement.expression.value === 'string'
+    ) {
+      if (statement.expression.value === 'use strict') return true;
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
+function exposeExecutedBlockFunctionDeclaration(scope, statement) {
+  if (
+    statement?.type !== 'FunctionDeclaration'
+    || statement.id?.type !== 'Identifier'
+    || !scope?.varTarget
+    || scope.varTarget === scope
+    || scope.strict
+  ) {
+    return;
+  }
+  addFunctionDefinitionToScope(scope.varTarget, statement.id.name, createFunctionDefinition(statement, {
+    hoisted: false,
+    initializedAt: Number.isInteger(statement.start) ? statement.start : null,
+  }));
+}
+
+function collectNestedVarDeclarations(scope, node) {
+  if (!isAstNode(node)) return;
+  if (isFunctionNode(node) || node.type === 'ClassDeclaration' || node.type === 'ClassExpression') return;
+  if (node.type === 'VariableDeclaration' && node.kind === 'var') {
+    for (const declarator of node.declarations || []) {
+      for (const name of collectAssignmentTargetIdentifiers(declarator?.id)) {
+        scope.varTarget.declared.add(name);
+      }
+    }
+  }
+  for (const value of Object.values(node)) {
+    if (Array.isArray(value)) {
+      for (const item of value) collectNestedVarDeclarations(scope, item);
+      continue;
+    }
+    collectNestedVarDeclarations(scope, value);
+  }
+}
+
+function createInitializedExecutionScope(parent, statements, { functionScope = false, params = [] } = {}) {
+  const scope = createRenderExecutionScope(parent, {
+    varTarget: functionScope || !parent ? null : parent.varTarget,
+  });
+  if (functionScope || !parent) {
+    scope.strict = Boolean(scope.strict || statementListHasUseStrictDirective(statements));
+  }
+  predeclareUnavailableBindings(scope, params);
+  predeclareFunctionScopeBindings(scope, statements);
+  if (functionScope || !parent) {
+    for (const statement of statements || []) {
+      collectNestedVarDeclarations(scope, statement);
+    }
+  }
+  return scope;
+}
+
+function findAssignmentTargetScope(scope, name) {
+  let current = scope;
+  while (current) {
+    if (current.declared.has(name) || current.definitions.has(name)) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return scope;
+}
+
+function collectAssignmentTargetIdentifiers(node, identifiers = []) {
+  if (!isAstNode(node)) return identifiers;
+  if (node.type === 'Identifier') {
+    identifiers.push(node.name);
+    return identifiers;
+  }
+  if (node.type === 'RestElement') {
+    collectAssignmentTargetIdentifiers(node.argument, identifiers);
+    return identifiers;
+  }
+  if (node.type === 'AssignmentPattern') {
+    collectAssignmentTargetIdentifiers(node.left, identifiers);
+    return identifiers;
+  }
+  if (node.type === 'ArrayPattern') {
+    for (const element of node.elements || []) {
+      collectAssignmentTargetIdentifiers(element, identifiers);
+    }
+    return identifiers;
+  }
+  if (node.type === 'ObjectPattern') {
+    for (const property of node.properties || []) {
+      if (property?.type === 'Property') {
+        collectAssignmentTargetIdentifiers(property.value, identifiers);
+      } else if (property?.type === 'RestElement') {
+        collectAssignmentTargetIdentifiers(property.argument, identifiers);
+      }
+    }
+  }
+  return identifiers;
+}
+
+function getStaticPropertyName(node, { computed = false } = {}) {
+  const expression = unwrapChainNode(node);
+  if (expression?.type === 'Identifier') return computed ? null : expression.name;
+  if (expression?.type === 'Literal' && (typeof expression.value === 'string' || typeof expression.value === 'number')) {
+    return String(expression.value);
+  }
+  if (expression?.type === 'TemplateLiteral' && expression.expressions?.length === 0) {
+    return expression.quasis?.map((item) => item.value?.cooked ?? item.value?.raw ?? '').join('') ?? null;
+  }
+  return null;
+}
+
+function getStaticMemberPath(node) {
+  const expression = unwrapChainNode(node);
+  if (expression?.type === 'Identifier') return [expression.name];
+  if (expression?.type !== 'MemberExpression') return null;
+  const objectPath = getStaticMemberPath(expression.object);
+  const propertyName = getStaticPropertyName(expression.property, { computed: Boolean(expression.computed) });
+  if (!objectPath || propertyName == null) return null;
+  return [...objectPath, propertyName];
+}
+
+function addUnavailableFunctionDefinitionToScope(scope, name, initializedAt, { conditional = false } = {}) {
+  unmarkContainerPath(scope, name);
+  removeContainerAliasesForPath(scope, name);
+  addFunctionDefinition(scope.definitions, name, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+  for (const key of [...scope.definitions.keys()]) {
+    if (key.startsWith(`${name}.`)) {
+      addFunctionDefinition(scope.definitions, key, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    }
+  }
+  for (const key of [...scope.staticPrimitives.keys()]) {
+    if (key.startsWith(`${name}.`)) {
+      addUnavailableStaticPrimitiveDefinitionToScope(scope, key, initializedAt);
+    }
+  }
+}
+
+function registerUnavailableFunctionDefinition(scope, name, initializedAt, { conditional = false } = {}) {
+  if (!name) return;
+  const targetScope = findAssignmentTargetScope(scope, name);
+  addUnavailableFunctionDefinitionToScope(targetScope, name, initializedAt, { conditional });
+}
+
+function addDeletedMemberDefinitionToScope(scope, name, initializedAt) {
+  if (!scope || !name) return;
+  updateStaticContainerInfoForMemberDelete(scope, name);
+  addUnavailableFunctionDefinitionToScope(scope, name, initializedAt);
+  addStaticPrimitiveDefinition(scope.staticPrimitives, name, createStaticPrimitiveDefinition(undefined, {
+    initializedAt,
+  }));
+}
+
+function registerDeleteExpressionInvalidation(scope, expression) {
+  if (expression?.type !== 'UnaryExpression' || expression.operator !== 'delete') return;
+  const memberPath = getStaticMemberPath(expression.argument);
+  if (!memberPath || memberPath.length <= 1) return;
+  const initializedAt = Number.isInteger(expression.start) ? expression.start : null;
+  const memberName = memberPath.join('.');
+  for (const target of collectEquivalentContainerMemberAssignmentTargets(scope, memberName)) {
+    addDeletedMemberDefinitionToScope(target.scope, target.name, initializedAt);
+  }
+}
+
+function createStaticContainerInfo(kind, { keys = [], values = [], exact = true } = {}) {
+  if (!kind) return null;
+  return {
+    kind,
+    keys: new Set(keys.map((key) => String(key))),
+    values: [...values],
+    exact: Boolean(exact),
+  };
+}
+
+function cloneStaticContainerInfo(info) {
+  if (!info?.kind) return null;
+  return createStaticContainerInfo(info.kind, {
+    keys: [...(info.keys || [])],
+    values: [...(info.values || [])],
+    exact: info.exact,
+  });
+}
+
+function staticContainerInfosEqual(left, right) {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  if (left.kind !== right.kind || Boolean(left.exact) !== Boolean(right.exact)) return false;
+  const leftKeys = [...(left.keys || [])].map((key) => String(key)).sort();
+  const rightKeys = [...(right.keys || [])].map((key) => String(key)).sort();
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (let index = 0; index < leftKeys.length; index += 1) {
+    if (leftKeys[index] !== rightKeys[index]) return false;
+  }
+  const leftValues = left.values || [];
+  const rightValues = right.values || [];
+  if (leftValues.length !== rightValues.length) return false;
+  for (let index = 0; index < leftValues.length; index += 1) {
+    if (leftValues[index] !== rightValues[index]) return false;
+  }
+  return true;
+}
+
+function getArrayExpressionStaticContainerInfo(arrayNode) {
+  const expression = unwrapChainNode(arrayNode);
+  if (expression?.type !== 'ArrayExpression') return null;
+  const values = [];
+  const keys = [];
+  let exact = true;
+  for (let index = 0; index < (expression.elements || []).length; index += 1) {
+    const value = expression.elements[index] || null;
+    if (value?.type === 'SpreadElement') {
+      exact = false;
+      continue;
+    }
+    values.push(value);
+    if (value) keys.push(String(index));
+  }
+  return createStaticContainerInfo('array', { keys, values, exact });
+}
+
+function getObjectExpressionStaticContainerInfo(objectNode) {
+  const expression = unwrapChainNode(objectNode);
+  if (expression?.type !== 'ObjectExpression') return null;
+  const keys = [];
+  let exact = true;
+  for (const property of expression.properties || []) {
+    if (property?.type !== 'Property') {
+      exact = false;
+      continue;
+    }
+    const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+    if (key == null) {
+      exact = false;
+      continue;
+    }
+    keys.push(key);
+  }
+  return createStaticContainerInfo('object', { keys, values: [], exact });
+}
+
+function markContainerPath(scope, name, info = null) {
+  if (!scope || !name) return;
+  scope.containers.add(name);
+  const staticInfo = cloneStaticContainerInfo(info);
+  if (staticInfo) scope.staticContainers.set(name, staticInfo);
+}
+
+function unmarkContainerPath(scope, name) {
+  if (!scope || !name) return;
+  for (const key of [...scope.containers]) {
+    if (key === name || key.startsWith(`${name}.`)) {
+      scope.containers.delete(key);
+    }
+  }
+  for (const key of [...scope.staticContainers.keys()]) {
+    if (key === name || key.startsWith(`${name}.`)) {
+      scope.staticContainers.delete(key);
+    }
+  }
+}
+
+function removeContainerAliasesForPath(scope, name) {
+  if (!scope || !name) return;
+  for (const key of [...scope.containerAliases.keys()]) {
+    if (key === name || key.startsWith(`${name}.`)) {
+      scope.containerAliases.delete(key);
+      continue;
+    }
+    const aliases = scope.containerAliases.get(key);
+    for (const alias of [...aliases]) {
+      if (alias === name || alias.startsWith(`${name}.`)) {
+        aliases.delete(alias);
+      }
+    }
+    if (aliases.size === 0) scope.containerAliases.delete(key);
+  }
+}
+
+function addContainerAlias(scope, leftName, rightName) {
+  if (!scope || !leftName || !rightName || leftName === rightName) return;
+  const staticInfo = getStaticContainerInfoFromScope(scope, leftName)
+    || getStaticContainerInfoFromScope(scope, rightName);
+  const related = new Set([leftName, rightName]);
+  for (const name of [leftName, rightName]) {
+    for (const alias of scope.containerAliases.get(name) || []) {
+      related.add(alias);
+    }
+  }
+  for (const name of related) {
+    if (!scope.containerAliases.has(name)) {
+      scope.containerAliases.set(name, new Set());
+    }
+    const aliases = scope.containerAliases.get(name);
+    for (const alias of related) {
+      if (alias !== name) aliases.add(alias);
+    }
+  }
+  for (const name of related) {
+    markContainerPath(scope, name, staticInfo);
+  }
+}
+
+function scopeHasContainerPath(scope, name) {
+  return Boolean(name && scope?.containers?.has(name));
+}
+
+function scopeHasKnownContainerPath(scope, name) {
+  if (!name) return false;
+  let current = scope;
+  while (current) {
+    if (scopeHasContainerPath(current, name)) return true;
+    if (scopeHasBinding(current, name) || scopeHasPrefixBinding(current, name)) return false;
+    current = current.parent;
+  }
+  return false;
+}
+
+function getStaticContainerInfoFromScope(scope, name, seen = new Set()) {
+  if (!scope || !name) return null;
+  const seenKey = name;
+  if (seen.has(seenKey)) return null;
+  seen.add(seenKey);
+  let current = scope;
+  while (current) {
+    const info = current.staticContainers.get(name);
+    if (info) return cloneStaticContainerInfo(info);
+    for (const alias of current.containerAliases.get(name) || []) {
+      const aliasInfo = getStaticContainerInfoFromScope(current, alias, seen);
+      if (aliasInfo) return aliasInfo;
+    }
+    if (scopeHasBinding(current, name) || scopeHasPrefixBinding(current, name)) return null;
+    current = current.parent;
+  }
+  return null;
+}
+
+function isArrayIndexKey(key) {
+  return /^(0|[1-9]\d*)$/.test(String(key));
+}
+
+function updateStaticContainerInfoForMemberAssignment(scope, memberName, valueNode) {
+  if (!scope || !memberName || !memberName.includes('.')) return;
+  const parts = memberName.split('.');
+  const key = parts.pop();
+  const parentName = parts.join('.');
+  const info = scope.staticContainers.get(parentName);
+  if (!info?.kind) return;
+  if (info.kind === 'array') {
+    if (key === 'length') {
+      return;
+    }
+    info.keys.add(String(key));
+    if (isArrayIndexKey(key)) {
+      const index = Number(key);
+      while (info.values.length <= index) {
+        info.values.push(null);
+      }
+      info.values[index] = valueNode || null;
+    }
+    return;
+  }
+  if (info.kind === 'object') {
+    info.keys.add(String(key));
+  }
+}
+
+function resolveStaticArrayLengthAssignment(valueNode, scope, initializedAt) {
+  const value = resolveStaticPrimitiveValue(valueNode, scope, initializedAt);
+  if (value === STATIC_PRIMITIVE_UNKNOWN) return null;
+  const length = Number(value);
+  if (!Number.isInteger(length) || length < 0 || length > 4294967295) return null;
+  return length;
+}
+
+function registerStaticArrayLengthAssignment(scope, memberName, valueNode, initializedAt) {
+  if (!scope || !memberName || !memberName.endsWith('.length')) return false;
+  const parentName = memberName.slice(0, -'.length'.length);
+  const info = scope.staticContainers.get(parentName);
+  if (info?.kind !== 'array') return false;
+  const indexes = collectStaticArrayContainerMemberIndexes(scope, parentName);
+  for (let index = 0; index < info.values.length; index += 1) {
+    indexes.add(index);
+  }
+  const length = resolveStaticArrayLengthAssignment(valueNode, scope, initializedAt);
+  if (length == null) {
+    info.exact = false;
+    for (const index of indexes) {
+      const memberNameForIndex = `${parentName}.${index}`;
+      addUnavailableFunctionDefinitionToScope(scope, memberNameForIndex, initializedAt);
+      addUnavailableStaticPrimitiveDefinitionToScope(scope, memberNameForIndex, initializedAt);
+    }
+    return true;
+  }
+  while (info.values.length < length) {
+    info.values.push(null);
+  }
+  info.values.length = length;
+  for (const key of [...info.keys]) {
+    if (isArrayIndexKey(key) && Number(key) >= length) {
+      info.keys.delete(key);
+    }
+  }
+  for (const index of indexes) {
+    if (index >= length || !info.values[index]) {
+      const memberNameForIndex = `${parentName}.${index}`;
+      addUnavailableFunctionDefinitionToScope(scope, memberNameForIndex, initializedAt);
+      addUnavailableStaticPrimitiveDefinitionToScope(scope, memberNameForIndex, initializedAt);
+    }
+  }
+  return true;
+}
+
+function updateStaticContainerInfoForMemberDelete(scope, memberName) {
+  if (!scope || !memberName || !memberName.includes('.')) return;
+  const parts = memberName.split('.');
+  const key = parts.pop();
+  const parentName = parts.join('.');
+  const info = scope.staticContainers.get(parentName);
+  if (!info?.kind) return;
+  if (info.kind === 'array') {
+    if (key === 'length') {
+      info.exact = false;
+      return;
+    }
+    info.keys.delete(String(key));
+    if (isArrayIndexKey(key)) {
+      const index = Number(key);
+      if (index < info.values.length) {
+        info.values[index] = null;
+      }
+    }
+    return;
+  }
+  if (info.kind === 'object') {
+    info.keys.delete(String(key));
+  }
+}
+
+function recomputeArrayStaticContainerKeys(info) {
+  if (info?.kind !== 'array') return;
+  info.keys = new Set();
+  for (let index = 0; index < info.values.length; index += 1) {
+    if (info.values[index]) info.keys.add(String(index));
+  }
+}
+
+function normalizeArrayMutationIndex(value, length) {
+  if (!Number.isFinite(value)) return null;
+  const integer = Math.trunc(value);
+  if (integer < 0) return Math.max(length + integer, 0);
+  return Math.min(integer, length);
+}
+
+function updateStaticArrayContainerInfoForMethod(info, methodName, args, scope, executionStart) {
+  if (info?.kind !== 'array') return false;
+  if (['push', 'unshift'].includes(methodName)) {
+    const values = [];
+    for (const argument of args || []) {
+      if (!argument || argument.type === 'SpreadElement') {
+        info.exact = false;
+        return true;
+      }
+      values.push(argument);
+    }
+    if (methodName === 'push') {
+      info.values.push(...values);
+    } else {
+      info.values.unshift(...values);
+    }
+    recomputeArrayStaticContainerKeys(info);
+    return true;
+  }
+  if (methodName === 'pop') {
+    info.values.pop();
+    recomputeArrayStaticContainerKeys(info);
+    return true;
+  }
+  if (methodName === 'shift') {
+    info.values.shift();
+    recomputeArrayStaticContainerKeys(info);
+    return true;
+  }
+  if (methodName === 'reverse') {
+    info.values.reverse();
+    recomputeArrayStaticContainerKeys(info);
+    return true;
+  }
+  if (methodName === 'sort') {
+    info.exact = false;
+    return true;
+  }
+  if (methodName === 'splice') {
+    const startValue = resolveStaticPrimitiveValue(args?.[0], scope, executionStart);
+    if (startValue === STATIC_PRIMITIVE_UNKNOWN) {
+      info.exact = false;
+      return true;
+    }
+    const start = normalizeArrayMutationIndex(Number(startValue), info.values.length);
+    if (start == null) {
+      info.exact = false;
+      return true;
+    }
+    let deleteCount = info.values.length - start;
+    if ((args || []).length > 1) {
+      const deleteValue = resolveStaticPrimitiveValue(args[1], scope, executionStart);
+      if (deleteValue === STATIC_PRIMITIVE_UNKNOWN) {
+        info.exact = false;
+        return true;
+      }
+      deleteCount = Math.max(0, Math.min(Number(deleteValue), info.values.length - start));
+    }
+    const inserts = [];
+    for (const argument of (args || []).slice(2)) {
+      if (!argument || argument.type === 'SpreadElement') {
+        info.exact = false;
+        return true;
+      }
+      inserts.push(argument);
+    }
+    info.values.splice(start, deleteCount, ...inserts);
+    recomputeArrayStaticContainerKeys(info);
+    return true;
+  }
+  if (['fill', 'copyWithin'].includes(methodName)) {
+    info.exact = false;
+    return true;
+  }
+  return false;
+}
+
+function updateStaticObjectContainerInfoForAssign(info, sourceNodes) {
+  if (info?.kind !== 'object') return false;
+  for (const sourceNode of sourceNodes || []) {
+    const source = unwrapChainNode(sourceNode);
+    if (source?.type !== 'ObjectExpression') {
+      info.exact = false;
+      return true;
+    }
+    const sourceInfo = getObjectExpressionStaticContainerInfo(source);
+    if (!sourceInfo?.exact) {
+      info.exact = false;
+      return true;
+    }
+    for (const key of sourceInfo.keys) {
+      info.keys.add(String(key));
+    }
+  }
+  return true;
+}
+
+function updateStaticArrayContainerInfoForAssign(info, sourceNodes) {
+  if (info?.kind !== 'array') return false;
+  for (const sourceNode of sourceNodes || []) {
+    const source = unwrapChainNode(sourceNode);
+    if (source?.type !== 'ObjectExpression') {
+      info.exact = false;
+      return true;
+    }
+    for (const property of source.properties || []) {
+      if (property?.type !== 'Property') {
+        info.exact = false;
+        return true;
+      }
+      const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+      if (key == null) {
+        info.exact = false;
+        return true;
+      }
+      if (key === 'length') {
+        info.exact = false;
+        continue;
+      }
+      info.keys.add(String(key));
+      if (isArrayIndexKey(key)) {
+        const index = Number(key);
+        while (info.values.length <= index) {
+          info.values.push(null);
+        }
+        info.values[index] = property.value || null;
+      }
+    }
+  }
+  return true;
+}
+
+function updateStaticContainerInfoForAssign(info, sourceNodes) {
+  return updateStaticObjectContainerInfoForAssign(info, sourceNodes)
+    || updateStaticArrayContainerInfoForAssign(info, sourceNodes);
+}
+
+function collectEquivalentContainerMutationTargets(scope, containerName) {
+  if (!scope || !containerName) return [];
+  const sentinel = '__runjsMutationTarget__';
+  const syntheticMemberName = `${containerName}.${sentinel}`;
+  return collectEquivalentContainerMemberAssignmentTargets(scope, syntheticMemberName)
+    .map((target) => ({
+      scope: target.scope,
+      name: target.name.endsWith(`.${sentinel}`)
+        ? target.name.slice(0, -1 * (`.${sentinel}`).length)
+        : containerName,
+    }))
+    .filter((target, index, targets) => (
+      target.name
+      && target.scope
+      && targets.findIndex((candidate) => candidate.name === target.name && candidate.scope === target.scope) === index
+    ));
+}
+
+function invalidateStaticContainerMemberDefinitions(scope, containerName, initializedAt) {
+  if (!scope || !containerName) return;
+  const prefix = `${containerName}.`;
+  const names = new Set([
+    ...[...scope.definitions.keys()].filter((key) => key.startsWith(prefix)),
+    ...[...scope.staticPrimitives.keys()].filter((key) => key.startsWith(prefix)),
+  ]);
+  for (const name of names) {
+    addUnavailableFunctionDefinitionToScope(scope, name, initializedAt);
+    addUnavailableStaticPrimitiveDefinitionToScope(scope, name, initializedAt);
+  }
+}
+
+function collectStaticArrayContainerMemberIndexes(scope, containerName) {
+  const indexes = new Set();
+  if (!scope || !containerName) return indexes;
+  const prefix = `${containerName}.`;
+  for (const key of new Set([...scope.definitions.keys(), ...scope.staticPrimitives.keys()])) {
+    if (!key.startsWith(prefix)) continue;
+    const suffix = key.slice(prefix.length).split('.')[0];
+    if (isArrayIndexKey(suffix)) indexes.add(Number(suffix));
+  }
+  return indexes;
+}
+
+function refreshStaticArrayContainerMemberDefinitions(scope, containerName, info, initializedAt) {
+  if (!scope || !containerName || info?.kind !== 'array') return;
+  const indexes = collectStaticArrayContainerMemberIndexes(scope, containerName);
+  for (let index = 0; index < info.values.length; index += 1) {
+    indexes.add(index);
+  }
+  for (const index of [...indexes].sort((left, right) => left - right)) {
+    const value = info.values[index];
+    const memberName = `${containerName}.${index}`;
+    if (index >= info.values.length || !value) {
+      addUnavailableFunctionDefinitionToScope(scope, memberName, initializedAt);
+      addUnavailableStaticPrimitiveDefinitionToScope(scope, memberName, initializedAt);
+      continue;
+    }
+    registerMemberFunctionAssignmentTarget(scope, scope, memberName, { right: value }, initializedAt);
+  }
+}
+
+function registerObjectAssignSourceDefinitions(scope, containerName, sourceNode, initializedAt) {
+  const source = unwrapChainNode(sourceNode);
+  if (source?.type !== 'ObjectExpression') {
+    invalidateStaticContainerMemberDefinitions(scope, containerName, initializedAt);
+    return;
+  }
+  for (const property of source.properties || []) {
+    if (property?.type !== 'Property') {
+      invalidateStaticContainerMemberDefinitions(scope, containerName, initializedAt);
+      return;
+    }
+    const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+    if (key == null) {
+      invalidateStaticContainerMemberDefinitions(scope, containerName, initializedAt);
+      return;
+    }
+    registerMemberFunctionAssignmentTarget(scope, scope, `${containerName}.${key}`, { right: property.value }, initializedAt);
+  }
+}
+
+function registerStaticContainerMethodMutation(scope, expression, executionStart) {
+  if (expression?.type !== 'CallExpression') return;
+  const callee = unwrapChainNode(expression.callee);
+  const args = expression.arguments || [];
+  const calleePath = getStaticMemberPath(callee);
+  if (calleePath?.length === 2 && calleePath[0] === 'Object' && calleePath[1] === 'assign') {
+    const targetPath = getStaticMemberPath(args[0]);
+    const targetName = targetPath?.join('.') || null;
+    if (!targetName) return;
+    for (const target of collectEquivalentContainerMutationTargets(scope, targetName)) {
+      const info = target.scope.staticContainers.get(target.name);
+      if (updateStaticContainerInfoForAssign(info, args.slice(1))) {
+        for (const sourceNode of args.slice(1)) {
+          registerObjectAssignSourceDefinitions(target.scope, target.name, sourceNode, executionStart);
+        }
+      }
+    }
+    return;
+  }
+  if (callee?.type !== 'MemberExpression') return;
+  const methodName = getStaticPropertyName(callee.property, { computed: Boolean(callee.computed) });
+  if (!methodName) return;
+  const objectPath = getStaticMemberPath(callee.object);
+  const objectName = objectPath?.join('.') || null;
+  if (!objectName) return;
+  for (const target of collectEquivalentContainerMutationTargets(scope, objectName)) {
+    const info = target.scope.staticContainers.get(target.name);
+    if (!info) continue;
+    if (info.kind === 'array') {
+      const changed = updateStaticArrayContainerInfoForMethod(info, methodName, args, target.scope, executionStart);
+      if (!changed) continue;
+      if (info.exact) {
+        refreshStaticArrayContainerMemberDefinitions(target.scope, target.name, info, executionStart);
+      } else {
+        invalidateStaticContainerMemberDefinitions(target.scope, target.name, executionStart);
+      }
+    }
+  }
+}
+
+function findObjectPropertyValue(objectNode, propertyName) {
+  const expression = unwrapChainNode(objectNode);
+  if (expression?.type !== 'ObjectExpression') return null;
+  for (const property of expression.properties || []) {
+    if (property?.type !== 'Property') continue;
+    const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+    if (key === propertyName) return property.value;
+  }
+  return null;
+}
+
+function findArrayElementValue(arrayNode, index) {
+  const expression = unwrapChainNode(arrayNode);
+  if (expression?.type !== 'ArrayExpression') return null;
+  return expression.elements?.[index] || null;
+}
+
+function findStaticContainerMemberValue(containerNode, propertyName) {
+  const expression = unwrapChainNode(containerNode);
+  if (expression?.type === 'ObjectExpression') {
+    return findObjectPropertyValue(expression, propertyName);
+  }
+  if (expression?.type === 'ArrayExpression') {
+    const index = Number(propertyName);
+    if (!Number.isInteger(index) || index < 0 || String(index) !== String(propertyName)) return null;
+    return findArrayElementValue(expression, index);
+  }
+  return null;
+}
+
+function resolveStaticLiteralExpressionValue(node) {
+  const expression = unwrapChainNode(node);
+  if (!isAstNode(expression)) return null;
+  if (isFunctionNode(expression) || expression.type === 'ObjectExpression' || expression.type === 'ArrayExpression') {
+    return expression;
+  }
+  if (expression.type !== 'MemberExpression') return null;
+  const container = resolveStaticLiteralExpressionValue(expression.object);
+  const propertyName = getStaticPropertyName(expression.property, { computed: Boolean(expression.computed) });
+  if (!container || propertyName == null) return null;
+  return findStaticContainerMemberValue(container, propertyName);
+}
+
+function addAliasedFunctionDefinitionToScope(scope, name, definition, initializedAt, { conditional = false } = {}) {
+  if (!name || !definition) return;
+  if (definition.node) {
+    addFunctionDefinition(scope.definitions, name, createFunctionDefinition(definition.node, {
+      hoisted: false,
+      initializedAt,
+      conditional: Boolean(conditional || definition.conditional),
+    }));
+    return;
+  }
+  addFunctionDefinition(scope.definitions, name, createUnavailableFunctionDefinition({
+    initializedAt,
+    conditional: Boolean(conditional || definition.conditional),
+  }));
+}
+
+function selectPossibleFunctionDefinitions(definitions, referenceStart) {
+  const availableDefinitions = (definitions || [])
+    .filter((candidate) => isFunctionDefinitionAvailable(candidate, referenceStart))
+    .sort(compareFunctionDefinitionsForCall);
+  let lastUnconditionalIndex = -1;
+  for (let index = 0; index < availableDefinitions.length; index += 1) {
+    if (!availableDefinitions[index].conditional) lastUnconditionalIndex = index;
+  }
+  const possibleDefinitions = [];
+  if (lastUnconditionalIndex >= 0) {
+    possibleDefinitions.push(availableDefinitions[lastUnconditionalIndex]);
+  }
+  for (const definition of availableDefinitions.slice(lastUnconditionalIndex + 1)) {
+    if (definition.conditional) possibleDefinitions.push(definition);
+  }
+  return possibleDefinitions;
+}
+
+function memberPathPrefixes(name) {
+  const parts = typeof name === 'string' ? name.split('.') : [];
+  const prefixes = [];
+  for (let index = 1; index < parts.length; index += 1) {
+    prefixes.push(parts.slice(0, index).join('.'));
+  }
+  return prefixes;
+}
+
+function scopeHasBinding(scope, name) {
+  return Boolean(name && (scope?.declared?.has(name) || scope?.definitions?.has(name)));
+}
+
+function scopeHasPrefixBinding(scope, name) {
+  return memberPathPrefixes(name).some((prefix) => scopeHasBinding(scope, prefix));
+}
+
+function resolveAliasedFunctionDefinitionsFromScope(scope, name, referenceStart, seen) {
+  const parts = typeof name === 'string' ? name.split('.') : [];
+  for (let index = parts.length - 1; index >= 1; index -= 1) {
+    const prefix = parts.slice(0, index).join('.');
+    const suffix = parts.slice(index).join('.');
+    for (const alias of scope.containerAliases.get(prefix) || []) {
+      const aliasedName = suffix ? `${alias}.${suffix}` : alias;
+      const seenKey = `${aliasedName}@${referenceStart ?? ''}`;
+      if (seen.has(seenKey)) continue;
+      seen.add(seenKey);
+      const definitions = resolveFunctionDefinitionsFromScopeNameInternal(scope, aliasedName, referenceStart, seen);
+      if (definitions !== null) return definitions;
+    }
+  }
+  return null;
+}
+
+function copyDescendantFunctionDefinitions(
+  sourceScope,
+  sourceName,
+  targetName,
+  initializedAt,
+  targetScope = sourceScope,
+  referenceStart = initializedAt,
+  { conditional = false } = {},
+) {
+  if (!sourceName || !targetName) return false;
+  const sourcePrefix = `${sourceName}.`;
+  let current = sourceScope;
+  while (current) {
+    let copiedInScope = false;
+    for (const [key, definitions] of current.definitions.entries()) {
+      if (!key.startsWith(sourcePrefix)) continue;
+      const suffix = key.slice(sourcePrefix.length);
+      const aliasName = `${targetName}.${suffix}`;
+      const possibleDefinitions = selectPossibleFunctionDefinitions(definitions, referenceStart);
+      if (possibleDefinitions.length === 0) {
+        addFunctionDefinition(targetScope.definitions, aliasName, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+        copiedInScope = true;
+        continue;
+      }
+      for (const definition of possibleDefinitions) {
+        addAliasedFunctionDefinitionToScope(targetScope, aliasName, definition, initializedAt, { conditional });
+        copiedInScope = true;
+      }
+    }
+    if (copiedInScope || scopeHasBinding(current, sourceName) || scopeHasPrefixBinding(current, sourceName)) {
+      return copiedInScope;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function hasEquivalentContainerMemberEntry(entries, name, scope) {
+  return entries.some((entry) => entry.name === name && entry.scope === scope);
+}
+
+function collectEquivalentContainerMemberEntries(scope, name) {
+  if (!scope || !name || !name.includes('.')) return [{ name, scope }];
+  const entries = [];
+  const queue = [];
+  const enqueue = (entryName, entryScope) => {
+    if (!entryName || !entryScope || hasEquivalentContainerMemberEntry(entries, entryName, entryScope)) return;
+    const entry = { name: entryName, scope: entryScope };
+    entries.push(entry);
+    queue.push(entry);
+  };
+
+  enqueue(name, scope);
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+    const entry = queue[queueIndex];
+    const parts = entry.name.split('.');
+    let current = entry.scope;
+    while (current) {
+      for (let index = parts.length - 1; index >= 1; index -= 1) {
+        const prefix = parts.slice(0, index).join('.');
+        const suffix = parts.slice(index).join('.');
+        for (const alias of current.containerAliases.get(prefix) || []) {
+          enqueue(suffix ? `${alias}.${suffix}` : alias, current);
+        }
+      }
+      if (scopeHasBinding(current, entry.name) || scopeHasPrefixBinding(current, entry.name)) {
+        break;
+      }
+      current = current.parent;
+    }
+  }
+  return entries;
+}
+
+function collectEquivalentContainerMemberAssignmentTargets(scope, name) {
+  const targets = [];
+  for (const entry of collectEquivalentContainerMemberEntries(scope, name)) {
+    const rootName = entry.name.split('.')[0];
+    const targetScope = findAssignmentTargetScope(entry.scope, rootName);
+    if (targets.some((target) => target.name === entry.name && target.scope === targetScope)) continue;
+    targets.push({ name: entry.name, scope: targetScope });
+  }
+  return targets;
+}
+
+function resolveFunctionDefinitionsFromScopeName(scope, name, referenceStart = null) {
+  return resolveFunctionDefinitionsFromScopeNameInternal(scope, name, referenceStart, new Set());
+}
+
+function resolveFunctionDefinitionsFromScopeNameInternal(scope, name, referenceStart = null, seen = new Set()) {
+  if (!name) return null;
+  const ownSeenKey = `${name}@${referenceStart ?? ''}`;
+  if (seen.has(ownSeenKey)) return null;
+  seen.add(ownSeenKey);
+  let current = scope;
+  while (current) {
+    if (current.declared.has(name) || current.definitions.has(name)) {
+      const callStart = Number.isInteger(referenceStart) ? referenceStart : null;
+      return selectPossibleFunctionDefinitions(current.definitions.get(name) || [], callStart);
+    }
+    const aliasedDefinitions = resolveAliasedFunctionDefinitionsFromScope(current, name, referenceStart, seen);
+    if (aliasedDefinitions !== null) return aliasedDefinitions;
+    if (scopeHasPrefixBinding(current, name)) {
+      return [];
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function addResolvedFunctionDefinitionsByNameToScope(
+  scope,
+  targetName,
+  sourceName,
+  initializedAt,
+  { resolveScope = scope, referenceStart = initializedAt, conditional = false } = {},
+) {
+  const definitions = resolveFunctionDefinitionsFromScopeName(resolveScope, sourceName, referenceStart);
+  const sourceIsKnownContainer = scopeHasKnownContainerPath(resolveScope, sourceName);
+  const sourceStaticInfo = getStaticContainerInfoFromScope(resolveScope, sourceName);
+  if (!definitions && !sourceIsKnownContainer) return false;
+  scope.declared.add(targetName);
+  copyDescendantFunctionDefinitions(resolveScope, sourceName, targetName, initializedAt, scope, referenceStart, { conditional });
+  if (sourceStaticInfo) {
+    markContainerPath(scope, targetName, sourceStaticInfo);
+  }
+  if (sourceIsKnownContainer && scopeHasKnownContainerPath(scope, sourceName)) {
+    addContainerAlias(scope, targetName, sourceName);
+  }
+  if (sourceIsKnownContainer && resolveScope !== scope) {
+    addContainerAlias(resolveScope, targetName, sourceName);
+  }
+  if (!definitions) return true;
+  if (definitions.length === 0) {
+    addFunctionDefinition(scope.definitions, targetName, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    return true;
+  }
+  for (const definition of definitions) {
+    addAliasedFunctionDefinitionToScope(scope, targetName, definition, initializedAt, { conditional });
+  }
+  return true;
+}
+
+function addResolvedFunctionDefinitionsToScope(
+  scope,
+  targetName,
+  sourceExpression,
+  initializedAt,
+  { resolveScope = scope, referenceStart = initializedAt, conditional = false } = {},
+) {
+  const literalValue = unwrapChainNode(resolveStaticLiteralExpressionValue(sourceExpression));
+  if (isFunctionNode(literalValue)) {
+    scope.declared.add(targetName);
+    addAliasedFunctionDefinitionToScope(scope, targetName, createFunctionDefinition(literalValue, {
+      hoisted: false,
+      initializedAt,
+    }), initializedAt, { conditional });
+    return true;
+  }
+  if (literalValue?.type === 'ObjectExpression') {
+    scope.declared.add(targetName);
+    registerObjectMemberFunctionDefinitions(scope, targetName, literalValue, initializedAt, { conditional });
+    addFunctionDefinition(scope.definitions, targetName, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    return true;
+  }
+  if (literalValue?.type === 'ArrayExpression') {
+    scope.declared.add(targetName);
+    registerArrayElementFunctionDefinitions(scope, targetName, literalValue, initializedAt, { conditional });
+    addFunctionDefinition(scope.definitions, targetName, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    return true;
+  }
+  const sourcePath = getStaticMemberPath(sourceExpression);
+  const sourceName = sourcePath?.join('.') || null;
+  return addResolvedFunctionDefinitionsByNameToScope(scope, targetName, sourceName, initializedAt, {
+    resolveScope,
+    referenceStart,
+    conditional,
+  });
+}
+
+function registerArrayElementFunctionDefinitions(scope, baseName, arrayNode, initializedAt, { conditional = false } = {}) {
+  const expression = unwrapChainNode(arrayNode);
+  if (!baseName || expression?.type !== 'ArrayExpression') return;
+  markContainerPath(scope, baseName, getArrayExpressionStaticContainerInfo(expression));
+  for (let index = 0; index < (expression.elements || []).length; index += 1) {
+    const value = unwrapChainNode(expression.elements[index]);
+    if (value?.type === 'SpreadElement') continue;
+    const memberName = `${baseName}.${index}`;
+    if (isFunctionNode(value)) {
+      addFunctionDefinitionToScope(scope, memberName, createFunctionDefinition(value, {
+        hoisted: false,
+        initializedAt,
+        conditional,
+      }));
+    } else if (value?.type === 'ObjectExpression') {
+      registerObjectMemberFunctionDefinitions(scope, memberName, value, initializedAt, { conditional });
+    } else if (value?.type === 'ArrayExpression') {
+      registerArrayElementFunctionDefinitions(scope, memberName, value, initializedAt, { conditional });
+    } else {
+      registerStaticPrimitiveDefinitionFromNode(scope, memberName, value, initializedAt, { conditional });
+      addUnavailableFunctionDefinitionToScope(scope, memberName, initializedAt, { conditional });
+    }
+  }
+}
+
+function registerObjectMemberFunctionDefinitions(scope, baseName, objectNode, initializedAt, { conditional = false } = {}) {
+  const expression = unwrapChainNode(objectNode);
+  if (!baseName || expression?.type !== 'ObjectExpression') return;
+  markContainerPath(scope, baseName, getObjectExpressionStaticContainerInfo(expression));
+  for (const property of expression.properties || []) {
+    if (property?.type !== 'Property') continue;
+    const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+    if (!key) continue;
+    const memberName = `${baseName}.${key}`;
+    if (isFunctionNode(property.value)) {
+      addFunctionDefinitionToScope(scope, memberName, createFunctionDefinition(property.value, {
+        hoisted: false,
+        initializedAt,
+        conditional,
+      }));
+    } else if (unwrapChainNode(property.value)?.type === 'ObjectExpression') {
+      registerObjectMemberFunctionDefinitions(scope, memberName, property.value, initializedAt, { conditional });
+    } else if (unwrapChainNode(property.value)?.type === 'ArrayExpression') {
+      registerArrayElementFunctionDefinitions(scope, memberName, property.value, initializedAt, { conditional });
+    } else {
+      registerStaticPrimitiveDefinitionFromNode(scope, memberName, property.value, initializedAt, { conditional });
+      addUnavailableFunctionDefinitionToScope(scope, memberName, initializedAt, { conditional });
+    }
+  }
+}
+
+function isStaticUndefinedNode(node) {
+  const expression = unwrapChainNode(node);
+  return !isAstNode(expression)
+    || (expression.type === 'Identifier' && expression.name === 'undefined')
+    || (expression.type === 'UnaryExpression' && expression.operator === 'void');
+}
+
+function shouldUseValueDestructuringDefault(value) {
+  return isStaticUndefinedNode(value);
+}
+
+function shouldUseSourcePathDestructuringDefault(scope, sourcePath, initializedAt) {
+  if (!Array.isArray(sourcePath) || sourcePath.length === 0) return true;
+  const sourceName = sourcePath.join('.');
+  const primitive = resolveStaticPrimitiveFromScopeName(scope, sourceName, initializedAt);
+  if (primitive === undefined) return true;
+  if (primitive !== STATIC_PRIMITIVE_UNKNOWN) return false;
+  if (scopeHasKnownContainerPath(scope, sourceName)) return false;
+  const definitions = resolveFunctionDefinitionsFromScopeName(scope, sourceName, initializedAt);
+  return !definitions || definitions.length === 0;
+}
+
+function registerPatternFunctionDefinitionsFromSourcePath(
+  scope,
+  pattern,
+  sourcePath,
+  initializedAt,
+  { resolveScope = scope, referenceStart = initializedAt, conditional = false } = {},
+) {
+  const target = unwrapChainNode(pattern);
+  if (!isAstNode(target) || !Array.isArray(sourcePath) || sourcePath.length === 0) return;
+  if (target.type === 'Identifier') {
+    const sourceName = sourcePath.join('.');
+    const targetScope = findAssignmentTargetScope(scope, target.name);
+    registerStaticPrimitiveDefinitionFromSourcePath(targetScope, target.name, sourcePath, initializedAt, {
+      resolveScope,
+      referenceStart,
+      conditional,
+    });
+    if (addResolvedFunctionDefinitionsByNameToScope(targetScope, target.name, sourceName, initializedAt, {
+      resolveScope,
+      referenceStart,
+      conditional,
+    })) return;
+    targetScope.declared.add(target.name);
+    addFunctionDefinition(targetScope.definitions, target.name, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    return;
+  }
+  if (target.type === 'AssignmentPattern') {
+    if (shouldUseSourcePathDestructuringDefault(resolveScope, sourcePath, initializedAt)) {
+      registerPatternFunctionDefinitions(scope, target.left, target.right, initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+    } else {
+      registerPatternFunctionDefinitionsFromSourcePath(scope, target.left, sourcePath, initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+    }
+    return;
+  }
+  if (target.type === 'RestElement') {
+    for (const name of collectAssignmentTargetIdentifiers(target.argument)) {
+      addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(scope, name), name, initializedAt, { conditional });
+    }
+    return;
+  }
+  if (target.type === 'ArrayPattern') {
+    for (let index = 0; index < (target.elements || []).length; index += 1) {
+      const element = target.elements[index];
+      if (!element) continue;
+      registerPatternFunctionDefinitionsFromSourcePath(scope, element, [...sourcePath, String(index)], initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+    }
+    return;
+  }
+  if (target.type === 'ObjectPattern') {
+    for (const property of target.properties || []) {
+      if (property?.type === 'RestElement') {
+        for (const name of collectAssignmentTargetIdentifiers(property.argument)) {
+          addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(scope, name), name, initializedAt, { conditional });
+        }
+        continue;
+      }
+      if (property?.type !== 'Property') continue;
+      const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+      if (key == null) {
+        for (const name of collectAssignmentTargetIdentifiers(property.value)) {
+          addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(scope, name), name, initializedAt, { conditional });
+        }
+        continue;
+      }
+      registerPatternFunctionDefinitionsFromSourcePath(scope, property.value, [...sourcePath, key], initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+    }
+  }
+}
+
+function registerPatternFunctionDefinitions(
+  scope,
+  pattern,
+  valueNode,
+  initializedAt,
+  { resolveScope = scope, referenceStart = initializedAt, conditional = false } = {},
+) {
+  const target = unwrapChainNode(pattern);
+  const value = unwrapChainNode(valueNode);
+  if (!isAstNode(target)) return;
+  if (target.type === 'Identifier') {
+    const targetScope = findAssignmentTargetScope(scope, target.name);
+    registerStaticPrimitiveDefinitionFromNode(targetScope, target.name, value, initializedAt, {
+      resolveScope,
+      referenceStart,
+      conditional,
+    });
+    if (isFunctionNode(value)) {
+      addFunctionDefinitionToScope(targetScope, target.name, createFunctionDefinition(value, {
+        hoisted: false,
+        initializedAt,
+        conditional,
+      }));
+    } else if (value?.type === 'ObjectExpression') {
+      addUnavailableFunctionDefinitionToScope(targetScope, target.name, initializedAt, { conditional });
+      registerObjectMemberFunctionDefinitions(targetScope, target.name, value, initializedAt, { conditional });
+      addFunctionDefinition(targetScope.definitions, target.name, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    } else if (value?.type === 'ArrayExpression') {
+      addUnavailableFunctionDefinitionToScope(targetScope, target.name, initializedAt, { conditional });
+      registerArrayElementFunctionDefinitions(targetScope, target.name, value, initializedAt, { conditional });
+      addFunctionDefinition(targetScope.definitions, target.name, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+    } else if (addResolvedFunctionDefinitionsToScope(targetScope, target.name, value, initializedAt, {
+      resolveScope,
+      referenceStart,
+      conditional,
+    })) {
+      return;
+    } else {
+      addUnavailableFunctionDefinitionToScope(targetScope, target.name, initializedAt, { conditional });
+    }
+    return;
+  }
+  if (target.type === 'AssignmentPattern') {
+    registerPatternFunctionDefinitions(
+      scope,
+      target.left,
+      shouldUseValueDestructuringDefault(value) ? target.right : value,
+      initializedAt,
+      { resolveScope, referenceStart, conditional },
+    );
+    return;
+  }
+  if (target.type === 'RestElement') {
+    for (const name of collectAssignmentTargetIdentifiers(target.argument)) {
+      addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(scope, name), name, initializedAt, { conditional });
+    }
+    return;
+  }
+  if (target.type === 'ArrayPattern') {
+    const valuePath = getStaticMemberPath(value);
+    if (valuePath) {
+      registerPatternFunctionDefinitionsFromSourcePath(scope, target, valuePath, initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+      return;
+    }
+    const elements = value?.type === 'ArrayExpression' ? value.elements || [] : [];
+    for (let index = 0; index < (target.elements || []).length; index += 1) {
+      const element = target.elements[index];
+      if (!element) continue;
+      registerPatternFunctionDefinitions(scope, element, elements[index], initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+    }
+    return;
+  }
+  if (target.type === 'ObjectPattern') {
+    const valuePath = getStaticMemberPath(value);
+    if (valuePath) {
+      registerPatternFunctionDefinitionsFromSourcePath(scope, target, valuePath, initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+      return;
+    }
+    for (const property of target.properties || []) {
+      if (property?.type === 'RestElement') {
+        for (const name of collectAssignmentTargetIdentifiers(property.argument)) {
+          addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(scope, name), name, initializedAt, { conditional });
+        }
+        continue;
+      }
+      if (property?.type !== 'Property') continue;
+      const key = getStaticPropertyName(property.key, { computed: Boolean(property.computed) });
+      const propertyValue = key == null ? null : findObjectPropertyValue(value, key);
+      registerPatternFunctionDefinitions(scope, property.value, propertyValue, initializedAt, {
+        resolveScope,
+        referenceStart,
+        conditional,
+      });
+    }
+  }
+}
+
+function registerFunctionVariableDefinition(scope, declarator, statement) {
+  if (!declarator.init) return;
+  const initializedAt = Number.isInteger(declarator.start)
+    ? declarator.start
+    : (Number.isInteger(statement?.start) ? statement.start : null);
+  const targetScope = statement?.kind === 'var' ? scope.varTarget : scope;
+  if (declarator?.id?.type !== 'Identifier') {
+    registerPatternFunctionDefinitions(targetScope, declarator?.id, declarator.init, initializedAt, { resolveScope: scope });
+    return;
+  }
+  if (!isFunctionNode(declarator.init)) {
+    const primitive = resolveStaticPrimitiveValue(declarator.init, targetScope, initializedAt);
+    if (primitive !== STATIC_PRIMITIVE_UNKNOWN) {
+      addStaticPrimitiveDefinitionToScope(targetScope, declarator.id.name, primitive, initializedAt);
+    }
+    if (unwrapChainNode(declarator.init)?.type === 'ObjectExpression') {
+      registerObjectMemberFunctionDefinitions(targetScope, declarator.id.name, declarator.init, initializedAt);
+      addFunctionDefinition(targetScope.definitions, declarator.id.name, createUnavailableFunctionDefinition({ initializedAt }));
+      return;
+    }
+    if (unwrapChainNode(declarator.init)?.type === 'ArrayExpression') {
+      registerArrayElementFunctionDefinitions(targetScope, declarator.id.name, declarator.init, initializedAt);
+      addFunctionDefinition(targetScope.definitions, declarator.id.name, createUnavailableFunctionDefinition({ initializedAt }));
+      return;
+    }
+    if (addResolvedFunctionDefinitionsToScope(targetScope, declarator.id.name, declarator.init, initializedAt)) {
+      return;
+    }
+    addUnavailableFunctionDefinitionToScope(targetScope, declarator.id.name, initializedAt);
+    return;
+  }
+  addFunctionDefinitionToScope(targetScope, declarator.id.name, createFunctionDefinition(declarator.init, {
+    hoisted: false,
+    initializedAt,
+  }));
+}
+
+function registerMemberFunctionAssignmentTarget(resolveScope, targetScope, memberName, expression, initializedAt) {
+  if (!registerStaticArrayLengthAssignment(targetScope, memberName, expression.right, initializedAt)) {
+    updateStaticContainerInfoForMemberAssignment(targetScope, memberName, expression.right);
+  }
+  addUnavailableStaticPrimitiveDefinitionToScope(targetScope, memberName, initializedAt);
+  if (isFunctionNode(expression.right)) {
+    addFunctionDefinitionToScope(targetScope, memberName, createFunctionDefinition(expression.right, {
+      hoisted: false,
+      initializedAt,
+    }));
+  } else if (unwrapChainNode(expression.right)?.type === 'ObjectExpression') {
+    addUnavailableFunctionDefinitionToScope(targetScope, memberName, initializedAt);
+    registerObjectMemberFunctionDefinitions(targetScope, memberName, expression.right, initializedAt);
+    addFunctionDefinition(targetScope.definitions, memberName, createUnavailableFunctionDefinition({ initializedAt }));
+  } else if (unwrapChainNode(expression.right)?.type === 'ArrayExpression') {
+    addUnavailableFunctionDefinitionToScope(targetScope, memberName, initializedAt);
+    registerArrayElementFunctionDefinitions(targetScope, memberName, expression.right, initializedAt);
+    addFunctionDefinition(targetScope.definitions, memberName, createUnavailableFunctionDefinition({ initializedAt }));
+  } else if (!addResolvedFunctionDefinitionsToScope(targetScope, memberName, expression.right, initializedAt, { resolveScope })) {
+    registerStaticPrimitiveDefinitionFromNode(targetScope, memberName, expression.right, initializedAt, { resolveScope });
+    addUnavailableFunctionDefinitionToScope(targetScope, memberName, initializedAt);
+  }
+}
+
+function registerMemberFunctionAssignmentTargets(scope, memberName, expression, initializedAt) {
+  for (const target of collectEquivalentContainerMemberAssignmentTargets(scope, memberName)) {
+    registerMemberFunctionAssignmentTarget(scope, target.scope, target.name, expression, initializedAt);
+  }
+}
+
+function registerFunctionAssignmentDefinition(scope, expression, statement) {
+  if (
+    expression?.type !== 'AssignmentExpression'
+  ) {
+    return;
+  }
+  const initializedAt = Number.isInteger(expression.start)
+    ? expression.start
+    : (Number.isInteger(statement?.start) ? statement.start : null);
+  const memberPath = getStaticMemberPath(expression.left);
+  if (memberPath?.length > 1) {
+    const memberName = memberPath.join('.');
+    unmarkContainerPath(scope, memberName);
+    removeContainerAliasesForPath(scope, memberName);
+    registerMemberFunctionAssignmentTargets(scope, memberName, expression, initializedAt);
+    return;
+  }
+  if (expression.left?.type !== 'Identifier') {
+    for (const name of collectAssignmentTargetIdentifiers(expression.left)) {
+      registerStaticPrimitiveInvalidation(scope, name, initializedAt);
+    }
+    registerPatternFunctionDefinitions(scope, expression.left, expression.right, initializedAt);
+    return;
+  }
+  const targetScope = findAssignmentTargetScope(scope, expression.left.name);
+  unmarkContainerPath(scope, expression.left.name);
+  removeContainerAliasesForPath(scope, expression.left.name);
+  registerStaticPrimitiveInvalidation(scope, expression.left.name, initializedAt);
+  if (!isFunctionNode(expression.right)) {
+    if (unwrapChainNode(expression.right)?.type === 'ObjectExpression') {
+      addUnavailableFunctionDefinitionToScope(targetScope, expression.left.name, initializedAt);
+      registerObjectMemberFunctionDefinitions(targetScope, expression.left.name, expression.right, initializedAt);
+      addFunctionDefinition(targetScope.definitions, expression.left.name, createUnavailableFunctionDefinition({ initializedAt }));
+      return;
+    }
+    if (unwrapChainNode(expression.right)?.type === 'ArrayExpression') {
+      addUnavailableFunctionDefinitionToScope(targetScope, expression.left.name, initializedAt);
+      registerArrayElementFunctionDefinitions(targetScope, expression.left.name, expression.right, initializedAt);
+      addFunctionDefinition(targetScope.definitions, expression.left.name, createUnavailableFunctionDefinition({ initializedAt }));
+      return;
+    }
+    if (addResolvedFunctionDefinitionsToScope(targetScope, expression.left.name, expression.right, initializedAt, { resolveScope: scope })) {
+      return;
+    }
+    addUnavailableFunctionDefinitionToScope(targetScope, expression.left.name, initializedAt);
+    return;
+  }
+  addFunctionDefinitionToScope(targetScope, expression.left.name, createFunctionDefinition(expression.right, {
+    hoisted: false,
+    initializedAt,
+  }));
+}
+
+function registerUpdateExpressionInvalidation(scope, expression) {
+  if (expression?.type !== 'UpdateExpression' || expression.argument?.type !== 'Identifier') return;
+  const initializedAt = Number.isInteger(expression.start) ? expression.start : null;
+  registerUnavailableFunctionDefinition(scope, expression.argument.name, initializedAt);
+  registerStaticPrimitiveInvalidation(scope, expression.argument.name, initializedAt);
+}
+
+function isFunctionDefinitionAvailable(definition, callStart) {
+  if (!definition) return false;
+  if (definition.hoisted) return true;
+  return Number.isInteger(definition.initializedAt)
+    && Number.isInteger(callStart)
+    && definition.initializedAt < callStart;
+}
+
+function compareFunctionDefinitionsForCall(left, right) {
+  const leftEffectiveAt = left.hoisted ? Number.NEGATIVE_INFINITY : Number(left.initializedAt);
+  const rightEffectiveAt = right.hoisted ? Number.NEGATIVE_INFINITY : Number(right.initializedAt);
+  if (leftEffectiveAt !== rightEffectiveAt) {
+    return leftEffectiveAt - rightEffectiveAt;
+  }
+  return Number(left.declarationStart || 0) - Number(right.declarationStart || 0);
+}
+
+function resolveCalledFunctionsFromScope(callExpression, scope, executionStart = null) {
+  const callee = unwrapChainNode(callExpression?.callee);
+  if (isFunctionNode(callee)) return [callee];
+  const literalCallee = unwrapChainNode(resolveStaticLiteralExpressionValue(callee));
+  if (isFunctionNode(literalCallee)) return [literalCallee];
+  const calleePath = getStaticMemberPath(callee);
+  const calleeName = calleePath?.join('.') || null;
+  if (!calleeName) return [];
+
+  const callStart = Number.isInteger(executionStart) ? executionStart : callExpression?.start;
+  const possibleDefinitions = resolveFunctionDefinitionsFromScopeName(scope, calleeName, callStart) || [];
+  return Array.from(new Set(possibleDefinitions.map((definition) => definition?.node).filter(Boolean)));
+}
+
+function getFunctionCallArgument(args, index) {
+  const argument = args?.[index] || null;
+  if (!argument || argument.type === 'SpreadElement') {
+    return { hasArgument: false, node: null };
+  }
+  return { hasArgument: true, node: argument };
+}
+
+function bindFunctionCallParameter(
+  scope,
+  parameter,
+  argument,
+  initializedAt,
+  argumentScope,
+  referenceStart,
+  seen,
+) {
+  const target = unwrapChainNode(parameter);
+  if (!isAstNode(target)) return createExecutionPathResult();
+  if (target.type === 'AssignmentPattern') {
+    const useDefault = !argument.hasArgument || isStaticUndefinedNode(argument.node);
+    if (useDefault) {
+      const defaultResult = analyzeExpressionExecutionPath(target.right, scope, referenceStart, seen);
+      if (defaultResult.hasRender || defaultResult.terminated) return defaultResult;
+      registerPatternFunctionDefinitions(scope, target.left, target.right, initializedAt, {
+        resolveScope: scope,
+        referenceStart,
+      });
+      return createExecutionPathResult({
+        mayThrow: defaultResult.mayThrow,
+        throwScopes: getThrowScopes(defaultResult),
+      });
+    }
+    registerPatternFunctionDefinitions(scope, target.left, argument.node, initializedAt, {
+      resolveScope: argumentScope,
+      referenceStart,
+    });
+    return createExecutionPathResult();
+  }
+  if (target.type === 'RestElement') {
+    for (const name of collectAssignmentTargetIdentifiers(target.argument)) {
+      addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(scope, name), name, initializedAt);
+    }
+    return createExecutionPathResult();
+  }
+  if (!argument.hasArgument) return createExecutionPathResult();
+  registerPatternFunctionDefinitions(scope, target, argument.node, initializedAt, {
+    resolveScope: argumentScope,
+    referenceStart,
+  });
+  return createExecutionPathResult();
+}
+
+function bindFunctionCallParameters(scope, params, args, initializedAt, argumentScope, referenceStart, seen) {
+  let mayThrow = false;
+  let throwScopes = [];
+  for (let index = 0; index < (params || []).length; index += 1) {
+    const result = bindFunctionCallParameter(
+      scope,
+      params[index],
+      getFunctionCallArgument(args, index),
+      initializedAt,
+      argumentScope,
+      referenceStart,
+      seen,
+    );
+    if (result.hasRender || result.terminated) return result;
+    mayThrow = mayThrow || result.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(result)];
+  }
+  return createExecutionPathResult({ mayThrow, throwScopes });
+}
+
+function getFunctionParameterInitializedAt(functionNode, fallback) {
+  const paramEnds = (functionNode?.params || [])
+    .map((param) => param?.end)
+    .filter((value) => Number.isInteger(value));
+  if (paramEnds.length > 0) return Math.max(...paramEnds);
+  return Number.isInteger(functionNode?.start) ? functionNode.start : fallback;
+}
+
+function isStaticPrimitiveDefinitionAvailable(definition, referenceStart) {
+  if (!definition) return false;
+  if (!Number.isInteger(referenceStart)) return true;
+  return Number.isInteger(definition.initializedAt) && definition.initializedAt < referenceStart;
+}
+
+function resolveStaticPrimitiveFromScopeName(scope, name, referenceStart = null) {
+  if (!scope || !name) return STATIC_PRIMITIVE_UNKNOWN;
+  let current = scope;
+  while (current) {
+    if (current.declared.has(name) || current.staticPrimitives.has(name)) {
+      const definitions = (current.staticPrimitives.get(name) || [])
+        .filter((candidate) => isStaticPrimitiveDefinitionAvailable(candidate, referenceStart));
+      let lastUnconditional = null;
+      for (const definition of definitions) {
+        if (!definition.conditional) lastUnconditional = definition;
+      }
+      if (!lastUnconditional || lastUnconditional.unavailable) return STATIC_PRIMITIVE_UNKNOWN;
+      if (definitions.some((definition) => definition.conditional && definition.initializedAt > lastUnconditional.initializedAt)) {
+        return STATIC_PRIMITIVE_UNKNOWN;
+      }
+      return lastUnconditional.value;
+    }
+    current = current.parent;
+  }
+  return STATIC_PRIMITIVE_UNKNOWN;
+}
+
+function resolveStaticBooleanValue(node, scope = null, executionStart = null) {
+  const primitive = resolveStaticPrimitiveValue(node, scope, executionStart);
+  return primitive === STATIC_PRIMITIVE_UNKNOWN ? null : Boolean(primitive);
+}
+
+const STATIC_PRIMITIVE_UNKNOWN = Symbol('runjs-static-primitive-unknown');
+
+function isStaticPrimitiveValue(value) {
+  return value == null || ['boolean', 'number', 'string', 'bigint'].includes(typeof value);
+}
+
+function createStaticBinaryValue(operator, left, right) {
+  try {
+    switch (operator) {
+      case '===':
+        return left === right;
+      case '!==':
+        return left !== right;
+      case '==':
+        return left == right;
+      case '!=':
+        return left != right;
+      case '<':
+        return left < right;
+      case '<=':
+        return left <= right;
+      case '>':
+        return left > right;
+      case '>=':
+        return left >= right;
+      case '+':
+        return left + right;
+      case '-':
+        return left - right;
+      case '*':
+        return left * right;
+      case '/':
+        return left / right;
+      case '%':
+        return left % right;
+      case '**':
+        return left ** right;
+      case '|':
+        return left | right;
+      case '&':
+        return left & right;
+      case '^':
+        return left ^ right;
+      case '<<':
+        return left << right;
+      case '>>':
+        return left >> right;
+      case '>>>':
+        return left >>> right;
+      default:
+        return STATIC_PRIMITIVE_UNKNOWN;
+    }
+  } catch (_) {
+    return STATIC_PRIMITIVE_UNKNOWN;
+  }
+}
+
+function resolveStaticPrimitiveValue(node, scope = null, executionStart = null) {
+  const expression = unwrapChainNode(node);
+  if (!expression) return STATIC_PRIMITIVE_UNKNOWN;
+  if (expression.type === 'Identifier') {
+    if (expression.name === 'undefined') return undefined;
+    const referenceStart = Number.isInteger(executionStart) ? executionStart : expression.start;
+    return resolveStaticPrimitiveFromScopeName(scope, expression.name, referenceStart);
+  }
+  if (expression.type === 'Literal') {
+    return isStaticPrimitiveValue(expression.value) ? expression.value : STATIC_PRIMITIVE_UNKNOWN;
+  }
+  if (
+    expression.type === 'TemplateLiteral'
+    && Array.isArray(expression.expressions)
+    && expression.expressions.length === 0
+  ) {
+    return expression.quasis?.map((item) => item.value?.cooked ?? item.value?.raw ?? '').join('') ?? '';
+  }
+  if (expression.type === 'UnaryExpression' && expression.operator === 'void') {
+    return undefined;
+  }
+  if (expression.type === 'UnaryExpression' && expression.operator === '!') {
+    const argument = resolveStaticPrimitiveValue(expression.argument, scope, executionStart);
+    return argument === STATIC_PRIMITIVE_UNKNOWN ? STATIC_PRIMITIVE_UNKNOWN : !Boolean(argument);
+  }
+  if (expression.type === 'UnaryExpression' && ['+', '-', '~'].includes(expression.operator)) {
+    const argument = resolveStaticPrimitiveValue(expression.argument, scope, executionStart);
+    if (argument === STATIC_PRIMITIVE_UNKNOWN) return STATIC_PRIMITIVE_UNKNOWN;
+    if (expression.operator === '+') return +argument;
+    if (expression.operator === '-') return -argument;
+    return ~argument;
+  }
+  if (expression.type === 'BinaryExpression') {
+    const left = resolveStaticPrimitiveValue(expression.left, scope, executionStart);
+    const right = resolveStaticPrimitiveValue(expression.right, scope, executionStart);
+    if (left === STATIC_PRIMITIVE_UNKNOWN || right === STATIC_PRIMITIVE_UNKNOWN) return STATIC_PRIMITIVE_UNKNOWN;
+    return createStaticBinaryValue(expression.operator, left, right);
+  }
+  if (expression.type === 'LogicalExpression') {
+    const left = resolveStaticPrimitiveValue(expression.left, scope, executionStart);
+    if (left === STATIC_PRIMITIVE_UNKNOWN) return STATIC_PRIMITIVE_UNKNOWN;
+    if (expression.operator === '&&') return left ? resolveStaticPrimitiveValue(expression.right, scope, executionStart) : left;
+    if (expression.operator === '||') return left ? left : resolveStaticPrimitiveValue(expression.right, scope, executionStart);
+    if (expression.operator === '??') return left == null ? resolveStaticPrimitiveValue(expression.right, scope, executionStart) : left;
+  }
+  if (expression.type === 'ConditionalExpression') {
+    const test = resolveStaticBooleanValue(expression.test, scope, executionStart);
+    if (test == null) return STATIC_PRIMITIVE_UNKNOWN;
+    return resolveStaticPrimitiveValue(test ? expression.consequent : expression.alternate, scope, executionStart);
+  }
+  return STATIC_PRIMITIVE_UNKNOWN;
+}
+
+function staticPrimitiveValuesEqual(left, right) {
+  return Object.is(left, right) || left === right;
+}
+
+function isFunctionTerminatingResult(result) {
+  return result?.termination === 'return' || result?.termination === 'throw';
+}
+
+function combineBranchTermination(left, right) {
+  if (!left?.terminated || !right?.terminated) return null;
+  if (left.termination === right.termination) return left.termination || null;
+  if (isFunctionTerminatingResult(left) && isFunctionTerminatingResult(right)) {
+    return left.throws && right.throws ? 'throw' : 'return';
+  }
+  return null;
+}
+
+function getThrowScopes(result) {
+  return Array.isArray(result?.throwScopes) ? result.throwScopes : [];
+}
+
+function collectThrowScopes(...results) {
+  return results.flatMap((result) => getThrowScopes(result));
+}
+
+function addThrowScopesToResult(result, throwScopes) {
+  const scopes = Array.isArray(throwScopes) ? throwScopes.filter(Boolean) : [];
+  if (scopes.length > 0) {
+    result.throwScopes = [...getThrowScopes(result), ...scopes];
+  }
+  return result;
+}
+
+function addConditionalThrowScope(result, originalScope, clonedScope) {
+  if (!result?.hasRender && result?.termination === 'throw' && originalScope && clonedScope) {
+    addThrowScopesToResult(result, [{ originalScope, clonedScope }]);
+  }
+  return result;
+}
+
+function mergeThrowScopesIntoOriginal(throwScopes, { conditional = true } = {}) {
+  for (const entry of Array.isArray(throwScopes) ? throwScopes : []) {
+    if (!entry?.originalScope || !entry?.clonedScope) continue;
+    mergeDefinitionsFromScopeClone(entry.originalScope, entry.clonedScope, { conditional });
+  }
+}
+
+function createExecutionPathResult({
+  hasRender = false,
+  terminated = false,
+  throws = false,
+  mayThrow = false,
+  termination = null,
+  throwScopes = [],
+} = {}) {
+  const result = {
+    hasRender,
+    terminated,
+    throws,
+    mayThrow: Boolean(mayThrow || throws),
+  };
+  if (termination) result.termination = termination;
+  addThrowScopesToResult(result, throwScopes);
+  return result;
+}
+
+function expressionExecutionPathResultInClonedScope(node, scope, executionStart, seen) {
+  return analyzeExpressionExecutionPath(
+    node,
+    cloneRenderExecutionScopeChain(scope),
+    executionStart,
+    new Set(seen),
+  );
+}
+
+function expressionExecutionPathContainsCtxRenderInClonedScope(node, scope, executionStart, seen) {
+  return expressionExecutionPathResultInClonedScope(node, scope, executionStart, seen).hasRender;
+}
+
+function analyzeStatementExecutionPathInClonedScope(statement, scope, executionStart, seen) {
+  return analyzeStatementExecutionPath(
+    statement,
+    cloneRenderExecutionScopeChain(scope),
+    executionStart,
+    new Set(seen),
+  );
+}
+
+function analyzeStatementExecutionPathInConditionalScope(statement, scope, executionStart, seen) {
+  const cloned = cloneRenderExecutionScopeChainWithMap(scope);
+  const result = analyzeStatementExecutionPath(
+    statement,
+    cloned.scope,
+    executionStart,
+    new Set(seen),
+  );
+  if (!result.hasRender && (!result.terminated || result.termination === 'break')) {
+    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope);
+  }
+  return addConditionalThrowScope(result, scope, cloned.scope);
+}
+
+function analyzeExpressionExecutionPathInConditionalScope(node, scope, executionStart, seen) {
+  const cloned = cloneRenderExecutionScopeChainWithMap(scope);
+  const result = analyzeExpressionExecutionPath(
+    node,
+    cloned.scope,
+    executionStart,
+    new Set(seen),
+  );
+  if (!result.hasRender && !result.terminated) {
+    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope);
+  }
+  return addConditionalThrowScope(result, scope, cloned.scope);
+}
+
+function expressionExecutionPathContainsCtxRender(node, scope, executionStart, seen) {
+  return analyzeExpressionExecutionPath(node, scope, executionStart, seen).hasRender;
+}
+
+function analyzeExpressionExecutionPath(node, scope, executionStart, seen) {
+  const expression = unwrapChainNode(node);
+  if (!isAstNode(expression)) return createExecutionPathResult();
+  if (isFunctionNode(expression) || expression.type === 'ClassExpression' || expression.type === 'ClassDeclaration') {
+    return createExecutionPathResult();
+  }
+  if (isCtxRenderCallExpression(expression)) {
+    return createExecutionPathResult({ hasRender: true });
+  }
+  if (expression.type === 'AssignmentExpression') {
+    registerFunctionAssignmentDefinition(scope, expression, expression);
+    if (isFunctionNode(expression.right)) return createExecutionPathResult();
+  }
+  if (expression.type === 'UpdateExpression') {
+    registerUpdateExpressionInvalidation(scope, expression);
+    return createExecutionPathResult();
+  }
+  if (expression.type === 'UnaryExpression' && expression.operator === 'delete') {
+    const argumentResult = analyzeExpressionExecutionPath(expression.argument, scope, executionStart, seen);
+    if (argumentResult.hasRender || argumentResult.terminated) return argumentResult;
+    registerDeleteExpressionInvalidation(scope, expression);
+    return createExecutionPathResult({
+      mayThrow: argumentResult.mayThrow,
+      throwScopes: getThrowScopes(argumentResult),
+    });
+  }
+  if (expression.type === 'LogicalExpression') {
+    const leftResult = analyzeExpressionExecutionPath(expression.left, scope, executionStart, seen);
+    if (leftResult.hasRender || leftResult.terminated) return leftResult;
+    const leftValue = resolveStaticBooleanValue(expression.left, scope, executionStart);
+    if (expression.operator === '&&') {
+      if (leftValue === false) return createExecutionPathResult({ mayThrow: leftResult.mayThrow, throwScopes: getThrowScopes(leftResult) });
+      if (leftValue === true) return analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen);
+      const rightResult = analyzeExpressionExecutionPathInConditionalScope(expression.right, scope, executionStart, seen);
+      return createExecutionPathResult({
+        hasRender: rightResult.hasRender,
+        mayThrow: leftResult.mayThrow || rightResult.mayThrow,
+        throwScopes: collectThrowScopes(leftResult, rightResult),
+      });
+    }
+    if (expression.operator === '||') {
+      if (leftValue === true) return createExecutionPathResult({ mayThrow: leftResult.mayThrow, throwScopes: getThrowScopes(leftResult) });
+      if (leftValue === false) return analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen);
+      const rightResult = analyzeExpressionExecutionPathInConditionalScope(expression.right, scope, executionStart, seen);
+      return createExecutionPathResult({
+        hasRender: rightResult.hasRender,
+        mayThrow: leftResult.mayThrow || rightResult.mayThrow,
+        throwScopes: collectThrowScopes(leftResult, rightResult),
+      });
+    }
+    if (expression.operator === '??') {
+      const leftPrimitive = resolveStaticPrimitiveValue(expression.left, scope, executionStart);
+      if (leftPrimitive !== STATIC_PRIMITIVE_UNKNOWN) {
+        return leftPrimitive == null
+          ? analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen)
+          : createExecutionPathResult({ mayThrow: leftResult.mayThrow, throwScopes: getThrowScopes(leftResult) });
+      }
+      const rightResult = analyzeExpressionExecutionPathInConditionalScope(expression.right, scope, executionStart, seen);
+      return createExecutionPathResult({
+        hasRender: rightResult.hasRender,
+        mayThrow: leftResult.mayThrow || rightResult.mayThrow,
+        throwScopes: collectThrowScopes(leftResult, rightResult),
+      });
+    }
+    return expressionExecutionPathResultInClonedScope(expression.right, scope, executionStart, seen);
+  }
+  if (expression.type === 'ConditionalExpression') {
+    const testResult = analyzeExpressionExecutionPath(expression.test, scope, executionStart, seen);
+    if (testResult.hasRender || testResult.terminated) return testResult;
+    const testValue = resolveStaticBooleanValue(expression.test, scope, executionStart);
+    if (testValue === true) {
+      const consequent = analyzeExpressionExecutionPath(expression.consequent, scope, executionStart, seen);
+      consequent.mayThrow = Boolean(testResult.mayThrow || consequent.mayThrow);
+      return consequent;
+    }
+    if (testValue === false) {
+      const alternate = analyzeExpressionExecutionPath(expression.alternate, scope, executionStart, seen);
+      alternate.mayThrow = Boolean(testResult.mayThrow || alternate.mayThrow);
+      return alternate;
+    }
+    const consequent = analyzeExpressionExecutionPathInConditionalScope(expression.consequent, scope, executionStart, seen);
+    if (consequent.hasRender) return createExecutionPathResult({ hasRender: true });
+    const alternate = analyzeExpressionExecutionPathInConditionalScope(expression.alternate, scope, executionStart, seen);
+    if (alternate.hasRender) return createExecutionPathResult({ hasRender: true });
+    const termination = combineBranchTermination(consequent, alternate);
+    return createExecutionPathResult({
+      terminated: consequent.terminated && alternate.terminated,
+      throws: consequent.throws && alternate.throws,
+      mayThrow: testResult.mayThrow || consequent.mayThrow || alternate.mayThrow,
+      termination,
+      throwScopes: collectThrowScopes(testResult, consequent, alternate),
+    });
+  }
+  if (expression.type === 'AwaitExpression') {
+    const argumentResult = analyzeExpressionExecutionPath(expression.argument, scope, executionStart, seen);
+    if (argumentResult.hasRender || argumentResult.terminated) return argumentResult;
+    return createExecutionPathResult({ mayThrow: true, throwScopes: getThrowScopes(argumentResult) });
+  }
+  if (expression.type === 'CallExpression') {
+    let mayThrow = false;
+    let throwScopes = [];
+    const callee = unwrapChainNode(expression.callee);
+    if (callee?.type !== 'Identifier' && !isFunctionNode(callee)) {
+      const calleeResult = analyzeExpressionExecutionPath(expression.callee, scope, executionStart, seen);
+      if (calleeResult.hasRender || calleeResult.terminated) return calleeResult;
+      mayThrow = mayThrow || calleeResult.mayThrow;
+      throwScopes = [...throwScopes, ...getThrowScopes(calleeResult)];
+    }
+    for (const argument of expression.arguments || []) {
+      const argumentResult = analyzeExpressionExecutionPath(argument, scope, executionStart, seen);
+      if (argumentResult.hasRender || argumentResult.terminated) return argumentResult;
+      mayThrow = mayThrow || argumentResult.mayThrow;
+      throwScopes = [...throwScopes, ...getThrowScopes(argumentResult)];
+    }
+    const callStart = Number.isInteger(expression.start) ? expression.start : executionStart;
+    registerStaticContainerMethodMutation(scope, expression, callStart);
+    const calledFunctions = resolveCalledFunctionsFromScope(expression, scope, callStart);
+    if (calledFunctions.length > 0) {
+      let allTerminated = true;
+      let throws = true;
+      let termination = null;
+      for (const calledFunction of calledFunctions) {
+        const callResult = analyzeFunctionExecutionPath(calledFunction, scope, callStart, seen, expression);
+        if (callResult.hasRender) return callResult;
+        allTerminated = allTerminated && callResult.terminated;
+        throws = throws && callResult.throws;
+        mayThrow = mayThrow || callResult.mayThrow;
+        throwScopes = [...throwScopes, ...getThrowScopes(callResult)];
+        termination = termination || callResult.termination || null;
+      }
+      if (allTerminated) {
+        return createExecutionPathResult({
+          terminated: true,
+          throws,
+          mayThrow,
+          termination: throws ? 'throw' : (termination || 'loop'),
+          throwScopes,
+        });
+      }
+      return createExecutionPathResult({ mayThrow, throwScopes });
+    }
+    return createExecutionPathResult({ mayThrow: true, throwScopes });
+  }
+  let mayThrow = false;
+  let throwScopes = [];
+  for (const value of Object.values(expression)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const result = analyzeExpressionExecutionPath(item, scope, executionStart, seen);
+        if (result.hasRender || result.terminated) return result;
+        mayThrow = mayThrow || result.mayThrow;
+        throwScopes = [...throwScopes, ...getThrowScopes(result)];
+      }
+      continue;
+    }
+    const result = analyzeExpressionExecutionPath(value, scope, executionStart, seen);
+    if (result.hasRender || result.terminated) return result;
+    mayThrow = mayThrow || result.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(result)];
+  }
+  return createExecutionPathResult({ mayThrow, throwScopes });
+}
+
+function analyzeStatementExecutionPath(statement, scope, executionStart, seen) {
+  if (!isAstNode(statement)) {
+    return { hasRender: false, terminated: false };
+  }
+
+  switch (statement.type) {
+    case 'FunctionDeclaration':
+    case 'ClassDeclaration':
+    case 'EmptyStatement':
+      return { hasRender: false, terminated: false, throws: false };
+    case 'VariableDeclaration':
+      let mayThrow = false;
+      let throwScopes = [];
+      for (const declarator of statement.declarations || []) {
+        registerFunctionVariableDefinition(scope, declarator, statement);
+        if (!isFunctionNode(declarator?.init)) {
+          const initResult = analyzeExpressionExecutionPath(declarator?.init, scope, executionStart, seen);
+          if (initResult.hasRender || initResult.terminated) return initResult;
+          mayThrow = mayThrow || initResult.mayThrow;
+          throwScopes = [...throwScopes, ...getThrowScopes(initResult)];
+        }
+      }
+      return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+    case 'ExpressionStatement':
+      registerFunctionAssignmentDefinition(scope, statement.expression, statement);
+      return analyzeExpressionExecutionPath(statement.expression, scope, executionStart, seen);
+    case 'ReturnStatement': {
+      const argumentResult = analyzeExpressionExecutionPath(statement.argument, scope, executionStart, seen);
+      return {
+        hasRender: argumentResult.hasRender,
+        terminated: true,
+        throws: false,
+        mayThrow: argumentResult.mayThrow,
+        termination: 'return',
+        throwScopes: getThrowScopes(argumentResult),
+      };
+    }
+    case 'ThrowStatement': {
+      const argumentResult = analyzeExpressionExecutionPath(statement.argument, scope, executionStart, seen);
+      return {
+        hasRender: argumentResult.hasRender,
+        terminated: true,
+        throws: true,
+        mayThrow: true,
+        termination: 'throw',
+        throwScopes: getThrowScopes(argumentResult),
+      };
+    }
+    case 'BreakStatement':
+      return { hasRender: false, terminated: true, throws: false, termination: 'break' };
+    case 'ContinueStatement':
+      return { hasRender: false, terminated: true, throws: false, termination: 'continue' };
+    case 'BlockStatement':
+      return analyzeStatementListExecutionPath(statement.body || [], createInitializedExecutionScope(scope, statement.body || []), executionStart, seen);
+    case 'IfStatement': {
+      const testResult = analyzeExpressionExecutionPath(statement.test, scope, executionStart, seen);
+      if (testResult.hasRender || testResult.terminated) return testResult;
+      const testValue = resolveStaticBooleanValue(statement.test, scope, executionStart);
+      if (testValue === true) {
+        const consequent = analyzeStatementExecutionPath(statement.consequent, scope, executionStart, seen);
+        consequent.mayThrow = Boolean(testResult.mayThrow || consequent.mayThrow);
+        return consequent;
+      }
+      if (testValue === false) {
+        const alternate = statement.alternate
+          ? analyzeStatementExecutionPath(statement.alternate, scope, executionStart, seen)
+          : { hasRender: false, terminated: false, throws: false };
+        alternate.mayThrow = Boolean(testResult.mayThrow || alternate.mayThrow);
+        return alternate;
+      }
+      const consequent = analyzeStatementExecutionPathInConditionalScope(statement.consequent, scope, executionStart, seen);
+      if (consequent.hasRender) return { hasRender: true, terminated: false };
+      const alternate = statement.alternate
+        ? analyzeStatementExecutionPathInConditionalScope(statement.alternate, scope, executionStart, seen)
+        : { hasRender: false, terminated: false, throws: false };
+      if (alternate.hasRender) return { hasRender: true, terminated: false };
+      const termination = combineBranchTermination(consequent, alternate);
+      return {
+        hasRender: false,
+        terminated: consequent.terminated && alternate.terminated,
+        throws: consequent.throws && alternate.throws,
+        mayThrow: testResult.mayThrow || consequent.mayThrow || alternate.mayThrow,
+        termination,
+        throwScopes: collectThrowScopes(testResult, consequent, alternate),
+      };
+    }
+    case 'ForStatement':
+    case 'ForInStatement':
+    case 'ForOfStatement':
+    case 'WhileStatement':
+    case 'DoWhileStatement':
+      return analyzeLoopExecutionPath(statement, scope, executionStart, seen);
+    case 'SwitchStatement':
+      return analyzeSwitchExecutionPath(statement, scope, executionStart, seen);
+    case 'TryStatement':
+      return analyzeTryExecutionPath(statement, scope, executionStart, seen);
+    default:
+      return analyzeExpressionExecutionPath(statement, scope, executionStart, seen);
+  }
+}
+
+function analyzeLoopExecutionPath(statement, scope, executionStart, seen) {
+  const loopScope = createLoopExecutionScope(scope, statement);
+  let mayThrow = false;
+  let throwScopes = [];
+  const initResult = analyzeLoopInitializationPath(statement, loopScope, executionStart, seen);
+  if (initResult.hasRender || initResult.terminated) return initResult;
+  mayThrow = mayThrow || initResult.mayThrow;
+  throwScopes = [...throwScopes, ...getThrowScopes(initResult)];
+
+  const definitelyInfinite = (statement.type === 'ForStatement' && !statement.test)
+    || resolveStaticBooleanValue(statement.test, loopScope, executionStart) === true;
+  const bodyDefinitelyExecutes = statement.type === 'DoWhileStatement' || definitelyInfinite;
+  const initialKeys = statement.type === 'DoWhileStatement'
+    ? []
+    : (statement.type === 'ForStatement'
+    ? ['test']
+    : ['test', 'right']);
+
+  for (const key of initialKeys) {
+    const keyResult = analyzeExpressionExecutionPath(statement[key], loopScope, executionStart, seen);
+    if (keyResult.hasRender || keyResult.terminated) return keyResult;
+    mayThrow = mayThrow || keyResult.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(keyResult)];
+  }
+  const testValue = resolveStaticBooleanValue(statement.test, loopScope, executionStart);
+  if (statement.type !== 'DoWhileStatement' && testValue === false) {
+    return { hasRender: false, terminated: false, throws: false, throwScopes };
+  }
+  const staticIterationState = resolveStaticLoopIterationState(statement, loopScope);
+  if (staticIterationState.known && staticIterationState.empty) {
+    return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+  }
+  if (
+    statement.type === 'ForOfStatement'
+    && staticIterationState.known
+    && (staticIterationState.values || []).length > 0
+  ) {
+    return analyzeStaticForOfExecutionPath(statement, loopScope, executionStart, seen, staticIterationState, {
+      mayThrow,
+      throwScopes,
+    });
+  }
+  const body = bodyDefinitelyExecutes
+    ? analyzeStatementExecutionPath(statement.body, loopScope, executionStart, seen)
+    : analyzeStatementExecutionPathInConditionalScope(statement.body, loopScope, executionStart, seen);
+  if (body.hasRender) return { hasRender: true, terminated: false, throws: false };
+  mayThrow = mayThrow || body.mayThrow;
+  throwScopes = [...throwScopes, ...getThrowScopes(body)];
+  if (
+    statement.type === 'DoWhileStatement'
+    && (!body.terminated || body.termination === 'continue')
+  ) {
+    const testResult = expressionExecutionPathResultInClonedScope(statement.test, loopScope, executionStart, seen);
+    if (testResult.hasRender) return { hasRender: true, terminated: false, throws: false };
+    if (testResult.terminated) return testResult;
+    mayThrow = mayThrow || testResult.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(testResult)];
+  }
+  if (statement.type === 'ForStatement') {
+    const updateResult = bodyDefinitelyExecutes && !body.terminated
+      ? analyzeExpressionExecutionPath(statement.update, loopScope, executionStart, seen)
+      : expressionExecutionPathResultInClonedScope(statement.update, loopScope, executionStart, seen);
+    if (updateResult.hasRender || (bodyDefinitelyExecutes && !body.terminated && updateResult.terminated)) {
+      return updateResult.hasRender
+        ? { hasRender: true, terminated: false, throws: false }
+        : updateResult;
+    }
+    mayThrow = mayThrow || updateResult.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(updateResult)];
+  }
+  if (bodyDefinitelyExecutes && isFunctionTerminatingResult(body)) {
+    return { hasRender: false, terminated: true, throws: body.throws, mayThrow, termination: body.termination, throwScopes };
+  }
+  if (definitelyInfinite && body.termination === 'continue') {
+    return { hasRender: false, terminated: true, throws: false, mayThrow, termination: 'loop', throwScopes };
+  }
+  return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+}
+
+function createLoopExecutionScope(parentScope, statement) {
+  const scopedStatements = [];
+  if (statement.type === 'ForStatement' && statement.init?.type === 'VariableDeclaration') {
+    scopedStatements.push(statement.init);
+  }
+  if (
+    (statement.type === 'ForInStatement' || statement.type === 'ForOfStatement')
+    && statement.left?.type === 'VariableDeclaration'
+  ) {
+    scopedStatements.push(statement.left);
+  }
+  return scopedStatements.length
+    ? createInitializedExecutionScope(parentScope, scopedStatements)
+    : parentScope;
+}
+
+function analyzeLoopInitializationPath(statement, loopScope, executionStart, seen) {
+  if (statement.type === 'ForStatement' && statement.init) {
+    if (statement.init.type === 'VariableDeclaration') {
+      return analyzeStatementExecutionPath(statement.init, loopScope, executionStart, seen);
+    }
+    const initResult = analyzeExpressionExecutionPath(statement.init, loopScope, executionStart, seen);
+    if (initResult.hasRender || initResult.terminated) return initResult;
+    return { hasRender: false, terminated: false, throws: false, mayThrow: initResult.mayThrow, throwScopes: getThrowScopes(initResult) };
+  }
+  if (statement.type === 'ForInStatement' || statement.type === 'ForOfStatement') {
+    const rightResult = analyzeExpressionExecutionPath(statement.right, loopScope, executionStart, seen);
+    if (rightResult.hasRender || rightResult.terminated) return rightResult;
+    const staticForOfState = statement.type === 'ForOfStatement'
+      ? resolveStaticForOfIterationState(statement.right, loopScope, Number.isInteger(statement.start) ? statement.start : null)
+      : { known: false };
+    if (!staticForOfState.known) {
+      registerForIterationBindings(statement, loopScope);
+    }
+    return { hasRender: false, terminated: false, throws: false, mayThrow: rightResult.mayThrow, throwScopes: getThrowScopes(rightResult) };
+  }
+  return { hasRender: false, terminated: false, throws: false };
+}
+
+function registerForIterationBindings(statement, loopScope) {
+  const left = statement.left;
+  const staticIterationState = statement.type === 'ForOfStatement'
+    ? resolveStaticForOfIterationState(statement.right, loopScope, Number.isInteger(statement.start) ? statement.start : null)
+    : { known: false, values: [] };
+  const staticValues = staticIterationState.values || [];
+  const registerPattern = (pattern, initializedAt) => {
+    const names = collectAssignmentTargetIdentifiers(pattern);
+    if (staticValues.length > 0) {
+      const resetAt = Number.isInteger(initializedAt) ? initializedAt - 1 : initializedAt;
+      for (const name of names) {
+        addUnavailableFunctionDefinitionToScope(findAssignmentTargetScope(loopScope, name), name, resetAt);
+      }
+      for (const value of staticValues) {
+        registerPatternFunctionDefinitions(loopScope, pattern, value, initializedAt, {
+          resolveScope: loopScope,
+          referenceStart: initializedAt,
+          conditional: staticValues.length > 1,
+        });
+      }
+      return;
+    }
+    for (const name of names) {
+      addFunctionDefinition(loopScope.definitions, name, createUnavailableFunctionDefinition({
+        initializedAt,
+      }));
+    }
+  };
+
+  if (left?.type === 'VariableDeclaration') {
+    for (const declarator of left.declarations || []) {
+      registerPattern(
+        declarator?.id,
+        Number.isInteger(declarator?.start) ? declarator.start : statement.start,
+      );
+    }
+    return;
+  }
+  registerPattern(left, Number.isInteger(left?.start) ? left.start : statement.start);
+}
+
+function getForOfLeftPatterns(statement) {
+  const left = statement?.left;
+  if (left?.type === 'VariableDeclaration') {
+    return (left.declarations || []).map((declarator) => declarator?.id).filter(Boolean);
+  }
+  return left ? [left] : [];
+}
+
+function clearPatternRuntimeBindings(scope, pattern) {
+  for (const name of collectAssignmentTargetIdentifiers(pattern)) {
+    const targetScope = findAssignmentTargetScope(scope, name);
+    targetScope.definitions.delete(name);
+    targetScope.staticPrimitives.delete(name);
+    unmarkContainerPath(targetScope, name);
+    removeContainerAliasesForPath(targetScope, name);
+  }
+}
+
+function bindStaticForOfIterationValue(scope, statement, value) {
+  const initializedAt = Number.isInteger(statement?.left?.start)
+    ? statement.left.start
+    : (Number.isInteger(statement?.start) ? statement.start : null);
+  for (const pattern of getForOfLeftPatterns(statement)) {
+    clearPatternRuntimeBindings(scope, pattern);
+    registerPatternFunctionDefinitions(scope, pattern, value, initializedAt, {
+      resolveScope: scope,
+      referenceStart: initializedAt,
+      conditional: false,
+    });
+  }
+}
+
+function analyzeStaticForOfExecutionPath(statement, loopScope, executionStart, seen, staticIterationState, base = {}) {
+  let mayThrow = Boolean(base.mayThrow);
+  let throwScopes = [...(base.throwScopes || [])];
+  for (let index = 0; index < (staticIterationState.values || []).length; index += 1) {
+    const cloned = cloneRenderExecutionScopeChainWithMap(loopScope);
+    bindStaticForOfIterationValue(cloned.scope, statement, staticIterationState.values[index]);
+    const body = analyzeStatementExecutionPath(statement.body, cloned.scope, executionStart, new Set(seen));
+    if (body.hasRender) return { hasRender: true, terminated: false, throws: false };
+    mayThrow = mayThrow || body.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(body)];
+    if (body.termination === 'break') {
+      mergeDefinitionsFromScopeClone(loopScope, cloned.scope);
+      return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+    }
+    if (isFunctionTerminatingResult(body)) {
+      return {
+        hasRender: false,
+        terminated: true,
+        throws: body.throws,
+        mayThrow,
+        termination: body.termination,
+        throwScopes,
+      };
+    }
+    mergeDefinitionsFromScopeClone(loopScope, cloned.scope);
+  }
+  return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+}
+
+function collectStaticIterationValuesFromScope(scope, sourceName, referenceStart) {
+  if (!scope || !sourceName) return [];
+  const byIndex = new Map();
+  const collect = (candidateName) => {
+    const prefix = `${candidateName}.`;
+    let current = scope;
+    while (current) {
+      for (const [key, definitions] of current.definitions.entries()) {
+        if (!key.startsWith(prefix)) continue;
+        const suffix = key.slice(prefix.length);
+        if (!/^(0|[1-9]\d*)$/.test(suffix)) continue;
+        const possibleDefinitions = selectPossibleFunctionDefinitions(definitions, referenceStart);
+        if (!byIndex.has(Number(suffix))) byIndex.set(Number(suffix), []);
+        const values = possibleDefinitions.length > 0
+          ? possibleDefinitions.map((definition) => definition?.node || null)
+          : [null];
+        byIndex.get(Number(suffix)).push(...values);
+      }
+      if (scopeHasBinding(current, candidateName) || scopeHasPrefixBinding(current, candidateName)) break;
+      current = current.parent;
+    }
+  };
+
+  collect(sourceName);
+  for (const entry of collectEquivalentContainerMemberEntries(scope, sourceName)) {
+    collect(entry.name);
+  }
+
+  return [...byIndex.entries()]
+    .sort(([left], [right]) => left - right)
+    .flatMap(([, values]) => values);
+}
+
+function resolveStaticIterationValues(node, scope = null, referenceStart = null) {
+  return resolveStaticForOfIterationState(node, scope, referenceStart).values;
+}
+
+function resolveStaticForOfIterationState(node, scope = null, referenceStart = null) {
+  const expression = unwrapChainNode(node);
+  if (expression?.type === 'ArrayExpression') {
+    const info = getArrayExpressionStaticContainerInfo(expression);
+    return info?.exact
+      ? { known: true, empty: info.values.length === 0, values: [...info.values] }
+      : { known: false, empty: false, values: [] };
+  }
+  const sourcePath = getStaticMemberPath(expression);
+  const sourceName = sourcePath?.join('.') || null;
+  if (sourceName) {
+    const info = getStaticContainerInfoFromScope(scope, sourceName);
+    if (info?.kind === 'array' && info.exact) {
+      return { known: true, empty: info.values.length === 0, values: [...info.values] };
+    }
+    const values = collectStaticIterationValuesFromScope(scope, sourceName, referenceStart);
+    if (values.length > 0) return { known: true, empty: false, values };
+  }
+  return { known: false, empty: false, values: [] };
+}
+
+function resolveStaticForInIterationState(node, scope = null) {
+  const expression = unwrapChainNode(node);
+  if (expression?.type === 'ArrayExpression') {
+    const info = getArrayExpressionStaticContainerInfo(expression);
+    return info?.exact
+      ? { known: true, empty: info.keys.size === 0 }
+      : { known: false, empty: false };
+  }
+  if (expression?.type === 'ObjectExpression') {
+    const info = getObjectExpressionStaticContainerInfo(expression);
+    return info?.exact
+      ? { known: true, empty: info.keys.size === 0 }
+      : { known: false, empty: false };
+  }
+  const sourcePath = getStaticMemberPath(expression);
+  const sourceName = sourcePath?.join('.') || null;
+  if (sourceName) {
+    const info = getStaticContainerInfoFromScope(scope, sourceName);
+    if (info?.exact) {
+      return { known: true, empty: info.keys.size === 0 };
+    }
+  }
+  return { known: false, empty: false };
+}
+
+function resolveStaticLoopIterationState(statement, loopScope) {
+  if (statement?.type === 'ForOfStatement') {
+    return resolveStaticForOfIterationState(
+      statement.right,
+      loopScope,
+      Number.isInteger(statement.start) ? statement.start : null,
+    );
+  }
+  if (statement?.type === 'ForInStatement') {
+    return resolveStaticForInIterationState(statement.right, loopScope);
+  }
+  return { known: false, empty: false };
+}
+
+function analyzeSwitchExecutionPath(statement, scope, executionStart, seen) {
+  const discriminantResult = analyzeExpressionExecutionPath(statement.discriminant, scope, executionStart, seen);
+  if (discriminantResult.hasRender || discriminantResult.terminated) return discriminantResult;
+
+  const switchScope = createInitializedExecutionScope(
+    scope,
+    (statement.cases || []).flatMap((switchCase) => switchCase.consequent || []),
+  );
+  const switchMayThrow = discriminantResult.mayThrow;
+  const switchThrowScopes = getThrowScopes(discriminantResult);
+  const discriminantValue = resolveStaticPrimitiveValue(statement.discriminant, scope, executionStart);
+  const defaultIndex = (statement.cases || []).findIndex((switchCase) => !switchCase.test);
+  let selectedIndex = -1;
+
+  if (discriminantValue !== STATIC_PRIMITIVE_UNKNOWN) {
+    let mayThrow = switchMayThrow;
+    let throwScopes = [...switchThrowScopes];
+    for (let caseIndex = 0; caseIndex < (statement.cases || []).length; caseIndex += 1) {
+      const test = statement.cases[caseIndex].test;
+      if (!test) continue;
+      const testResult = analyzeExpressionExecutionPath(test, switchScope, executionStart, seen);
+      if (testResult.hasRender || testResult.terminated) return testResult;
+      mayThrow = mayThrow || testResult.mayThrow;
+      throwScopes = [...throwScopes, ...getThrowScopes(testResult)];
+      const caseValue = resolveStaticPrimitiveValue(test, switchScope, executionStart);
+      if (
+        caseValue !== STATIC_PRIMITIVE_UNKNOWN
+        && staticPrimitiveValuesEqual(caseValue, discriminantValue)
+      ) {
+        selectedIndex = caseIndex;
+        break;
+      }
+    }
+    if (selectedIndex < 0) selectedIndex = defaultIndex;
+    if (selectedIndex < 0) return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+
+    const selectedStatements = (statement.cases || [])
+      .slice(selectedIndex)
+      .flatMap((switchCase) => switchCase.consequent || []);
+    const result = analyzeStatementListExecutionPath(selectedStatements, switchScope, executionStart, seen);
+    if (result.hasRender) return { hasRender: true, terminated: false, throws: false };
+    if (isFunctionTerminatingResult(result)) {
+      return {
+        hasRender: false,
+        terminated: true,
+        throws: result.throws,
+        mayThrow: mayThrow || result.mayThrow,
+        termination: result.termination,
+        throwScopes: [...throwScopes, ...getThrowScopes(result)],
+      };
+    }
+    return { hasRender: false, terminated: false, throws: false, mayThrow: mayThrow || result.mayThrow, throwScopes: [...throwScopes, ...getThrowScopes(result)] };
+  }
+
+  let mayThrow = switchMayThrow;
+  let throwScopes = [...switchThrowScopes];
+  const switchCases = statement.cases || [];
+  for (let startIndex = 0; startIndex < switchCases.length; startIndex += 1) {
+    const cloned = cloneRenderExecutionScopeChainWithMap(switchScope);
+    const testEndIndex = switchCases[startIndex].test ? startIndex : switchCases.length - 1;
+    let testPathBlocked = false;
+    for (let testIndex = 0; testIndex <= testEndIndex; testIndex += 1) {
+      const test = switchCases[testIndex].test;
+      if (!test) continue;
+      const testResult = analyzeExpressionExecutionPath(test, cloned.scope, executionStart, new Set(seen));
+      if (testResult.hasRender) return { hasRender: true, terminated: false, throws: false };
+      mayThrow = mayThrow || testResult.mayThrow;
+      throwScopes = [...throwScopes, ...getThrowScopes(testResult)];
+      if (testResult.terminated) {
+        testPathBlocked = true;
+        if (testResult.termination === 'throw') {
+          addConditionalThrowScope(testResult, switchScope, cloned.scope);
+          throwScopes = [...throwScopes, ...getThrowScopes(testResult)];
+        }
+        break;
+      }
+    }
+    if (testPathBlocked) break;
+    const fallthroughStatements = (statement.cases || [])
+      .slice(startIndex)
+      .flatMap((switchCase) => switchCase.consequent || []);
+    const result = analyzeStatementListExecutionPath(fallthroughStatements, cloned.scope, executionStart, new Set(seen));
+    if (result.hasRender) return { hasRender: true, terminated: false, throws: false };
+    mayThrow = mayThrow || result.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(result)];
+    if (!result.terminated || result.termination === 'break') {
+      mergeConditionalDefinitionsFromScopeClone(switchScope, cloned.scope);
+    } else if (result.termination === 'throw') {
+      addConditionalThrowScope(result, switchScope, cloned.scope);
+      throwScopes = [...throwScopes, ...getThrowScopes(result)];
+    }
+  }
+  return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+}
+
+function analyzeTryExecutionPath(statement, scope, executionStart, seen) {
+  const tryResult = statement.block
+    ? analyzeStatementExecutionPath(statement.block, scope, executionStart, seen)
+    : { hasRender: false, terminated: false, throws: false };
+  if (tryResult.hasRender) return { hasRender: true, terminated: false, throws: false };
+  const tryThrowScopes = getThrowScopes(tryResult);
+  let mergedTryThrowScopes = false;
+  const mergeTryThrowScopes = () => {
+    if (mergedTryThrowScopes) return;
+    mergeThrowScopesIntoOriginal(tryThrowScopes, { conditional: true });
+    mergedTryThrowScopes = true;
+  };
+  let completion = tryResult;
+  if ((tryResult.throws || tryResult.mayThrow) && statement.handler?.body) {
+    const catchStatements = statement.handler.body.body || [];
+    const cloned = cloneRenderExecutionScopeChainWithThrowScopes(scope, tryThrowScopes);
+    const catchScope = createInitializedExecutionScope(cloned.scope, catchStatements, {
+      params: statement.handler.param ? [statement.handler.param] : [],
+    });
+    const catchResult = analyzeStatementListExecutionPath(catchStatements, catchScope, executionStart, new Set(seen));
+    if (catchResult.hasRender) return { hasRender: true, terminated: false, throws: false };
+    if (!catchResult.terminated || catchResult.termination === 'break') {
+      mergeDefinitionsFromScopeClone(scope, cloned.scope, { conditional: !tryResult.throws });
+    } else if (catchResult.termination === 'throw') {
+      addConditionalThrowScope(catchResult, scope, cloned.scope);
+    }
+    completion = tryResult.throws ? catchResult : {
+      hasRender: false,
+      terminated: false,
+      throws: false,
+      mayThrow: catchResult.mayThrow,
+      throwScopes: collectThrowScopes(tryResult, catchResult),
+    };
+  }
+  if (statement.finalizer) {
+    if (!statement.handler?.body) {
+      mergeTryThrowScopes();
+    }
+    mergeThrowScopesIntoOriginal(getThrowScopes(completion), { conditional: true });
+    const finalizerResult = analyzeStatementExecutionPath(statement.finalizer, scope, executionStart, seen);
+    if (finalizerResult.hasRender) return { hasRender: true, terminated: false, throws: false };
+    if (finalizerResult.terminated) {
+      return {
+        hasRender: false,
+        terminated: true,
+        throws: finalizerResult.throws,
+        mayThrow: finalizerResult.mayThrow,
+        termination: finalizerResult.termination,
+        throwScopes: getThrowScopes(finalizerResult),
+      };
+    }
+    completion.mayThrow = Boolean(completion.mayThrow || finalizerResult.mayThrow);
+    addThrowScopesToResult(completion, getThrowScopes(finalizerResult));
+  }
+  return {
+    hasRender: false,
+    terminated: completion.terminated,
+    throws: completion.throws,
+    mayThrow: completion.mayThrow,
+    termination: completion.termination,
+    throwScopes: getThrowScopes(completion),
+  };
+}
+
+function analyzeStatementListExecutionPath(statements, scope, executionStart, seen) {
+  let mayThrow = false;
+  let throwScopes = [];
+  for (const statement of statements || []) {
+    exposeExecutedBlockFunctionDeclaration(scope, statement);
+    const result = analyzeStatementExecutionPath(statement, scope, executionStart, seen);
+    if (result.hasRender) return { hasRender: true, terminated: false, throws: false };
+    mayThrow = mayThrow || result.mayThrow;
+    throwScopes = [...throwScopes, ...getThrowScopes(result)];
+    if (result.terminated) {
+      return {
+        hasRender: false,
+        terminated: true,
+        throws: result.throws,
+        mayThrow,
+        termination: result.termination,
+        throwScopes,
+      };
+    }
+  }
+  return { hasRender: false, terminated: false, throws: false, mayThrow, throwScopes };
+}
+
+function analyzeFunctionExecutionPath(functionNode, parentScope, executionStart, seen = new Set(), callExpression = null) {
+  if (!isFunctionNode(functionNode)) return createExecutionPathResult();
+  if (seen.has(functionNode)) {
+    return createExecutionPathResult({ terminated: true, termination: 'loop' });
+  }
+  seen.add(functionNode);
+  try {
+    const bodyStatements = Array.isArray(functionNode.body?.body) ? functionNode.body.body : [];
+    const functionScope = createInitializedExecutionScope(parentScope, bodyStatements, {
+      functionScope: true,
+      params: functionNode.params || [],
+    });
+    const parameterInitializedAt = getFunctionParameterInitializedAt(functionNode, executionStart);
+    const parameterResult = bindFunctionCallParameters(
+      functionScope,
+      functionNode.params || [],
+      callExpression?.arguments || [],
+      parameterInitializedAt,
+      parentScope,
+      executionStart,
+      seen,
+    );
+    if (parameterResult.hasRender || parameterResult.terminated) return parameterResult;
+    if (!bodyStatements.length && functionNode.body) {
+      return analyzeExpressionExecutionPath(functionNode.body, functionScope, executionStart, seen);
+    }
+    return analyzeStatementListExecutionPath(bodyStatements, functionScope, executionStart, seen);
+  } finally {
+    seen.delete(functionNode);
+  }
+}
+
+function functionExecutionPathContainsCtxRender(functionNode, parentScope, executionStart, seen = new Set()) {
+  return analyzeFunctionExecutionPath(functionNode, parentScope, executionStart, seen).hasRender;
+}
+
+function hasTopLevelReachableCtxRenderCall(scan) {
+  const topLevelScope = createInitializedExecutionScope(null, scan?.wrappedStatements || [], { functionScope: true });
+  return analyzeStatementListExecutionPath(scan?.wrappedStatements || [], topLevelScope, null, new Set()).hasRender;
+}
+
 function inspectSurfaceStyle({ scan, surfaceStyle, path: findingPath = '$', modelUse }) {
   const renderCalls = (scan.semanticNodes?.topLevelCtxRenderCalls || []).map((entry) => entry.node);
   const topLevelReturns = scan.semanticNodes?.topLevelReturns || [];
   if (surfaceStyle === 'render') {
-    if (renderCalls.length > 0) {
+    const nestedRenderCall = findAnyCtxRenderCall(scan);
+    if (hasTopLevelReachableCtxRenderCall(scan)) {
       return {
         blockers: [],
+        warnings: [],
+      };
+    }
+    if (hasOnlyTopLevelFunctionDefinitions(scan) && nestedRenderCall) {
+      const firstStatement = (scan.wrappedStatements || []).find((statement) => statement?.type !== 'EmptyStatement');
+      const loc = getScanNodeLocation(scan, firstStatement);
+      return {
+        blockers: [
+          createFinding({
+            code: 'RUNJS_RENDER_TOP_LEVEL_FUNCTION_WRAPPER_FORBIDDEN',
+            message:
+              'This RunJS render model needs a directly executed top-level script; defining a function wrapper does not render anything. Move the function body to the top level so ctx.render(...) runs immediately.',
+            path: findingPath,
+            modelUse,
+            line: loc.line,
+            column: loc.column,
+          }),
+        ],
+        warnings: [],
+      };
+    }
+    if (nestedRenderCall) {
+      const loc = getLineColumnFromPos(scan.source || '', nestedRenderCall.calleeStart ?? nestedRenderCall.start ?? 0);
+      return {
+        blockers: [
+          createFinding({
+            code: 'RUNJS_RENDER_UNREACHABLE_RENDER_CALL',
+            message:
+              'This RunJS render model calls ctx.render(...), but not from the top-level execution path. Move ctx.render(...) to top-level code so the render runs immediately.',
+            path: findingPath,
+            modelUse,
+            line: loc.line,
+            column: loc.column,
+          }),
+        ],
         warnings: [],
       };
     }

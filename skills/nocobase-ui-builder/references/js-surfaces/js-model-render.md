@@ -7,7 +7,8 @@ Use this surface for JS models whose main job is to render content in a block, f
 - Editor scene in the bundled product reference snapshot: `jsModel`
 - Writeback path in this skill: `stepParams.jsSettings.runJs`
 - Validation style: render
-- `ctx.render(...)` is required.
+- `ctx.render(...)` is required on the directly executed top-level path.
+- Do not wrap all render logic in an uncalled function or callback; move that body to top-level code.
 - Do not rely on top-level `return` for rendering.
 - Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, or `JSItemActionModel`.
 - Default UI library policy: render React JSX with Ant Design components from `ctx.libs.antd` / `ctx.libs.antdIcons`.

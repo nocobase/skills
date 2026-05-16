@@ -60,6 +60,1236 @@
     "expectedCodes": []
   },
   {
+    "id": "positive-js-render-called-wrapper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { ctx.render('ok'); }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-block-function-wrapper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "{ function helper() { ctx.render('ok'); } }\nhelper();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-if-block-function-wrapper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "if (true) { function helper() { ctx.render('ok'); } }\nhelper();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-switch-case-function-wrapper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "switch (1) { case 1: function helper() { ctx.render('ok'); } }\nhelper();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-before-later-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('ok'); };\nmain();\nmain = () => {};",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-called-local-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { const inner = () => { ctx.render('ok'); }; inner(); }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-called-block-local-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { if (true) { const inner = () => { ctx.render('ok'); }; inner(); } }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-var-helper-after-block",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { if (true) { var inner = () => { ctx.render('ok'); }; } inner(); }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-object-method-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main() { ctx.render('ok'); } };\nhelpers.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-computed-literal-object-method-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { ['main']() { ctx.render('ok'); } };\nhelpers.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-nested-object-method-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { nested: { main() { ctx.render('ok'); } } };\nhelpers.nested.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-inline-object-method-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "({ main() { ctx.render('ok'); } }).main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-inline-nested-object-member-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const alias = ({ nested: { main() { ctx.render('ok'); } } }).nested;\nalias.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-destructured-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const [main] = [() => { ctx.render('ok'); }];\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-inline-array-element-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "([() => { ctx.render('ok'); }][0])();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-literal-member-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const main = [() => { ctx.render('ok'); }][0];\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-object-destructured-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const { main } = { main: () => { ctx.render('ok'); } };\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: () => { ctx.render('ok'); } };\nconst main = helpers.main;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-alias-snapshot-after-source-overwrite",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main() { ctx.render('ok'); } };\nconst main = helpers.main;\nhelpers.main = 1;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-container-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main() { ctx.render('ok'); } };\nconst alias = helpers;\nalias.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-container-alias-before-member-write",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nconst alias = helpers;\nhelpers.main = () => { ctx.render('ok'); };\nalias.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-container-alias-write-through",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nconst alias = helpers;\nalias.main = () => { ctx.render('ok'); };\nhelpers.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-container-alias-write-through-local-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nconst alias = helpers;\nfunction setup() { const render = () => { ctx.render('ok'); }; alias.main = render; }\nsetup();\nhelpers.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-outer-alias-assigned-in-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let alias;\nconst helpers = { main() { ctx.render('ok'); } };\nfunction setup() { alias = helpers; }\nsetup();\nalias.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-local-object-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nfunction setup() { const local = { nested() { ctx.render('ok'); } }; helpers.main = local; }\nsetup();\nhelpers.main.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-local-container-member-assigned-after-outer-member-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nfunction setup() { const local = {}; helpers.main = local; local.nested = () => { ctx.render('ok'); }; }\nsetup();\nhelpers.main.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-local-container-member-assigned-after-outer-identifier-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let alias;\nfunction setup() { const local = {}; alias = local; local.main = () => { ctx.render('ok'); }; }\nsetup();\nalias.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-nested-array-destructure-assignment-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main;\nfunction setup() { [main] = [() => { ctx.render('ok'); }]; }\nsetup();\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-nested-object-destructure-assignment-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers;\nfunction setup() { ({ helpers } = { helpers: { main() { ctx.render('ok'); } } }); }\nsetup();\nhelpers.main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-nested-array-destructure-assignment-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let group;\nconst helperGroups = [{ nested() { ctx.render('ok'); } }];\nfunction setup() { [group] = helperGroups; }\nsetup();\ngroup.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-container-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('ok'); }];\nconst alias = helpers;\nalias[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-container-alias-before-member-write",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = [];\nconst alias = helpers;\nhelpers[0] = () => { ctx.render('ok'); };\nalias[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-container-alias-write-through",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = [];\nconst alias = helpers;\nalias[0] = () => { ctx.render('ok'); };\nhelpers[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-outer-nested-container-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: { nested() { ctx.render('ok'); } } };\nfunction outer() { const alias = helpers.main; alias.nested(); }\nouter();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-object-container-destructure-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: { nested() { ctx.render('ok'); } } };\nconst { main } = helpers;\nmain.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-container-destructure-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [{ nested() { ctx.render('ok'); } }];\nconst [group] = helpers;\ngroup.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-object-array-container-destructure-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { list: [() => { ctx.render('ok'); }] };\nconst { list } = helpers;\nlist[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-nested-container-alias-before-member-write",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.main = {};\nconst alias = helpers.main;\nhelpers.main.nested = () => { ctx.render('ok'); };\nalias.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-outer-array-container-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { list: [() => { ctx.render('ok'); }] };\nfunction outer() { const alias = helpers.list; alias[0](); }\nouter();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-array-destructure-from-helper-binding",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('ok'); }];\nconst [main] = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-object-destructure-from-helper-binding",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: () => { ctx.render('ok'); } };\nconst { main } = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-object-destructure-function-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const { main = () => { ctx.render('ok'); } } = {};\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-object-destructure-container-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const { main = { nested() { ctx.render('ok'); } } } = {};\nmain.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-array-destructure-function-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const [main = () => { ctx.render('ok'); }] = [];\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-source-path-destructure-function-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = {};\nconst { main = () => { ctx.render('ok'); } } = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-source-path-destructure-undefined-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: undefined };\nconst { main = () => { ctx.render('ok'); } } = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-assigned-undefined-destructure-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.main = undefined;\nconst { main = () => { ctx.render('ok'); } } = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-deleted-source-path-destructure-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: 1 };\ndelete helpers.main;\nconst { main = () => { ctx.render('ok'); } } = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-defaulted-deleted-nested-member-destructure-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: { nested: 1 } };\ndelete helpers.main.nested;\nconst { nested = () => { ctx.render('ok'); } } = helpers.main;\nnested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-deleted-parent-keeps-object-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: { nested() { ctx.render('ok'); } } };\nconst alias = helpers.main;\ndelete helpers.main;\nalias.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-function-member-overwrites-undefined-before-destructure",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: undefined };\nhelpers.main = () => { ctx.render('ok'); };\nconst { main = () => {} } = helpers;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-parameter-default-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main(render = () => { ctx.render('ok'); }) { render(); }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-callback-argument-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main(render) { render(); }\nmain(() => { ctx.render('ok'); });",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-named-callback-argument-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const renderNow = () => { ctx.render('ok'); };\nfunction main(render) { render(); }\nmain(renderNow);",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-later-named-parameter-default-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main(render = renderNow) { render(); }\nconst renderNow = () => { ctx.render('ok'); };\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-destructured-parameter-default-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main({ render = () => { ctx.render('ok'); } } = {}) { render(); }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-object-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.main = { nested() { ctx.render('ok'); } };\nhelpers.main.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-array-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.list = [() => { ctx.render('ok'); }];\nhelpers.list[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-object-destructure-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.main = { nested() { ctx.render('ok'); } };\nconst { nested } = helpers.main;\nnested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-object-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.main = { nested() { ctx.render('ok'); } };\nconst alias = helpers.main;\nalias.nested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-object-alias-destructure-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.main = { nested() { ctx.render('ok'); } };\nconst alias = helpers.main;\nconst { nested } = alias;\nnested();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-array-destructure-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.list = [() => { ctx.render('ok'); }];\nconst [main] = helpers.list;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-member-assigned-array-alias-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nhelpers.list = [() => { ctx.render('ok'); }];\nconst alias = helpers.list;\nalias[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-handled-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "try { throw new Error('recoverable'); } catch (error) {}\nctx.render('ok');",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-conditional-loop-return",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const ready = await ctx.getVar('ctx.record.ready');\nwhile (ready) { return; }\nctx.render('ok');",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-if-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('ok'); };\nif (flag) { main = 1; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-short-circuit-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('ok'); };\nflag && (main = 1);\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-ternary-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('ok'); };\nflag ? (main = 1) : null;\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-switch-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('ok'); };\nswitch (flag) { case 'disable': main = 1; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-loop-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('ok'); };\nwhile (flag) { main = 1; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-skipped-for-update-reassignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('ok'); };\nfor (; flag; main = 1) { break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-through-rethrow-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "try { try { throw new Error('nested'); } catch (error) { throw error; } } catch (error) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-wrapper-through-rethrow-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { try { try { throw new Error('nested'); } catch (error) { throw error; } } catch (error) { ctx.render('ok'); } }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-through-conditional-throw-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\ntry { if (flag) throw new Error('recoverable'); } catch (error) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-wrapper-through-conditional-throw-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "async function main() { const flag = await ctx.getVar('ctx.record.flag'); try { if (flag) throw new Error('recoverable'); } catch (error) { ctx.render('ok'); } }\nawait main();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-through-await-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "try { await ctx.getVar('ctx.record.title'); } catch (error) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-through-resource-refresh-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "try { await ctx.makeResource('MultiRecordResource').refresh(); } catch (error) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-through-unknown-call-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "try { JSON.parse('not-json'); } catch (error) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-assignment-before-if-throw-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { if (flag) { main = () => { ctx.render('ok'); }; throw 1; } } catch (error) {}\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-assignment-before-switch-throw-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'ready': main = () => { ctx.render('ok'); }; throw 1; } } catch (error) {}\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-assignment-before-logical-throw-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { flag && (main = () => { ctx.render('ok'); }, (() => { throw 1; })()); } catch (error) {}\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-assignment-before-loop-throw-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { while (flag) { main = () => { ctx.render('ok'); }; throw 1; } } catch (error) {}\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-catch-after-if-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { if (flag) { main = () => { ctx.render('ok'); }; throw 1; } } catch (error) { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-catch-after-switch-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'ready': main = () => { ctx.render('ok'); }; throw 1; } } catch (error) { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-catch-after-logical-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { flag && (main = () => { ctx.render('ok'); }, (() => { throw 1; })()); } catch (error) { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-catch-after-loop-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { while (flag) { main = () => { ctx.render('ok'); }; throw 1; } } catch (error) { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-finally-after-if-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { if (flag) { main = () => { ctx.render('ok'); }; throw 1; } } finally { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-finally-after-switch-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { switch (flag) { case 'ready': main = () => { ctx.render('ok'); }; throw 1; } } finally { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-finally-after-logical-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { flag && (main = () => { ctx.render('ok'); }, (() => { throw 1; })()); } finally { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-helper-call-in-finally-after-loop-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { while (flag) { main = () => { ctx.render('ok'); }; throw 1; } } finally { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-switch-fallthrough-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\nswitch (flag) { case 'enable': main = () => { ctx.render('ok'); }; case 'run': main(); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-if-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\nif (flag) { main = () => { ctx.render('ok'); }; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-logical-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\nflag && (main = () => { ctx.render('ok'); });\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-switch-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\nswitch (flag) { case 'enable': main = () => { ctx.render('ok'); }; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-through-do-while-test-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function fail() { throw new Error('recoverable'); }\ntry { do {} while (fail()); } catch (error) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-definite-catch-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\ntry { throw 1; } catch (error) { main = () => { ctx.render('ok'); }; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-conditional-catch-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\ntry { if (flag) throw 1; } catch (error) { main = () => { ctx.render('ok'); }; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-while-break-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\nwhile (flag) { main = () => { ctx.render('ok'); }; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-unknown-for-break-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => {};\nfor (; flag;) { main = () => { ctx.render('ok'); }; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-for-of-break-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nfor (const item of [1]) { main = () => { ctx.render('ok'); }; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-for-in-break-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nfor (const key in { value: 1 }) { main = () => { ctx.render('ok'); }; break; }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-catch-break-helper-assignment",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nwhile (true) { try { throw 1; } catch (error) { main = () => { ctx.render('ok'); }; break; } }\nmain();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-init-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const helper = () => { ctx.render('ok'); }; true;) { helper(); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const helper of [() => { ctx.render('ok'); }]) { helper(); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-later-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const helper of [() => {}, () => { ctx.render('ok'); }]) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-array-push",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [];\nitems.push(1);\nfor (const item of items) { ctx.render('ok'); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-helper-after-array-push",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [];\nitems.push(() => { ctx.render('ok'); });\nfor (const helper of items) { helper(); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-in-after-object-assign",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const keys = {};\nObject.assign(keys, { name: 1 });\nfor (const key in keys) { ctx.render('ok'); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-array-object-assign",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [];\nObject.assign(helpers, { 0: () => { ctx.render('ok'); } });\nfor (const helper of helpers) { helper(); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-array-object-assign-overwrite",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}];\nObject.assign(helpers, { 0: () => { ctx.render('ok'); } });\nfor (const helper of helpers) { helper(); break; }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-conditional-array-member-replace",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}];\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { helpers[0] = () => { ctx.render('ok'); }; }\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-conditional-array-alias-replace",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}];\nconst alias = helpers;\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { alias[0] = () => { ctx.render('ok'); }; }\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-conditional-array-destructure-replace",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}];\nconst { list } = { list: helpers };\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { list[0] = () => { ctx.render('ok'); }; }\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-after-conditional-array-reverse",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}, () => { ctx.render('ok'); }];\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { helpers.reverse(); }\nhelpers[0]();",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-conditional-array-splice-replace",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}];\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { helpers.splice(0, 1, () => { ctx.render('ok'); }); }\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-assigned-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helper;\nfor (helper of [() => { ctx.render('ok'); }]) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-object-pattern-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const { main } of [{ main: () => { ctx.render('ok'); } }]) { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-array-pattern-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const [main] of [[() => { ctx.render('ok'); }]]) { main(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-array-container-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('ok'); }];\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-destructured-array-container-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { list: [() => { ctx.render('ok'); }] };\nconst { list } = helpers;\nfor (const helper of list) { helper(); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-of-after-array-member-add",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [];\nitems[0] = 1;\nfor (const item of items) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-in-after-object-member-add",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const keys = {};\nkeys.main = 1;\nfor (const key in keys) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render-for-in-after-object-alias-member-add",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const keys = {};\nconst alias = keys;\nalias.main = 1;\nfor (const key in keys) { ctx.render('ok'); }",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
     "id": "positive-js-action-resource-count",
     "intent": "iterate-selected-rows",
     "surface": "js-model.action",
@@ -197,7 +1427,47 @@
     "preferredSnippetIds": ["scene/block/text-summary"],
     "code": "const renderLater = () => { ctx.render('ok'); };",
     "expectedOk": false,
-    "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
+    "expectedCodes": ["RUNJS_RENDER_TOP_LEVEL_FUNCTION_WRAPPER_FORBIDDEN"]
+  },
+  {
+    "id": "negative-render-bare-function-expression-wrapper-only",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "(function () { ctx.render('ok'); });",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_TOP_LEVEL_FUNCTION_WRAPPER_FORBIDDEN"]
+  },
+  {
+    "id": "negative-render-bare-arrow-wrapper-only",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "(() => { ctx.render('ok'); });",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_TOP_LEVEL_FUNCTION_WRAPPER_FORBIDDEN"]
+  },
+  {
+    "id": "negative-render-bare-async-arrow-wrapper-only",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "(async () => { ctx.render('ok'); });",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_TOP_LEVEL_FUNCTION_WRAPPER_FORBIDDEN"]
+  },
+  {
+    "id": "negative-render-strict-block-function-wrapper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "'use strict';\n{ function helper() { ctx.render('ok'); } }\nhelper();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
   },
   {
     "id": "negative-render-computed-method-render-only",
@@ -207,7 +1477,27 @@
     "preferredSnippetIds": ["scene/block/text-summary"],
     "code": "const helpers = { ['x']() { ctx.render('ok'); } };",
     "expectedOk": false,
-    "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dynamic-computed-method-not-reachable",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "const main = 'x';\nconst helpers = { [main]() { ctx.render('no'); } };\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-inline-dynamic-computed-method-not-reachable",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "const key = 'main';\n({ [key]() { ctx.render('no'); } }).main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
   },
   {
     "id": "negative-render-missing-render-call",
@@ -218,6 +1508,986 @@
     "code": "const title = String(ctx.record?.title || '');",
     "expectedOk": false,
     "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
+  },
+  {
+    "id": "negative-render-helper-only-no-render-call",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helper = (value) => String(value || '');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
+  },
+  {
+    "id": "negative-render-called-before-initialization",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "main();\nconst main = () => { ctx.render('ok'); };",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-shadowed-local-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function outer() { ctx.render('shadowed'); }\nfunction main() { if (true) { const outer = () => {}; outer(); } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-shadowed-local-helper-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main() { ctx.render('no'); } };\nfunction main() { const helpers = {}; helpers.main(); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-shadowed-parameter-helper-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main() { ctx.render('no'); } };\nfunction main(helpers) { helpers.main(); }\nmain({});",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-shadowed-nested-helper-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { nested: { main() { ctx.render('no'); } } };\nfunction main() { const helpers = { nested: {} }; helpers.nested.main(); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-shadowed-nested-container-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: { nested() { ctx.render('no'); } } };\nfunction main() { const helpers = { main: {} }; const alias = helpers.main; alias.nested(); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-self-recursive-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { main(); ctx.render('no'); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-mutual-recursive-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function first() { second(); ctx.render('no'); } function second() { first(); }\nfirst();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-return",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { return; ctx.render('late'); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { if (false) { ctx.render('no'); } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-static-comparison-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "if (1 === 2) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-static-comparison-loop-return",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "while (1 < 2) { return; }\nctx.render('no');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-static-string-switch-miss",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "switch ('a' + 'b') { case 'c': ctx.render('no'); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-const-aliased-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const DISABLED = false;\nif (DISABLED) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-let-aliased-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let disabled = false;\nif (disabled) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-var-aliased-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "var hidden = false;\nif (hidden) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-destructured-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const [item] = [0];\nif (item) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-object-destructured-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const { item } = { item: 0 };\nif (item) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-of-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const item of [false]) { if (item) { ctx.render('no'); } }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-const-aliased-static-string-switch-miss",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const KEY = 'ab';\nswitch (KEY) { case 'c': ctx.render('no'); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-let-aliased-static-string-switch-miss",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let key = 'ab';\nswitch (key) { case 'c': ctx.render('no'); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-const-aliased-static-loop-skip",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const NEVER = 1 === 2;\nwhile (NEVER) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-let-aliased-static-loop-skip",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let never = 1 === 2;\nwhile (never) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-short-circuit-call",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { ctx.render('no'); }\nfalse && main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-reassigned-to-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('no'); }; main = 1; main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-container-alias-member-overwritten",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main() { ctx.render('no'); } };\nconst alias = helpers;\nhelpers.main = 1;\nalias.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-container-alias-write-through-overwrites-member",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main() { ctx.render('no'); } };\nconst alias = helpers;\nalias.main = 1;\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-nested-container-alias-member-overwritten",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: { nested() { ctx.render('no'); } } };\nconst alias = helpers.main;\nhelpers.main.nested = 1;\nalias.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-container-alias-write-through-overwrites-member",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = [() => { ctx.render('no'); }];\nconst alias = helpers;\nalias[0] = 1;\nhelpers[0]();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-object-container-destructure-alias-member-overwritten",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: { nested() { ctx.render('no'); } } };\nconst { main } = helpers;\nhelpers.main.nested = 1;\nmain.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-container-destructure-alias-member-overwritten",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = [{ nested() { ctx.render('no'); } }];\nconst [group] = helpers;\nhelpers[0].nested = 1;\ngroup.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-deleted-function-member",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main() { ctx.render('no'); } };\ndelete helpers.main;\nhelpers.main?.();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-delete-through-container-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main() { ctx.render('no'); } };\nconst alias = helpers;\ndelete alias.main;\nhelpers.main?.();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-delete-nested-member-through-source-path",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: { nested() { ctx.render('no'); } } };\nconst alias = helpers.main;\ndelete helpers.main.nested;\nalias.nested?.();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-defaulted-destructure-keeps-present-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: 1 };\nconst { main = () => { ctx.render('no'); } } = helpers;\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-defaulted-container-destructure-keeps-present-non-function-member",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: { nested: 1 } };\nconst { main = { nested() { ctx.render('no'); } } } = helpers;\nmain.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-defaulted-array-container-destructure-keeps-present-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { list: [1] };\nconst { list = [() => { ctx.render('no'); }] } = helpers;\nlist[0]();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-function-member-overwrites-undefined-before-defaulted-destructure",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main: undefined };\nhelpers.main = () => {};\nconst { main = () => { ctx.render('no'); } } = helpers;\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-callback-argument-overrides-parameter-default-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main(render = () => { ctx.render('no'); }) { render(); }\nmain(() => {});",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-local-container-member-overwritten-after-outer-member-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nfunction setup() { const local = { nested() { ctx.render('no'); } }; helpers.main = local; local.nested = 1; }\nsetup();\nhelpers.main.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-local-container-member-overwritten-after-outer-identifier-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let alias;\nfunction setup() { const local = { main() { ctx.render('no'); } }; alias = local; local.main = 1; }\nsetup();\nalias.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-local-container-bridge-after-outer-identifier-reassigned",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let alias;\nfunction setup() { const local = {}; alias = local; alias = 1; local.main = () => { ctx.render('no'); }; }\nsetup();\nalias.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-local-container-bridge-after-outer-member-reassigned",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = {};\nfunction setup() { const local = {}; helpers.main = local; helpers.main = 1; local.nested = () => { ctx.render('no'); }; }\nsetup();\nhelpers.main.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-nested-array-destructure-assignment-overwrites-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('no'); };\nfunction setup() { [main] = [1]; }\nsetup();\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-nested-object-destructure-assignment-overwrites-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helpers = { main() { ctx.render('no'); } };\nfunction setup() { ({ helpers } = { helpers: {} }); }\nsetup();\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-nested-array-destructure-assignment-overwrites-container",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let group = { nested() { ctx.render('no'); } };\nfunction setup() { [group] = [{}]; }\nsetup();\ngroup.nested();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-statically-reassigned-to-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('no'); }; if (true) { main = 1; } main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-helper-overwritten-in-same-conditional-path",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { main = () => { ctx.render('no'); }; main = 1; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-helper-overwritten-in-catch-path",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\ntry { if (flag) { main = () => { ctx.render('no'); }; throw 1; } } catch (error) { main = 1; }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-updated-to-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('no'); }; main++; main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-destructure-to-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('no'); }; [main] = [1]; main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-object-destructure-to-non-function",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => { ctx.render('no'); }; ({ main } = { main: 1 }); main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-parameter-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function outer() { ctx.render('no'); } function main(outer) { outer(); } main(1);",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-rest-parameter-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function outer() { ctx.render('no'); } function main(...outer) { outer(); } main(1);",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-destructured-parameter-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function outer() { ctx.render('no'); } function main({ outer }) { outer(); } main({ outer: 1 });",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-catch-parameter-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function e() { ctx.render('no'); } try { throw 1; } catch (e) { e(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-nested-var-object-pattern-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function outer() { ctx.render('no'); } function main() { outer(); if (true) { var { outer } = { outer: 1 }; } } main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-nested-var-array-pattern-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function outer() { ctx.render('no'); } function main() { outer(); if (true) { var [outer] = [1]; } } main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-init-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { ctx.render('no'); }\nfor (let main = 1; main < 2; main += 1) { main(); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-in-left-shadows-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function key() { ctx.render('no'); }\nfor (const key in { name: 1 }) { key(); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-of-assignment-overwrites-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let helper = () => { ctx.render('no'); };\nfor (helper of [1]) { helper(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-empty-try-catch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { try {} catch (error) { ctx.render('no'); } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-static-false-branch",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "if (false) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-of-array",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const item of []) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-of-array-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [];\nfor (const item of items) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-of-destructured-array-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { items: [] };\nconst { items } = helpers;\nfor (const item of items) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-of-cross-scope-array-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let items;\nfunction setup() { const local = []; items = local; }\nsetup();\nfor (const item of items) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-of-break-before-later-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [() => {}, () => { ctx.render('no'); }];\nfor (const helper of items) { helper(); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-of-break-after-array-reverse",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [() => { ctx.render('no'); }, () => {}];\nitems.reverse();\nfor (const helper of items) { helper(); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-of-after-array-pop",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [() => { ctx.render('no'); }];\nitems.pop();\nfor (const helper of items) { helper(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-for-of-after-array-shift",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [() => { ctx.render('no'); }, () => {}];\nitems.shift();\nfor (const helper of items) { helper(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-sort-invalidates-indexed-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('no'); }, () => {}];\nhelpers.sort(() => -1);\nhelpers[0]();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-object-assign-overwrites-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('no'); }];\nObject.assign(helpers, { 0: () => {} });\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-reverse-inside-catch-updates-member",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [() => { ctx.render('no'); }, () => {}];\ntry { throw new Error('x'); } catch { items.reverse(); }\nitems[0]();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-splice-inside-catch-updates-member",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const items = [() => { ctx.render('no'); }];\ntry { throw new Error('x'); } catch { items.splice(0, 1, () => {}); }\nitems[0]();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-length-zero-invalidates-indexed-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('no'); }];\nhelpers.length = 0;\nhelpers[0]?.();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-length-zero-invalidates-for-of-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('no'); }];\nhelpers.length = 0;\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-length-shrink-removes-later-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => {}, () => { ctx.render('no'); }];\nhelpers.length = 1;\nfor (const helper of helpers) { helper(); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-array-alias-length-zero-invalidates-indexed-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = [() => { ctx.render('no'); }];\nconst alias = helpers;\nalias.length = 0;\nhelpers[0]?.();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-in-object",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "for (const key in {}) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-in-object-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const keys = {};\nfor (const key in keys) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-empty-for-in-cross-scope-object-alias",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let keys;\nfunction setup() { const local = {}; keys = local; }\nsetup();\nfor (const key in keys) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-object-assign-overwrites-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main() { ctx.render('no'); } };\nObject.assign(helpers, { main: 1 });\nhelpers.main();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-top-level-dead-after-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "throw new Error('stop');\nctx.render('no');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-switch-case",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { switch (0) { case 1: ctx.render('no'); break; } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-null-switch-case",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { switch (null) { case 1: ctx.render('no'); break; } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-recursive-switch-discriminant",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function loop() { loop(); }\nswitch (loop()) { default: break; }\nctx.render('no');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-recursive-earlier-switch-case-test",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function loop() { loop(); }\nlet main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nswitch (flag) { case loop(): break; case 'enable': main = () => { ctx.render('no'); }; case 'run': main(); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-static-switch-recursive-earlier-case-test",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function loop() { loop(); }\nswitch ('run') { case loop(): break; case 'run': ctx.render('no'); break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-static-switch-default-before-recursive-case-test",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function loop() { loop(); }\nswitch ('missing') { default: ctx.render('no'); case loop(): break; }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-break",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { while (true) { break; ctx.render('no'); } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-continue",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { for (let index = 0; index < 1; index += 1) { continue; ctx.render('no'); } }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-in-after-object-member-delete",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const keys = { main: 1 };\ndelete keys.main;\nfor (const key in keys) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-for-in-after-object-alias-member-delete",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const keys = { main: 1 };\nconst alias = keys;\ndelete alias.main;\nfor (const key in keys) { ctx.render('no'); }",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-loop-return",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { while (true) { return; } ctx.render('no'); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-loop-throw",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { for (;;) { throw new Error('stop'); } ctx.render('no'); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-dead-after-switch-return",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "function main() { switch (0) { case 0: return; } ctx.render('no'); }\nmain();",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
   },
   {
     "id": "negative-computed-open-view",
