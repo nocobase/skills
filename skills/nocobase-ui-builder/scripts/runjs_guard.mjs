@@ -3534,16 +3534,46 @@ function parseSwitchCaseConditionKey(key) {
   };
 }
 
+function getEqualityConditionTestForDiscriminant(key, discriminant) {
+  if (!key || !discriminant) return null;
+  for (const prefix of ['T:binary:===:', 'T:binary:==:']) {
+    const directPrefix = `${prefix}${discriminant}:`;
+    if (key.startsWith(directPrefix)) return key.slice(directPrefix.length);
+    const reverseSuffix = `:${discriminant}`;
+    if (key.startsWith(prefix) && key.endsWith(reverseSuffix)) {
+      return key.slice(prefix.length, -1 * reverseSuffix.length);
+    }
+  }
+  return null;
+}
+
+function equalityConditionKeyMatchesSwitchCase(key, switchCase) {
+  if (!switchCase?.discriminant || !switchCase?.test) return false;
+  return getEqualityConditionTestForDiscriminant(key, switchCase.discriminant) === switchCase.test;
+}
+
 function switchConditionKeyImpliedByEarlier(laterKey, earlierKey) {
   const laterDefault = parseSwitchDefaultConditionKey(laterKey);
-  if (!laterDefault) return false;
-  const earlierDefault = parseSwitchDefaultConditionKey(earlierKey);
-  if (earlierDefault?.discriminant === laterDefault.discriminant) {
-    return [...laterDefault.excluded].every((key) => earlierDefault.excluded.has(key));
+  if (laterDefault) {
+    const earlierDefault = parseSwitchDefaultConditionKey(earlierKey);
+    if (earlierDefault?.discriminant === laterDefault.discriminant) {
+      return [...laterDefault.excluded].every((key) => earlierDefault.excluded.has(key));
+    }
+    const earlierCase = parseSwitchCaseConditionKey(earlierKey);
+    if (earlierCase?.discriminant === laterDefault.discriminant) {
+      return !laterDefault.excluded.has(earlierCase.test);
+    }
+    const equalityTest = getEqualityConditionTestForDiscriminant(earlierKey, laterDefault.discriminant);
+    return equalityTest != null && !laterDefault.excluded.has(equalityTest);
   }
-  const earlierCase = parseSwitchCaseConditionKey(earlierKey);
-  if (earlierCase?.discriminant === laterDefault.discriminant) {
-    return !laterDefault.excluded.has(earlierCase.test);
+
+  const laterCase = parseSwitchCaseConditionKey(laterKey);
+  if (laterCase) {
+    const earlierCase = parseSwitchCaseConditionKey(earlierKey);
+    if (earlierCase?.discriminant === laterCase.discriminant && earlierCase.test === laterCase.test) {
+      return true;
+    }
+    return equalityConditionKeyMatchesSwitchCase(earlierKey, laterCase);
   }
   return false;
 }
@@ -3556,25 +3586,37 @@ function renderExecutionConditionKeyImpliedByEarlier(laterKey, earlierKeys) {
   return false;
 }
 
-function renderExecutionConditionKeysDominate(laterKeys, earlierKeys) {
+function renderExecutionConditionKeysDominate(laterKeys, earlierKeys, { activeConditionKeys = [] } = {}) {
   const later = normalizeRenderExecutionConditionKeys(laterKeys);
-  const earlier = new Set(normalizeRenderExecutionConditionKeys(earlierKeys));
+  const earlier = new Set(mergeRenderExecutionConditionKeys(earlierKeys, activeConditionKeys));
   return later.length > 0
     && earlier.size > 0
     && later.every((key) => renderExecutionConditionKeyImpliedByEarlier(key, earlier));
 }
 
-function laterDefinitionDominatesEarlierConditionalPath(laterDefinition, earlierDefinition) {
+function laterDefinitionDominatesEarlierConditionalPath(
+  laterDefinition,
+  earlierDefinition,
+  { activeConditionKeys = [] } = {},
+) {
   return Boolean(laterDefinition?.conditional && earlierDefinition?.conditional)
-    && renderExecutionConditionKeysDominate(laterDefinition.conditionKeys, earlierDefinition.conditionKeys);
+    && renderExecutionConditionKeysDominate(
+      laterDefinition.conditionKeys,
+      earlierDefinition.conditionKeys,
+      { activeConditionKeys },
+    );
 }
 
-function pruneDominatedConditionalFunctionDefinitions(definitions) {
+function pruneDominatedConditionalFunctionDefinitions(definitions, { activeConditionKeys = [] } = {}) {
   const pruned = [];
   for (const definition of definitions || []) {
     if (definition?.conditional) {
       for (let index = pruned.length - 1; index >= 0; index -= 1) {
-        if (laterDefinitionDominatesEarlierConditionalPath(definition, pruned[index])) {
+        if (laterDefinitionDominatesEarlierConditionalPath(
+          definition,
+          pruned[index],
+          { activeConditionKeys },
+        )) {
           pruned.splice(index, 1);
         }
       }
@@ -4767,7 +4809,11 @@ function addAliasedFunctionDefinitionToScope(scope, name, definition, initialize
   }));
 }
 
-function selectPossibleFunctionDefinitions(definitions, referenceStart) {
+function selectPossibleFunctionDefinitions(
+  definitions,
+  referenceStart,
+  { activeConditionKeys = [] } = {},
+) {
   const availableDefinitions = (definitions || [])
     .filter((candidate) => isFunctionDefinitionAvailable(candidate, referenceStart))
     .sort(compareFunctionDefinitionsForCall);
@@ -4781,6 +4827,7 @@ function selectPossibleFunctionDefinitions(definitions, referenceStart) {
   }
   for (const definition of pruneDominatedConditionalFunctionDefinitions(
     availableDefinitions.slice(lastUnconditionalIndex + 1),
+    { activeConditionKeys },
   )) {
     if (definition.conditional) possibleDefinitions.push(definition);
   }
@@ -4804,7 +4851,7 @@ function scopeHasPrefixBinding(scope, name) {
   return memberPathPrefixes(name).some((prefix) => scopeHasBinding(scope, prefix));
 }
 
-function resolveAliasedFunctionDefinitionsFromScope(scope, name, referenceStart, seen) {
+function resolveAliasedFunctionDefinitionsFromScope(scope, name, referenceStart, seen, options = {}) {
   const parts = typeof name === 'string' ? name.split('.') : [];
   for (let index = parts.length - 1; index >= 1; index -= 1) {
     const prefix = parts.slice(0, index).join('.');
@@ -4814,7 +4861,13 @@ function resolveAliasedFunctionDefinitionsFromScope(scope, name, referenceStart,
       const seenKey = `${aliasedName}@${referenceStart ?? ''}`;
       if (seen.has(seenKey)) continue;
       seen.add(seenKey);
-      const definitions = resolveFunctionDefinitionsFromScopeNameInternal(scope, aliasedName, referenceStart, seen);
+      const definitions = resolveFunctionDefinitionsFromScopeNameInternal(
+        scope,
+        aliasedName,
+        referenceStart,
+        seen,
+        options,
+      );
       if (definitions !== null) return definitions;
     }
   }
@@ -4906,11 +4959,17 @@ function collectEquivalentContainerMemberAssignmentTargets(scope, name) {
   return targets;
 }
 
-function resolveFunctionDefinitionsFromScopeName(scope, name, referenceStart = null) {
-  return resolveFunctionDefinitionsFromScopeNameInternal(scope, name, referenceStart, new Set());
+function resolveFunctionDefinitionsFromScopeName(scope, name, referenceStart = null, options = {}) {
+  return resolveFunctionDefinitionsFromScopeNameInternal(scope, name, referenceStart, new Set(), options);
 }
 
-function resolveFunctionDefinitionsFromScopeNameInternal(scope, name, referenceStart = null, seen = new Set()) {
+function resolveFunctionDefinitionsFromScopeNameInternal(
+  scope,
+  name,
+  referenceStart = null,
+  seen = new Set(),
+  options = {},
+) {
   if (!name) return null;
   const ownSeenKey = `${name}@${referenceStart ?? ''}`;
   if (seen.has(ownSeenKey)) return null;
@@ -4919,9 +4978,15 @@ function resolveFunctionDefinitionsFromScopeNameInternal(scope, name, referenceS
   while (current) {
     if (current.declared.has(name) || current.definitions.has(name)) {
       const callStart = Number.isInteger(referenceStart) ? referenceStart : null;
-      return selectPossibleFunctionDefinitions(current.definitions.get(name) || [], callStart);
+      return selectPossibleFunctionDefinitions(current.definitions.get(name) || [], callStart, options);
     }
-    const aliasedDefinitions = resolveAliasedFunctionDefinitionsFromScope(current, name, referenceStart, seen);
+    const aliasedDefinitions = resolveAliasedFunctionDefinitionsFromScope(
+      current,
+      name,
+      referenceStart,
+      seen,
+      options,
+    );
     if (aliasedDefinitions !== null) return aliasedDefinitions;
     if (scopeHasPrefixBinding(current, name)) {
       return [];
@@ -5698,7 +5763,9 @@ function resolveCalledFunctionsFromScope(callExpression, scope, executionStart =
   if (!calleeName) return [];
 
   const callStart = Number.isInteger(executionStart) ? executionStart : callExpression?.start;
-  const possibleDefinitions = resolveFunctionDefinitionsFromScopeName(scope, calleeName, callStart) || [];
+  const possibleDefinitions = resolveFunctionDefinitionsFromScopeName(scope, calleeName, callStart, {
+    activeConditionKeys: scope?.activeConditionKeys || [],
+  }) || [];
   return Array.from(new Set(possibleDefinitions.map((definition) => definition?.node).filter(Boolean)));
 }
 

@@ -2930,6 +2930,26 @@
     "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
   },
   {
+    "id": "negative-render-active-switch-case-overwrites-default-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag === 'y') {\n  switch (flag) { case 'skip': break; default: main = () => { ctx.render('no'); }; }\n  switch (flag) { case 'y': main = () => {}; break; }\n  main();\n}",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
+    "id": "negative-render-active-switch-case-overwrites-default-member-helper",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const helpers = { main: () => {} };\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag === 'y') {\n  switch (flag) { case 'skip': break; default: helpers.main = () => { ctx.render('no'); }; }\n  switch (flag) { case 'y': helpers.main = () => {}; break; }\n  helpers.main();\n}",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_UNREACHABLE_RENDER_CALL"]
+  },
+  {
     "id": "negative-render-array-length-zero-invalidates-for-of-helper",
     "intent": "render-helper",
     "surface": "js-model.render",
