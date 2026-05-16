@@ -1511,7 +1511,7 @@ test('prepareApplyBlueprintRequest rejects public jsItem action code with RunJS 
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
 
   assert.equal(result.ok, false);
@@ -1550,7 +1550,7 @@ test('prepareApplyBlueprintRequest rejects public js action code with RunJS bloc
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
 
   assert.equal(result.ok, false);
@@ -1640,7 +1640,7 @@ test('prepareApplyBlueprintRequest rejects one script asset reused by different 
         },
       ],
     },
-    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+    { collectionMetadata: calendarCollectionMetadata, injectDataSurfaceDefaultFilter: false },
   );
 
   assert.equal(result.ok, false);
@@ -14528,7 +14528,7 @@ test('prepare-write fetches missing metadata from kanban hidden popup blocks', a
                 key: 'usersKanban',
                 type: 'kanban',
                 collection: 'users',
-                fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+                fields: ['nickname', 'status'],
                 defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
                 settings: {
                   cardPopup: {
@@ -14596,7 +14596,7 @@ test('prepare-write reports missing metadata from kanban hidden popup blocks whe
               key: 'usersKanban',
               type: 'kanban',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              fields: ['nickname', 'status'],
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               settings: {
                 cardPopup: {
@@ -16369,7 +16369,6 @@ test('prepareApplyBlueprintRequest auto-adds hidden popup template fallback for 
               type: 'kanban',
               title: 'User board',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
               actions: ['filter', 'addNew', 'popup', 'refresh'],
             },
@@ -16389,6 +16388,10 @@ test('prepareApplyBlueprintRequest auto-adds hidden popup template fallback for 
   assert.equal(kanbanBlock.settings.cardPopup.tryTemplate, true);
   assert.equal(kanbanBlock.settings.quickCreateEnabled, true);
   assert.equal(kanbanBlock.settings.enableCardClick, true);
+  assert.deepEqual(kanbanBlock.fields, ['nickname']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(Object.hasOwn(kanbanBlock.settings, 'dragSortBy'), false);
 });
 
 test('prepareApplyBlueprintRequest allows kanban blocks without groupField when the collection has no grouping candidates', () => {
@@ -16428,6 +16431,1223 @@ test('prepareApplyBlueprintRequest allows kanban blocks without groupField when 
   assert.equal(result.cliBody.tabs[0].blocks[0].settings.groupField, undefined);
 });
 
+test('prepareApplyBlueprintRequest rejects explicit empty kanban groupField before materializing defaults', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Invalid Kanban group field page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              settings: {
+                groupField: '',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-group-field-required'
+        && issue.path === 'tabs[0].blocks[0].settings.groupField',
+    ),
+    JSON.stringify(result.errors),
+  );
+});
+
+test('prepareApplyBlueprintRequest materializes kanban fields and drag-sort defaults from metadata', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: ['filter', 'addNew', 'popup', 'refresh'],
+              settings: {
+                groupField: 'status',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'email', type: 'string', interface: 'email' },
+              { name: 'phone', type: 'string', interface: 'phone' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+              { name: 'createdAt', type: 'date', interface: 'createdAt' },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['nickname', 'username']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(kanbanBlock.settings.dragSortBy, 'status_sort');
+});
+
+test('prepareApplyBlueprintRequest rejects explicit empty kanban groupField inside popup blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Invalid popup Kanban group field page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              popup: {
+                blocks: [
+                  {
+                    key: 'usersKanban',
+                    type: 'kanban',
+                    collection: 'users',
+                    fields: ['nickname'],
+                    settings: {
+                      groupField: '',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-group-field-required'
+        && issue.path === 'tabs[0].blocks[0].popup.blocks[0].settings.groupField',
+    ),
+    JSON.stringify(result.errors),
+  );
+});
+
+test('prepareApplyBlueprintRequest materializes replace-mode kanban drag defaults when settings are omitted', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'replace',
+      target: { pageSchemaUid: 'users-page-schema' },
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: ['filter', 'refresh'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'email', type: 'string', interface: 'email' },
+              { name: 'phone', type: 'string', interface: 'phone' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['nickname', 'username']);
+  assert.deepEqual(kanbanBlock.settings, {
+    groupField: 'status',
+    dragEnabled: true,
+    dragSortBy: 'status_sort',
+  });
+});
+
+test('prepareApplyBlueprintRequest materializes kanban blocks inside block popups', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban popup page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              popup: {
+                blocks: [
+                  {
+                    key: 'usersKanban',
+                    type: 'kanban',
+                    title: 'User board',
+                    collection: 'users',
+                    defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                    settings: {
+                      groupField: 'status',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'email', type: 'string', interface: 'email' },
+              { name: 'phone', type: 'string', interface: 'phone' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0].popup.blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['nickname', 'username']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(kanbanBlock.settings.dragSortBy, 'status_sort');
+});
+
+test('prepareApplyBlueprintRequest reports defaults for explicit popup template fallback blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Templated popup fallback defaults' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              popup: {
+                template: {
+                  uid: 'roles-popup-template',
+                  mode: 'reference',
+                },
+                blocks: [
+                  {
+                    key: 'rolesDetailsFallback',
+                    type: 'details',
+                    collection: 'roles',
+                    fields: ['name', 'scope'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(
+    result.defaultsRequirements.collections.map((entry) => entry.collection),
+    ['roles', 'users'],
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+    JSON.stringify(result.errors),
+  );
+});
+
+test('prepareApplyBlueprintRequest materializes kanban blocks inside explicit popup template fallbacks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Templated popup fallback kanban' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+          roles: {
+            popups: buildFixedCollectionPopupDefaults('roles'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              popup: {
+                template: {
+                  uid: 'roles-board-template',
+                  mode: 'reference',
+                },
+                blocks: [
+                  {
+                    key: 'rolesKanbanFallback',
+                    type: 'kanban',
+                    collection: 'roles',
+                    settings: {
+                      groupField: 'status',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: collectionMetadata.collections.users,
+          roles: {
+            titleField: 'name',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'name', type: 'string', interface: 'input' },
+              { name: 'title', type: 'string', interface: 'input' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0].popup.blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['name', 'title']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(kanbanBlock.settings.dragSortBy, 'status_sort');
+  assert.equal(result.cliBody.tabs[0].blocks[0].popup.tryTemplate, undefined);
+  assert.equal(result.cliBody.tabs[0].blocks[0].popup.mode, undefined);
+});
+
+function buildNestedAssociatedKanbanMetadata() {
+  return {
+    collections: {
+      departments: {
+        titleField: 'title',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'department_status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+          { name: 'members', type: 'hasMany', interface: 'o2m', target: 'users' },
+        ],
+      },
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'username', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'user_status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+          { name: 'tasks', type: 'hasMany', interface: 'o2m', target: 'tasks' },
+        ],
+      },
+      tasks: {
+        titleField: 'title',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'priority', type: 'integer', interface: 'number' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+        ],
+      },
+    },
+  };
+}
+
+function buildNestedAssociatedKanbanDefaults() {
+  return {
+    collections: {
+      departments: {
+        popups: {
+          ...buildFixedCollectionPopupDefaults('departments'),
+          associations: {
+            members: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      users: {
+        popups: {
+          ...buildFixedCollectionPopupDefaults('users'),
+          associations: {
+            tasks: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tasks: { popups: buildFixedCollectionPopupDefaults('tasks') },
+    },
+  };
+}
+
+test('prepareApplyBlueprintRequest materializes kanban blocks inside record popups from currentRecord context', () => {
+  const metadata = {
+    collections: {
+      users: {
+        titleField: 'nickname',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+          { name: 'nickname', type: 'string', interface: 'input' },
+          { name: 'username', type: 'string', interface: 'input' },
+          { name: 'email', type: 'string', interface: 'email' },
+          { name: 'phone', type: 'string', interface: 'phone' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+        ],
+      },
+    },
+  };
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban record popup page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    blocks: [
+                      {
+                        key: 'usersKanban',
+                        type: 'kanban',
+                        resource: {
+                          binding: 'currentRecord',
+                        },
+                        defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                        settings: {
+                          groupField: 'status',
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: metadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['nickname', 'username']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(kanbanBlock.settings.dragSortBy, 'status_sort');
+});
+
+test('prepareApplyBlueprintRequest materializes nested associatedRecords kanban inside record popups from popup current record', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Department member task board' },
+      defaults: buildNestedAssociatedKanbanDefaults(),
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'departmentsTable',
+              type: 'table',
+              collection: 'departments',
+              fields: ['title'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    blocks: [
+                      {
+                        key: 'membersTable',
+                        type: 'table',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'members',
+                        },
+                        fields: ['nickname'],
+                        recordActions: [
+                          {
+                            type: 'view',
+                            popup: {
+                              blocks: [
+                                {
+                                  key: 'memberTasksKanban',
+                                  type: 'kanban',
+                                  resource: {
+                                    binding: 'associatedRecords',
+                                    associationField: 'tasks',
+                                  },
+                                  settings: {
+                                    groupField: 'status',
+                                  },
+                                },
+                              ],
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: buildNestedAssociatedKanbanMetadata(),
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock =
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].recordActions[0].popup.blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['title', 'priority']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(kanbanBlock.settings.dragSortBy, 'status_sort');
+});
+
+test('prepareApplyBlueprintRequest materializes nested associatedRecords kanban inside block popups from popup current record', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Department member task board' },
+      defaults: buildNestedAssociatedKanbanDefaults(),
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'departmentsTable',
+              type: 'table',
+              collection: 'departments',
+              fields: ['title'],
+              popup: {
+                blocks: [
+                  {
+                    key: 'membersTable',
+                    type: 'table',
+                    resource: {
+                      binding: 'associatedRecords',
+                      associationField: 'members',
+                    },
+                    fields: ['nickname'],
+                    popup: {
+                      blocks: [
+                        {
+                          key: 'memberTasksKanban',
+                          type: 'kanban',
+                          resource: {
+                            binding: 'associatedRecords',
+                            associationField: 'tasks',
+                          },
+                          settings: {
+                            groupField: 'status',
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: buildNestedAssociatedKanbanMetadata(),
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0].popup.blocks[0].popup.blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['title', 'priority']);
+  assert.equal(kanbanBlock.settings.groupField, 'status');
+  assert.equal(kanbanBlock.settings.dragEnabled, true);
+  assert.equal(kanbanBlock.settings.dragSortBy, 'status_sort');
+});
+
+test('prepareApplyBlueprintRequest excludes the default kanban group field when drag is disabled', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              title: 'User board',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: ['filter', 'addNew', 'popup', 'refresh'],
+              settings: {
+                dragEnabled: false,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'status',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'email', type: 'string', interface: 'email' },
+              { name: 'phone', type: 'string', interface: 'phone' },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['nickname', 'username']);
+  assert.equal(kanbanBlock.settings.dragEnabled, false);
+  assert.equal(Object.hasOwn(kanbanBlock.settings, 'groupField'), false);
+  assert.equal(Object.hasOwn(kanbanBlock.settings, 'dragSortBy'), false);
+});
+
+test('prepareApplyBlueprintRequest validates kanban dragSortBy inside record popups from currentRecord context', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban record popup invalid page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    blocks: [
+                      {
+                        key: 'usersKanban',
+                        type: 'kanban',
+                        resource: {
+                          binding: 'currentRecord',
+                        },
+                        defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                        settings: {
+                          groupField: 'status',
+                          dragSortBy: 'nickname_sort',
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'email', type: 'string', interface: 'email' },
+              { name: 'phone', type: 'string', interface: 'phone' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'nickname_sort', type: 'sort', interface: 'sort', scopeKey: 'nickname', hidden: true },
+              { name: 'status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-drag-sort-field-invalid'
+        && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.blocks[0].settings.dragSortBy',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest validates kanban blocks inside block popups', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban popup page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              popup: {
+                blocks: [
+                  {
+                    key: 'usersKanban',
+                    type: 'kanban',
+                    collection: 'users',
+                    defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+                    fields: ['nickname', 'username', 'email'],
+                    settings: {
+                      groupField: 'status',
+                      dragSortBy: 'department_sort',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'email', type: 'string', interface: 'email' },
+              { name: 'phone', type: 'string', interface: 'phone' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments', foreignKey: 'department_id' },
+              { name: 'department_sort', type: 'sort', interface: 'sort', scopeKey: 'department_id', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-main-fields-too-many'
+        && issue.path === 'tabs[0].blocks[0].popup.blocks[0].fields',
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-drag-sort-field-invalid'
+        && issue.path === 'tabs[0].blocks[0].popup.blocks[0].settings.dragSortBy',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest validates kanban dragSortBy inside hidden associatedRecords popups', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban hidden associated popup page' },
+      defaults: {
+        collections: {
+          departments: {
+            popups: buildFixedCollectionPopupDefaults('departments'),
+          },
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'departmentKanban',
+              type: 'kanban',
+              collection: 'departments',
+              defaultFilter: defaultFilterGroup(['title', 'status']),
+              settings: {
+                groupField: 'status',
+                cardPopup: {
+                  blocks: [
+                    {
+                      key: 'memberKanban',
+                      type: 'kanban',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'members',
+                      },
+                      defaultFilter: defaultFilterGroup(['nickname', 'status']),
+                      settings: {
+                        groupField: 'status',
+                        dragSortBy: 'department_status_sort',
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          departments: {
+            titleField: 'title',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'title', type: 'string', interface: 'input' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'department_status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+              { name: 'members', type: 'hasMany', interface: 'o2m', target: 'users' },
+            ],
+          },
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'username', type: 'string', interface: 'input' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'user_status_sort', type: 'sort', interface: 'sort', scopeKey: 'status', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-drag-sort-field-invalid'
+        && issue.path === 'tabs[0].blocks[0].settings.cardPopup.blocks[0].settings.dragSortBy',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest validates nested associatedRecords kanban inside hidden popup current-record context', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Nested hidden associated popup page' },
+      defaults: buildNestedAssociatedKanbanDefaults(),
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'departmentKanban',
+              type: 'kanban',
+              collection: 'departments',
+              settings: {
+                groupField: 'status',
+                cardPopup: {
+                  blocks: [
+                    {
+                      key: 'memberKanban',
+                      type: 'kanban',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'members',
+                      },
+                      settings: {
+                        groupField: 'status',
+                        cardPopup: {
+                          blocks: [
+                            {
+                              key: 'taskKanban',
+                              type: 'kanban',
+                              resource: {
+                                binding: 'associatedRecords',
+                                associationField: 'tasks',
+                              },
+                              settings: {
+                                groupField: 'status',
+                                dragSortBy: 'user_status_sort',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: buildNestedAssociatedKanbanMetadata(),
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-drag-sort-field-invalid'
+        && issue.path
+          === 'tabs[0].blocks[0].settings.cardPopup.blocks[0].settings.cardPopup.blocks[0].settings.dragSortBy',
+    ),
+    JSON.stringify(result.errors),
+  );
+});
+
+test('prepareApplyBlueprintRequest materializes nested associatedRecords kanban inside hidden popups', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Nested hidden associated popup page' },
+      defaults: buildNestedAssociatedKanbanDefaults(),
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'departmentKanban',
+              type: 'kanban',
+              collection: 'departments',
+              settings: {
+                groupField: 'status',
+                cardPopup: {
+                  blocks: [
+                    {
+                      key: 'memberKanban',
+                      type: 'kanban',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'members',
+                      },
+                      settings: {
+                        groupField: 'status',
+                        cardPopup: {
+                          blocks: [
+                            {
+                              key: 'taskKanban',
+                              type: 'kanban',
+                              resource: {
+                                binding: 'associatedRecords',
+                                associationField: 'tasks',
+                              },
+                              settings: {
+                                groupField: 'status',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: buildNestedAssociatedKanbanMetadata(),
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const taskKanban =
+    result.cliBody.tabs[0].blocks[0].settings.cardPopup.blocks[0].settings.cardPopup.blocks[0];
+  assert.deepEqual(taskKanban.fields, ['title', 'priority']);
+  assert.equal(taskKanban.settings.groupField, 'status');
+  assert.equal(taskKanban.settings.dragEnabled, true);
+  assert.equal(taskKanban.settings.dragSortBy, 'status_sort');
+});
+
+test('prepareApplyBlueprintRequest does not cap explicit fields on template-backed kanban blocks', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban template page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Work',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              template: {
+                uid: 'users-kanban-template',
+                mode: 'reference',
+              },
+              fields: ['nickname', 'username', 'email'],
+              settings: {
+                title: 'Template-owned Kanban settings',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const kanbanBlock = result.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(kanbanBlock.fields, ['nickname', 'username', 'email']);
+  assert.equal(kanbanBlock.settings.title, 'Template-owned Kanban settings');
+  assert.equal(Object.hasOwn(kanbanBlock.settings, 'dragEnabled'), false);
+  assert.equal(Object.hasOwn(kanbanBlock.settings, 'groupField'), false);
+  assert.equal(Object.hasOwn(kanbanBlock.settings, 'dragSortBy'), false);
+});
+
 test('prepareApplyBlueprintRequest materializes prompt-like users calendar and kanban hidden popups', () => {
   const result = prepareApplyBlueprintRequest(
     {
@@ -16465,7 +17685,6 @@ test('prepareApplyBlueprintRequest materializes prompt-like users calendar and k
               type: 'kanban',
               title: 'Users kanban',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
             },
           ],
@@ -16616,7 +17835,6 @@ test('prepareApplyBlueprintRequest rejects large prompt-like calendar and kanban
               type: 'kanban',
               title: 'Users kanban',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
               defaultFilter: defaultFilterGroup(['nickname', 'title', 'username', 'email']),
             },
           ],
@@ -16772,7 +17990,7 @@ test('prepareApplyBlueprintRequest preserves explicit hidden popup settings and 
               type: 'kanban',
               title: 'User board',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              fields: ['nickname', 'status'],
               defaultFilter: defaultFilterGroup(commonCalendarDefaultFilterFieldNames),
               settings: {
                 quickCreateEnabled: false,
@@ -16838,7 +18056,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to kanban hid
               type: 'kanban',
               title: 'User board',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              fields: ['nickname', 'status'],
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               settings: {
                 quickCreatePopup: {
@@ -17095,7 +18313,7 @@ test('prepareApplyBlueprintRequest includes kanban hidden popup blocks in defaul
             type: 'kanban',
             title: 'User board',
             collection: 'users',
-            fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+            fields: ['nickname', 'status'],
             defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
             settings: {
               cardPopup: {
@@ -17358,7 +18576,7 @@ test('prepareApplyBlueprintRequest accepts jsItem collection actions on calendar
               type: 'kanban',
               collection: 'users',
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              fields: ['nickname', 'status'],
               actions: ['jsItem'],
             },
           ],
@@ -17427,7 +18645,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
               key: 'usersKanban',
               type: 'kanban',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              fields: ['nickname', 'status'],
               actions: ['filter', 'popup', 'refresh', 'js'],
             },
           ],
@@ -17459,7 +18677,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
               key: 'usersKanban',
               type: 'kanban',
               collection: 'users',
-              fields: ['nickname', 'status', 'createdAt', 'updatedAt'],
+              fields: ['nickname', 'status'],
               defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
               actions: ['filter', 'addNew', 'popup', 'refresh', 'js'],
             },
@@ -17473,7 +18691,7 @@ test('prepareApplyBlueprintRequest allows omitted block-level defaultFilter on k
   assert.equal(valid.ok, true);
   assert.equal(valid.errors.length, 0);
   assert.equal(valid.cliBody.tabs[0].blocks[0].type, 'kanban');
-  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].fields, ['nickname', 'status', 'createdAt', 'updatedAt']);
+  assert.deepEqual(valid.cliBody.tabs[0].blocks[0].fields, ['nickname', 'status']);
   assert.deepEqual(valid.cliBody.tabs[0].blocks[0].defaultFilter, defaultFilterGroup(commonUserDefaultFilterFieldNames));
 
   const templateBackedWithDefaultFilter = prepareApplyBlueprintRequest(
@@ -17576,9 +18794,72 @@ test('prepareApplyBlueprintRequest rejects fieldGroups fieldsLayout and recordAc
   );
 
   assert.equal(result.ok, false);
+  assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-fields-too-many'), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-field-groups-unsupported'), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-fields-layout-unsupported'), true);
   assert.equal(result.errors.some((issue) => issue.ruleId === 'kanban-main-record-actions-unsupported'), true);
+});
+
+test('prepareApplyBlueprintRequest rejects incompatible kanban dragSortBy fields locally', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Kanban page' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Pipeline',
+          blocks: [
+            {
+              key: 'usersKanban',
+              type: 'kanban',
+              collection: 'users',
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              fields: ['nickname'],
+              settings: {
+                groupField: 'status',
+                dragSortBy: 'department_sort',
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: {
+        collections: {
+          users: {
+            titleField: 'nickname',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'id', type: 'integer', interface: 'number' },
+              { name: 'nickname', type: 'string', interface: 'input' },
+              { name: 'status', type: 'string', interface: 'select' },
+              { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments', foreignKey: 'department_id' },
+              { name: 'department_sort', type: 'sort', interface: 'sort', scopeKey: 'department_id', hidden: true },
+            ],
+          },
+        },
+      },
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'kanban-drag-sort-field-invalid'
+        && issue.path === 'tabs[0].blocks[0].settings.dragSortBy',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest rejects unsupported actions on kanban blocks', () => {

@@ -18,6 +18,7 @@ function makeMetadata() {
           { name: 'email', interface: 'email' },
           { name: 'phone', interface: 'phone' },
           { name: 'status', interface: 'select' },
+          { name: 'status_sort', interface: 'sort', scopeKey: 'status' },
           { name: 'department', interface: 'm2o', type: 'belongsTo', target: 'departments' },
           { name: 'roles', interface: 'm2m', type: 'belongsToMany', target: 'roles' },
         ],
@@ -28,6 +29,8 @@ function makeMetadata() {
         fields: [
           { name: 'id', interface: 'integer', type: 'bigInt' },
           { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          { name: 'status_sort', interface: 'sort', scopeKey: 'status' },
         ],
       },
       calendar_events: {
@@ -3541,6 +3544,148 @@ test('runLocalizedWritePreflight validates localized calendar and kanban semanti
 
   assert.equal(kanbanInvalid.ok, false);
   assertHasRule(kanbanInvalid, 'kanban-group-field-invalid', '$.blocks[0].settings.groupField');
+});
+
+test('runLocalizedWritePreflight validates nested kanban dragSortBy with inherited popup collection context', () => {
+  const normalPopup = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          fields: ['nickname', 'status'],
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'phone', 'status']),
+          actions: [
+            {
+              type: 'view',
+              popup: {
+                blocks: [
+                  {
+                    key: 'nestedKanban',
+                    type: 'kanban',
+                    resource: {
+                      binding: 'currentRecord',
+                    },
+                    fields: ['nickname'],
+                    settings: {
+                      groupField: 'status',
+                      dragSortBy: 'nickname_sort',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(normalPopup.ok, false);
+  assertHasRule(
+    normalPopup,
+    'kanban-drag-sort-field-invalid',
+    '$.blocks[0].actions[4].popup.blocks[0].settings.dragSortBy',
+  );
+
+  const relationFieldPopup = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          fields: [
+            'nickname',
+            {
+              field: 'department',
+              popup: {
+                blocks: [
+                  {
+                    key: 'departmentKanban',
+                    type: 'kanban',
+                    resource: {
+                      binding: 'currentRecord',
+                    },
+                    fields: ['title'],
+                    settings: {
+                      groupField: 'status',
+                      dragSortBy: 'nickname_sort',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'phone', 'status']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(relationFieldPopup.ok, false);
+  assertHasRule(
+    relationFieldPopup,
+    'kanban-drag-sort-field-invalid',
+    '$.blocks[0].fields[1].popup.blocks[0].settings.dragSortBy',
+  );
+
+  const hiddenPopup = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersKanban',
+          type: 'kanban',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          fields: ['nickname'],
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'phone', 'status']),
+          settings: {
+            groupField: 'status',
+            dragSortBy: 'status_sort',
+            cardPopup: {
+              blocks: [
+                {
+                  key: 'nestedUsersKanban',
+                  type: 'kanban',
+                  resource: {
+                    binding: 'currentRecord',
+                  },
+                  fields: ['nickname'],
+                  settings: {
+                    groupField: 'status',
+                    dragSortBy: 'nickname_sort',
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(hiddenPopup.ok, false);
+  assertHasRule(
+    hiddenPopup,
+    'kanban-drag-sort-field-invalid',
+    '$.blocks[0].settings.cardPopup.blocks[0].settings.dragSortBy',
+  );
 });
 
 test('runLocalizedWritePreflight validates configure calendar and kanban host rules using live target context', () => {

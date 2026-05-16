@@ -319,7 +319,7 @@ When `add-block` creates a direct non-template public `table` / `list` / `gridCa
 
 When `add-block` creates a public `calendar`, keep collection binding in `resourceInit`, keep main-block field bindings in block `settings`, and do not try to inline popup content fields onto the main block. Hidden quick-create / event popups live under `settings.quickCreatePopup` and `settings.eventPopup`.
 
-When `add-block` creates a public `kanban`, keep collection binding in `resourceInit`, keep card content on top-level `fields[]`, and keep grouped form/details content in `settings.quickCreatePopup` / `settings.cardPopup` instead of main-block `fieldGroups` / `recordActions`.
+When `add-block` creates a public `kanban`, keep collection binding in `resourceInit`, keep card content on top-level `fields[]`, and keep grouped form/details content in `settings.quickCreatePopup` / `settings.cardPopup` instead of main-block `fieldGroups` / `recordActions`. The 2-field main-card cap is specific to direct non-template whole-page `applyBlueprint`; low-level `add-block` / `compose` keeps the existing Kanban field behavior.
 
 ```json
 {
@@ -348,7 +348,7 @@ Common settings that are suitable for direct inline use:
 - generic card-like block: `title`, `displayTitle`, `height`, `heightMode`
 - `table`: `quickEdit`, `treeTable`, `defaultExpandAllRows`, `dragSort`, `dragSortBy`
 - `calendar`: `titleField`, `colorField`, `startField`, `endField`, `defaultView`, `quickCreateEvent`, `showLunar`, `weekStart`, `dataScope`, `linkageRules`, `quickCreatePopup`, `eventPopup`
-- `kanban`: `groupField`, `quickCreateEnabled`, `quickCreatePopup`, `enableCardClick`, `cardPopup`, `dataScope`, `linkageRules`
+- `kanban`: `groupField`, `dragEnabled`, `dragSortBy`, `quickCreateEnabled`, `quickCreatePopup`, `enableCardClick`, `cardPopup`, `dataScope`, `linkageRules`
 - form-like blocks: `labelWidth`, `labelWrap`, `layout`, `labelAlign`, `colon`
 
 Do not copy `displayTitle` into block families whose runtime configureOptions do not expose it. Known unsupported cases include `chart` and `tree`; chart blocks accept `title`, `height`, `heightMode`, `query`, `visual`, and `events` instead.
@@ -369,6 +369,8 @@ Calendar reminders:
 Kanban reminders:
 
 - Public main kanban blocks may use `fields[]`, but do not accept `fieldGroups`, `fieldsLayout`, or `recordActions`.
+- Direct non-template whole-page `applyBlueprint` kanban main blocks are capped at 2 card `fields[]`; omitted fields are auto-selected from live metadata, while explicit overflow returns `kanban-main-fields-too-many`. This cap does not apply to low-level `add-block` / `compose`.
+- Whole-page `applyBlueprint` kanban defaults `dragEnabled=true`. Provide `dragSortBy` only when it is a sort field scoped to the current/effective `groupField`; otherwise omit it and let the backend create a hidden sort field for writable main datasource collections. Set `dragEnabled=false` only when the page intentionally disables drag sorting.
 - Quick-create content belongs in `settings.quickCreatePopup`; card click/view content belongs in `settings.cardPopup`.
 - Backend authoring may materialize missing direct non-template kanban hidden popup settings as `{ tryTemplate: true }`, default missing `quickCreateEnabled` / `enableCardClick` to `true`, and preserve explicit overrides. [helper-contracts.md](./helper-contracts.md) keeps only deprecated local-helper compatibility notes.
 

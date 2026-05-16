@@ -1247,6 +1247,15 @@ function getLocalizedTraversalSurfaceCollection(context) {
   return normalizeText(context?.surfaceCollection || context?.currentCollection);
 }
 
+function buildLocalizedPopupSurfaceContext(blockContext = {}, associationRequirement = null) {
+  return {
+    surfaceCollection:
+      normalizeText(associationRequirement?.targetCollection)
+      || getLocalizedTraversalSurfaceCollection(blockContext),
+    associationRequirement: null,
+  };
+}
+
 function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fieldPath) {
   const canonicalAssociationField = getDefaultsAssociationFieldKey(fieldPath);
   if (!sourceCollectionName || !canonicalAssociationField) return null;
@@ -1307,10 +1316,7 @@ function getLocalizedFieldPopupSurfaceContext(metadata, blockContext, fieldPath 
     getLocalizedTraversalSurfaceCollection(blockContext),
     fieldPath,
   );
-  return {
-    surfaceCollection: associationRequirement?.targetCollection || getLocalizedTraversalSurfaceCollection(blockContext),
-    associationRequirement: null,
-  };
+  return buildLocalizedPopupSurfaceContext(blockContext, associationRequirement);
 }
 
 function normalizeRelationPopupCurrentRecordBlock(block, targetCollection) {
@@ -1976,18 +1982,73 @@ function collectLocalizedHiddenPopupContractErrorsForOperation(payload, operatio
 function collectLocalizedCalendarKanbanSemanticErrors(payload, operation, metadata = {}) {
   const errors = [];
 
-  const visitBlock = (block, path) => {
+  const visitPopup = (popup, path, parentContext = {}) => {
+    if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) return;
+    popup.blocks.forEach((block, index) => visitBlock(block, `${path}.blocks[${index}]`, parentContext));
+  };
+
+  const visitFieldPopups = (fields, path, blockContext) => {
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field, index) => {
+      if (!isObjectRecord(field) || !isObjectRecord(field.popup)) return;
+      visitPopup(
+        field.popup,
+        `${path}[${index}].popup`,
+        getLocalizedFieldPopupSurfaceContext(metadata, blockContext, getPublicRelationFieldObjectPath(field)),
+      );
+    });
+  };
+
+  const visitFieldGroupPopups = (fieldGroups, path, blockContext) => {
+    if (!Array.isArray(fieldGroups)) return;
+    fieldGroups.forEach((group, groupIndex) => {
+      visitFieldPopups(group?.fields, `${path}[${groupIndex}].fields`, blockContext);
+    });
+  };
+
+  const visitActionPopups = (items, path, blockContext) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (!isObjectRecord(item) || !isObjectRecord(item.popup)) return;
+      visitPopup(
+        item.popup,
+        `${path}[${index}].popup`,
+        buildLocalizedPopupSurfaceContext(blockContext),
+      );
+    });
+  };
+
+  const visitBlock = (block, path, parentContext = {}, { directSettingsPath = false } = {}) => {
     if (!isObjectRecord(block)) return;
-    collectCalendarKanbanMainBlockSemanticIssues(block, path, metadata).forEach((issue) => {
+    const blockContext = buildLocalizedBlockTraversalContext(block, parentContext, metadata);
+    collectCalendarKanbanMainBlockSemanticIssues(block, path, metadata, {
+      directSettingsPath,
+      collectionName: getLocalizedTraversalSurfaceCollection(blockContext),
+    }).forEach((issue) => {
       errors.push({
         path: issue.path,
         ruleId: issue.ruleId,
         message: issue.message,
       });
     });
-    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
-      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => {
+        visitBlock(child, `${path}.blocks[${index}]`, {
+          surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext),
+        });
+      });
+    }
+    if (isObjectRecord(block.popup)) {
+      visitPopup(block.popup, `${path}.popup`, buildLocalizedPopupSurfaceContext(blockContext));
+    }
+    forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      const popupPath = directSettingsPath ? `${path}.${key}` : `${path}.settings.${key}`;
+      visitPopup(popup, popupPath, buildLocalizedPopupSurfaceContext(blockContext));
     });
+    visitFieldPopups(block.fields, `${path}.fields`, blockContext);
+    visitFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, blockContext);
+    visitActionPopups(block.actions, `${path}.actions`, blockContext);
+    visitActionPopups(block.recordActions, `${path}.recordActions`, blockContext);
   };
 
   if (Array.isArray(payload?.blocks)) {
@@ -1999,16 +2060,7 @@ function collectLocalizedCalendarKanbanSemanticErrors(payload, operation, metada
   if (operation === 'configure') {
     const context = createConfigureTargetBlockContext(metadata, payload);
     if (context) {
-      collectCalendarKanbanMainBlockSemanticIssues(context.block, context.path, metadata, { directSettingsPath: true }).forEach((issue) => {
-        errors.push({
-          path: issue.path,
-          ruleId: issue.ruleId,
-          message: issue.message,
-        });
-      });
-        forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
-          blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
-        });
+      visitBlock(context.block, context.path, {}, { directSettingsPath: true });
     }
   }
 

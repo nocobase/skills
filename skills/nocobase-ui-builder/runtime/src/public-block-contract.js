@@ -1,4 +1,4 @@
-import { cloneSerializable, isPlainObject } from './utils.js';
+import { cloneSerializable, isPlainObject, unique } from './utils.js';
 
 const CALENDAR_TITLE_FIELD_INTERFACES = new Set(['input', 'select', 'phone', 'email', 'radioGroup']);
 const CALENDAR_COLOR_FIELD_INTERFACES = new Set(['select', 'radioGroup']);
@@ -191,6 +191,7 @@ function normalizeCollectionField(field) {
     target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    scopeKey: normalizeText(field.scopeKey) || normalizeText(options.scopeKey),
     ...(description ? { description } : {}),
     ...(validation ? { validation } : {}),
     ...(uiSchema ? { uiSchema } : {}),
@@ -354,7 +355,32 @@ export function isKanbanGroupFieldMeta(field) {
     && KANBAN_GROUP_FIELD_INTERFACES.has(normalizeText(field.interface));
 }
 
-export function collectCalendarKanbanMainBlockSemanticIssues(block, path, collectionMetadata, { directSettingsPath = false } = {}) {
+function getKanbanDefaultGroupFieldMeta(collectionMeta) {
+  return collectionMeta?.fields?.find((field) => isKanbanGroupFieldMeta(field)) || null;
+}
+
+function getKanbanGroupFieldSortScopeKeys(groupField) {
+  const groupFieldName = normalizeText(groupField?.name);
+  if (!groupFieldName) return [];
+  if (normalizeText(groupField?.interface) !== 'm2o' || !normalizeText(groupField?.foreignKey)) {
+    return [groupFieldName];
+  }
+  return unique([normalizeText(groupField.foreignKey), groupFieldName]);
+}
+
+function isKanbanCompatibleSortFieldMeta(field, groupField) {
+  if (!field || normalizeText(field.interface) !== 'sort') {
+    return false;
+  }
+  return getKanbanGroupFieldSortScopeKeys(groupField).includes(normalizeText(field.scopeKey || field.options?.scopeKey));
+}
+
+export function collectCalendarKanbanMainBlockSemanticIssues(
+  block,
+  path,
+  collectionMetadata,
+  { directSettingsPath = false, collectionName = "" } = {},
+) {
   const issues = [];
   const push = (issuePath, ruleId, message) => {
     issues.push({
@@ -371,7 +397,7 @@ export function collectCalendarKanbanMainBlockSemanticIssues(block, path, collec
   const type = normalizeText(block.type);
   const settings = isPlainObject(block.settings) ? block.settings : {};
   const settingsPath = directSettingsPath ? path : `${path}.settings`;
-  const collection = getPublicBlockCollectionName(block);
+  const collection = normalizeText(collectionName) || getPublicBlockCollectionName(block);
   if (!collection || !collectionMetadata || Object.keys(collectionMetadata).length === 0) {
     return issues;
   }
@@ -430,23 +456,46 @@ export function collectCalendarKanbanMainBlockSemanticIssues(block, path, collec
     return issues;
   }
 
-  if (type === 'kanban' && hasOwn(settings, 'groupField')) {
-    const groupFieldName = normalizeText(settings.groupField);
-    if (!groupFieldName) {
-      push(
-        `${settingsPath}.groupField`,
-        'kanban-group-field-required',
-        'kanban settings.groupField must be a non-empty field name.',
-      );
-      return issues;
+  if (type === 'kanban') {
+    let groupField = getKanbanDefaultGroupFieldMeta(collectionMeta);
+    if (hasOwn(settings, 'groupField')) {
+      const groupFieldName = normalizeText(settings.groupField);
+      if (!groupFieldName) {
+        push(
+          `${settingsPath}.groupField`,
+          'kanban-group-field-required',
+          'kanban settings.groupField must be a non-empty field name.',
+        );
+        return issues;
+      }
+      groupField = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, groupFieldName)?.field || null;
+      if (!isKanbanGroupFieldMeta(groupField)) {
+        push(
+          `${settingsPath}.groupField`,
+          'kanban-group-field-invalid',
+          `kanban settings.groupField must reference a select or m2o field; got "${groupFieldName}".`,
+        );
+      }
     }
-    const groupField = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, groupFieldName)?.field || null;
-    if (!isKanbanGroupFieldMeta(groupField)) {
-      push(
-        `${settingsPath}.groupField`,
-        'kanban-group-field-invalid',
-        `kanban settings.groupField must reference a select or m2o field; got "${groupFieldName}".`,
-      );
+
+    if (hasOwn(settings, 'dragSortBy')) {
+      const dragSortBy = normalizeText(settings.dragSortBy);
+      if (!dragSortBy) {
+        push(
+          `${settingsPath}.dragSortBy`,
+          'kanban-drag-sort-field-required',
+          'kanban settings.dragSortBy must be a non-empty field name when present.',
+        );
+        return issues;
+      }
+      const sortField = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, dragSortBy)?.field || null;
+      if (!groupField || !isKanbanCompatibleSortFieldMeta(sortField, groupField)) {
+        push(
+          `${settingsPath}.dragSortBy`,
+          'kanban-drag-sort-field-invalid',
+          `kanban settings.dragSortBy must reference an interface=sort field scoped to the current groupField; got "${dragSortBy}".`,
+        );
+      }
     }
   }
 

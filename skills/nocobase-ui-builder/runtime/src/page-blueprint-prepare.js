@@ -48,6 +48,7 @@ import {
   getPublicRelationFieldObjectPath,
   getPublicRelationFieldTitleFieldRequirement,
   getHiddenPopupSettingsForBlockType,
+  isKanbanGroupFieldMeta,
   isPublicAssociationFieldMeta,
   isPublicJsItemActionSlotSupported,
   JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID,
@@ -219,6 +220,18 @@ const RELATION_FIELD_POPUP_ASSOCIATED_RECORDS_BLOCK_TYPES = new Set([
 ]);
 const CALENDAR_BLOCK_TYPES = new Set(["calendar"]);
 const KANBAN_BLOCK_TYPES = new Set(["kanban"]);
+const KANBAN_MAIN_CARD_MAX_FIELDS = 2;
+const KANBAN_MAIN_CARD_PREFERRED_FIELD_NAMES = new Set([
+  "title",
+  "name",
+  "username",
+  "nickname",
+  "label",
+  "subject",
+  "code",
+  "email",
+  "phone",
+]);
 const CALENDAR_FIELD_BINDING_KEYS = [
   "titleField",
   "colorField",
@@ -1849,6 +1862,7 @@ function normalizeCollectionFieldMetadata(field) {
       normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey:
       normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    scopeKey: normalizeText(field.scopeKey) || normalizeText(options.scopeKey),
     ...(description ? { description } : {}),
     ...(validation ? { validation } : {}),
     ...(uiSchema ? { uiSchema } : {}),
@@ -2716,6 +2730,26 @@ function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
   };
 }
 
+function buildPopupSurfaceContext(blockContext = {}, associationRequirement = null) {
+  const hostAssociationRequirement = blockContext?.associationRequirement || null;
+  const popupAssociationRequirement = associationRequirement || null;
+  const popupSurfaceCollection =
+    normalizeText(popupAssociationRequirement?.targetCollection) ||
+    normalizeText(hostAssociationRequirement?.targetCollection) ||
+    getTraversalSurfaceCollection(blockContext);
+  return {
+    ...blockContext,
+    surfaceCollection: popupSurfaceCollection,
+    directCollection: "",
+    associationRequirement: null,
+    templateAssociationRequirement:
+      popupAssociationRequirement ||
+      hostAssociationRequirement ||
+      blockContext?.templateAssociationRequirement ||
+      null,
+  };
+}
+
 function resolveAssociationFieldRequirement(
   collectionMetadata,
   blockContext,
@@ -2762,7 +2796,7 @@ function collectDefaultsRequirementsFromActions(
       if (isPlainObject(item) && hasOwn(item, "popup")) {
         collectDefaultsRequirementsFromPopup(
           item.popup,
-          { surfaceCollection: getTraversalSurfaceCollection(blockContext) },
+          buildPopupSurfaceContext(blockContext),
           requirements,
           `${pathPrefix}[${index}].popup`,
         );
@@ -2772,7 +2806,6 @@ function collectDefaultsRequirementsFromActions(
 
     const popup = isPlainObject(item) ? item.popup : undefined;
     const associationRequirement = blockContext?.associationRequirement;
-    const surfaceCollection = getTraversalSurfaceCollection(blockContext);
     const directCollection = normalizeText(blockContext?.directCollection);
 
     if (
@@ -2792,7 +2825,7 @@ function collectDefaultsRequirementsFromActions(
 
     collectDefaultsRequirementsFromPopup(
       popup,
-      { surfaceCollection },
+      buildPopupSurfaceContext(blockContext),
       requirements,
       `${pathPrefix}[${index}].popup`,
     );
@@ -2834,11 +2867,7 @@ function collectDefaultsRequirementsFromFields(
 
     collectDefaultsRequirementsFromPopup(
       item.popup,
-      {
-        surfaceCollection:
-          associationRequirement?.targetCollection ||
-          getTraversalSurfaceCollection(blockContext),
-      },
+      buildPopupSurfaceContext(blockContext, associationRequirement),
       requirements,
       popupPath,
     );
@@ -2870,7 +2899,7 @@ function collectDefaultsRequirementsFromHiddenPopupSettings(
   forEachBlockHiddenPopup(block?.settings, block, (popup, { key }) => {
     collectDefaultsRequirementsFromPopup(
       popup,
-      { surfaceCollection: getTraversalSurfaceCollection(blockContext) },
+      buildPopupSurfaceContext(blockContext),
       requirements,
       `${pathPrefix}.${key}`,
     );
@@ -2929,6 +2958,12 @@ function collectDefaultsRequirementsFromBlock(
     blockContext,
     requirements,
     `${path}.recordActions`,
+  );
+  collectDefaultsRequirementsFromPopup(
+    block.popup,
+    buildPopupSurfaceContext(blockContext),
+    requirements,
+    `${path}.popup`,
   );
   collectDefaultsRequirementsFromHiddenPopupSettings(
     block,
@@ -3061,6 +3096,7 @@ function collectDataBoundBlockPathsFromBlock(block, path, paths) {
     `${path}.recordActions`,
     paths,
   );
+  collectDataBoundBlockPathsFromPopup(block.popup, `${path}.popup`, paths);
   collectDataBoundBlockPathsFromHiddenPopupSettings(
     block,
     `${path}.settings`,
@@ -4081,6 +4117,7 @@ function materializeHiddenPopupSettingsForWrite(settings, block, options = {}) {
       }
       nextSettings[key] = materializePopupForWrite(popup, {
         ...options,
+        blockContext: buildPopupSurfaceContext(options.blockContext || {}),
         popupDepth,
         hostBlock: block,
         triggerKind: "action",
@@ -4125,7 +4162,7 @@ function normalizeCalendarSettingsForWrite(settings, block) {
   return nextSettings;
 }
 
-function normalizeKanbanSettingsForWrite(settings, block) {
+function normalizeKanbanSettingsForWrite(settings, block, options = {}) {
   if (
     !KANBAN_BLOCK_TYPES.has(normalizeText(block?.type)) ||
     !isPlainObject(settings)
@@ -4141,7 +4178,10 @@ function normalizeKanbanSettingsForWrite(settings, block) {
     }
     delete nextSettings[key];
   }
-  return nextSettings;
+  if (isTemplateBackedBlock(block)) {
+    return nextSettings;
+  }
+  return materializeKanbanDragSettingsForWrite(nextSettings, block, options);
 }
 
 function normalizeBlockSettingsForWrite(settings, block, options = {}) {
@@ -4174,6 +4214,93 @@ function resolveCompatibleDragSortFieldName(
     : [];
   const sortField = fields.find(isCompatibleDragSortField);
   return normalizeText(sortField?.name);
+}
+
+function getKanbanBlockCollectionMeta(block, options = {}) {
+  const collectionName =
+    getTraversalSurfaceCollection(options.blockContext || {}) ||
+    getCollectionLabel(block);
+  if (!collectionName || !isPlainObject(options.collectionMetadata)) {
+    return null;
+  }
+  return getCollectionMeta(options.collectionMetadata, collectionName);
+}
+
+function getKanbanDefaultGroupFieldMeta(collectionMeta) {
+  return ensureArray(collectionMeta?.fields).find((field) =>
+    isKanbanGroupFieldMeta(field),
+  ) || null;
+}
+
+function getKanbanSettingsGroupFieldMeta(collectionMeta, settings = {}) {
+  const configuredGroupField = normalizeText(settings.groupField);
+  if (configuredGroupField) {
+    const groupField =
+      collectionMeta?.fieldsByName?.get(configuredGroupField) || null;
+    return isKanbanGroupFieldMeta(groupField) ? groupField : null;
+  }
+  return getKanbanDefaultGroupFieldMeta(collectionMeta);
+}
+
+function getKanbanGroupFieldSortScopeKeys(groupField) {
+  const groupFieldName = normalizeText(groupField?.name);
+  if (!groupFieldName) return [];
+  if (
+    normalizeText(groupField?.interface) !== "m2o" ||
+    !normalizeText(groupField?.foreignKey)
+  ) {
+    return [groupFieldName];
+  }
+  return unique([normalizeText(groupField.foreignKey), groupFieldName]);
+}
+
+function isKanbanCompatibleSortFieldMeta(field, groupField) {
+  if (!field || normalizeText(field.interface) !== "sort") {
+    return false;
+  }
+  return getKanbanGroupFieldSortScopeKeys(groupField).includes(
+    normalizeText(field.scopeKey || field.options?.scopeKey),
+  );
+}
+
+function resolveKanbanCompatibleSortFieldName(collectionMeta, groupField) {
+  return normalizeText(
+    ensureArray(collectionMeta?.fields).find((field) =>
+      isKanbanCompatibleSortFieldMeta(field, groupField),
+    )?.name,
+  );
+}
+
+function materializeKanbanDragSettingsForWrite(settings, block, options = {}) {
+  if (!isPlainObject(settings) || normalizeText(block?.type) !== "kanban") {
+    return settings;
+  }
+  if (settings.dragEnabled === false) {
+    return settings;
+  }
+  const nextSettings = {
+    ...settings,
+    dragEnabled: true,
+  };
+  const collectionMeta = getKanbanBlockCollectionMeta(block, options);
+  const hasExplicitGroupField = hasOwn(settings, "groupField");
+  const groupField =
+    hasExplicitGroupField && !normalizeText(settings.groupField)
+      ? null
+      : getKanbanSettingsGroupFieldMeta(collectionMeta, settings);
+  if (groupField && !hasExplicitGroupField && !normalizeText(nextSettings.groupField)) {
+    nextSettings.groupField = normalizeText(groupField.name);
+  }
+  if (!hasOwn(nextSettings, "dragSortBy") && groupField) {
+    const dragSortBy = resolveKanbanCompatibleSortFieldName(
+      collectionMeta,
+      groupField,
+    );
+    if (dragSortBy) {
+      nextSettings.dragSortBy = dragSortBy;
+    }
+  }
+  return nextSettings;
 }
 
 function normalizeTreeTableDragSortByForWrite(settings, block, options = {}) {
@@ -4223,7 +4350,13 @@ function normalizeTreeTableDragSortByForWrite(settings, block, options = {}) {
 
 function materializeSettingsForWrite(block, options = {}) {
   const settings = block?.settings;
-  let nextSettings = materializeHiddenPopupSettingsForWrite(settings, block, {
+  const inputSettings =
+    typeof settings === "undefined" &&
+    KANBAN_BLOCK_TYPES.has(normalizeText(block?.type)) &&
+    !isTemplateBackedBlock(block)
+      ? {}
+      : settings;
+  let nextSettings = materializeHiddenPopupSettingsForWrite(inputSettings, block, {
     ...options,
   });
   if (!isPlainObject(nextSettings)) {
@@ -4321,12 +4454,7 @@ function getRelationFieldPopupBlockContextForWrite(field, options = {}) {
     fieldPath,
   );
   if (!associationRequirement?.targetCollection) return fallbackContext;
-  return {
-    ...fallbackContext,
-    surfaceCollection: associationRequirement.targetCollection,
-    associationRequirement: null,
-    templateAssociationRequirement: associationRequirement,
-  };
+  return buildPopupSurfaceContext(fallbackContext, associationRequirement);
 }
 
 function materializeRelationFieldTitleFieldForWrite(field, options = {}) {
@@ -4754,6 +4882,7 @@ function materializeActionForWrite(action, options = {}) {
         : 0) + 1;
     nextAction.popup = materializePopupForWrite(nextAction.popup, {
       ...options,
+      blockContext: buildPopupSurfaceContext(options.blockContext || {}),
       popupDepth,
       triggerKind: options.recordActions ? "recordAction" : "action",
       triggerLabel: trimLabel(
@@ -4762,6 +4891,81 @@ function materializeActionForWrite(action, options = {}) {
     });
   }
   return nextAction;
+}
+
+function getKanbanMainCardFieldScore(field, collectionMeta) {
+  const fieldName = normalizeText(field?.name);
+  const lowerName = fieldName.toLowerCase();
+  if (fieldName && fieldName === normalizeText(collectionMeta?.titleField)) {
+    return 0;
+  }
+  if (KANBAN_MAIN_CARD_PREFERRED_FIELD_NAMES.has(lowerName)) {
+    return 1;
+  }
+  const fieldInterface = normalizeText(field?.interface);
+  if (DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
+    return 2;
+  }
+  return 3;
+}
+
+function isKanbanMainCardFieldCandidate(field, excludedFieldNames) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  if (!fieldName || !fieldInterface) return false;
+  if (excludedFieldNames.has(fieldName)) return false;
+  if (AUDIT_FIELD_NAMES.has(fieldName)) return false;
+  if (field?.hidden === true || field?.options?.hidden === true) return false;
+  if (field?.primaryKey === true || field?.options?.primaryKey === true) {
+    return false;
+  }
+  if (fieldInterface === "sort" || normalizeText(field?.type) === "sort") {
+    return false;
+  }
+  return true;
+}
+
+function selectKanbanMainCardFields(block, options = {}) {
+  const collectionMeta = getKanbanBlockCollectionMeta(block, options);
+  if (!collectionMeta) return [];
+  const settings = isPlainObject(block.settings) ? block.settings : {};
+  const groupField = getKanbanSettingsGroupFieldMeta(collectionMeta, settings);
+  const excludedFieldNames = new Set(
+    [
+      normalizeText(settings.groupField),
+      normalizeText(groupField?.name),
+      normalizeText(settings.dragSortBy),
+    ].filter(Boolean),
+  );
+  return ensureArray(collectionMeta.fields)
+    .map((field, index) => ({ field, index }))
+    .filter(({ field }) =>
+      isKanbanMainCardFieldCandidate(field, excludedFieldNames),
+    )
+    .sort((left, right) => {
+      const scoreDiff =
+        getKanbanMainCardFieldScore(left.field, collectionMeta) -
+        getKanbanMainCardFieldScore(right.field, collectionMeta);
+      return scoreDiff || left.index - right.index;
+    })
+    .slice(0, KANBAN_MAIN_CARD_MAX_FIELDS)
+    .map(({ field }) => normalizeText(field.name))
+    .filter(Boolean);
+}
+
+function materializeKanbanMainCardFieldsForWrite(block, options = {}) {
+  if (
+    !isPlainObject(block) ||
+    normalizeText(block.type) !== "kanban" ||
+    hasOwn(block, "fields") ||
+    isTemplateBackedBlock(block)
+  ) {
+    return block;
+  }
+  return {
+    ...block,
+    fields: selectKanbanMainCardFields(block, options),
+  };
 }
 
 function materializeBlockForWrite(block, options = {}) {
@@ -4774,9 +4978,6 @@ function materializeBlockForWrite(block, options = {}) {
     options.blockContext || {},
     options.collectionMetadata || {},
   );
-  const availableFieldNames = getBlockFieldEntries(nextBlock)
-    .map((field) => getFieldEntryPathForDescription(field))
-    .filter(Boolean);
   normalizeCalendarFieldBindingsOnBlock(nextBlock);
   if (
     hasOwn(nextBlock, "settings") ||
@@ -4791,6 +4992,13 @@ function materializeBlockForWrite(block, options = {}) {
       nextBlock.settings = materializedSettings;
     }
   }
+  nextBlock = materializeKanbanMainCardFieldsForWrite(nextBlock, {
+    ...options,
+    blockContext,
+  });
+  const availableFieldNames = getBlockFieldEntries(nextBlock)
+    .map((field) => getFieldEntryPathForDescription(field))
+    .filter(Boolean);
   if (hasOwn(nextBlock, "fields")) {
     nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
       materializeFieldForWrite(field, {
@@ -4831,6 +5039,21 @@ function materializeBlockForWrite(block, options = {}) {
           recordActions: true,
         }),
     );
+  }
+  if (hasOwn(nextBlock, "popup")) {
+    nextBlock.popup = materializePopupForWrite(nextBlock.popup, {
+      ...options,
+      hostBlock: nextBlock,
+      blockContext: buildPopupSurfaceContext(blockContext),
+      popupDepth:
+        (Number.isInteger(options.popupDepth) && options.popupDepth > 0
+          ? options.popupDepth
+          : 0) + 1,
+      triggerKind: "block",
+      triggerLabel: trimLabel(
+        nextBlock.title || nextBlock.type || nextBlock.key || "block",
+      ),
+    });
   }
   const nextWithDefaultActionGroups = materializeDefaultTableActionGroups(
     nextBlock,
@@ -5798,12 +6021,7 @@ function getValidationPopupSurfaceContext(state, blockContext, fieldPath = "") {
     blockContext,
     fieldPath,
   );
-  return {
-    surfaceCollection:
-      associationRequirement?.targetCollection ||
-      getTraversalSurfaceCollection(blockContext),
-    associationRequirement: null,
-  };
+  return buildPopupSurfaceContext(blockContext, associationRequirement);
 }
 
 function validatePopupDocument(popup, path, state, parentContext = {}) {
@@ -7610,22 +7828,17 @@ function validateHiddenPopupSettings(block, path, state, blockContext) {
       popup,
       `${path}.settings.${key}`,
       state,
-      blockContext,
+      getValidationPopupSurfaceContext(state, blockContext),
     );
   });
 }
 
-function validateCalendarMainBlockShape(block, path, state) {
+function validateCalendarMainBlockShape(block, path, state, blockContext = {}) {
   if (!CALENDAR_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
   }
 
-  const calendarBlockContext = buildBlockTraversalContext(
-    block,
-    {},
-    state.collectionMetadata,
-  );
-  const settings = isPlainObject(block.settings) ? block.settings : {};
+  const calendarBlockContext = blockContext;
   validateHiddenPopupSettings(block, path, state, calendarBlockContext);
 
   if (hasOwn(block, "fields")) {
@@ -7662,6 +7875,7 @@ function validateCalendarMainBlockShape(block, path, state) {
     block,
     path,
     state.collectionMetadata || {},
+    { collectionName: getTraversalSurfaceCollection(calendarBlockContext) },
   ).forEach((issue) => {
     pushValidationError(
       state.errors,
@@ -7673,18 +7887,27 @@ function validateCalendarMainBlockShape(block, path, state) {
   });
 }
 
-function validateKanbanMainBlockShape(block, path, state) {
+function validateKanbanMainBlockShape(block, path, state, blockContext = {}) {
   if (!KANBAN_BLOCK_TYPES.has(normalizeText(block?.type))) {
     return;
   }
 
-  const kanbanBlockContext = buildBlockTraversalContext(
-    block,
-    {},
-    state.collectionMetadata,
-  );
-  const settings = isPlainObject(block.settings) ? block.settings : {};
+  const kanbanBlockContext = blockContext;
   validateHiddenPopupSettings(block, path, state, kanbanBlockContext);
+
+  if (
+    Array.isArray(block.fields) &&
+    !isTemplateBackedBlock(block) &&
+    block.fields.length > KANBAN_MAIN_CARD_MAX_FIELDS
+  ) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fields`,
+      "kanban-main-fields-too-many",
+      `kanban applyBlueprint main blocks support at most ${KANBAN_MAIN_CARD_MAX_FIELDS} fields.`,
+    );
+  }
 
   if (hasOwn(block, "fieldGroups")) {
     pushValidationError(
@@ -7720,6 +7943,7 @@ function validateKanbanMainBlockShape(block, path, state) {
     block,
     path,
     state.collectionMetadata || {},
+    { collectionName: getTraversalSurfaceCollection(kanbanBlockContext) },
   ).forEach((issue) => {
     pushValidationError(
       state.errors,
@@ -8051,8 +8275,8 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateBlockSettingsSortAlias(block, path, state);
   validateChartBlockSettings(block, path, state);
   validateGridCardBlockSettings(block, path, state);
-  validateCalendarMainBlockShape(block, path, state);
-  validateKanbanMainBlockShape(block, path, state);
+  validateCalendarMainBlockShape(block, path, state, blockContext);
+  validateKanbanMainBlockShape(block, path, state, blockContext);
   validateTreeConnectFields(
     block,
     path,
@@ -8134,6 +8358,14 @@ function validateBlock(block, path, state, parentContext = {}) {
     recordActions: true,
     blockContext,
   });
+  if (hasOwn(block, "popup")) {
+    validatePopupDocument(
+      block.popup,
+      `${path}.popup`,
+      state,
+      getValidationPopupSurfaceContext(state, blockContext),
+    );
+  }
 }
 
 function validateTab(tab, index, state) {
@@ -8496,6 +8728,7 @@ function validateBlueprint(blueprint, options = {}) {
 
 const PRE_MATERIALIZE_HARD_VALIDATION_RULE_IDS = new Set([
   "settings-sort-sorting-conflict",
+  "kanban-main-fields-too-many",
 ]);
 const PRE_MATERIALIZE_HARD_CALENDAR_FIELD_KEYS = new Set([
   "titleField",
