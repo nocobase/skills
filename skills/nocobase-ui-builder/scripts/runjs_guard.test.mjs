@@ -557,6 +557,13 @@ test('inspectRunJSCode accepts immediately executed render helpers on render sur
     "const main = () => { ctx.render('called'); };\nmain();",
     "let main = () => { ctx.render('called'); };\nmain();\nmain = () => {};",
     "let main;\nmain = () => { ctx.render('called'); };\nmain();\nmain = () => {};",
+    "let main = 0;\nmain ||= () => { ctx.render('called'); };\nmain();",
+    "let main = null;\nmain ??= () => { ctx.render('called'); };\nmain();",
+    "let main = () => {};\nmain &&= () => { ctx.render('called'); };\nmain();",
+    "const helpers = { main: null };\nhelpers.main ??= () => { ctx.render('called'); };\nhelpers.main();",
+    "let main = null;\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { main ??= () => { ctx.render('called'); }; }\nif (flag) { main ??= 1; }\nmain();",
+    "const helpers = { main: null };\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { helpers.main ??= () => { ctx.render('called'); }; }\nif (flag) { helpers.main ??= 1; }\nhelpers.main();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nif (flag) { main = 0; }\nmain ||= () => { ctx.render('called'); };\nmain();",
     "(() => { ctx.render('called'); })();",
     "function main() { function inner() { ctx.render('called'); } inner(); }\nmain();",
     "function main() { const inner = () => { ctx.render('called'); }; inner(); }\nmain();",
@@ -571,6 +578,8 @@ test('inspectRunJSCode accepts immediately executed render helpers on render sur
     "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('called'); };\nwhile (flag) { main = 1; break; }\nmain();",
     "const flag = await ctx.getVar('ctx.record.flag');\nlet main = () => { ctx.render('called'); };\nfor (; flag; main = 1) { break; }\nmain();",
     "let main = () => { ctx.render('called'); };\ndo { break; } while (main = 1);\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nflag && (main = () => { ctx.render('called'); });\n!flag && (main = 1);\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nconst other = await ctx.getVar('ctx.record.other');\nif (flag) { main = () => { ctx.render('called'); }; }\nif (flag && other) { main = () => {}; }\nmain();",
     "for (const helper = () => { ctx.render('called'); }; true;) { helper(); break; }",
     "for (const helper of [() => { ctx.render('called'); }]) { helper(); break; }",
     "for (const helper of [() => {}, () => { ctx.render('called'); }]) { helper(); }",
@@ -703,7 +712,19 @@ test('inspectRunJSCode blocks dead or shadowed nested render paths', async () =>
     "let main = () => { ctx.render('too late'); }; main = 1; main();",
     "let main = () => { ctx.render('too late'); }; main = null; main?.();",
     "let main = () => { ctx.render('too late'); }; if (true) { main = 1; } main();",
+    "let main = () => {};\nmain ||= () => { ctx.render('too late'); };\nmain();",
+    "let main = () => {};\nmain ??= () => { ctx.render('too late'); };\nmain();",
+    "let main = 0;\nmain &&= () => { ctx.render('too late'); };\nmain();",
+    "const helpers = { main: () => {} };\nhelpers.main ||= () => { ctx.render('too late'); };\nhelpers.main();",
+    "const helpers = { main: () => {} };\nhelpers.main ??= () => { ctx.render('too late'); };\nhelpers.main();",
     "let main = () => {}; const flag = await ctx.getVar('ctx.record.flag'); if (flag) { main = () => { ctx.render('too late'); }; main = 1; } main();",
+    "let main = () => {}; const flag = await ctx.getVar('ctx.record.flag'); if (flag) { main = () => { ctx.render('too late'); }; } if (flag) { main = () => {}; } main();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nflag && (main = () => { ctx.render('too late'); });\nflag && (main = 1);\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nflag ? (main = () => { ctx.render('too late'); }) : null;\nflag ? (main = 1) : null;\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nconst other = await ctx.getVar('ctx.record.other');\nif (flag && other) { main = () => { ctx.render('too late'); }; }\nif (flag && other) { main = () => {}; }\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nconst other = await ctx.getVar('ctx.record.other');\nif (flag && other) { main = () => { ctx.render('too late'); }; }\nif (flag) { main = () => {}; }\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nconst other = await ctx.getVar('ctx.record.other');\n(flag && other) && (main = () => { ctx.render('too late'); });\n(flag && other) && (main = 1);\nmain();",
+    "let main = () => {};\nconst flag = await ctx.getVar('ctx.record.flag');\nconst other = await ctx.getVar('ctx.record.other');\nflag && other ? (main = () => { ctx.render('too late'); }) : null;\nflag && other ? (main = 1) : null;\nmain();",
     "let main = () => {}; const flag = await ctx.getVar('ctx.record.flag'); try { if (flag) { main = () => { ctx.render('too late'); }; throw 1; } } catch (error) { main = 1; } main();",
     "let main = () => { ctx.render('too late'); }; main++; main();",
     "let main = () => { ctx.render('too late'); }; [main] = [1]; main();",
@@ -712,8 +733,12 @@ test('inspectRunJSCode blocks dead or shadowed nested render paths', async () =>
     "let helpers = { main() { ctx.render('too late'); } }; helpers.main = 1; helpers.main();",
     "let helpers = { main() { ctx.render('too late'); } }; const alias = helpers; helpers.main = 1; alias.main();",
     "let helpers = { main() { ctx.render('too late'); } }; const alias = helpers; alias.main = 1; helpers.main();",
+    "const objectFlag = await ctx.getVar('ctx.record.flag'); const objectHelpers = { main: () => {} }; if (objectFlag) { objectHelpers.main = () => { ctx.render('too late'); }; } if (objectFlag) { objectHelpers.main = () => {}; } objectHelpers.main();",
+    "const objectFlag = await ctx.getVar('ctx.record.flag'); const objectOther = await ctx.getVar('ctx.record.other'); const objectHelpers = { main: () => {} }; if (objectFlag && objectOther) { objectHelpers.main = () => { ctx.render('too late'); }; } if (objectFlag && objectOther) { objectHelpers.main = () => {}; } objectHelpers.main();",
     "let helpers = { main: { nested() { ctx.render('too late'); } } }; const alias = helpers.main; helpers.main.nested = 1; alias.nested();",
     "let helpers = [() => { ctx.render('too late'); }]; const alias = helpers; alias[0] = 1; helpers[0]();",
+    "const arrayFlag = await ctx.getVar('ctx.record.flag'); const arrayHelpers = [() => {}]; if (arrayFlag) { arrayHelpers[0] = () => { ctx.render('too late'); }; } if (arrayFlag) { arrayHelpers[0] = () => {}; } arrayHelpers[0]();",
+    "const arrayFlag = await ctx.getVar('ctx.record.flag'); const arrayOther = await ctx.getVar('ctx.record.other'); const arrayHelpers = [() => {}]; if (arrayFlag && arrayOther) { arrayHelpers[0] = () => { ctx.render('too late'); }; } if (arrayFlag && arrayOther) { arrayHelpers[0] = () => {}; } arrayHelpers[0]();",
     "let helpers = { main: { nested() { ctx.render('too late'); } } }; const { main } = helpers; helpers.main.nested = 1; main.nested();",
     "let helpers = [{ nested() { ctx.render('too late'); } }]; const [group] = helpers; helpers[0].nested = 1; group.nested();",
     "let helpers = { main() { ctx.render('too late'); } }; delete helpers.main; helpers.main?.();",
@@ -813,6 +838,45 @@ test('inspectRunJSCode blocks dead or shadowed nested render paths', async () =>
       result.blockers.some((item) => item.code === 'RUNJS_RENDER_UNREACHABLE_RENDER_CALL'),
       true,
       `${code} should use the unreachable render blocker`,
+    );
+  }
+});
+
+test('inspectRunJSCode blocks compound-condition overwrites on all render model surfaces', async () => {
+  const renderModelUses = [
+    'JSBlockModel',
+    'JSFieldModel',
+    'JSEditableFieldModel',
+    'JSItemModel',
+    'FormJSFieldItemModel',
+    'JSColumnModel',
+    'JSItemActionModel',
+  ];
+  const code = `
+    const flag = await ctx.getVar('ctx.record.flag');
+    const other = await ctx.getVar('ctx.record.other');
+    let main = () => {};
+    if (flag && other) {
+      main = () => { ctx.render('too late'); };
+    }
+    if (flag && other) {
+      main = () => {};
+    }
+    main();
+  `;
+
+  for (const modelUse of renderModelUses) {
+    const result = await inspectRunJSCode({
+      surface: 'js-model.render',
+      modelUse,
+      code,
+    });
+
+    assert.equal(result.ok, false, `${modelUse} should block unreachable compound-condition render`);
+    assert.equal(
+      result.blockers.some((item) => item.code === 'RUNJS_RENDER_UNREACHABLE_RENDER_CALL'),
+      true,
+      `${modelUse} should use the unreachable render blocker`,
     );
   }
 });

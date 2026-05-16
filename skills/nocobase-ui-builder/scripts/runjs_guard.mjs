@@ -3283,8 +3283,11 @@ function addStaticPrimitiveDefinition(definitions, name, definition) {
   definitions.get(name).push(definition);
 }
 
+let nextRenderExecutionScopeId = 1;
+
 function createRenderExecutionScope(parent = null, { varTarget = null } = {}) {
   const scope = {
+    id: nextRenderExecutionScopeId,
     parent,
     declared: new Set(),
     definitions: new Map(),
@@ -3294,6 +3297,7 @@ function createRenderExecutionScope(parent = null, { varTarget = null } = {}) {
     staticContainers: new Map(),
     strict: Boolean(parent?.strict),
   };
+  nextRenderExecutionScopeId += 1;
   scope.varTarget = varTarget || scope;
   return scope;
 }
@@ -3303,6 +3307,7 @@ function cloneRenderExecutionScopeChain(scope, cloned = new Map()) {
   if (cloned.has(scope)) return cloned.get(scope);
   const parent = cloneRenderExecutionScopeChain(scope.parent, cloned);
   const clone = {
+    id: scope.id,
     parent,
     declared: new Set(scope.declared),
     definitions: new Map(
@@ -3391,23 +3396,214 @@ function cloneRenderExecutionScopeChainWithThrowScopes(scope, throwScopes) {
   return cloned;
 }
 
-function createFunctionDefinition(node, { hoisted, initializedAt, conditional = false }) {
+function normalizeRenderExecutionConditionKeys(conditionKeys) {
+  const keys = Array.isArray(conditionKeys) ? conditionKeys : [conditionKeys];
+  return Array.from(new Set(keys.filter((key) => typeof key === 'string' && key.length > 0))).sort();
+}
+
+function mergeRenderExecutionConditionKeys(...conditionKeySets) {
+  return normalizeRenderExecutionConditionKeys(conditionKeySets.flatMap((keys) => (
+    Array.isArray(keys) ? keys : [keys]
+  )));
+}
+
+function applyRenderExecutionDefinitionConditions(definition, { conditional = false, conditionKeys = [] } = {}) {
+  const merged = {
+    ...definition,
+    conditional: Boolean(conditional || definition?.conditional),
+  };
+  const mergedKeys = mergeRenderExecutionConditionKeys(definition?.conditionKeys, conditionKeys);
+  if (merged.conditional && mergedKeys.length > 0) {
+    merged.conditionKeys = mergedKeys;
+  } else {
+    delete merged.conditionKeys;
+  }
+  return merged;
+}
+
+function renderExecutionConditionKeysDominate(laterKeys, earlierKeys) {
+  const later = normalizeRenderExecutionConditionKeys(laterKeys);
+  const earlier = new Set(normalizeRenderExecutionConditionKeys(earlierKeys));
+  return later.length > 0 && earlier.size > 0 && later.every((key) => earlier.has(key));
+}
+
+function laterDefinitionDominatesEarlierConditionalPath(laterDefinition, earlierDefinition) {
+  return Boolean(laterDefinition?.conditional && earlierDefinition?.conditional)
+    && renderExecutionConditionKeysDominate(laterDefinition.conditionKeys, earlierDefinition.conditionKeys);
+}
+
+function pruneDominatedConditionalFunctionDefinitions(definitions) {
+  const pruned = [];
+  for (const definition of definitions || []) {
+    if (definition?.conditional) {
+      for (let index = pruned.length - 1; index >= 0; index -= 1) {
+        if (laterDefinitionDominatesEarlierConditionalPath(definition, pruned[index])) {
+          pruned.splice(index, 1);
+        }
+      }
+    }
+    pruned.push(definition);
+  }
+  return pruned;
+}
+
+function getLatestRenderExecutionConditionDefinitionStart(definitions, referenceStart) {
+  let latest = null;
+  for (const definition of definitions || []) {
+    const start = Number.isInteger(definition?.initializedAt)
+      ? definition.initializedAt
+      : definition?.declarationStart;
+    if (!Number.isInteger(start)) continue;
+    if (Number.isInteger(referenceStart) && start >= referenceStart) continue;
+    latest = latest == null ? start : Math.max(latest, start);
+  }
+  return latest;
+}
+
+function findRenderExecutionConditionBindingScope(scope, name) {
+  let current = scope;
+  while (current) {
+    if (
+      current.declared.has(name)
+      || current.definitions.has(name)
+      || current.staticPrimitives.has(name)
+    ) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function createRenderExecutionConditionBindingKey(scope, name, referenceStart = null) {
+  if (!scope || !name) return 'global@unknown';
+  const bindingScope = findRenderExecutionConditionBindingScope(scope, name);
+  if (!bindingScope) return 'global@unknown';
+  const latestFunctionStart = getLatestRenderExecutionConditionDefinitionStart(
+    bindingScope.definitions.get(name),
+    referenceStart,
+  );
+  const latestPrimitiveStart = getLatestRenderExecutionConditionDefinitionStart(
+    bindingScope.staticPrimitives.get(name),
+    referenceStart,
+  );
+  const latestStart = [latestFunctionStart, latestPrimitiveStart]
+    .filter((start) => Number.isInteger(start))
+    .reduce((latest, start) => Math.max(latest, start), null);
+  return `scope:${bindingScope.id}@${latestStart == null ? 'declared' : latestStart}`;
+}
+
+function serializeRenderExecutionConditionNode(node, scope = null, referenceStart = null) {
+  const expression = unwrapChainNode(node);
+  if (!isAstNode(expression)) return null;
+  if (expression.type === 'Identifier') {
+    return `id:${createRenderExecutionConditionBindingKey(scope, expression.name, referenceStart)}:${expression.name}`;
+  }
+  if (expression.type === 'ThisExpression') return 'this';
+  if (expression.type === 'Literal') return `literal:${typeof expression.value}:${String(expression.value)}`;
+  if (
+    expression.type === 'TemplateLiteral'
+    && Array.isArray(expression.expressions)
+    && expression.expressions.length === 0
+  ) {
+    const value = expression.quasis?.map((item) => item.value?.cooked ?? item.value?.raw ?? '').join('') ?? '';
+    return `literal:string:${value}`;
+  }
+  if (expression.type === 'MemberExpression') {
+    const objectKey = serializeRenderExecutionConditionNode(expression.object, scope, referenceStart);
+    const propertyName = getStaticPropertyName(expression.property, { computed: Boolean(expression.computed) });
+    if (!objectKey || propertyName == null) return null;
+    const memberPath = getStaticMemberPath(expression);
+    const memberName = memberPath?.join('.');
+    const memberKey = memberName
+      ? createRenderExecutionConditionBindingKey(scope, memberName, referenceStart)
+      : 'member@unknown';
+    return `member:${objectKey}.${propertyName}@${memberKey}`;
+  }
+  if (expression.type === 'LogicalExpression') {
+    const leftKey = serializeRenderExecutionConditionNode(expression.left, scope, referenceStart);
+    const rightKey = serializeRenderExecutionConditionNode(expression.right, scope, referenceStart);
+    if (!leftKey || !rightKey) return null;
+    const operandKeys = ['&&', '||'].includes(expression.operator)
+      ? [leftKey, rightKey].sort()
+      : [leftKey, rightKey];
+    return `logical:${expression.operator}:${operandKeys.join(':')}`;
+  }
+  if (expression.type === 'UnaryExpression' && expression.operator !== '!') {
+    const argumentKey = serializeRenderExecutionConditionNode(expression.argument, scope, referenceStart);
+    return argumentKey ? `unary:${expression.operator}:${argumentKey}` : null;
+  }
+  if (expression.type === 'BinaryExpression') {
+    const leftKey = serializeRenderExecutionConditionNode(expression.left, scope, referenceStart);
+    const rightKey = serializeRenderExecutionConditionNode(expression.right, scope, referenceStart);
+    return leftKey && rightKey ? `binary:${expression.operator}:${leftKey}:${rightKey}` : null;
+  }
+  return null;
+}
+
+function createRenderExecutionConditionKey(node, truthy = true, scope = null, referenceStart = null) {
+  const expression = unwrapChainNode(node);
+  if (expression?.type === 'UnaryExpression' && expression.operator === '!') {
+    return createRenderExecutionConditionKey(expression.argument, !truthy, scope, referenceStart);
+  }
+  const serialized = serializeRenderExecutionConditionNode(expression, scope, referenceStart);
+  return serialized ? `${truthy ? 'T' : 'F'}:${serialized}` : null;
+}
+
+function createRenderExecutionConditionKeys(node, truthy = true, scope = null, referenceStart = null) {
+  const expression = unwrapChainNode(node);
+  if (expression?.type === 'UnaryExpression' && expression.operator === '!') {
+    return createRenderExecutionConditionKeys(expression.argument, !truthy, scope, referenceStart);
+  }
+  if (expression?.type === 'LogicalExpression') {
+    const wholeKey = createRenderExecutionConditionKey(expression, truthy, scope, referenceStart);
+    if (!wholeKey) return [];
+    if (expression.operator === '&&' && truthy) {
+      return mergeRenderExecutionConditionKeys(
+        createRenderExecutionConditionKeys(expression.left, true, scope, referenceStart),
+        createRenderExecutionConditionKeys(expression.right, true, scope, referenceStart),
+        wholeKey,
+      );
+    }
+    if (expression.operator === '||' && !truthy) {
+      return mergeRenderExecutionConditionKeys(
+        createRenderExecutionConditionKeys(expression.left, false, scope, referenceStart),
+        createRenderExecutionConditionKeys(expression.right, false, scope, referenceStart),
+        wholeKey,
+      );
+    }
+    return [wholeKey];
+  }
+  const key = createRenderExecutionConditionKey(node, truthy, scope, referenceStart);
+  return key ? [key] : [];
+}
+
+function createFunctionDefinition(node, {
+  hoisted,
+  initializedAt,
+  conditional = false,
+  conditionKeys = [],
+}) {
+  const normalizedConditionKeys = normalizeRenderExecutionConditionKeys(conditionKeys);
   return {
     node,
     hoisted,
     initializedAt: Number.isInteger(initializedAt) ? initializedAt : null,
     declarationStart: Number.isInteger(node?.start) ? node.start : (Number.isInteger(initializedAt) ? initializedAt : null),
     conditional,
+    ...(conditional && normalizedConditionKeys.length > 0 ? { conditionKeys: normalizedConditionKeys } : {}),
   };
 }
 
-function createUnavailableFunctionDefinition({ initializedAt, conditional = false }) {
+function createUnavailableFunctionDefinition({ initializedAt, conditional = false, conditionKeys = [] }) {
+  const normalizedConditionKeys = normalizeRenderExecutionConditionKeys(conditionKeys);
   return {
     node: null,
     hoisted: false,
     initializedAt: Number.isInteger(initializedAt) ? initializedAt : null,
     declarationStart: Number.isInteger(initializedAt) ? initializedAt : null,
     conditional,
+    ...(conditional && normalizedConditionKeys.length > 0 ? { conditionKeys: normalizedConditionKeys } : {}),
   };
 }
 
@@ -3470,7 +3666,7 @@ function registerStaticPrimitiveDefinitionFromSourcePath(
   }
 }
 
-function mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditional = false } = {}) {
+function mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditional = false, conditionKeys = [] } = {}) {
   let original = originalScope;
   let cloned = clonedScope;
   while (original && cloned) {
@@ -3485,10 +3681,11 @@ function mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditiona
         ? newDefinitions.slice(lastUnconditionalIndex)
         : newDefinitions;
       for (const definition of definitionsToMerge) {
-        addFunctionDefinition(original.definitions, name, {
-          ...definition,
-          conditional: Boolean(conditional || definition.conditional),
-        });
+        addFunctionDefinition(
+          original.definitions,
+          name,
+          applyRenderExecutionDefinitionConditions(definition, { conditional, conditionKeys }),
+        );
       }
     }
     for (const [name, clonedDefinitions] of cloned.staticPrimitives.entries()) {
@@ -3541,8 +3738,8 @@ function replaceScopedDefinitionsFromScopeClone(original, cloned, name) {
   }
 }
 
-function mergeConditionalDefinitionsFromScopeClone(originalScope, clonedScope) {
-  mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditional: true });
+function mergeConditionalDefinitionsFromScopeClone(originalScope, clonedScope, { conditionKeys = [] } = {}) {
+  mergeDefinitionsFromScopeClone(originalScope, clonedScope, { conditional: true, conditionKeys });
 }
 
 function predeclareFunctionScopeBindings(scope, statements) {
@@ -3707,13 +3904,13 @@ function getStaticMemberPath(node) {
   return [...objectPath, propertyName];
 }
 
-function addUnavailableFunctionDefinitionToScope(scope, name, initializedAt, { conditional = false } = {}) {
+function addUnavailableFunctionDefinitionToScope(scope, name, initializedAt, { conditional = false, conditionKeys = [] } = {}) {
   unmarkContainerPath(scope, name);
   removeContainerAliasesForPath(scope, name);
-  addFunctionDefinition(scope.definitions, name, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+  addFunctionDefinition(scope.definitions, name, createUnavailableFunctionDefinition({ initializedAt, conditional, conditionKeys }));
   for (const key of [...scope.definitions.keys()]) {
     if (key.startsWith(`${name}.`)) {
-      addFunctionDefinition(scope.definitions, key, createUnavailableFunctionDefinition({ initializedAt, conditional }));
+      addFunctionDefinition(scope.definitions, key, createUnavailableFunctionDefinition({ initializedAt, conditional, conditionKeys }));
     }
   }
   for (const key of [...scope.staticPrimitives.keys()]) {
@@ -4339,19 +4536,23 @@ function resolveStaticLiteralExpressionValue(node) {
   return findStaticContainerMemberValue(container, propertyName);
 }
 
-function addAliasedFunctionDefinitionToScope(scope, name, definition, initializedAt, { conditional = false } = {}) {
+function addAliasedFunctionDefinitionToScope(scope, name, definition, initializedAt, { conditional = false, conditionKeys = [] } = {}) {
   if (!name || !definition) return;
+  const mergedConditionKeys = mergeRenderExecutionConditionKeys(definition.conditionKeys, conditionKeys);
+  const mergedConditional = Boolean(conditional || definition.conditional);
   if (definition.node) {
     addFunctionDefinition(scope.definitions, name, createFunctionDefinition(definition.node, {
       hoisted: false,
       initializedAt,
-      conditional: Boolean(conditional || definition.conditional),
+      conditional: mergedConditional,
+      conditionKeys: mergedConditionKeys,
     }));
     return;
   }
   addFunctionDefinition(scope.definitions, name, createUnavailableFunctionDefinition({
     initializedAt,
-    conditional: Boolean(conditional || definition.conditional),
+    conditional: mergedConditional,
+    conditionKeys: mergedConditionKeys,
   }));
 }
 
@@ -4367,7 +4568,9 @@ function selectPossibleFunctionDefinitions(definitions, referenceStart) {
   if (lastUnconditionalIndex >= 0) {
     possibleDefinitions.push(availableDefinitions[lastUnconditionalIndex]);
   }
-  for (const definition of availableDefinitions.slice(lastUnconditionalIndex + 1)) {
+  for (const definition of pruneDominatedConditionalFunctionDefinitions(
+    availableDefinitions.slice(lastUnconditionalIndex + 1),
+  )) {
     if (definition.conditional) possibleDefinitions.push(definition);
   }
   return possibleDefinitions;
@@ -4924,6 +5127,7 @@ function registerMemberFunctionAssignmentTargets(scope, memberName, expression, 
 function registerFunctionAssignmentDefinition(scope, expression, statement) {
   if (
     expression?.type !== 'AssignmentExpression'
+    || expression.operator !== '='
   ) {
     return;
   }
@@ -4979,6 +5183,159 @@ function registerUpdateExpressionInvalidation(scope, expression) {
   const initializedAt = Number.isInteger(expression.start) ? expression.start : null;
   registerUnavailableFunctionDefinition(scope, expression.argument.name, initializedAt);
   registerStaticPrimitiveInvalidation(scope, expression.argument.name, initializedAt);
+}
+
+function isLogicalAssignmentOperator(operator) {
+  return operator === '||=' || operator === '&&=' || operator === '??=';
+}
+
+function getStaticAssignmentTargetName(node) {
+  const targetPath = getStaticMemberPath(node);
+  return targetPath?.join('.') || null;
+}
+
+function resolveStaticTargetTruthyValue(node, scope, referenceStart = null) {
+  const primitive = resolveStaticPrimitiveValue(node, scope, referenceStart);
+  if (primitive !== STATIC_PRIMITIVE_UNKNOWN) return Boolean(primitive);
+  const targetName = getStaticAssignmentTargetName(node);
+  if (!targetName) {
+    const literal = unwrapChainNode(resolveStaticLiteralExpressionValue(node));
+    return isFunctionNode(literal) || literal?.type === 'ObjectExpression' || literal?.type === 'ArrayExpression'
+      ? true
+      : null;
+  }
+  const definitions = resolveFunctionDefinitionsFromScopeName(scope, targetName, referenceStart);
+  if (definitions?.length > 0 && definitions.every((definition) => Boolean(definition?.node))) {
+    return true;
+  }
+  if (scopeHasKnownContainerPath(scope, targetName)) return true;
+  return null;
+}
+
+function shouldEvaluateLogicalAssignmentRight(expression, scope, executionStart) {
+  if (!isLogicalAssignmentOperator(expression?.operator)) return null;
+  const referenceStart = Number.isInteger(executionStart) ? executionStart : expression.start;
+  if (expression.operator === '??=') {
+    const primitive = resolveStaticPrimitiveValue(expression.left, scope, referenceStart);
+    if (primitive !== STATIC_PRIMITIVE_UNKNOWN) return primitive == null;
+    const truthy = resolveStaticTargetTruthyValue(expression.left, scope, referenceStart);
+    return truthy === true ? false : null;
+  }
+  const truthy = resolveStaticTargetTruthyValue(expression.left, scope, referenceStart);
+  if (truthy == null) return null;
+  return expression.operator === '&&=' ? truthy : !truthy;
+}
+
+function invalidateAssignmentTarget(scope, target, initializedAt) {
+  const memberPath = getStaticMemberPath(target);
+  if (memberPath?.length > 1) {
+    const memberName = memberPath.join('.');
+    unmarkContainerPath(scope, memberName);
+    removeContainerAliasesForPath(scope, memberName);
+    for (const assignmentTarget of collectEquivalentContainerMemberAssignmentTargets(scope, memberName)) {
+      addUnavailableFunctionDefinitionToScope(assignmentTarget.scope, assignmentTarget.name, initializedAt);
+      addUnavailableStaticPrimitiveDefinitionToScope(assignmentTarget.scope, assignmentTarget.name, initializedAt);
+    }
+    return;
+  }
+  for (const name of collectAssignmentTargetIdentifiers(target)) {
+    const targetScope = findAssignmentTargetScope(scope, name);
+    unmarkContainerPath(targetScope, name);
+    removeContainerAliasesForPath(targetScope, name);
+    addUnavailableFunctionDefinitionToScope(targetScope, name, initializedAt);
+    addUnavailableStaticPrimitiveDefinitionToScope(targetScope, name, initializedAt);
+  }
+}
+
+function analyzeForcedAssignmentExecutionPath(expression, scope, executionStart, seen) {
+  const forcedExpression = expression.operator === '=' ? expression : { ...expression, operator: '=' };
+  registerFunctionAssignmentDefinition(scope, forcedExpression, expression);
+  if (isFunctionNode(expression.right)) return createExecutionPathResult();
+  return analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen);
+}
+
+function analyzeForcedAssignmentExecutionPathInConditionalScope(
+  expression,
+  scope,
+  executionStart,
+  seen,
+  { conditionKeys = [] } = {},
+) {
+  const cloned = cloneRenderExecutionScopeChainWithMap(scope);
+  const result = analyzeForcedAssignmentExecutionPath(
+    expression,
+    cloned.scope,
+    executionStart,
+    new Set(seen),
+  );
+  if (!result.hasRender && !result.terminated) {
+    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope, { conditionKeys });
+  }
+  return addConditionalThrowScope(result, scope, cloned.scope);
+}
+
+function analyzeCompoundAssignmentExecutionPath(expression, scope, executionStart, seen) {
+  const initializedAt = Number.isInteger(expression.start) ? expression.start : null;
+  const leftResult = analyzeExpressionExecutionPath(expression.left, scope, executionStart, seen);
+  if (leftResult.hasRender || leftResult.terminated) return leftResult;
+  const rightResult = isFunctionNode(expression.right)
+    ? createExecutionPathResult()
+    : analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen);
+  if (rightResult.hasRender || rightResult.terminated) return rightResult;
+  invalidateAssignmentTarget(scope, expression.left, initializedAt);
+  return createExecutionPathResult({
+    mayThrow: leftResult.mayThrow || rightResult.mayThrow,
+    throwScopes: collectThrowScopes(leftResult, rightResult),
+  });
+}
+
+function analyzeLogicalAssignmentExecutionPath(expression, scope, executionStart, seen) {
+  const leftResult = analyzeExpressionExecutionPath(expression.left, scope, executionStart, seen);
+  if (leftResult.hasRender || leftResult.terminated) return leftResult;
+  const shouldEvaluateRight = shouldEvaluateLogicalAssignmentRight(expression, scope, executionStart);
+  if (shouldEvaluateRight === false) {
+    return createExecutionPathResult({
+      mayThrow: leftResult.mayThrow,
+      throwScopes: getThrowScopes(leftResult),
+    });
+  }
+  if (shouldEvaluateRight === true) {
+    const rightResult = analyzeForcedAssignmentExecutionPath(expression, scope, executionStart, seen);
+    return createExecutionPathResult({
+      hasRender: rightResult.hasRender,
+      terminated: rightResult.terminated,
+      throws: rightResult.throws,
+      mayThrow: leftResult.mayThrow || rightResult.mayThrow,
+      termination: rightResult.termination,
+      throwScopes: collectThrowScopes(leftResult, rightResult),
+    });
+  }
+  const conditionKeys = expression.operator === '&&='
+    ? createRenderExecutionConditionKeys(
+      expression.left,
+      true,
+      scope,
+      Number.isInteger(expression.left?.start) ? expression.left.start : executionStart,
+    )
+    : (expression.operator === '||=' ? createRenderExecutionConditionKeys(
+      expression.left,
+      false,
+      scope,
+      Number.isInteger(expression.left?.start) ? expression.left.start : executionStart,
+    ) : []);
+  const rightResult = analyzeForcedAssignmentExecutionPathInConditionalScope(
+    expression,
+    scope,
+    executionStart,
+    seen,
+    { conditionKeys },
+  );
+  return createExecutionPathResult({
+    hasRender: rightResult.hasRender,
+    terminated: false,
+    mayThrow: leftResult.mayThrow || rightResult.mayThrow,
+    throwScopes: collectThrowScopes(leftResult, rightResult),
+  });
 }
 
 function isFunctionDefinitionAvailable(definition, callStart) {
@@ -5324,7 +5681,13 @@ function analyzeStatementExecutionPathInClonedScope(statement, scope, executionS
   );
 }
 
-function analyzeStatementExecutionPathInConditionalScope(statement, scope, executionStart, seen) {
+function analyzeStatementExecutionPathInConditionalScope(
+  statement,
+  scope,
+  executionStart,
+  seen,
+  { conditionKeys = [] } = {},
+) {
   const cloned = cloneRenderExecutionScopeChainWithMap(scope);
   const result = analyzeStatementExecutionPath(
     statement,
@@ -5333,12 +5696,18 @@ function analyzeStatementExecutionPathInConditionalScope(statement, scope, execu
     new Set(seen),
   );
   if (!result.hasRender && (!result.terminated || result.termination === 'break')) {
-    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope);
+    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope, { conditionKeys });
   }
   return addConditionalThrowScope(result, scope, cloned.scope);
 }
 
-function analyzeExpressionExecutionPathInConditionalScope(node, scope, executionStart, seen) {
+function analyzeExpressionExecutionPathInConditionalScope(
+  node,
+  scope,
+  executionStart,
+  seen,
+  { conditionKeys = [] } = {},
+) {
   const cloned = cloneRenderExecutionScopeChainWithMap(scope);
   const result = analyzeExpressionExecutionPath(
     node,
@@ -5347,7 +5716,7 @@ function analyzeExpressionExecutionPathInConditionalScope(node, scope, execution
     new Set(seen),
   );
   if (!result.hasRender && !result.terminated) {
-    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope);
+    mergeConditionalDefinitionsFromScopeClone(scope, cloned.scope, { conditionKeys });
   }
   return addConditionalThrowScope(result, scope, cloned.scope);
 }
@@ -5366,6 +5735,12 @@ function analyzeExpressionExecutionPath(node, scope, executionStart, seen) {
     return createExecutionPathResult({ hasRender: true });
   }
   if (expression.type === 'AssignmentExpression') {
+    if (isLogicalAssignmentOperator(expression.operator)) {
+      return analyzeLogicalAssignmentExecutionPath(expression, scope, executionStart, seen);
+    }
+    if (expression.operator !== '=') {
+      return analyzeCompoundAssignmentExecutionPath(expression, scope, executionStart, seen);
+    }
     registerFunctionAssignmentDefinition(scope, expression, expression);
     if (isFunctionNode(expression.right)) return createExecutionPathResult();
   }
@@ -5389,7 +5764,20 @@ function analyzeExpressionExecutionPath(node, scope, executionStart, seen) {
     if (expression.operator === '&&') {
       if (leftValue === false) return createExecutionPathResult({ mayThrow: leftResult.mayThrow, throwScopes: getThrowScopes(leftResult) });
       if (leftValue === true) return analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen);
-      const rightResult = analyzeExpressionExecutionPathInConditionalScope(expression.right, scope, executionStart, seen);
+      const rightResult = analyzeExpressionExecutionPathInConditionalScope(
+        expression.right,
+        scope,
+        executionStart,
+        seen,
+        {
+          conditionKeys: createRenderExecutionConditionKeys(
+            expression.left,
+            true,
+            scope,
+            Number.isInteger(expression.left?.start) ? expression.left.start : executionStart,
+          ),
+        },
+      );
       return createExecutionPathResult({
         hasRender: rightResult.hasRender,
         mayThrow: leftResult.mayThrow || rightResult.mayThrow,
@@ -5399,7 +5787,20 @@ function analyzeExpressionExecutionPath(node, scope, executionStart, seen) {
     if (expression.operator === '||') {
       if (leftValue === true) return createExecutionPathResult({ mayThrow: leftResult.mayThrow, throwScopes: getThrowScopes(leftResult) });
       if (leftValue === false) return analyzeExpressionExecutionPath(expression.right, scope, executionStart, seen);
-      const rightResult = analyzeExpressionExecutionPathInConditionalScope(expression.right, scope, executionStart, seen);
+      const rightResult = analyzeExpressionExecutionPathInConditionalScope(
+        expression.right,
+        scope,
+        executionStart,
+        seen,
+        {
+          conditionKeys: createRenderExecutionConditionKeys(
+            expression.left,
+            false,
+            scope,
+            Number.isInteger(expression.left?.start) ? expression.left.start : executionStart,
+          ),
+        },
+      );
       return createExecutionPathResult({
         hasRender: rightResult.hasRender,
         mayThrow: leftResult.mayThrow || rightResult.mayThrow,
@@ -5436,9 +5837,35 @@ function analyzeExpressionExecutionPath(node, scope, executionStart, seen) {
       alternate.mayThrow = Boolean(testResult.mayThrow || alternate.mayThrow);
       return alternate;
     }
-    const consequent = analyzeExpressionExecutionPathInConditionalScope(expression.consequent, scope, executionStart, seen);
+    const consequent = analyzeExpressionExecutionPathInConditionalScope(
+      expression.consequent,
+      scope,
+      executionStart,
+      seen,
+      {
+        conditionKeys: createRenderExecutionConditionKeys(
+          expression.test,
+          true,
+          scope,
+          Number.isInteger(expression.test?.start) ? expression.test.start : executionStart,
+        ),
+      },
+    );
     if (consequent.hasRender) return createExecutionPathResult({ hasRender: true });
-    const alternate = analyzeExpressionExecutionPathInConditionalScope(expression.alternate, scope, executionStart, seen);
+    const alternate = analyzeExpressionExecutionPathInConditionalScope(
+      expression.alternate,
+      scope,
+      executionStart,
+      seen,
+      {
+        conditionKeys: createRenderExecutionConditionKeys(
+          expression.test,
+          false,
+          scope,
+          Number.isInteger(expression.test?.start) ? expression.test.start : executionStart,
+        ),
+      },
+    );
     if (alternate.hasRender) return createExecutionPathResult({ hasRender: true });
     const termination = combineBranchTermination(consequent, alternate);
     return createExecutionPathResult({
@@ -5589,10 +6016,36 @@ function analyzeStatementExecutionPath(statement, scope, executionStart, seen) {
         alternate.mayThrow = Boolean(testResult.mayThrow || alternate.mayThrow);
         return alternate;
       }
-      const consequent = analyzeStatementExecutionPathInConditionalScope(statement.consequent, scope, executionStart, seen);
+      const consequent = analyzeStatementExecutionPathInConditionalScope(
+        statement.consequent,
+        scope,
+        executionStart,
+        seen,
+        {
+          conditionKeys: createRenderExecutionConditionKeys(
+            statement.test,
+            true,
+            scope,
+            Number.isInteger(statement.test?.start) ? statement.test.start : executionStart,
+          ),
+        },
+      );
       if (consequent.hasRender) return { hasRender: true, terminated: false };
       const alternate = statement.alternate
-        ? analyzeStatementExecutionPathInConditionalScope(statement.alternate, scope, executionStart, seen)
+        ? analyzeStatementExecutionPathInConditionalScope(
+          statement.alternate,
+          scope,
+          executionStart,
+          seen,
+          {
+            conditionKeys: createRenderExecutionConditionKeys(
+              statement.test,
+              false,
+              scope,
+              Number.isInteger(statement.test?.start) ? statement.test.start : executionStart,
+            ),
+          },
+        )
         : { hasRender: false, terminated: false, throws: false };
       if (alternate.hasRender) return { hasRender: true, terminated: false };
       const termination = combineBranchTermination(consequent, alternate);
