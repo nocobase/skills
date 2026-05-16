@@ -29,7 +29,12 @@ import {
   mergeDescriptionDrivenFieldLinkageItems,
 } from "./form-behavior-targets.js";
 import { collectBuilderChartRelationFieldIssues } from "./chart-query-validation.js";
-import { canonicalizeRunJSPayload } from "../../scripts/runjs_guard.mjs";
+import {
+  canonicalizeRunJSCode,
+  canonicalizeRunJSPayload,
+  inspectRunJSPayloadStatic,
+  inspectRunJSStaticCode,
+} from "../../scripts/runjs_guard.mjs";
 import {
   buildPublicRelationFieldTitleFieldRequiredMessage,
   buildPublicRelationFieldTitleFieldInvalidMessage,
@@ -265,6 +270,31 @@ const CHART_CUSTOM_VISUAL_FORBIDDEN_KEYS = new Set([
   "type",
   "mappings",
   "style",
+]);
+const PUBLIC_RUNJS_BLOCK_TYPES = new Set(["js", "jsBlock"]);
+const PUBLIC_RUNJS_FIELD_MODEL_BY_TYPE = new Map([
+  ["jscolumn", "JSColumnModel"],
+  ["jsitem", "JSItemModel"],
+  ["jsfield", "JSFieldModel"],
+  ["jseditablefield", "JSEditableFieldModel"],
+]);
+const PUBLIC_RUNJS_RENDER_FIELD_HOST_BLOCK_TYPES = new Set([
+  "table",
+  "list",
+  "gridCard",
+  "details",
+]);
+const PUBLIC_RUNJS_EDITABLE_FIELD_HOST_BLOCK_TYPES = new Set([
+  "createForm",
+  "editForm",
+  "filterForm",
+]);
+const PUBLIC_RUNJS_COLLECTION_ACTION_HOST_BLOCK_TYPES = new Set([
+  "table",
+  "list",
+  "gridCard",
+  "calendar",
+  "kanban",
 ]);
 const GRID_CARD_BLOCK_TYPES = new Set(["gridCard"]);
 const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
@@ -8049,6 +8079,524 @@ function uniqueValidationErrors(errors) {
   });
 }
 
+function normalizeRunJSSurfaceContext(modelUse, surface) {
+  const normalizedModelUse = normalizeText(modelUse);
+  const normalizedSurface = normalizeText(surface);
+  if (!normalizedModelUse || !normalizedSurface) return null;
+  return {
+    modelUse: normalizedModelUse,
+    surface: normalizedSurface,
+  };
+}
+
+function resolveExplicitRunJSModelContext(modelUse) {
+  const normalizedModelUse = normalizeText(modelUse);
+  if (!normalizedModelUse) return null;
+  if (
+    [
+      "JSBlockModel",
+      "JSColumnModel",
+      "JSFieldModel",
+      "JSEditableFieldModel",
+      "JSItemModel",
+      "FormJSFieldItemModel",
+      "JSItemActionModel",
+    ].includes(normalizedModelUse)
+  ) {
+    return normalizeRunJSSurfaceContext(normalizedModelUse, "js-model.render");
+  }
+  if (
+    [
+      "JSActionModel",
+      "JSFormActionModel",
+      "JSRecordActionModel",
+      "JSCollectionActionModel",
+      "FilterFormJSActionModel",
+    ].includes(normalizedModelUse)
+  ) {
+    return normalizeRunJSSurfaceContext(normalizedModelUse, "js-model.action");
+  }
+  return null;
+}
+
+function resolvePublicBlockRunJSContext(block) {
+  const explicit = resolveExplicitRunJSModelContext(block?.use);
+  if (explicit) return explicit;
+  if (PUBLIC_RUNJS_BLOCK_TYPES.has(normalizeText(block?.type))) {
+    return normalizeRunJSSurfaceContext("JSBlockModel", "js-model.render");
+  }
+  return null;
+}
+
+function resolvePublicFieldRunJSContext(field, blockContext = {}) {
+  if (!isPlainObject(field)) return null;
+  const explicit = resolveExplicitRunJSModelContext(field.use);
+  if (explicit) return explicit;
+
+  const fieldType = normalizeLowerText(field.type);
+  const modelUse = PUBLIC_RUNJS_FIELD_MODEL_BY_TYPE.get(fieldType);
+  if (modelUse) {
+    return normalizeRunJSSurfaceContext(modelUse, "js-model.render");
+  }
+
+  if (normalizeLowerText(field.renderer) !== "js") {
+    return null;
+  }
+  const hostBlockType = normalizeText(blockContext.hostBlockType);
+  if (PUBLIC_RUNJS_RENDER_FIELD_HOST_BLOCK_TYPES.has(hostBlockType)) {
+    return normalizeRunJSSurfaceContext(
+      hostBlockType === "table" ? "JSColumnModel" : "JSFieldModel",
+      "js-model.render",
+    );
+  }
+  if (PUBLIC_RUNJS_EDITABLE_FIELD_HOST_BLOCK_TYPES.has(hostBlockType)) {
+    return normalizeRunJSSurfaceContext("JSEditableFieldModel", "js-model.render");
+  }
+  return normalizeRunJSSurfaceContext("JSFieldModel", "js-model.render");
+}
+
+function resolvePublicActionRunJSContext(action, blockContext = {}, options = {}) {
+  if (!isPlainObject(action)) return null;
+  const explicit = resolveExplicitRunJSModelContext(action.use);
+  if (explicit) return explicit;
+
+  const actionType = normalizeText(action.type);
+  if (actionType === "jsItem") {
+    return normalizeRunJSSurfaceContext("JSItemActionModel", "js-model.render");
+  }
+  if (actionType !== "js") return null;
+
+  if (options.recordActions) {
+    return normalizeRunJSSurfaceContext("JSRecordActionModel", "js-model.action");
+  }
+  const hostBlockType = normalizeText(blockContext.hostBlockType);
+  if (FORM_ACTION_HOST_BLOCK_TYPES.has(hostBlockType)) {
+    return normalizeRunJSSurfaceContext("JSFormActionModel", "js-model.action");
+  }
+  if (hostBlockType === "filterForm") {
+    return normalizeRunJSSurfaceContext("FilterFormJSActionModel", "js-model.action");
+  }
+  if (PUBLIC_RUNJS_COLLECTION_ACTION_HOST_BLOCK_TYPES.has(hostBlockType)) {
+    return normalizeRunJSSurfaceContext("JSCollectionActionModel", "js-model.action");
+  }
+  return normalizeRunJSSurfaceContext("JSActionModel", "js-model.action");
+}
+
+function createRunJSErrorFromFinding(finding, fallbackPath = "$") {
+  const path = normalizeText(finding?.path) || fallbackPath;
+  const code = normalizeText(finding?.code) || "RUNJS_VALIDATION_BLOCKER";
+  const modelUse = normalizeText(finding?.modelUse);
+  const location = [
+    Number.isInteger(finding?.line) ? `line ${finding.line}` : "",
+    Number.isInteger(finding?.column) ? `column ${finding.column}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const suffix = location ? ` (${location})` : "";
+  return createValidationError(
+    path,
+    "apply-blueprint-runjs-blocker",
+    `RunJS prepare validation failed at ${path}: ${finding?.message || code}${suffix}`,
+    code,
+    {
+      ...(modelUse ? { modelUse } : {}),
+      ...(normalizeText(finding?.evidence) ? { evidence: finding.evidence } : {}),
+      ...(isPlainObject(finding?.details) ? { details: finding.details } : {}),
+    },
+  );
+}
+
+function pushRunJSError(errors, seen, finding, fallbackPath = "$") {
+  const issue = createRunJSErrorFromFinding(finding, fallbackPath);
+  pushValidationError(
+    errors,
+    seen,
+    issue.path,
+    issue.ruleId,
+    issue.message,
+    issue.code,
+    issue.details,
+  );
+}
+
+function pushRunJSWarning(warnings, warning, fallbackPath = "$") {
+  const path = normalizeText(warning?.path) || fallbackPath;
+  const code = normalizeText(warning?.code);
+  const message = normalizeText(warning?.message) || code;
+  if (!message) return;
+  warnings.push(code ? `${path}: ${code}: ${message}` : `${path}: ${message}`);
+}
+
+function pushScriptValidationError(errors, seen, path, ruleId, message, details = undefined) {
+  pushValidationError(errors, seen, path, ruleId, message, undefined, details);
+}
+
+function getScriptAssetMap(blueprint) {
+  return isPlainObject(blueprint?.assets?.scripts)
+    ? blueprint.assets.scripts
+    : {};
+}
+
+function collectScriptAssetContext(assetContexts, assetKey, context, consumerPath) {
+  if (!assetKey || !context) return;
+  const contexts = assetContexts.get(assetKey) || new Map();
+  const contextKey = `${context.modelUse}::${context.surface}`;
+  const entry = contexts.get(contextKey) || {
+    modelUse: context.modelUse,
+    surface: context.surface,
+    consumers: [],
+  };
+  entry.consumers.push(consumerPath);
+  contexts.set(contextKey, entry);
+  assetContexts.set(assetKey, contexts);
+}
+
+function addPublicRunJSNode(nodes, node) {
+  if (!node?.context || !normalizeText(node.path)) return;
+  nodes.push({
+    path: node.path,
+    code: typeof node.code === "string" ? node.code : "",
+    version: normalizeText(node.version) || "v1",
+    modelUse: node.context.modelUse,
+    surface: node.context.surface,
+    setCode: node.setCode,
+  });
+}
+
+function collectInlineRunJS(nodes, spec, path, context) {
+  if (!context || !isPlainObject(spec)) return;
+  if (typeof spec.code === "string" && spec.code.trim()) {
+    addPublicRunJSNode(nodes, {
+      path: `${path}.code`,
+      code: spec.code,
+      version: spec.version || spec.settings?.version,
+      context,
+      setCode(nextCode) {
+        spec.code = nextCode;
+      },
+    });
+  }
+  if (isPlainObject(spec.settings) && typeof spec.settings.code === "string" && spec.settings.code.trim()) {
+    addPublicRunJSNode(nodes, {
+      path: `${path}.settings.code`,
+      code: spec.settings.code,
+      version: spec.settings.version || spec.version,
+      context,
+      setCode(nextCode) {
+        spec.settings.code = nextCode;
+      },
+    });
+  }
+}
+
+function collectScriptAssetRunJS(nodes, state, spec, path, context) {
+  if (!isPlainObject(spec) || !hasOwn(spec, "script")) return;
+  const scriptPath = `${path}.script`;
+  const publicPath = scriptPath;
+  if (typeof spec.script !== "string") {
+    pushScriptValidationError(
+      state.errors,
+      state.seenErrors,
+      scriptPath,
+      "apply-blueprint-script-asset-key-invalid",
+      `${publicPath} must be a string asset key; use inline code or settings.code for inline JS code.`,
+    );
+    return;
+  }
+  const scriptKey = normalizeText(spec.script);
+  if (!scriptKey) {
+    pushScriptValidationError(
+      state.errors,
+      state.seenErrors,
+      scriptPath,
+      "apply-blueprint-script-asset-key-invalid",
+      `${publicPath} must be a non-empty string asset key; use inline code or settings.code for inline JS code.`,
+    );
+    return;
+  }
+
+  state.referencedScriptAssets.add(scriptKey);
+  collectScriptAssetContext(state.scriptAssetContexts, scriptKey, context, scriptPath);
+
+  const scripts = state.scriptAssets;
+  if (!isPlainObject(scripts) || !hasOwn(scripts, scriptKey) || !isPlainObject(scripts[scriptKey])) {
+    pushScriptValidationError(
+      state.errors,
+      state.seenErrors,
+      scriptPath,
+      "apply-blueprint-script-asset-missing",
+      `${publicPath} references missing script asset "${scriptKey}" in assets.scripts.`,
+    );
+    return;
+  }
+
+  const asset = scripts[scriptKey];
+  if (typeof asset.code !== "string" || !asset.code.trim()) {
+    pushScriptValidationError(
+      state.errors,
+      state.seenErrors,
+      scriptPath,
+      "apply-blueprint-script-asset-code-required",
+      `${publicPath} references script asset "${scriptKey}" without non-empty code; use inline code or settings.code for inline JS code.`,
+    );
+    return;
+  }
+
+  if (!context) {
+    pushScriptValidationError(
+      state.errors,
+      state.seenErrors,
+      scriptPath,
+      "apply-blueprint-script-consumer-unsupported",
+      `${publicPath} references script asset "${scriptKey}", but this consumer does not resolve to a supported RunJS model context.`,
+    );
+    return;
+  }
+
+  addPublicRunJSNode(nodes, {
+    path: scriptPath,
+    code: asset.code,
+    version: asset.version,
+    context,
+    setCode(nextCode) {
+      asset.code = nextCode;
+    },
+  });
+}
+
+function collectPublicRunJSFromPopup(nodes, state, popup, path, parentBlockContext = {}) {
+  if (!isPlainObject(popup) || !Array.isArray(popup.blocks)) return;
+  collectPublicRunJSFromBlocks(nodes, state, popup.blocks, `${path}.blocks`, parentBlockContext);
+}
+
+function collectPublicRunJSFromFields(nodes, state, fields, path, blockContext) {
+  for (const [fieldIndex, field] of ensureArray(fields).entries()) {
+    if (!isPlainObject(field)) continue;
+    const fieldPath = `${path}[${fieldIndex}]`;
+    const context = resolvePublicFieldRunJSContext(field, blockContext);
+    collectInlineRunJS(nodes, field, fieldPath, context);
+    collectScriptAssetRunJS(nodes, state, field, fieldPath, context);
+    collectPublicRunJSFromPopup(nodes, state, field.popup, `${fieldPath}.popup`, blockContext);
+  }
+}
+
+function collectPublicRunJSFromFieldGroups(nodes, state, fieldGroups, path, blockContext) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    collectPublicRunJSFromFields(
+      nodes,
+      state,
+      group.fields,
+      `${path}[${groupIndex}].fields`,
+      blockContext,
+    );
+  });
+}
+
+function collectPublicRunJSFromActions(nodes, state, actions, path, blockContext, options = {}) {
+  for (const [actionIndex, action] of ensureArray(actions).entries()) {
+    if (!isPlainObject(action)) continue;
+    const actionPath = `${path}[${actionIndex}]`;
+    const context = resolvePublicActionRunJSContext(action, blockContext, options);
+    collectInlineRunJS(nodes, action, actionPath, context);
+    collectScriptAssetRunJS(nodes, state, action, actionPath, context);
+    collectPublicRunJSFromPopup(nodes, state, action.popup, `${actionPath}.popup`, blockContext);
+  }
+}
+
+function collectPublicRunJSFromBlocks(nodes, state, blocks, path, parentContext = {}) {
+  for (const [blockIndex, block] of ensureArray(blocks).entries()) {
+    if (!isPlainObject(block)) continue;
+    const blockPath = `${path}[${blockIndex}]`;
+    const blockContext = {
+      ...buildBlockTraversalContext(
+        block,
+        parentContext,
+        state.collectionMetadata || {},
+      ),
+      hostBlockType: normalizeText(block.type),
+    };
+    const context = resolvePublicBlockRunJSContext(block);
+    collectInlineRunJS(nodes, block, blockPath, context);
+    collectScriptAssetRunJS(nodes, state, block, blockPath, context);
+    collectPublicRunJSFromFields(nodes, state, block.fields, `${blockPath}.fields`, blockContext);
+    collectPublicRunJSFromFieldGroups(
+      nodes,
+      state,
+      block.fieldGroups,
+      `${blockPath}.fieldGroups`,
+      blockContext,
+    );
+    collectPublicRunJSFromActions(nodes, state, block.actions, `${blockPath}.actions`, blockContext, {
+      recordActions: false,
+    });
+    collectPublicRunJSFromActions(
+      nodes,
+      state,
+      block.recordActions,
+      `${blockPath}.recordActions`,
+      blockContext,
+      { recordActions: true },
+    );
+    forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      collectPublicRunJSFromPopup(
+        nodes,
+        state,
+        popup,
+        `${blockPath}.settings.${key}`,
+        blockContext,
+      );
+    });
+  }
+}
+
+function collectPublicApplyBlueprintRunJSNodes(blueprint, options = {}) {
+  const state = {
+    errors: [],
+    seenErrors: new Set(),
+    warnings: [],
+    scriptAssets: getScriptAssetMap(blueprint),
+    referencedScriptAssets: new Set(),
+    scriptAssetContexts: new Map(),
+    collectionMetadata: options.collectionMetadata || {},
+  };
+  const nodes = [];
+  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
+    if (!isPlainObject(tab)) continue;
+    collectPublicRunJSFromBlocks(
+      nodes,
+      state,
+      tab.blocks,
+      `tabs[${tabIndex}].blocks`,
+      {
+        siblingBlocksByKey: collectSiblingBlocksByKey(tab.blocks),
+      },
+    );
+  }
+
+  for (const [assetKey, contexts] of state.scriptAssetContexts.entries()) {
+    if (contexts.size <= 1) continue;
+    const consumers = [...contexts.values()].map((entry) => ({
+      modelUse: entry.modelUse,
+      surface: entry.surface,
+      consumers: entry.consumers,
+    }));
+    pushScriptValidationError(
+      state.errors,
+      state.seenErrors,
+      `assets.scripts.${assetKey}`,
+      "apply-blueprint-script-asset-context-conflict",
+      `assets.scripts.${assetKey} is referenced by incompatible RunJS consumer contexts; use separate script assets per modelUse and surface.`,
+      { consumers },
+    );
+  }
+
+  for (const assetKey of Object.keys(state.scriptAssets)) {
+    if (state.referencedScriptAssets.has(assetKey)) continue;
+    state.warnings.push(
+      `assets.scripts.${assetKey} is not referenced by any script consumer; skipped RunJS validation for this unused script asset.`,
+    );
+  }
+
+  return {
+    nodes,
+    errors: state.errors,
+    warnings: state.warnings,
+  };
+}
+
+function cloneBlueprintForGenericRunJSInspection(blueprint) {
+  const clone = cloneSerializable(blueprint);
+  if (isPlainObject(clone?.assets) && hasOwn(clone.assets, "scripts")) {
+    clone.assets = { ...clone.assets };
+    delete clone.assets.scripts;
+  }
+  const stripPublicSettingsCode = (node) => {
+    if (Array.isArray(node)) {
+      node.forEach(stripPublicSettingsCode);
+      return;
+    }
+    if (!isPlainObject(node)) return;
+    if (isPlainObject(node.settings) && typeof node.settings.code === "string") {
+      node.settings = { ...node.settings };
+      delete node.settings.code;
+      delete node.settings.version;
+      delete node.settings.source;
+    }
+    Object.values(node).forEach(stripPublicSettingsCode);
+  };
+  stripPublicSettingsCode(clone);
+  return clone;
+}
+
+function validateResolvedPublicRunJSNodes(nodes, errors, seenErrors, warnings) {
+  for (const node of nodes) {
+    const canonical = canonicalizeRunJSCode({
+      code: node.code,
+      modelUse: node.modelUse,
+      findingModelUse: node.modelUse,
+      version: node.version,
+      path: node.path,
+    });
+    if (canonical.changed) {
+      node.setCode?.(canonical.code);
+      node.code = canonical.code;
+    }
+    for (const transform of ensureArray(canonical.transforms)) {
+      warnings.push(
+        transform?.message || `RunJS code normalized before prepare-write at ${node.path}.`,
+      );
+    }
+
+    const inspected = inspectRunJSStaticCode({
+      code: node.code,
+      modelUse: node.modelUse,
+      surface: node.surface,
+      version: node.version,
+      path: node.path,
+    });
+    for (const finding of ensureArray(inspected.blockers)) {
+      pushRunJSError(errors, seenErrors, finding, node.path);
+    }
+    for (const warning of ensureArray(inspected.warnings)) {
+      pushRunJSWarning(warnings, warning, node.path);
+    }
+  }
+}
+
+function collectPrepareRunJSValidation(blueprint, options = {}) {
+  const errors = [];
+  const seenErrors = new Set();
+  const warnings = [];
+  const publicRunJS = collectPublicApplyBlueprintRunJSNodes(blueprint, options);
+  for (const issue of publicRunJS.errors) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      issue.path,
+      issue.ruleId,
+      issue.message,
+      issue.code,
+      issue.details,
+    );
+  }
+  warnings.push(...publicRunJS.warnings);
+  validateResolvedPublicRunJSNodes(publicRunJS.nodes, errors, seenErrors, warnings);
+
+  const genericPayload = cloneBlueprintForGenericRunJSInspection(blueprint);
+  const genericInspection = inspectRunJSPayloadStatic({ payload: genericPayload });
+  for (const finding of ensureArray(genericInspection.blockers)) {
+    pushRunJSError(errors, seenErrors, finding, finding?.path || "$");
+  }
+  for (const warning of ensureArray(genericInspection.warnings)) {
+    pushRunJSWarning(warnings, warning, warning?.path || "$");
+  }
+
+  return {
+    errors: uniqueValidationErrors(errors),
+    warnings: unique(warnings),
+  };
+}
+
 function buildPrepareFacts(blueprint, expectedOuterTabs) {
   return {
     mode: normalizeLowerText(blueprint?.mode),
@@ -8141,6 +8689,15 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     : null;
   const validationBlueprint = preparedBlueprint || effectiveBlueprint;
   const facts = buildPrepareFacts(validationBlueprint, expectedOuterTabs);
+  const runJSValidation = recognizableBlueprint
+    ? collectPrepareRunJSValidation(validationBlueprint, {
+        collectionMetadata:
+          collectionMetadataErrors.length === 0
+            ? { collections: collectionMetadata }
+            : {},
+      })
+    : { errors: [], warnings: [] };
+  warnings.push(...runJSValidation.warnings);
   const missingCollectionMetadataErrors =
     dataBoundBlockPaths.length > 0 &&
     !hasUsableCollectionMetadata &&
@@ -8164,6 +8721,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     ...collectionMetadataErrors,
     ...missingCollectionMetadataErrors,
     ...templateDecisionConsistencyErrors,
+    ...runJSValidation.errors,
   ];
   if (!recognizableBlueprint) {
     if (!errors.length) {

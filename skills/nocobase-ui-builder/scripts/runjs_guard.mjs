@@ -6039,6 +6039,10 @@ function isFunctionTerminatingResult(result) {
   return result?.termination === 'return' || result?.termination === 'throw';
 }
 
+function isCallTerminatingResult(result) {
+  return Boolean(result?.terminated && result.termination !== 'return');
+}
+
 function combineBranchTermination(left, right) {
   if (!left?.terminated || !right?.terminated) return null;
   if (left.termination === right.termination) return left.termination || null;
@@ -6362,11 +6366,12 @@ function analyzeExpressionExecutionPath(node, scope, executionStart, seen) {
       for (const calledFunction of calledFunctions) {
         const callResult = analyzeFunctionExecutionPath(calledFunction, scope, callStart, seen, expression);
         if (callResult.hasRender) return callResult;
-        allTerminated = allTerminated && callResult.terminated;
+        const callTerminatesCaller = isCallTerminatingResult(callResult);
+        allTerminated = allTerminated && callTerminatesCaller;
         throws = throws && callResult.throws;
         mayThrow = mayThrow || callResult.mayThrow;
         throwScopes = [...throwScopes, ...getThrowScopes(callResult)];
-        termination = termination || callResult.termination || null;
+        termination = termination || (callTerminatesCaller ? callResult.termination : null);
       }
       if (allTerminated) {
         return createExecutionPathResult({

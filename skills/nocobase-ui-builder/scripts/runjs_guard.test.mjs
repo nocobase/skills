@@ -663,6 +663,7 @@ test('inspectRunJSCode accepts immediately executed render helpers on render sur
     "const helpers = [() => { ctx.render('called'); }];\nconst [main] = helpers;\nmain();",
     "const helpers = { main: () => { ctx.render('called'); } };\nconst { main } = helpers;\nmain();",
     "let main;\n[main] = [() => { ctx.render('called'); }];\nmain();",
+    "const rows = await (async () => { return [1, 2, 3]; })();\nctx.render(String(rows.length));",
   ];
 
   for (const code of samples) {

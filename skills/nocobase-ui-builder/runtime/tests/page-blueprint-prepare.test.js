@@ -1405,7 +1405,7 @@ test('prepareApplyBlueprintRequest normalizes literal escaped newlines in JS cod
               jsSettings: {
                 runJs: {
                   version: 'v2',
-                  code: 'const title = String(ctx.formValues?.title || "");\\nreturn title.trim();',
+                  code: 'const title = "Employees";\\nctx.render(title.trim());',
                 },
               },
             },
@@ -1418,6 +1418,302 @@ test('prepareApplyBlueprintRequest normalizes literal escaped newlines in JS cod
   assert.equal(result.ok, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].stepParams.jsSettings.runJs.code.includes('\\n'), false);
   assert.equal(result.cliBody.tabs[0].blocks[0].stepParams.jsSettings.runJs.code.includes('\n'), true);
+});
+
+test('prepareApplyBlueprintRequest rejects public jsBlock settings code with RunJS blockers before write', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'RunJS hard gate' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'summary',
+            type: 'jsBlock',
+            settings: {
+              version: 'v2',
+              code: "React.createElement('div', null, 'Missing render');",
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-runjs-blocker'));
+  assert.ok(result.errors.some((issue) => issue.code === 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'));
+});
+
+test('prepareApplyBlueprintRequest validates script assets through their actual consumers', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'RunJS asset hard gate' },
+    assets: {
+      scripts: {
+        banner: {
+          version: 'v2',
+          code: "React.createElement('div', null, 'Missing render');",
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'summary',
+            type: 'jsBlock',
+            script: 'banner',
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-runjs-blocker'));
+  assert.ok(result.errors.some((issue) => issue.path === 'tabs[0].blocks[0].script'));
+  assert.ok(result.errors.some((issue) => issue.code === 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'));
+});
+
+test('prepareApplyBlueprintRequest rejects public jsItem action code with RunJS blockers before write', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'RunJS action hard gate' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                defaultFilterAction(commonUserDefaultFilterFieldNames),
+                {
+                  type: 'jsItem',
+                  title: 'Tools',
+                  code: "React.createElement('div', null, 'Missing render');",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-runjs-blocker'));
+  assert.ok(result.errors.some((issue) => /^tabs\[0\]\.blocks\[0\]\.actions\[\d+\]\.code$/.test(issue.path)));
+  assert.ok(result.errors.some((issue) => issue.code === 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'));
+});
+
+test('prepareApplyBlueprintRequest rejects public js action code with RunJS blockers before write', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'RunJS action hard gate' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                defaultFilterAction(commonUserDefaultFilterFieldNames),
+                {
+                  type: 'js',
+                  title: 'Sync',
+                  code: "await fetch('/api/auth:check');",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-runjs-blocker'));
+  assert.ok(result.errors.some((issue) => /^tabs\[0\]\.blocks\[0\]\.actions\[\d+\]\.code$/.test(issue.path)));
+  assert.ok(result.errors.some((issue) => issue.code === 'RUNJS_FORBIDDEN_GLOBAL'));
+});
+
+test('prepareApplyBlueprintRequest accepts one script asset reused by the same consumer context', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Shared RunJS asset' },
+    assets: {
+      scripts: {
+        banner: {
+          version: 'v2',
+          code: "ctx.render('ok');",
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['summaryA', 'summaryB']],
+        },
+        blocks: [
+          {
+            key: 'summaryA',
+            type: 'jsBlock',
+            script: 'banner',
+          },
+          {
+            key: 'summaryB',
+            type: 'jsBlock',
+            script: 'banner',
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+});
+
+test('prepareApplyBlueprintRequest rejects one script asset reused by different consumer contexts', () => {
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Mixed RunJS asset' },
+      assets: {
+        scripts: {
+          shared: {
+            version: 'v2',
+            code: "ctx.render('ok');",
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'summary',
+              type: 'jsBlock',
+              script: 'shared',
+            },
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              defaultFilter: defaultFilterGroup(commonUserDefaultFilterFieldNames),
+              actions: [
+                defaultFilterAction(commonUserDefaultFilterFieldNames),
+                {
+                  type: 'jsItem',
+                  title: 'Tools',
+                  script: 'shared',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata, injectDataSurfaceDefaultFilter: false },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-script-asset-context-conflict'));
+});
+
+test('prepareApplyBlueprintRequest rejects referenced script assets without runnable code', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Missing RunJS asset code' },
+    assets: {
+      scripts: {
+        emptyBanner: {
+          title: 'Metadata only',
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['summary'], ['usersTable']],
+        },
+        blocks: [
+          {
+            key: 'summary',
+            type: 'jsBlock',
+            script: 'emptyBanner',
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-script-asset-code-required'));
+});
+
+test('prepareApplyBlueprintRequest only warns for unreferenced script assets', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Unused RunJS asset' },
+    assets: {
+      scripts: {
+        unused: {
+          version: 'v2',
+          code: "React.createElement('div', null, 'Unused');",
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'summary',
+            type: 'jsBlock',
+            settings: {
+              version: 'v2',
+              code: "ctx.render('ok');",
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.ok(result.warnings.some((warning) => warning.includes('assets.scripts.unused')));
 });
 
 test('prepareApplyBlueprintRequest accepts public blueprint envelope with metadata', () => {
