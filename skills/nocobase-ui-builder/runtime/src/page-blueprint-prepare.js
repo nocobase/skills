@@ -21,6 +21,7 @@ import {
   deriveDescriptionFieldBehavior,
   DESCRIPTION_FIELD_SETTINGS_BLOCK_TYPES,
   FIELD_LINKAGE_REACTION_TYPE,
+  getFieldDescriptionText,
   getFieldLinkageRuleSemanticKey,
 } from "./description-form-behavior.js";
 import {
@@ -417,6 +418,81 @@ const AUDIT_FIELD_NAMES = new Set([
   "updated_at",
   "deleted_at",
 ]);
+const DEFAULT_POPUP_SYSTEM_FIELD_NAMES = new Set([
+  "id",
+  "createdBy",
+  "createdById",
+  "updatedBy",
+  "updatedById",
+]);
+const DEFAULT_POPUP_SYSTEM_FIELD_INTERFACES = new Set([
+  "id",
+  "snowflakeId",
+  "createdBy",
+  "createdById",
+  "updatedBy",
+  "updatedById",
+]);
+const DEFAULT_POPUP_AUDIT_TIMESTAMP_FIELD_NAMES = new Set([
+  "createdAt",
+  "updatedAt",
+]);
+const DEFAULT_POPUP_AUDIT_TIMESTAMP_FIELD_INTERFACES = new Set([
+  "createdAt",
+  "updatedAt",
+]);
+const DEFAULT_POPUP_MULTI_VALUE_ASSOCIATION_INTERFACES = new Set([
+  "m2m",
+  "o2m",
+  "mbm",
+]);
+const DEFAULT_POPUP_FILE_MANAGER_ASSOCIATION_INTERFACES = new Set([
+  "attachment",
+  "m2m",
+  "m2o",
+  "o2o",
+  "o2m",
+  "oho",
+  "obo",
+  "updatedBy",
+  "createdBy",
+  "mbm",
+]);
+const DEFAULT_POPUP_FALLBACK_TITLE_USABLE_INTERFACES = new Set([
+  "attachmentURL",
+  "date",
+  "datetime",
+  "datetimeNoTz",
+  "email",
+  "formula",
+  "id",
+  "input",
+  "integer",
+  "nanoid",
+  "number",
+  "percent",
+  "phone",
+  "radioGroup",
+  "select",
+  "sequence",
+  "snowflakeId",
+  "sort",
+  "space",
+  "textarea",
+  "time",
+  "unixTimestamp",
+  "url",
+  "uuid",
+  "vditor",
+]);
+const DEFAULT_POPUP_LAST_RESORT_TITLE_FIELD_NAMES = new Set([
+  "createdAt",
+  "updatedAt",
+]);
+const DEFAULT_POPUP_LAST_RESORT_TITLE_FIELD_INTERFACES = new Set([
+  "createdAt",
+  "updatedAt",
+]);
 const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
   "collection",
   "binding",
@@ -442,6 +518,13 @@ function normalizeText(value, fallback = "") {
     typeof value === "string" || typeof value === "number" ? String(value) : "";
   const normalized = source.replace(/\s+/g, " ").trim();
   return normalized || fallback;
+}
+
+function normalizeOptionalBoolean(...values) {
+  for (const value of values) {
+    if (typeof value === "boolean") return value;
+  }
+  return undefined;
 }
 
 function normalizeFilterTargetKeyValue(value) {
@@ -1735,7 +1818,13 @@ function normalizeCollectionFieldMetadata(field) {
       ? cloneSerializable(options.uiSchema)
       : undefined;
   const normalizedOptions = {};
-  if (options.hidden === true) normalizedOptions.hidden = true;
+  if (options.hidden) normalizedOptions.hidden = true;
+  if (options.primaryKey) normalizedOptions.primaryKey = true;
+  if (options.autoIncrement) normalizedOptions.autoIncrement = true;
+  if (typeof options.titleable === "boolean")
+    normalizedOptions.titleable = options.titleable;
+  if (typeof options.titleUsable === "boolean")
+    normalizedOptions.titleUsable = options.titleUsable;
   if (normalizeText(options.description))
     normalizedOptions.description = normalizeText(options.description);
   if (Array.isArray(field.options))
@@ -1767,8 +1856,11 @@ function normalizeCollectionFieldMetadata(field) {
     readOnly: Boolean(field.readOnly ?? field.readonly),
     writable: typeof field.writable === "boolean" ? field.writable : undefined,
     autoCreate: Boolean(field.autoCreate),
-    autoIncrement: Boolean(field.autoIncrement),
-    hidden: field.hidden === true || options.hidden === true,
+    primaryKey: Boolean(field.primaryKey || options.primaryKey),
+    autoIncrement: Boolean(field.autoIncrement || options.autoIncrement),
+    hidden: Boolean(field.hidden || options.hidden),
+    titleable: normalizeOptionalBoolean(field.titleable, options.titleable),
+    titleUsable: normalizeOptionalBoolean(field.titleUsable, options.titleUsable),
     filterable:
       field.filterable === false || options.filterable === false
         ? false
@@ -1833,6 +1925,8 @@ export function normalizeCollectionMetadataInput(rawMetadata) {
       titleField: normalizeText(
         source.titleField || values.titleField || options.titleField,
       ),
+      explicitTitleField: normalizeText(source.explicitTitleField || options.titleField),
+      template: normalizeText(source.template || values.template || options.template),
       filterTargetKey:
         normalizeFilterTargetKeyValue(source.filterTargetKey) ||
         normalizeFilterTargetKeyValue(values.filterTargetKey) ||
@@ -2025,32 +2119,288 @@ function chooseDefaultDisplayField(collectionMeta) {
   return normalizeText(scalarField?.name);
 }
 
-function isAuditMetadataField(field, collectionMeta) {
-  const fieldName = normalizeText(field?.name);
+function isDefaultPopupSceneMetadataField(field) {
+  const fieldInterface = normalizeText(field?.interface);
+  const fieldType = normalizeText(field?.type);
   return (
-    AUDIT_FIELD_NAMES.has(fieldName) ||
-    (!!normalizeText(collectionMeta?.filterTargetKey) &&
-      fieldName === normalizeText(collectionMeta?.filterTargetKey))
+    !!fieldInterface &&
+    !field?.hidden &&
+    !field?.options?.hidden &&
+    fieldType !== "sort" &&
+    fieldInterface !== "sort"
   );
 }
 
-function isWritableSceneMetadataField(field, collectionMeta) {
-  if (!normalizeText(field?.interface)) return false;
-  if (
-    field?.writable === false ||
-    field?.readOnly ||
-    field?.autoCreate ||
-    field?.autoIncrement
-  ) {
+function isDefaultPopupSystemMetadataField(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  return (
+    DEFAULT_POPUP_SYSTEM_FIELD_NAMES.has(fieldName) ||
+    DEFAULT_POPUP_SYSTEM_FIELD_INTERFACES.has(fieldInterface) ||
+    !!field?.primaryKey ||
+    !!field?.options?.primaryKey ||
+    !!field?.autoIncrement ||
+    !!field?.options?.autoIncrement
+  );
+}
+
+function isDefaultPopupTechnicalIdMetadataField(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  return (
+    fieldName === "id" ||
+    fieldInterface === "id" ||
+    fieldInterface === "snowflakeId" ||
+    !!field?.primaryKey ||
+    !!field?.options?.primaryKey ||
+    !!field?.autoIncrement ||
+    !!field?.options?.autoIncrement
+  );
+}
+
+function isDefaultPopupAuditTimestampMetadataField(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  return (
+    DEFAULT_POPUP_AUDIT_TIMESTAMP_FIELD_NAMES.has(fieldName) ||
+    DEFAULT_POPUP_AUDIT_TIMESTAMP_FIELD_INTERFACES.has(fieldInterface)
+  );
+}
+
+function isDefaultPopupMultiValueAssociationMetadataField(field) {
+  return DEFAULT_POPUP_MULTI_VALUE_ASSOCIATION_INTERFACES.has(
+    normalizeText(field?.interface),
+  );
+}
+
+function collectDefaultPopupAssociationForeignKeys(fields) {
+  return new Set(
+    ensureArray(fields)
+      .filter((field) => normalizeText(field?.type) === "belongsTo")
+      .map((field) => normalizeText(field?.foreignKey || field?.options?.foreignKey))
+      .filter(Boolean),
+  );
+}
+
+function isDefaultPopupAssociationForeignKeyMetadataField(
+  field,
+  associationForeignKeys,
+) {
+  const fieldName = normalizeText(field?.name);
+  return !!fieldName && associationForeignKeys.has(fieldName);
+}
+
+function getDefaultPopupAssociationConfiguredLabelFieldName(field) {
+  return (
+    normalizeText(field?.uiSchema?.["x-component-props"]?.fieldNames?.label) ||
+    normalizeText(field?.options?.uiSchema?.["x-component-props"]?.fieldNames?.label)
+  );
+}
+
+function hasDefaultPopupRelationTitleFieldOverride(
+  collectionMetadata,
+  targetCollection,
+  fieldName,
+  fieldGroups,
+) {
+  if (!fieldName || !Array.isArray(fieldGroups) || fieldGroups.length === 0) {
     return false;
   }
-  return !isAuditMetadataField(field, collectionMeta);
+  let titleField = "";
+  forEachFieldGroup(fieldGroups, (group) => {
+    if (titleField) return;
+    for (const field of ensureArray(group?.fields)) {
+      if (getDefaultFieldGroupFieldPath(field) !== fieldName) continue;
+      titleField = getDefaultFieldGroupFieldTitleField(field);
+      if (titleField) break;
+    }
+  });
+  if (!titleField || titleField === "id") return false;
+  const targetField = getPublicCollectionFieldMeta(
+    collectionMetadata,
+    targetCollection,
+    titleField,
+  );
+  return !!targetField && !isPublicAssociationFieldMeta(targetField);
+}
+
+function getDefaultPopupCollectionTemplate(collectionMeta) {
+  return normalizeText(collectionMeta?.template || collectionMeta?.options?.template);
+}
+
+function hasDefaultPopupRegisteredAssociationBinding(
+  collectionMetadata,
+  field,
+) {
+  const fieldInterface = normalizeText(field?.interface);
+  if (!DEFAULT_POPUP_FILE_MANAGER_ASSOCIATION_INTERFACES.has(fieldInterface)) {
+    return false;
+  }
+  if (fieldInterface === "attachment") {
+    return true;
+  }
+  const targetCollection = normalizeText(field?.target || field?.options?.target);
+  const targetCollectionMeta = targetCollection
+    ? getPublicCollectionMeta(collectionMetadata, targetCollection)
+    : null;
+  return (
+    !targetCollectionMeta ||
+    getDefaultPopupCollectionTemplate(targetCollectionMeta) === "file"
+  );
+}
+
+function getDefaultPopupExplicitCollectionTitleFieldState(
+  collectionMetadata,
+  targetCollection,
+) {
+  const targetCollectionMeta = getPublicCollectionMeta(
+    collectionMetadata,
+    targetCollection,
+  );
+  const titleField = normalizeText(targetCollectionMeta?.explicitTitleField);
+  if (!titleField) {
+    return "absent";
+  }
+  if (titleField === "id") {
+    return "invalid";
+  }
+  const targetField = getPublicCollectionFieldMeta(
+    collectionMetadata,
+    targetCollection,
+    titleField,
+  );
+  return targetField && !isPublicAssociationFieldMeta(targetField)
+    ? "valid"
+    : "invalid";
+}
+
+function isDefaultPopupTitleableCollectionField(field) {
+  const configured = normalizeOptionalBoolean(
+    field?.titleable,
+    field?.titleUsable,
+    field?.options?.titleable,
+    field?.options?.titleUsable,
+  );
+  if (typeof configured === "boolean") {
+    return configured;
+  }
+  const interfaceName = normalizeText(field?.interface || field?.options?.interface);
+  return (
+    !!interfaceName &&
+    DEFAULT_POPUP_FALLBACK_TITLE_USABLE_INTERFACES.has(interfaceName)
+  );
+}
+
+function isDefaultPopupLastResortTitleField(field) {
+  const fieldName = normalizeText(field?.name || field?.field || field?.key);
+  const fieldInterface = normalizeText(field?.interface);
+  return (
+    DEFAULT_POPUP_LAST_RESORT_TITLE_FIELD_NAMES.has(fieldName) ||
+    DEFAULT_POPUP_LAST_RESORT_TITLE_FIELD_INTERFACES.has(fieldInterface)
+  );
+}
+
+function resolveDefaultPopupSafeRelationTitleField(collectionMetadata, targetCollection) {
+  const targetCollectionMeta = getPublicCollectionMeta(
+    collectionMetadata,
+    targetCollection,
+  );
+  if (!targetCollectionMeta || !Array.isArray(targetCollectionMeta.fields)) {
+    return "";
+  }
+  const safeTitleableFields = targetCollectionMeta.fields.filter((field) => {
+    const fieldName = normalizeText(field?.name || field?.field || field?.key);
+    return (
+      !!fieldName &&
+      fieldName !== "id" &&
+      !isPublicAssociationFieldMeta(field) &&
+      isDefaultPopupTitleableCollectionField(field)
+    );
+  });
+  const preferredField =
+    safeTitleableFields.find((field) => !isDefaultPopupLastResortTitleField(field)) ||
+    safeTitleableFields[0];
+  return normalizeText(preferredField?.name || preferredField?.field || preferredField?.key);
+}
+
+function hasDefaultPopupRenderableAssociationField(
+  collectionMetadata,
+  field,
+  fieldGroups,
+) {
+  if (!isPublicAssociationFieldMeta(field)) return true;
+  const fieldName = normalizeText(field?.name);
+  const targetCollection = normalizeText(field?.target || field?.options?.target);
+  if (!fieldName || !targetCollection) return false;
+  if (hasDefaultPopupRegisteredAssociationBinding(collectionMetadata, field)) {
+    return true;
+  }
+  if (
+    hasDefaultPopupRelationTitleFieldOverride(
+      collectionMetadata,
+      targetCollection,
+      fieldName,
+      fieldGroups,
+    )
+  ) {
+    return true;
+  }
+  const configuredLabelFieldName = getDefaultPopupAssociationConfiguredLabelFieldName(field);
+  if (configuredLabelFieldName && configuredLabelFieldName !== "id") {
+    const configuredLabelField = getPublicCollectionFieldMeta(
+      collectionMetadata,
+      targetCollection,
+      configuredLabelFieldName,
+    );
+    if (configuredLabelField && !isPublicAssociationFieldMeta(configuredLabelField)) {
+      return true;
+    }
+  }
+  const explicitTitleFieldState = getDefaultPopupExplicitCollectionTitleFieldState(
+    collectionMetadata,
+    targetCollection,
+  );
+  if (explicitTitleFieldState === "valid") {
+    return true;
+  }
+  if (explicitTitleFieldState === "invalid") {
+    return false;
+  }
+  return !!resolveDefaultPopupSafeRelationTitleField(
+    collectionMetadata,
+    targetCollection,
+  );
+}
+
+function filterDefaultPopupSceneMetadataFields(fields, options = {}) {
+  const baseFields = ensureArray(fields).filter(isDefaultPopupSceneMetadataField);
+  const associationForeignKeys = collectDefaultPopupAssociationForeignKeys(baseFields);
+  const isAllowed = (field, { allowSystemFallback }) =>
+    (allowSystemFallback
+      ? !isDefaultPopupTechnicalIdMetadataField(field)
+      : !isDefaultPopupSystemMetadataField(field)) &&
+    (!options.excludeAuditTimestampFields ||
+      !isDefaultPopupAuditTimestampMetadataField(field)) &&
+    !isDefaultPopupMultiValueAssociationMetadataField(field) &&
+    !isDefaultPopupAssociationForeignKeyMetadataField(
+      field,
+      associationForeignKeys,
+    );
+  const preferredFields = baseFields.filter((field) =>
+    isAllowed(field, { allowSystemFallback: false }),
+  );
+  return preferredFields.length
+    ? preferredFields
+    : baseFields.filter((field) =>
+        isAllowed(field, { allowSystemFallback: true }),
+      );
 }
 
 function buildDefaultPopupSceneFieldPaths(
   collectionMetadata,
   collectionName,
   action,
+  fieldGroups,
 ) {
   const collectionMeta = getPublicCollectionMeta(
     collectionMetadata,
@@ -2060,8 +2410,13 @@ function buildDefaultPopupSceneFieldPaths(
   if (!collectionMeta || !normalizedAction) return [];
 
   const fields = [];
-  for (const field of collectionMeta.fields) {
-    if (!normalizeText(field.interface)) continue;
+  const sceneFields = filterDefaultPopupSceneMetadataFields(
+    collectionMeta.fields,
+    {
+      excludeAuditTimestampFields: normalizedAction !== "view",
+    },
+  );
+  for (const field of sceneFields) {
 
     if (normalizedAction === "view") {
       if (isPublicAssociationFieldMeta(field) && normalizeText(field.target)) {
@@ -2080,15 +2435,53 @@ function buildDefaultPopupSceneFieldPaths(
     }
 
     if (normalizedAction === "edit" || normalizedAction === "addNew") {
-      if (isWritableSceneMetadataField(field, collectionMeta)) {
-        fields.push(field.name);
+      if (
+          !hasDefaultPopupRenderableAssociationField(
+            collectionMetadata,
+            field,
+            fieldGroups,
+          )
+      ) {
+        continue;
       }
+      fields.push(field.name);
     }
   }
 
   return unique(
     fields.map((fieldPath) => normalizeText(fieldPath)).filter(Boolean),
   );
+}
+
+function pickDefaultPopupSceneFieldPaths(
+  collectionMetadata,
+  collectionName,
+  action,
+  fieldGroups,
+) {
+  const defaultFieldPaths = buildDefaultPopupSceneFieldPaths(
+    collectionMetadata,
+    collectionName,
+    action,
+    fieldGroups,
+  ).filter((fieldPath) => !normalizeText(fieldPath).includes("."));
+  if (!Array.isArray(fieldGroups) || fieldGroups.length === 0) {
+    return defaultFieldPaths;
+  }
+  const allowedFieldPaths = new Set(defaultFieldPaths);
+  const usedFieldPaths = new Set();
+  const selectedFieldPaths = [];
+  forEachFieldGroup(fieldGroups, (group) => {
+    for (const field of ensureArray(group?.fields)) {
+      const fieldPath = getDefaultFieldGroupFieldPath(field);
+      if (!fieldPath || !allowedFieldPaths.has(fieldPath) || usedFieldPaths.has(fieldPath)) {
+        continue;
+      }
+      usedFieldPaths.add(fieldPath);
+      selectedFieldPaths.push(fieldPath);
+    }
+  });
+  return selectedFieldPaths;
 }
 
 function createDefaultsCollectionRequirement(collectionName) {
@@ -2175,12 +2568,13 @@ function addCollectionFormBehaviorRequirement(
   ) {
     return;
   }
-  const scene = buildDefaultFormBehaviorSceneForCollection(
+  if (!hasDefaultFormBehaviorDescriptionFieldsForCollection(
     requirements.collectionMetadata,
     normalizedCollection,
     normalizedAction,
-  );
-  if (!scene) return;
+  )) {
+    return;
+  }
   const existing =
     requirements.collections.get(normalizedCollection) ||
     createDefaultsCollectionRequirement(normalizedCollection);
@@ -2769,13 +3163,13 @@ function validateRequiredDefaultFormBehaviorScene(
   errors,
   seenErrors,
 ) {
-  if (!isPlainObject(defaultValue)) {
+  if (typeof defaultValue === "undefined") {
     pushValidationError(
       errors,
       seenErrors,
       path,
       "missing-default-form-behavior",
-      `${path} must be present because description-derived form behavior is required for this generated popup form.`,
+      `${path} must be present because description-derived form behavior is required for generated popup forms; use {} or null to explicitly confirm no structured behavior.`,
     );
   }
 }
@@ -2895,13 +3289,20 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
       );
     }
 
-    const formBehavior = isPlainObject(collectionDefaults.formBehavior)
-      ? collectionDefaults.formBehavior
-      : null;
-    for (const action of entry.formBehaviorActions) {
+    const requiredFormBehaviorActions = Array.from(
+      entry.formBehaviorActions,
+    ).filter((action) =>
+      hasDefaultFormBehaviorDescriptionFieldsForCollection(
+        collectionMetadata,
+        entry.collection,
+        action,
+        collectionDefaults.fieldGroups,
+      ),
+    );
+    if (requiredFormBehaviorActions.length > 0) {
       validateRequiredDefaultFormBehaviorScene(
-        formBehavior?.[action],
-        `${collectionPath}.formBehavior.${action}`,
+        collectionDefaults.formBehavior,
+        `${collectionPath}.formBehavior`,
         errors,
         seenErrors,
       );
@@ -4069,12 +4470,14 @@ function buildDefaultFormBehaviorSceneForCollection(
   collectionMetadata,
   collectionName,
   action,
+  fieldGroups,
 ) {
-  const sceneFieldPaths = buildDefaultPopupSceneFieldPaths(
+  const sceneFieldPaths = pickDefaultPopupSceneFieldPaths(
     collectionMetadata,
     collectionName,
     action,
-  ).filter((fieldPath) => !normalizeText(fieldPath).includes("."));
+    fieldGroups,
+  );
   if (!sceneFieldPaths.length) return null;
   const availableFieldNames = new Set(sceneFieldPaths);
   const fields = {};
@@ -4111,22 +4514,61 @@ function buildDefaultFormBehaviorSceneForCollection(
   return Object.keys(scene).length ? scene : null;
 }
 
+function hasDefaultFormBehaviorDescriptionFieldsForCollection(
+  collectionMetadata,
+  collectionName,
+  action,
+  fieldGroups,
+) {
+  return pickDefaultPopupSceneFieldPaths(
+    collectionMetadata,
+    collectionName,
+    action,
+    fieldGroups,
+  )
+    .some((fieldPath) => {
+      const fieldMeta = getCollectionFieldMeta(
+        collectionMetadata,
+        collectionName,
+        fieldPath,
+      );
+      return !!getFieldDescriptionText(fieldMeta);
+    });
+}
+
 function buildDefaultFormBehaviorForCollection(
   collectionMetadata,
   collectionName,
+  fieldGroups,
 ) {
   const formBehavior = {};
+  let hasDescriptionFields = false;
   for (const action of ["addNew", "edit"]) {
+    if (
+      hasDefaultFormBehaviorDescriptionFieldsForCollection(
+        collectionMetadata,
+        collectionName,
+        action,
+        fieldGroups,
+      )
+    ) {
+      hasDescriptionFields = true;
+    }
     const scene = buildDefaultFormBehaviorSceneForCollection(
       collectionMetadata,
       collectionName,
       action,
+      fieldGroups,
     );
     if (scene) {
       formBehavior[action] = scene;
     }
   }
-  return Object.keys(formBehavior).length ? formBehavior : undefined;
+  return Object.keys(formBehavior).length
+    ? formBehavior
+    : hasDescriptionFields
+      ? {}
+      : undefined;
 }
 
 function mergeDefaultFormBehaviorFields(explicitFields, generatedFields) {
@@ -4244,6 +4686,13 @@ function mergeDefaultFormBehavior(explicitBehavior, generatedBehavior) {
   return nextBehavior;
 }
 
+function isExplicitDefaultFormBehaviorNoop(formBehavior) {
+  return (
+    formBehavior === null ||
+    (isPlainObject(formBehavior) && Object.keys(formBehavior).length === 0)
+  );
+}
+
 function materializeDefaultCollectionFormBehaviorForWrite(
   collectionDefaults,
   collectionName,
@@ -4252,10 +4701,17 @@ function materializeDefaultCollectionFormBehaviorForWrite(
   if (!isPlainObject(collectionDefaults)) {
     return collectionDefaults;
   }
+  if (
+    hasOwn(collectionDefaults, "formBehavior") &&
+    isExplicitDefaultFormBehaviorNoop(collectionDefaults.formBehavior)
+  ) {
+    return collectionDefaults;
+  }
   const collectionMetadata = options.collectionMetadata || {};
   const generatedBehavior = buildDefaultFormBehaviorForCollection(
     collectionMetadata,
     collectionName,
+    collectionDefaults.fieldGroups,
   );
   if (!generatedBehavior) {
     return collectionDefaults;
@@ -5224,6 +5680,7 @@ function validateDefaultFormBehaviorScene(scene, path, state) {
 
 function validateDefaultFormBehavior(formBehavior, path, state) {
   if (typeof formBehavior === "undefined") return;
+  if (formBehavior === null) return;
   if (!isPlainObject(formBehavior)) {
     pushValidationError(
       state.errors,

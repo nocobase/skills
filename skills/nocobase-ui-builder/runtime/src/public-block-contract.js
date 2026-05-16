@@ -62,9 +62,43 @@ const READABLE_RELATION_DISPLAY_FIELD_NAMES = [
   'description',
 ];
 const READABLE_RELATION_DISPLAY_FIELD_SUFFIXES = ['Name', 'Title', 'Code', 'Number'];
+const FALLBACK_TITLE_USABLE_INTERFACES = new Set([
+  'attachmentURL',
+  'date',
+  'datetime',
+  'datetimeNoTz',
+  'email',
+  'formula',
+  'id',
+  'input',
+  'integer',
+  'nanoid',
+  'number',
+  'percent',
+  'phone',
+  'radioGroup',
+  'select',
+  'sequence',
+  'snowflakeId',
+  'sort',
+  'space',
+  'textarea',
+  'time',
+  'unixTimestamp',
+  'url',
+  'uuid',
+  'vditor',
+]);
 
 function normalizeText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function normalizeOptionalBoolean(...values) {
+  for (const value of values) {
+    if (typeof value === 'boolean') return value;
+  }
+  return undefined;
 }
 
 function normalizeLowerText(value) {
@@ -80,7 +114,25 @@ function isReadableDisplayFieldMeta(field) {
     return false;
   }
   const fieldName = normalizeText(field.name || field.field || field.key);
-  return !!fieldName && fieldName !== 'id' && !!normalizeText(field.interface);
+  return (
+    !!fieldName &&
+    fieldName !== 'id' &&
+    isTitleableCollectionFieldMeta(field)
+  );
+}
+
+function isTitleableCollectionFieldMeta(field) {
+  const configured = normalizeOptionalBoolean(
+    field?.titleable,
+    field?.titleUsable,
+    field?.options?.titleable,
+    field?.options?.titleUsable,
+  );
+  if (typeof configured === 'boolean') {
+    return configured;
+  }
+  const interfaceName = normalizeText(field?.interface || field?.options?.interface);
+  return !!interfaceName && FALLBACK_TITLE_USABLE_INTERFACES.has(interfaceName);
 }
 
 function normalizeFilterTargetKeyValue(value) {
@@ -121,7 +173,11 @@ function normalizeCollectionField(field) {
       ? cloneSerializable(options.uiSchema)
       : undefined;
   const normalizedOptions = {};
-  if (options.hidden === true) normalizedOptions.hidden = true;
+  if (options.hidden) normalizedOptions.hidden = true;
+  if (options.primaryKey) normalizedOptions.primaryKey = true;
+  if (options.autoIncrement) normalizedOptions.autoIncrement = true;
+  if (typeof options.titleable === 'boolean') normalizedOptions.titleable = options.titleable;
+  if (typeof options.titleUsable === 'boolean') normalizedOptions.titleUsable = options.titleUsable;
   if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
   if (Array.isArray(field.options)) normalizedOptions.options = cloneSerializable(field.options);
   if (Array.isArray(options.options)) normalizedOptions.options = cloneSerializable(options.options);
@@ -139,7 +195,11 @@ function normalizeCollectionField(field) {
     ...(validation ? { validation } : {}),
     ...(uiSchema ? { uiSchema } : {}),
     ...(descriptionBehavior ? { descriptionBehavior } : {}),
-    hidden: field.hidden === true || options.hidden === true,
+    primaryKey: Boolean(field.primaryKey || options.primaryKey),
+    autoIncrement: Boolean(field.autoIncrement || options.autoIncrement),
+    hidden: Boolean(field.hidden || options.hidden),
+    titleable: normalizeOptionalBoolean(field.titleable, options.titleable),
+    titleUsable: normalizeOptionalBoolean(field.titleUsable, options.titleUsable),
     filterable:
       field.filterable === false || options.filterable === false
         ? false
@@ -174,6 +234,8 @@ function getCollectionMeta(collectionMetadata, collectionName) {
   return {
     name: normalizedCollectionName,
     titleField: normalizeText(source.titleField || values.titleField || options.titleField),
+    explicitTitleField: normalizeText(source.explicitTitleField || options.titleField),
+    template: normalizeText(source.template || values.template || options.template),
     filterTargetKey:
       normalizeFilterTargetKeyValue(source.filterTargetKey)
       || normalizeFilterTargetKeyValue(values.filterTargetKey)

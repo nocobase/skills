@@ -2704,6 +2704,773 @@ test('prepareApplyBlueprintRequest materializes default formBehavior linkage for
   ]);
 });
 
+test('prepareApplyBlueprintRequest preserves explicit empty or null generated popup formBehavior as no-op', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
+          },
+        ],
+      },
+    },
+  };
+
+  for (const formBehavior of [{}, null]) {
+    const result = prepareApplyBlueprintRequest(
+      {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Tasks' },
+        defaults: {
+          collections: {
+            tasks: {
+              popups: buildFixedCollectionPopupDefaults('tasks'),
+              formBehavior,
+            },
+          },
+        },
+        tabs: [
+          {
+            key: 'main',
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'taskTable',
+                type: 'table',
+                collection: 'tasks',
+                fields: ['title', 'status'],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        collectionMetadata: descriptionMetadata,
+      },
+    );
+
+    assert.equal(result.ok, true, JSON.stringify(result.errors));
+    assert.deepEqual(
+      result.cliBody.defaults.collections.tasks.formBehavior,
+      formBehavior,
+    );
+  }
+});
+
+test('prepareApplyBlueprintRequest does not materialize formBehavior for hidden described generated popup fields', () => {
+  const visibleFields = Array.from({ length: 11 }, (_item, index) => `field${index + 1}`);
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'field1',
+        fields: [
+          ...visibleFields.map((name) => ({ name, interface: 'input' })),
+          {
+            name: 'internalNotes',
+            interface: 'textarea',
+            hidden: true,
+            description: 'Hidden notes should not affect generated add and edit form defaults.',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            fieldGroups: [
+              {
+                title: 'Visible fields',
+                fields: visibleFields,
+              },
+            ],
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['field1'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
+});
+
+test('prepareApplyBlueprintRequest ignores described fields excluded from generated add/edit popup candidates', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'owner',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'users',
+            foreignKey: 'ownerId',
+          },
+          {
+            name: 'ownerId',
+            type: 'string',
+            interface: 'input',
+            description: 'Foreign key storage should not drive generated add/edit form behavior.',
+          },
+          {
+            name: 'tags',
+            type: 'belongsToMany',
+            interface: 'm2m',
+            target: 'tags',
+            description: 'Multi-value association should not drive generated add/edit form behavior.',
+          },
+          {
+            name: 'createdById',
+            type: 'bigInt',
+            interface: 'createdById',
+            description: 'System creator id should not drive generated add/edit form behavior.',
+          },
+          {
+            name: 'createdAt',
+            type: 'datetime',
+            interface: 'createdAt',
+            description: 'Audit timestamp should not drive generated add/edit form behavior.',
+          },
+          {
+            name: 'internalAlias',
+            interface: 'input',
+            hidden: '1',
+            description: 'Truthy hidden metadata should mirror backend exclusion.',
+          },
+          {
+            name: 'internalMemo',
+            interface: 'textarea',
+            options: { hidden: 'true' },
+            description: 'Truthy options.hidden metadata should mirror backend exclusion.',
+          },
+          {
+            name: 'legacyPrimary',
+            interface: 'input',
+            primaryKey: 1,
+            description: 'Truthy primaryKey metadata should mirror backend exclusion.',
+          },
+          {
+            name: 'legacySequence',
+            interface: 'input',
+            options: { autoIncrement: '1' },
+            description: 'Truthy autoIncrement metadata should mirror backend exclusion.',
+          },
+        ],
+      },
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [{ name: 'nickname', interface: 'input' }],
+      },
+      tags: {
+        name: 'tags',
+        titleField: 'name',
+        fields: [{ name: 'name', interface: 'input' }],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
+});
+
+test('prepareApplyBlueprintRequest materializes formBehavior for described generated add/edit backend candidates', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        filterTargetKey: 'slug',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'slug',
+            interface: 'input',
+            description: 'Slug is visible in generated add/edit popups.',
+          },
+          {
+            name: 'reviewCode',
+            interface: 'input',
+            readOnly: true,
+            description: 'Review code is read-only but still a backend generated form candidate.',
+          },
+          {
+            name: 'lockedReason',
+            interface: 'textarea',
+            writable: false,
+            description: 'Locked reason is non-writable but still a backend generated form candidate.',
+          },
+          {
+            name: 'generatedToken',
+            interface: 'input',
+            autoCreate: true,
+            description: 'Generated token is auto-created but still a backend generated form candidate.',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  const addNewFields = result.cliBody.defaults.collections.tasks.formBehavior.addNew.fields;
+  const editFields = result.cliBody.defaults.collections.tasks.formBehavior.edit.fields;
+  assert.equal(addNewFields.slug.settings.extra, 'Slug is visible in generated add/edit popups.');
+  assert.equal(
+    addNewFields.reviewCode.settings.extra,
+    'Review code is read-only but still a backend generated form candidate.',
+  );
+  assert.equal(
+    addNewFields.lockedReason.settings.extra,
+    'Locked reason is non-writable but still a backend generated form candidate.',
+  );
+  assert.equal(
+    addNewFields.generatedToken.settings.extra,
+    'Generated token is auto-created but still a backend generated form candidate.',
+  );
+  assert.deepEqual(Object.keys(editFields).sort(), Object.keys(addNewFields).sort());
+});
+
+test('prepareApplyBlueprintRequest ignores described add/edit relation fields without renderable target title', () => {
+  const scalarFields = Array.from({ length: 10 }, (_item, index) => ({
+    name: `field${index + 1}`,
+    interface: 'input',
+  }));
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'field1',
+        fields: [
+          ...scalarFields,
+          {
+            name: 'reviewer',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'reviewers',
+            foreignKey: 'reviewerId',
+            description: 'Reviewer relation has no readable target title and should not drive defaults.',
+          },
+        ],
+      },
+      reviewers: {
+        name: 'reviewers',
+        titleField: 'id',
+        fields: [{ name: 'id', interface: 'id' }],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['field1'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
+  const taskRequirements = result.defaultsRequirements.collections.find(
+    (entry) => entry.collection === 'tasks',
+  );
+  assert.equal(taskRequirements.requiresFieldGroups, false);
+  assert.deepEqual(taskRequirements.formBehaviorActions, undefined);
+});
+
+test('prepareApplyBlueprintRequest ignores described relation candidates when target has no titleable fallback field', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'reviewer',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'reviewers',
+            foreignKey: 'reviewerId',
+            description: 'Reviewer should not drive defaults without a safe target title field.',
+          },
+        ],
+      },
+      reviewers: {
+        name: 'reviewers',
+        fields: [
+          { name: 'meta', interface: 'json' },
+          { name: 'displayName', interface: 'input', titleable: false },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
+  const taskRequirements = result.defaultsRequirements.collections.find(
+    (entry) => entry.collection === 'tasks',
+  );
+  assert.deepEqual(taskRequirements.formBehaviorActions, undefined);
+});
+
+test('prepareApplyBlueprintRequest keeps described file-template relation candidates for generated add/edit forms', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'attachment',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'files',
+            foreignKey: 'attachmentId',
+            description: 'Attachment must be uploaded before submitting.',
+          },
+        ],
+      },
+      files: {
+        name: 'files',
+        template: 'file',
+        titleField: 'id',
+        fields: [{ name: 'id', interface: 'id' }],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(
+    result.cliBody.defaults.collections.tasks.formBehavior.addNew.fields.attachment.settings.extra,
+    'Attachment must be uploaded before submitting.',
+  );
+  assert.equal(
+    result.cliBody.defaults.collections.tasks.formBehavior.edit.fields.attachment.settings.extra,
+    'Attachment must be uploaded before submitting.',
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps described relation candidates with explicit non-association target titleField', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'reviewer',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'reviewers',
+            foreignKey: 'reviewerId',
+            description: 'Reviewer is required for approval routing.',
+          },
+        ],
+      },
+      reviewers: {
+        name: 'reviewers',
+        options: { titleField: 'displayName' },
+        fields: [
+          { name: 'id', interface: 'id' },
+          { name: 'displayName' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(
+    result.cliBody.defaults.collections.tasks.formBehavior.addNew.fields.reviewer.settings.extra,
+    'Reviewer is required for approval routing.',
+  );
+  assert.equal(
+    result.cliBody.defaults.collections.tasks.formBehavior.edit.fields.reviewer.settings.extra,
+    'Reviewer is required for approval routing.',
+  );
+});
+
+test('prepareApplyBlueprintRequest ignores described relation candidates when explicit target titleField is invalid', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'reviewer',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'reviewers',
+            foreignKey: 'reviewerId',
+            description: 'Reviewer should not drive defaults when target titleField is invalid.',
+          },
+        ],
+      },
+      reviewers: {
+        name: 'reviewers',
+        options: { titleField: 'manager' },
+        fields: [
+          { name: 'id', interface: 'id' },
+          { name: 'nickname', interface: 'input' },
+          {
+            name: 'manager',
+            type: 'belongsTo',
+            interface: 'm2o',
+            target: 'users',
+            foreignKey: 'managerId',
+          },
+        ],
+      },
+      users: {
+        name: 'users',
+        titleField: 'nickname',
+        fields: [{ name: 'nickname', interface: 'input' }],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+      injectDataSurfaceDefaultFilter: false,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
+  const taskRequirements = result.defaultsRequirements.collections.find(
+    (entry) => entry.collection === 'tasks',
+  );
+  assert.deepEqual(taskRequirements.formBehaviorActions, undefined);
+});
+
+test('prepareApplyBlueprintRequest does not require formBehavior for described fields outside supplied generated form fieldGroups', () => {
+  const fieldNames = Array.from({ length: 11 }, (_item, index) => `field${index + 1}`);
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'field1',
+        fields: fieldNames.map((name, index) => ({
+          name,
+          interface: 'input',
+          ...(index === fieldNames.length - 1
+            ? { description: 'This described field is intentionally outside the supplied generated form groups.' }
+            : {}),
+        })),
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            fieldGroups: [
+              {
+                title: 'Visible fields',
+                fields: fieldNames.slice(0, 10),
+              },
+            ],
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['field1'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'default-field-groups-incomplete'
+        && issue.path === 'defaults.collections.tasks.fieldGroups',
+    ),
+  );
+  assert.ok(
+    !result.errors.some(
+      (issue) =>
+        issue.ruleId === 'missing-default-form-behavior'
+        && issue.path === 'defaults.collections.tasks.formBehavior',
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest merges explicit non-empty formBehavior linkage with description-derived defaults', () => {
   const descriptionMetadata = {
     collections: {
