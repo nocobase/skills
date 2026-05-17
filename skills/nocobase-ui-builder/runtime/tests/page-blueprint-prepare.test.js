@@ -1531,6 +1531,11 @@ test('prepareApplyBlueprintRequest rejects non-canonical public jsBlock shapes b
   assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-internal-field-unsupported'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-mixed-inline-and-script'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-script-asset-key-invalid'));
+  assert.ok(
+    !result.errors.some(
+      (issue) => issue.path === '$.tabs[0].blocks[5]' && issue.ruleId === 'jsBlock-source-required',
+    ),
+  );
   assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-settings-unsupported-key'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-source-required'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-type-alias-unsupported'));

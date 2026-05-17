@@ -8822,8 +8822,9 @@ function validateJsBlockPublicContract(block, path, state) {
   }
 
   const hasInlineCode = typeof block.settings?.code === "string" && !!block.settings.code.trim();
+  const hasScriptInput = hasOwn(block, "script");
   const hasScriptReference = typeof block.script === "string" && !!block.script.trim();
-  if (!hasInlineCode && !hasScriptReference) {
+  if (!hasInlineCode && !hasScriptReference && !hasScriptInput) {
     pushValidationError(
       state.errors,
       state.seenErrors,
