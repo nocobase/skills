@@ -1414,6 +1414,83 @@ test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
   );
 });
 
+test('JSBlock docs and prompt expose only canonical public authoring shapes', () => {
+  const jsBlock = read('references/js-models/js-block.md');
+  const pageBlueprint = read('references/page-blueprint.md');
+  const settings = read('references/settings.md');
+  const skill = read('SKILL.md');
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+
+  for (const [label, text] of [
+    ['js-block', jsBlock],
+    ['page-blueprint', pageBlueprint],
+    ['settings', settings],
+    ['SKILL', skill],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /settings\.code|settings"\s*:\s*\{[\s\S]{0,160}"code"/,
+      `${label} should document settings.code for inline jsBlock authoring`,
+    );
+    assert.match(
+      text,
+      /top-level `?code`?|top-level code/i,
+      `${label} should explicitly forbid top-level jsBlock code`,
+    );
+    assert.match(
+      text,
+      /top-level[\s\S]{0,40}`?version`?/i,
+      `${label} should explicitly forbid top-level jsBlock version`,
+    );
+    assert.match(
+      text,
+      /stepParams[\s\S]{0,160}(?:do not|don't|Never|禁|internal|readback)/i,
+      `${label} should forbid handwritten internal jsBlock stepParams`,
+    );
+  }
+
+  for (const [label, text] of [
+    ['js-block', jsBlock],
+    ['page-blueprint', pageBlueprint],
+    ['SKILL', skill],
+  ]) {
+    assert.match(
+      text,
+      /assets\.scripts[\s\S]{0,160}script|script[\s\S]{0,160}assets\.scripts/i,
+      `${label} should document assets.scripts + script for asset-backed jsBlock authoring`,
+    );
+  }
+
+  assert.match(
+    defaultPrompt,
+    /configure[\s\S]{0,80}changes\.code\/version|changes\.code\/version[\s\S]{0,80}configure/i,
+    'compressed prompt should document changes.code/version for JSBlock configure',
+  );
+  assert.match(
+    defaultPrompt,
+    /changes\.settings/i,
+    'compressed prompt should forbid changes.settings for JSBlock configure',
+  );
+  assert.match(
+    defaultPrompt,
+    /props[\s\S]{0,80}decoratorProps[\s\S]{0,80}flowRegistry/i,
+    'compressed prompt should forbid internal JSBlock persisted fields',
+  );
+  assert.match(
+    defaultPrompt,
+    /type[\s\S]{0,30}jsBlock[\s\S]{0,30}only/i,
+    'compressed prompt should require type jsBlock instead of the js alias for blocks',
+  );
+
+  assert.doesNotMatch(
+    jsBlock,
+    /code`?\s*(?:写在|under|at)\s*`?stepParams\.jsSettings\.runJs\.code/i,
+    'js-block reference should not present stepParams as the public write path',
+  );
+});
+
 test('metric cards JSBlock safe snippet validates and stays cataloged', () => {
   const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
   const entry = catalog.snippets.find((item) => item.id === 'scene/block/metric-cards');

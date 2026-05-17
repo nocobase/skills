@@ -295,7 +295,21 @@ const CHART_CUSTOM_VISUAL_FORBIDDEN_KEYS = new Set([
   "mappings",
   "style",
 ]);
-const PUBLIC_RUNJS_BLOCK_TYPES = new Set(["js", "jsBlock"]);
+const PUBLIC_RUNJS_BLOCK_TYPES = new Set(["jsBlock"]);
+const JS_BLOCK_ALLOWED_SETTINGS_KEYS = new Set([
+  "title",
+  "description",
+  "className",
+  "code",
+  "version",
+]);
+const JS_BLOCK_TOP_LEVEL_JS_KEYS = new Set(["code", "version"]);
+const JS_BLOCK_INTERNAL_AUTHORING_KEYS = new Set([
+  "props",
+  "decoratorProps",
+  "flowRegistry",
+  "stepParams",
+]);
 const PUBLIC_RUNJS_FIELD_MODEL_BY_TYPE = new Map([
   ["jscolumn", "JSColumnModel"],
   ["jsitem", "JSItemModel"],
@@ -8552,6 +8566,113 @@ function validateGridCardBlockSettings(block, path, state) {
   );
 }
 
+function isPublicJsBlockSpec(block) {
+  if (!isPlainObject(block)) return false;
+  return (
+    normalizeText(block.type) === "jsBlock" ||
+    normalizeText(block.type) === "js" ||
+    normalizeText(block.use) === "JSBlockModel"
+  );
+}
+
+function isDeprecatedJsBlockTypeAlias(block) {
+  return isPlainObject(block) && normalizeText(block.type) === "js";
+}
+
+function getInlineJsBlockSettingsKeys(block) {
+  if (!isPlainObject(block?.settings)) return [];
+  return ["code", "version"].filter((key) => hasOwn(block.settings, key));
+}
+
+function validateJsBlockPublicContract(block, path, state) {
+  if (!isPublicJsBlockSpec(block)) return;
+
+  if (isDeprecatedJsBlockTypeAlias(block)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.type`,
+      "jsBlock-type-alias-unsupported",
+      `${path}.type must be "jsBlock"; "js" is only an action type and is not a public JSBlock block alias. Use ${path}.settings.code for inline JSBlock code.`,
+    );
+    return;
+  }
+
+  for (const key of JS_BLOCK_TOP_LEVEL_JS_KEYS) {
+    if (!hasOwn(block, key)) continue;
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.${key}`,
+      `jsBlock-top-level-${key}-unsupported`,
+      `${path}.${key} is not accepted on public jsBlock blocks; use ${path}.settings.code and ${path}.settings.version for inline JS code.`,
+    );
+  }
+
+  if (hasOwn(block, "stepParams")) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.stepParams`,
+      "jsBlock-stepParams-unsupported",
+      `${path}.stepParams is not accepted on public jsBlock blocks; use ${path}.settings.code and ${path}.settings.version instead of internal persisted fields.`,
+    );
+  }
+
+  for (const key of JS_BLOCK_INTERNAL_AUTHORING_KEYS) {
+    if (key === "stepParams" || !hasOwn(block, key)) continue;
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.${key}`,
+      "jsBlock-internal-field-unsupported",
+      `${path}.${key} is an internal JSBlock field and is not accepted in public authoring payloads.`,
+      undefined,
+      { key },
+    );
+  }
+
+  if (isPlainObject(block.settings)) {
+    for (const key of Object.keys(block.settings)) {
+      if (JS_BLOCK_ALLOWED_SETTINGS_KEYS.has(key)) continue;
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings.${key}`,
+        "jsBlock-settings-unsupported-key",
+        `${path}.settings.${key} is not accepted on public jsBlock blocks; supported settings are ${Array.from(JS_BLOCK_ALLOWED_SETTINGS_KEYS).join(", ")}.`,
+        undefined,
+        { key },
+      );
+    }
+  }
+
+  const inlineKeys = getInlineJsBlockSettingsKeys(block);
+  if (hasOwn(block, "script") && inlineKeys.length) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.script`,
+      "jsBlock-mixed-inline-and-script",
+      `${path} cannot combine a script asset reference with settings.${inlineKeys.join(", settings.")}; use either assets.scripts + block.script or inline ${path}.settings.code.`,
+      undefined,
+      { inlineKeys },
+    );
+  }
+
+  const hasInlineCode = typeof block.settings?.code === "string" && !!block.settings.code.trim();
+  const hasScriptReference = typeof block.script === "string" && !!block.script.trim();
+  if (!hasInlineCode && !hasScriptReference) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "jsBlock-source-required",
+      `${path} jsBlock must include inline ${path}.settings.code or a block.script asset reference.`,
+    );
+  }
+}
+
 function validateBlock(block, path, state, parentContext = {}) {
   if (!isPlainObject(block)) {
     pushValidationError(
@@ -8580,6 +8701,7 @@ function validateBlock(block, path, state, parentContext = {}) {
     );
   }
 
+  validateJsBlockPublicContract(block, path, state);
   validateDefaultActionOptOuts(block, path, state);
   validateBlockLevelDataSurfaceDefaultFilter(block, path, state, blockContext);
   validateDataSurfaceFilterActionSettings(block, path, state, blockContext);
@@ -9228,6 +9350,43 @@ function pushRunJSWarning(warnings, warning, fallbackPath = "$") {
   warnings.push(code ? `${path}: ${code}: ${message}` : `${path}: ${message}`);
 }
 
+function hasRunJSParseError(result) {
+  return ensureArray(result?.unresolved).some(
+    (issue) => issue?.code === "RUNJS_PARSE_ERROR",
+  );
+}
+
+function normalizeEscapedNewlineRunJSCode(node, canonical) {
+  const source = String(node.code ?? "");
+  if (!hasRunJSParseError(canonical) || !source.includes("\\n") || source.includes("\n")) {
+    return canonical;
+  }
+  const candidate = source.replace(/\\r\\n|\\n/g, "\n");
+  const retry = canonicalizeRunJSCode({
+    code: candidate,
+    modelUse: node.modelUse,
+    findingModelUse: node.modelUse,
+    version: node.version,
+    path: node.path,
+  });
+  if (hasRunJSParseError(retry)) {
+    return canonical;
+  }
+  node.setCode?.(candidate);
+  node.code = candidate;
+  return {
+    ...retry,
+    transforms: [
+      {
+        code: "RUNJS_NEWLINE_LITERAL_NORMALIZED",
+        message: "RunJS code literal \\n escape sequences were normalized to real line breaks before write.",
+        path: node.path,
+      },
+      ...ensureArray(retry.transforms),
+    ],
+  };
+}
+
 function pushScriptValidationError(errors, seen, path, ruleId, message, details = undefined) {
   pushValidationError(errors, seen, path, ruleId, message, undefined, details);
 }
@@ -9266,7 +9425,11 @@ function addPublicRunJSNode(nodes, node) {
 
 function collectInlineRunJS(nodes, spec, path, context) {
   if (!context || !isPlainObject(spec)) return;
-  if (typeof spec.code === "string" && spec.code.trim()) {
+  if (
+    context.modelUse !== "JSBlockModel" &&
+    typeof spec.code === "string" &&
+    spec.code.trim()
+  ) {
     addPublicRunJSNode(nodes, {
       path: `${path}.code`,
       code: spec.code,
@@ -9531,13 +9694,14 @@ function cloneBlueprintForGenericRunJSInspection(blueprint) {
 
 function validateResolvedPublicRunJSNodes(nodes, errors, seenErrors, warnings) {
   for (const node of nodes) {
-    const canonical = canonicalizeRunJSCode({
+    let canonical = canonicalizeRunJSCode({
       code: node.code,
       modelUse: node.modelUse,
       findingModelUse: node.modelUse,
       version: node.version,
       path: node.path,
     });
+    canonical = normalizeEscapedNewlineRunJSCode(node, canonical);
     if (canonical.changed) {
       node.setCode?.(canonical.code);
       node.code = canonical.code;

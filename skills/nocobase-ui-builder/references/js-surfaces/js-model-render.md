@@ -5,7 +5,9 @@ Use this surface for JS models whose main job is to render content in a block, f
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `jsModel`
-- Writeback path in this skill: `stepParams.jsSettings.runJs`
+- Public writeback path for new `jsBlock`: inline `settings.code/settings.version`, or whole-page `assets.scripts.<key>.code` referenced by block `script`.
+- Public configure path for existing `jsBlock`: direct `changes.code/changes.version`.
+- Internal readback may contain `stepParams.jsSettings.runJs`; do not copy that persisted shape into public write requests.
 - Validation style: render
 - `ctx.render(...)` is required on the directly executed top-level path.
 - Do not wrap all render logic in an uncalled function or callback; move that body to top-level code.

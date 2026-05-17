@@ -24,11 +24,12 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 - `JSEditableFieldModel`
 - `JSItemModel`
 - `JSActionModel`
-- 任何 `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
+- 任何 `settings.code` / `assets.scripts` / internal readback `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
 
 ## 强规则
 
 - 对需要渲染的 JS model，默认使用 `ctx.render()`。
+- `JSBlockModel` 新建公开写入只用 `type: "jsBlock"` + `settings.code/settings.version`，或 whole-page `assets.scripts` + block `script`；配置已有 JSBlock 用 `changes.code/changes.version`；不要手写 block top-level `code/version` 或 internal `stepParams`。
 - 不要把 `ctx.element.innerHTML = ...` 当作默认推荐方案；skill 会先尝试自动改写，仍残留则直接 blocker。
 - 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSEditableFieldModel`、`JSItemModel`、`JSItemActionModel` 的默认渲染范式。
 - `JSActionModel` 主要负责点击逻辑，不属于“渲染型 JS model”。

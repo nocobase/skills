@@ -49,6 +49,20 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'props',
   'stepParams',
 ]);
+const JS_BLOCK_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'className',
+  'code',
+  'version',
+]);
+const JS_BLOCK_TOP_LEVEL_JS_KEYS = new Set(['code', 'version']);
+const JS_BLOCK_INTERNAL_AUTHORING_KEYS = new Set([
+  'props',
+  'decoratorProps',
+  'flowRegistry',
+  'stepParams',
+]);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
@@ -169,6 +183,10 @@ function normalizeBody(value) {
 
 function isObjectRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasOwn(target, key) {
+  return isObjectRecord(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
 
 function ensureArray(value) {
@@ -603,6 +621,222 @@ function collectLocalizedGridCardSettingsErrors(payload, operation, metadata = {
       collectGridCardSettingsErrorsFromBlock(block, `$.blocks[${index}]`).forEach((issue) => errors.push(issue));
     });
   }
+  return errors;
+}
+
+function isPublicJsBlockSpec(block) {
+  if (!isObjectRecord(block)) return false;
+  return normalizeText(block.type) === 'jsBlock' ||
+    normalizeText(block.type) === 'js' ||
+    normalizeText(block.use) === 'JSBlockModel';
+}
+
+function isDeprecatedJsBlockTypeAlias(block) {
+  return isObjectRecord(block) && normalizeText(block.type) === 'js';
+}
+
+function collectJsBlockPublicContractErrorsFromBlock(block, path, { allowScriptAssets = false } = {}) {
+  const errors = [];
+  if (!isPublicJsBlockSpec(block)) return errors;
+
+  if (isDeprecatedJsBlockTypeAlias(block)) {
+    errors.push({
+      path: `${path}.type`,
+      ruleId: 'jsBlock-type-alias-unsupported',
+      message: `${path}.type must be "jsBlock"; "js" is only an action type and is not a public JSBlock block alias. Use ${path}.settings.code for inline JSBlock code.`,
+      code: 'JS_BLOCK_TYPE_ALIAS_UNSUPPORTED',
+    });
+    return errors;
+  }
+
+  for (const key of JS_BLOCK_TOP_LEVEL_JS_KEYS) {
+    if (!hasOwn(block, key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: `jsBlock-top-level-${key}-unsupported`,
+      message: `${path}.${key} is not accepted on public jsBlock blocks; use ${path}.settings.code and ${path}.settings.version for inline JS code.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key },
+    });
+  }
+
+  if (hasOwn(block, 'stepParams')) {
+    errors.push({
+      path: `${path}.stepParams`,
+      ruleId: 'jsBlock-stepParams-unsupported',
+      message: `${path}.stepParams is not accepted on public jsBlock blocks; use ${path}.settings.code and ${path}.settings.version instead of internal persisted fields.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key: 'stepParams' },
+    });
+  }
+
+  for (const key of JS_BLOCK_INTERNAL_AUTHORING_KEYS) {
+    if (key === 'stepParams' || !hasOwn(block, key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: 'jsBlock-internal-field-unsupported',
+      message: `${path}.${key} is an internal JSBlock field and is not accepted in public authoring payloads.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key },
+    });
+  }
+
+  if (isObjectRecord(block.settings)) {
+    for (const key of Object.keys(block.settings)) {
+      if (JS_BLOCK_ALLOWED_SETTINGS_KEYS.has(key)) continue;
+      errors.push({
+        path: `${path}.settings.${key}`,
+        ruleId: 'jsBlock-settings-unsupported-key',
+        message: `${path}.settings.${key} is not accepted on public jsBlock blocks; supported settings are ${Array.from(JS_BLOCK_ALLOWED_SETTINGS_KEYS).join(', ')}.`,
+        code: 'JS_BLOCK_SETTINGS_UNSUPPORTED_KEY',
+        details: { key },
+      });
+    }
+  }
+
+  const inlineKeys = isObjectRecord(block.settings)
+    ? ['code', 'version'].filter((key) => hasOwn(block.settings, key))
+    : [];
+  if (hasOwn(block, 'script')) {
+    if (!allowScriptAssets) {
+      errors.push({
+        path: `${path}.script`,
+        ruleId: 'jsBlock-script-unsupported',
+        message: `${path}.script is only accepted in applyBlueprint with assets.scripts; localized jsBlock writes must use ${path}.settings.code.`,
+        code: 'JS_BLOCK_SCRIPT_UNSUPPORTED',
+      });
+    }
+    if (inlineKeys.length) {
+      errors.push({
+        path: `${path}.script`,
+        ruleId: 'jsBlock-mixed-inline-and-script',
+        message: `${path} cannot combine a script asset reference with settings.${inlineKeys.join(', settings.')}; use either assets.scripts + block.script or inline ${path}.settings.code.`,
+        code: 'JS_BLOCK_MIXED_INLINE_AND_SCRIPT',
+        details: { inlineKeys },
+      });
+    }
+  }
+
+  const hasInlineCode = typeof block.settings?.code === 'string' && !!block.settings.code.trim();
+  const hasScriptReference = allowScriptAssets && typeof block.script === 'string' && !!block.script.trim();
+  if (!hasInlineCode && !hasScriptReference) {
+    errors.push({
+      path,
+      ruleId: 'jsBlock-source-required',
+      message: `${path} jsBlock must include inline ${path}.settings.code${allowScriptAssets ? ' or a block.script asset reference' : ''}.`,
+      code: 'JS_BLOCK_SOURCE_REQUIRED',
+    });
+  }
+
+  return errors;
+}
+
+function collectJsBlockConfigurePublicContractErrors(changes, path) {
+  const errors = [];
+  if (!isObjectRecord(changes)) return errors;
+
+  if (hasOwn(changes, 'script')) {
+    errors.push({
+      path: `${path}.script`,
+      ruleId: 'jsBlock-script-unsupported',
+      message: `${path}.script is only accepted in applyBlueprint with assets.scripts; localized jsBlock configure writes must use ${path}.code.`,
+      code: 'JS_BLOCK_SCRIPT_UNSUPPORTED',
+    });
+  }
+
+  const inlineKeys = ['code', 'version'].filter((key) => hasOwn(changes, key));
+  if (hasOwn(changes, 'script') && inlineKeys.length) {
+    errors.push({
+      path: `${path}.script`,
+      ruleId: 'jsBlock-mixed-inline-and-script',
+      message: `${path} cannot combine a script asset reference with ${inlineKeys.map((key) => `${path}.${key}`).join(', ')}; use either assets.scripts + block.script or localized ${path}.code.`,
+      code: 'JS_BLOCK_MIXED_INLINE_AND_SCRIPT',
+      details: { inlineKeys },
+    });
+  }
+
+  if (hasOwn(changes, 'stepParams')) {
+    errors.push({
+      path: `${path}.stepParams`,
+      ruleId: 'jsBlock-stepParams-unsupported',
+      message: `${path}.stepParams is not accepted on public jsBlock configure changes; use ${path}.code and ${path}.version instead of internal persisted fields.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key: 'stepParams' },
+    });
+  }
+
+  for (const key of JS_BLOCK_INTERNAL_AUTHORING_KEYS) {
+    if (key === 'stepParams' || !hasOwn(changes, key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: 'jsBlock-internal-field-unsupported',
+      message: `${path}.${key} is an internal JSBlock field and is not accepted in public configure changes.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key },
+    });
+  }
+
+  if (hasOwn(changes, 'settings')) {
+    if (!isObjectRecord(changes.settings)) {
+      errors.push({
+        path: `${path}.settings`,
+        ruleId: 'jsBlock-settings-unsupported-key',
+        message: `${path}.settings is not accepted on public jsBlock configure changes; use direct ${path}.code and ${path}.version keys.`,
+        code: 'JS_BLOCK_SETTINGS_UNSUPPORTED_KEY',
+      });
+    } else {
+      Object.keys(changes.settings).forEach((key) => {
+        errors.push({
+          path: `${path}.settings.${key}`,
+          ruleId: 'jsBlock-settings-unsupported-key',
+          message: `${path}.settings.${key} is not accepted on public jsBlock configure changes; use direct ${path}.${key}.`,
+          code: 'JS_BLOCK_SETTINGS_UNSUPPORTED_KEY',
+          details: { key },
+        });
+      });
+    }
+  }
+
+  return errors;
+}
+
+function collectLocalizedJsBlockPublicContractErrors(payload, operation, metadata = {}) {
+  const errors = [];
+  if (!isObjectRecord(payload)) return errors;
+
+  const visitBlock = (block, path, { configureTarget = false } = {}) => {
+    if (!isObjectRecord(block)) return;
+    collectJsBlockPublicContractErrorsFromBlock(block, path).forEach((issue) => errors.push(issue));
+    const visitChildren = configureTarget ? forEachConfigureTargetChildBlockContainer : forEachLocalizedChildBlockContainer;
+    visitChildren(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`, { configureTarget }));
+    });
+  };
+
+  if (operation === 'configure') {
+    const liveUse = getLiveEntryUse(getLiveTopologyEntry(metadata, payload?.target?.uid));
+    if (normalizeText(liveUse) === 'JSBlockModel') {
+      collectJsBlockConfigurePublicContractErrors(payload.changes, '$.changes').forEach((issue) => errors.push(issue));
+      return errors;
+    }
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      visitBlock(context.block, context.path, { configureTarget: true });
+    }
+    return errors;
+  }
+
+  if (operation === 'add-block') {
+    visitBlock(payload, '$');
+    return errors;
+  }
+
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      visitBlock(block, `$.blocks[${index}]`);
+    });
+  }
+
   return errors;
 }
 
@@ -3055,6 +3289,7 @@ export function runLocalizedWritePreflight({
   collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedChartBuilderRelationFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedGridCardSettingsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedJsBlockPublicContractErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicFieldObjectErrorsForOperation(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedRelationFieldExplicitTitleFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);

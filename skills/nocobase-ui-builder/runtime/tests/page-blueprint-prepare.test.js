@@ -1418,15 +1418,10 @@ test('prepareApplyBlueprintRequest normalizes literal escaped newlines in JS cod
         blocks: [
           {
             key: 'jsBlock',
-            type: 'js',
-            use: 'JSBlockModel',
-            stepParams: {
-              jsSettings: {
-                runJs: {
-                  version: 'v2',
-                  code: 'const title = "Employees";\\nctx.render(title.trim());',
-                },
-              },
+            type: 'jsBlock',
+            settings: {
+              version: 'v2',
+              code: 'const title = "Employees";\\nctx.render(title.trim());',
             },
           },
         ],
@@ -1435,8 +1430,110 @@ test('prepareApplyBlueprintRequest normalizes literal escaped newlines in JS cod
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.cliBody.tabs[0].blocks[0].stepParams.jsSettings.runJs.code.includes('\\n'), false);
-  assert.equal(result.cliBody.tabs[0].blocks[0].stepParams.jsSettings.runJs.code.includes('\n'), true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.code.includes('\\n'), false);
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings.code.includes('\n'), true);
+});
+
+test('prepareApplyBlueprintRequest rejects non-canonical public jsBlock shapes before write', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'JSBlock public contract' },
+    assets: {
+      scripts: {
+        banner: {
+          version: 'v2',
+          code: "ctx.render('Banner');",
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'topLevelCode',
+            type: 'jsBlock',
+            code: "ctx.render('Ignored');",
+          },
+          {
+            key: 'topLevelVersion',
+            type: 'jsBlock',
+            version: 'v2',
+          },
+          {
+            key: 'internalStepParams',
+            type: 'jsBlock',
+            stepParams: {
+              jsSettings: {
+                runJs: {
+                  version: 'v2',
+                  code: "ctx.render('Internal');",
+                },
+              },
+            },
+          },
+          {
+            key: 'internalProps',
+            type: 'jsBlock',
+            props: {},
+            settings: {
+              code: "ctx.render('Inline');",
+              version: 'v2',
+            },
+          },
+          {
+            key: 'mixedScript',
+            type: 'jsBlock',
+            script: 'banner',
+            settings: {
+              code: "ctx.render('Inline');",
+              version: 'v2',
+            },
+          },
+          {
+            key: 'malformedScript',
+            type: 'jsBlock',
+            script: { key: 'banner' },
+          },
+          {
+            key: 'badSettings',
+            type: 'jsBlock',
+            settings: {
+              source: 'runjs',
+              code: "ctx.render('Inline');",
+            },
+          },
+          {
+            key: 'missingSource',
+            type: 'jsBlock',
+            settings: {
+              title: 'Missing source',
+            },
+          },
+          {
+            key: 'deprecatedAlias',
+            type: 'js',
+            settings: {
+              code: "ctx.render('Alias');",
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cliBody, undefined);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-top-level-code-unsupported'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-top-level-version-unsupported'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-stepParams-unsupported'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-internal-field-unsupported'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-mixed-inline-and-script'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'apply-blueprint-script-asset-key-invalid'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-settings-unsupported-key'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-source-required'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'jsBlock-type-alias-unsupported'));
 });
 
 test('prepareApplyBlueprintRequest rejects public jsBlock settings code with RunJS blockers before write', () => {

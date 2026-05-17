@@ -1,6 +1,6 @@
 ---
 title: JSBlockModel 参考
-description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认代码模板。
+description: 面向 builder 的 JSBlockModel 公开 authoring 契约、RunJS 约束与默认代码模板。
 ---
 
 # JSBlockModel
@@ -15,29 +15,63 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
 - 说明面板
 - 第三方可视化容器
 
-## builder 需要记住的结构
+## builder 需要记住的公开结构
 
-最关键的持久化路径：
+新建公开写入只接受两种 authoring 形态。不要把 readback / persisted 里的 `stepParams`、`props`、`decoratorProps`、`flowRegistry` 反写进请求。
+
+Inline form:
 
 ```json
 {
-  "use": "JSBlockModel",
-  "stepParams": {
-    "jsSettings": {
-      "runJs": {
+  "type": "jsBlock",
+  "settings": {
+    "title": "KPI Cards",
+    "version": "v2",
+    "code": "const { Card } = ctx.libs.antd;\\nctx.render(<Card title={ctx.t('Summary')} />);"
+  }
+}
+```
+
+Asset reference form for whole-page `applyBlueprint`:
+
+```json
+{
+  "assets": {
+    "scripts": {
+      "kpiCards": {
         "version": "v2",
-        "code": "const { Card } = ctx.libs.antd;\\nctx.render(<Card title={ctx.t('Summary')} />);"
+        "code": "ctx.render(<div>Hello</div>);"
       }
     }
-  }
+  },
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "jsBlock",
+          "script": "kpiCards",
+          "settings": {
+            "title": "KPI Cards"
+          }
+        }
+      ]
+    }
+  ]
 }
 ```
 
 约束：
 
-- `code` 写在 `stepParams.jsSettings.runJs.code`
-- `version` 默认 `v2`
-- `runJs` 使用 raw params，不要把 `code` 当模板字段再二次结构化
+- Inline `code` 写在 `settings.code`，`version` 写在 `settings.version`
+- Whole-page script reuse 写在 `assets.scripts.<key>.code`，block 只写 `script: "<key>"`
+- 新建 JSBlock 必须显式提供 `settings.code` 或 `applyBlueprint` 的 `script` asset；不要依赖默认模板代码
+- `script` 只用于 `applyBlueprint` asset reference；localized `compose` / `add-block` 直接用 `settings.code`
+- 配置已有 JSBlock 时，`configure` 使用 `changes.code` / `changes.version`；不要把 `settings.code` 放进 `changes.settings`
+- 禁止 top-level `code` / `version`
+- 禁止手写 `stepParams`、`props`、`decoratorProps`、`flowRegistry`
+- 禁止混用 `script` 与 `settings.code` / `settings.version`
+- `settings` 只放 `title`、`description`、`className`、`code`、`version`
 - JSBlock 运行在受限 RunJS 沙箱里，不要默认假设 `fetch`、`localStorage`、任意 `window.*` 可直接访问
 - JSBlock 默认没有预绑定 `ctx.resource`；需要结构化数据时先 `ctx.initResource(...)`
 - 当前登录用户优先使用 `ctx.user` 或 `ctx.auth?.user`

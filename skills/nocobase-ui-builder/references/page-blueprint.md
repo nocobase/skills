@@ -960,6 +960,57 @@ Public `applyBlueprint` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
 `assets.scripts` and `assets.charts` are reusable object maps. A block/field/action may refer to them by `script` or `chart`.
 
+For `jsBlock`, use exactly one public code form:
+
+- Inline: put RunJS source under block `settings.code` and optional `settings.version`.
+- Asset reference: put source under `assets.scripts.<key>.code` and reference it with block `script: "<key>"`.
+- A new `jsBlock` must include one of those explicit code sources; do not rely on the default JS template.
+- Do not put top-level `code` or top-level `version` on the block.
+- Do not author internal readback fields such as `stepParams`, `props`, `decoratorProps`, or `flowRegistry`.
+- Do not mix `script` with `settings.code` / `settings.version`.
+
+Inline `jsBlock`:
+
+```json
+{
+  "type": "jsBlock",
+  "settings": {
+    "title": "KPI Cards",
+    "version": "v2",
+    "code": "ctx.render(<div>Hello</div>);"
+  }
+}
+```
+
+Asset-backed `jsBlock`:
+
+```json
+{
+  "assets": {
+    "scripts": {
+      "kpiCards": {
+        "version": "v2",
+        "code": "ctx.render(<div>Hello</div>);"
+      }
+    }
+  },
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "jsBlock",
+          "script": "kpiCards",
+          "settings": {
+            "title": "KPI Cards"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## 8. Canonical Naming Rule
 
 When this skill authors `applyBlueprint`, always emit the canonical public names above.

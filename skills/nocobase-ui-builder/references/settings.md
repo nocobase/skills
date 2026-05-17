@@ -44,6 +44,38 @@ Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **l
 - Do not default to them just because "only one layout item" or "only one flow" is changing. If the user is not asking for whole replacement, prefer `compose/add*`, `configure`, `update-settings`, or the fine-grained event-flow APIs instead.
 - Once you use them, read the full current state before writing, and validate against the full post-write state. Do not rely on local delta only.
 
+### JSBlock Settings
+
+Localized `jsBlock` create / compose writes use only the inline public shape:
+
+```json
+{
+  "type": "jsBlock",
+  "settings": {
+    "title": "KPI Cards",
+    "version": "v2",
+    "code": "ctx.render(<div>Hello</div>);"
+  }
+}
+```
+
+The inline `settings.code` is required for new localized JSBlocks; do not create title-only JSBlocks and rely on default template code.
+
+Localized `configure` for an existing JSBlock uses direct `changes.code` and `changes.version`:
+
+```json
+{
+  "target": { "uid": "existing-js-block-uid" },
+  "changes": {
+    "title": "KPI Cards",
+    "version": "v2",
+    "code": "ctx.render(<div>Hello</div>);"
+  }
+}
+```
+
+Do not use block top-level `code`, block top-level `version`, `script`, or internal readback fields such as `stepParams`, `props`, `decoratorProps`, or `flowRegistry` in localized `compose` / `add-block` bodies. In `configure`, do not use `changes.settings`, `changes.script`, or internal persisted fields; use direct `changes.code` / `changes.version`. `script` is reserved for whole-page `applyBlueprint` with `assets.scripts`.
+
 ## Layout Replacement
 
 Use `set-layout` when the target grid already exists and the user explicitly accepts full layout replacement.

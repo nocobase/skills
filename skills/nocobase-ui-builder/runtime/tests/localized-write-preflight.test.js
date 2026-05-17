@@ -118,6 +118,11 @@ function makeMetadata() {
           use: 'ChartBlockModel',
           collectionName: 'users',
         },
+        'js-block-uid': {
+          uid: 'js-block-uid',
+          use: 'JSBlockModel',
+          collectionName: 'users',
+        },
         'bulk-update-action-uid': {
           uid: 'bulk-update-action-uid',
           use: 'BulkUpdateActionModel',
@@ -338,6 +343,161 @@ test('runLocalizedWritePreflight accepts jsItem in public collection and record 
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete', 'jsItem']);
   assert.deepEqual(actionTypes(result.cliBody.blocks[1].actions), ['jsItem']);
   assert.deepEqual(actionTypes(result.cliBody.blocks[2].actions), ['jsItem']);
+});
+
+test('runLocalizedWritePreflight accepts canonical localized jsBlock settings code', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'kpi-cards',
+          type: 'jsBlock',
+          settings: {
+            title: 'KPI Cards',
+            version: 'v2',
+            code: "ctx.render('KPI Cards');",
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.blocks[0].settings.code, "ctx.render('KPI Cards');");
+});
+
+test('runLocalizedWritePreflight accepts canonical localized jsBlock configure code', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'js-block-uid' },
+      changes: {
+        title: 'KPI Cards',
+        version: 'v2',
+        code: "ctx.render('KPI Cards');",
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.changes.code, "ctx.render('KPI Cards');");
+});
+
+test('runLocalizedWritePreflight rejects non-canonical localized jsBlock public shapes', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'top-level-code',
+          type: 'jsBlock',
+          code: "ctx.render('Ignored');",
+        },
+        {
+          key: 'top-level-version',
+          type: 'jsBlock',
+          version: 'v2',
+        },
+        {
+          key: 'internal-step-params',
+          type: 'jsBlock',
+          stepParams: {
+            jsSettings: {
+              runJs: {
+                version: 'v2',
+                code: "ctx.render('Internal');",
+              },
+            },
+          },
+        },
+        {
+          key: 'malformed-script',
+          type: 'jsBlock',
+          script: '   ',
+        },
+        {
+          key: 'mixed-internal-public',
+          type: 'jsBlock',
+          props: {},
+          script: 'kpiCards',
+          settings: {
+            source: 'runjs',
+            version: 'v2',
+            code: "ctx.render('Inline');",
+          },
+        },
+        {
+          key: 'missing-source',
+          type: 'jsBlock',
+          settings: {
+            title: 'Missing source',
+          },
+        },
+        {
+          key: 'deprecated-alias',
+          type: 'js',
+          settings: {
+            code: "ctx.render('Alias');",
+          },
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'jsBlock-top-level-code-unsupported');
+  assertHasRule(result, 'jsBlock-top-level-version-unsupported');
+  assertHasRule(result, 'jsBlock-stepParams-unsupported');
+  assertHasRule(result, 'jsBlock-script-unsupported');
+  assertHasRule(result, 'jsBlock-internal-field-unsupported');
+  assertHasRule(result, 'jsBlock-mixed-inline-and-script');
+  assertHasRule(result, 'jsBlock-settings-unsupported-key');
+  assertHasRule(result, 'jsBlock-source-required');
+  assertHasRule(result, 'jsBlock-type-alias-unsupported');
+});
+
+test('runLocalizedWritePreflight rejects non-canonical localized jsBlock configure shapes', () => {
+  const result = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'js-block-uid' },
+      changes: {
+        version: 'v2',
+        code: "ctx.render('Inline');",
+        script: 'kpiCards',
+        props: {},
+        decoratorProps: {},
+        flowRegistry: {},
+        stepParams: {
+          jsSettings: {
+            runJs: {
+              code: "ctx.render('Internal');",
+              version: 'v2',
+            },
+          },
+        },
+        settings: {
+          code: "ctx.render('Nested settings');",
+        },
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(result.ok, false);
+  assertHasRule(result, 'jsBlock-script-unsupported', '$.changes.script');
+  assertHasRule(result, 'jsBlock-mixed-inline-and-script', '$.changes.script');
+  assertHasRule(result, 'jsBlock-internal-field-unsupported', '$.changes.props');
+  assertHasRule(result, 'jsBlock-internal-field-unsupported', '$.changes.decoratorProps');
+  assertHasRule(result, 'jsBlock-internal-field-unsupported', '$.changes.flowRegistry');
+  assertHasRule(result, 'jsBlock-stepParams-unsupported', '$.changes.stepParams');
+  assertHasRule(result, 'jsBlock-settings-unsupported-key', '$.changes.settings.code');
 });
 
 test('runLocalizedWritePreflight rejects jsItem on unsupported public action hosts', () => {
