@@ -4043,7 +4043,7 @@ function buildCompactFieldsLayoutRow(fieldKeys, blockType) {
 function buildDefaultFieldsLayout(block) {
   if (
     !isPlainObject(block) ||
-    !FIELD_GRID_BLOCK_TYPES.has(normalizeText(block.type)) ||
+    normalizeText(block.type) !== "filterForm" ||
     hasOwn(block, "fieldsLayout") ||
     hasOwn(block, "fieldGroups")
   ) {

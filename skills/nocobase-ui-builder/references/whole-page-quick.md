@@ -78,7 +78,7 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - keys must exist in the host collection metadata, and `{}` clears assignment values
    - do not use `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel` for this configuration
 13. If one tab or popup contains multiple non-filter blocks, give it explicit `layout`, avoid one-row-one-block stacking, and give each non-template-backed data block a `title`; template-backed blocks are exempt. A single non-filter block may omit its block `title` unless the user explicitly asks for one, and backend authoring strips redundant persisted title chrome for single-scope non-template data blocks. Filter blocks should sit alone in the first row when they are present.
-   - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
+   - For `createForm`, `editForm`, and `details`, omit block-level `fieldsLayout` unless the draft must control exact placement; backend authoring owns the default two-per-row grid and gives live `richText` / `vditor` fields plus `divider` items full-width rows. `filterForm` may keep compact three-per-row `fieldsLayout`.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
    - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
 14. Keep popup semantics close to the opener:

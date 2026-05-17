@@ -10893,7 +10893,7 @@ test('prepareApplyBlueprintRequest accepts fieldsLayout on field-grid blocks and
   });
 });
 
-test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for createForm when omitted', () => {
+test('prepareApplyBlueprintRequest leaves createForm fieldsLayout omitted for backend defaults', () => {
   const result = prepareWithDirectCollectionDefaults({
     version: '1',
     mode: 'create',
@@ -10920,12 +10920,7 @@ test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for createFo
   });
 
   assert.equal(result.ok, true);
-  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
-    rows: [
-      [{ key: 'nicknameField', span: 12 }, { key: 'statusField', span: 12 }],
-      [{ key: 'phoneField', span: 24 }],
-    ],
-  });
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
 });
 
 test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for filterForm when omitted', () => {
@@ -11501,7 +11496,44 @@ test('prepareApplyBlueprintRequest keeps flat fields valid when createForm has e
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
   assert.equal(result.cliBody.tabs[0].blocks[0].fields.length, 10);
-  assert.ok(result.cliBody.tabs[0].blocks[0].fieldsLayout);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
+});
+
+test('prepareApplyBlueprintRequest leaves editForm and details fieldsLayout omitted for backend defaults', () => {
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['userEditForm', 'userDetails']],
+        },
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            title: 'Edit user',
+            collection: 'users',
+            fields: ['username', 'nickname', 'email'],
+            actions: ['submit'],
+          },
+          {
+            key: 'userDetails',
+            type: 'details',
+            title: 'User details',
+            collection: 'users',
+            fields: ['username', 'nickname', 'email'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
+  assert.equal(result.cliBody.tabs[0].blocks[1].fieldsLayout, undefined);
 });
 
 test('prepareApplyBlueprintRequest accepts fieldGroups on large details blocks and keeps them in cliBody', () => {
@@ -18585,7 +18617,7 @@ test('prepareApplyBlueprintRequest applies popup template defaults to calendar h
     quickCreatePopup.saveAsTemplate.description,
     /Scene: popup\. Collection: users\. Host: User schedule\. Trigger: action "quick create"\. Context: direct\/current record\./i,
   );
-  assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
+  assert.equal(quickCreatePopup.blocks[0].fieldsLayout, undefined);
   assert.equal(eventPopup.mode, 'drawer');
   assert.equal(eventPopup.size, 'small');
   assert.deepEqual(eventPopup.template, {
@@ -18755,14 +18787,14 @@ test('prepareApplyBlueprintRequest applies popup template defaults to kanban hid
     quickCreatePopup.saveAsTemplate.description,
     /Scene: popup\. Collection: users\. Host: User board\. Trigger: action "quick create"\. Context: direct\/current record\./i,
   );
-  assert.equal(quickCreatePopup.blocks[0].fieldsLayout.rows[0][0].key, 'nickname');
+  assert.equal(quickCreatePopup.blocks[0].fieldsLayout, undefined);
   assert.equal(cardPopup.tryTemplate, true);
   assert.equal(cardPopup.saveAsTemplate.name, 'Kanban user details popup template');
   assert.match(
     cardPopup.saveAsTemplate.description,
     /Scene: popup\. Collection: users\. Host: User board\. Trigger: action "card click\/view"\. Context: direct\/current record\./i,
   );
-  assert.equal(cardPopup.blocks[0].fieldsLayout.rows[0][1].key, 'email');
+  assert.equal(cardPopup.blocks[0].fieldsLayout, undefined);
 });
 
 test('prepareApplyBlueprintRequest validates calendar hidden popup host template contract', () => {

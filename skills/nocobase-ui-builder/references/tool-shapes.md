@@ -701,9 +701,9 @@ nb request body:
 
 Notes:
 
-- `fieldsLayout` is available on `compose` only for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block.
+- `fieldsLayout` is available on `compose` and single-block `addBlock` writes for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block. Omit it by default for `createForm`, `editForm`, and `details`; backend authoring generates the default two-per-row grid and full-width live `richText` / `vditor` and `divider` rows. Keep explicit `fieldsLayout` for exact placement requests or compact `filterForm` layouts.
 - Each `fieldsLayout` row must be non-empty, every keyed field must be placed exactly once, and object-cell `span` must be numeric.
-- `addBlock` does not accept `fieldsLayout`; when the first write must shape a field grid directly, prefer `compose` over `addBlock`.
+- `addBlock` accepts `fieldsLayout` only together with inline `fields` for the new block; when the first write must shape multiple blocks or coordinate with page/popup layout, prefer `compose` over `addBlock`.
 - For `table` / `list` / `gridCard` / `calendar` / `kanban`, keep filtering/search as a normal block-level `filter` action unless the user explicitly asked for `filterForm`.
 - Direct non-template `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes generated default filters with up to 4 scalar/filterable fields.
 - Calendar and kanban hidden popup hosts follow [page-blueprint.md](./page-blueprint.md): configure calendar `settings.quickCreatePopup` / `settings.eventPopup` and kanban `settings.quickCreatePopup` / `settings.cardPopup`; put template choices there, not as a main-block `popup.template`. Backend authoring validates and materializes compatible defaults for these hidden popup settings. For direct non-template `applyBlueprint` kanban, keep main-card `fields[]` at 2 or fewer and let missing drag sort settings materialize as described in [blocks/kanban.md](./blocks/kanban.md). [helper-contracts.md](./helper-contracts.md) only records deprecated local-helper compatibility notes.
