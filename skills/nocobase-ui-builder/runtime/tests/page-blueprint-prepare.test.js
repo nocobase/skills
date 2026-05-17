@@ -16359,6 +16359,32 @@ test('prepareApplyBlueprintRequest selects readable tree table first fields and 
   const explicitBlock = explicit.cliBody.tabs[0].blocks[0];
   assert.deepEqual(explicitBlock.fields, ['name', 'parentId', 'title']);
   assert.deepEqual(actionTypes(explicitBlock.recordActions), ['edit']);
+
+  const dottedFirst = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks dotted first field' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+              fields: ['title.en', 'code'],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(dottedFirst.ok, true);
+  assert.deepEqual(dottedFirst.cliBody.tabs[0].blocks[0].fields, ['name', 'title.en', 'code']);
 });
 
 test('prepareApplyBlueprintRequest keeps ordinary table defaults when treeTable flag lacks tree metadata support', () => {

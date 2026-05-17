@@ -5124,14 +5124,23 @@ function materializeKanbanMainCardFieldsForWrite(block, options = {}) {
   };
 }
 
-function getFieldEntryTopLevelPath(field) {
+function getFieldEntryPath(field) {
   const fieldPath =
     typeof field === "string"
       ? field
       : isPlainObject(field)
         ? field.field || field.fieldPath || field.name
         : "";
-  return normalizeText(fieldPath).split(".")[0] || "";
+  return normalizeText(fieldPath);
+}
+
+function getFieldEntryTopLevelPath(field) {
+  return getFieldEntryPath(field).split(".")[0] || "";
+}
+
+function getFieldEntryDirectPath(field) {
+  const fieldPath = getFieldEntryPath(field);
+  return fieldPath && !fieldPath.includes(".") ? fieldPath : "";
 }
 
 function isTreeTableBlock(block) {
@@ -5240,15 +5249,16 @@ function materializeTreeTableTitleFieldForWrite(block, options = {}) {
     options.collectionMetadata || {},
     getCollectionLabel(block),
   );
-  const firstField = collectionMeta?.fieldsByName?.get(
-    getFieldEntryTopLevelPath(block.fields[0]),
-  );
-  if (isTreeTableReadableTitleFieldCandidate(firstField)) {
-    return block;
+  const firstFieldPath = getFieldEntryPath(block.fields[0]);
+  if (firstFieldPath && !firstFieldPath.includes(".")) {
+    const firstField = collectionMeta?.fieldsByName?.get(firstFieldPath);
+    if (isTreeTableReadableTitleFieldCandidate(firstField)) {
+      return block;
+    }
   }
 
   const existingIndex = block.fields.findIndex(
-    (field) => getFieldEntryTopLevelPath(field) === titleField,
+    (field) => getFieldEntryDirectPath(field) === titleField,
   );
   if (existingIndex === 0) return block;
 
