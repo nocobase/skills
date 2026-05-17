@@ -16282,6 +16282,131 @@ test('prepare-write merges partial table actions and record actions and skips ta
   assert.equal(Object.hasOwn(tableSelect, 'recordActions'), false);
 });
 
+test('prepareApplyBlueprintRequest selects readable tree table first fields and skips record action defaults', () => {
+  const metadata = {
+    collections: {
+      treeTasks: {
+        template: 'tree',
+        titleField: 'id',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+          { name: 'uid', type: 'string', interface: 'input' },
+          { name: 'parentId', type: 'integer', interface: 'number' },
+          { name: 'code', type: 'string', interface: 'input' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+          { name: 'children', type: 'hasMany', interface: 'o2m', target: 'treeTasks', treeChildren: true },
+        ],
+      },
+    },
+  };
+
+  const omitted = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(omitted.ok, true);
+  const omittedBlock = omitted.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(omittedBlock.fields, ['name']);
+  assert.deepEqual(actionTypes(omittedBlock.actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
+  assert.equal(Object.hasOwn(omittedBlock, 'recordActions'), false);
+
+  const explicit = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+              fields: ['parentId', 'title'],
+              recordActions: [{ type: 'edit' }],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(explicit.ok, true);
+  const explicitBlock = explicit.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(explicitBlock.fields, ['name', 'parentId', 'title']);
+  assert.deepEqual(actionTypes(explicitBlock.recordActions), ['edit']);
+});
+
+test('prepareApplyBlueprintRequest keeps ordinary table defaults when treeTable flag lacks tree metadata support', () => {
+  const metadata = {
+    collections: {
+      flatTasks: {
+        titleField: 'id',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
+          { name: 'parentId', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'status', type: 'string', interface: 'select' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Flat tasks' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'flatTasksTable',
+              type: 'table',
+              collection: 'flatTasks',
+              settings: { treeTable: true },
+              fields: ['parentId', 'title'],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['flatTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(result.ok, true);
+  const block = result.cliBody.tabs[0].blocks[0];
+  assert.deepEqual(block.fields, ['parentId', 'title']);
+  assert.deepEqual(actionTypes(block.recordActions), ['view', 'edit', 'delete']);
+});
+
 test('prepare-write rejects removed table default action opt-outs', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

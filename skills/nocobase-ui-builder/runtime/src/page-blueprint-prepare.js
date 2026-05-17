@@ -242,6 +242,13 @@ const KANBAN_MAIN_CARD_PREFERRED_FIELD_NAMES = new Set([
   "email",
   "phone",
 ]);
+const TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES = ["name", "code", "title"];
+const TREE_TABLE_UNREADABLE_DIRECT_FIELD_NAMES = new Set([
+  "id",
+  "uid",
+  "uuid",
+  "parentid",
+]);
 const CALENDAR_FIELD_BINDING_KEYS = [
   "titleField",
   "colorField",
@@ -1897,6 +1904,7 @@ function normalizeCollectionFieldMetadata(field) {
     primaryKey: Boolean(field.primaryKey || options.primaryKey),
     autoIncrement: Boolean(field.autoIncrement || options.autoIncrement),
     hidden: Boolean(field.hidden || options.hidden),
+    treeChildren: Boolean(field.treeChildren || options.treeChildren),
     titleable: normalizeOptionalBoolean(field.titleable, options.titleable),
     titleUsable: normalizeOptionalBoolean(field.titleUsable, options.titleUsable),
     filterable:
@@ -1965,6 +1973,7 @@ export function normalizeCollectionMetadataInput(rawMetadata) {
       ),
       explicitTitleField: normalizeText(source.explicitTitleField || options.titleField),
       template: normalizeText(source.template || values.template || options.template),
+      tree: Boolean(source.tree || values.tree || options.tree),
       filterTargetKey:
         normalizeFilterTargetKeyValue(source.filterTargetKey) ||
         normalizeFilterTargetKeyValue(values.filterTargetKey) ||
@@ -5115,6 +5124,143 @@ function materializeKanbanMainCardFieldsForWrite(block, options = {}) {
   };
 }
 
+function getFieldEntryTopLevelPath(field) {
+  const fieldPath =
+    typeof field === "string"
+      ? field
+      : isPlainObject(field)
+        ? field.field || field.fieldPath || field.name
+        : "";
+  return normalizeText(fieldPath).split(".")[0] || "";
+}
+
+function isTreeTableBlock(block) {
+  return normalizeText(block?.type) === "table" && block?.settings?.treeTable === true;
+}
+
+function isTreeCollectionMeta(collectionMeta) {
+  return collectionMeta?.template === "tree" || collectionMeta?.tree === true;
+}
+
+function resolveTreeChildrenFieldName(collectionMeta) {
+  return ensureArray(collectionMeta?.fields)
+    .map((field) => {
+      if (field?.treeChildren === true || field?.options?.treeChildren === true) {
+        return normalizeText(field.name);
+      }
+      return "";
+    })
+    .find(Boolean) || "";
+}
+
+function isSupportedTreeTableBlock(block, options = {}) {
+  if (!isTreeTableBlock(block)) return false;
+  const collectionMeta = getCollectionMeta(
+    options.collectionMetadata || {},
+    getCollectionLabel(block),
+  );
+  return isTreeCollectionMeta(collectionMeta) && !!resolveTreeChildrenFieldName(collectionMeta);
+}
+
+function isTreeTableUnreadableDirectFieldName(fieldName) {
+  const normalized = normalizeText(fieldName);
+  const lowerName = normalized.toLowerCase();
+  if (TREE_TABLE_UNREADABLE_DIRECT_FIELD_NAMES.has(lowerName)) return true;
+  if (/^parent[_-]?id$/i.test(normalized)) return true;
+  if (/(?:^|[_-])(id|uid)$/i.test(normalized)) return true;
+  return /(?:Id|ID|Uid|UID)$/.test(normalized);
+}
+
+function isTreeTableReadableTitleFieldCandidate(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  if (!fieldName || !fieldInterface) return false;
+  if (fieldName.includes(".")) return false;
+  if (isTreeTableUnreadableDirectFieldName(fieldName)) return false;
+  if (AUDIT_FIELD_NAMES.has(fieldName)) return false;
+  if (field?.hidden === true || field?.options?.hidden === true) return false;
+  if (field?.primaryKey === true || field?.options?.primaryKey === true) {
+    return false;
+  }
+  if (field?.foreignKey === true || field?.options?.foreignKey === true) {
+    return false;
+  }
+  if (isAssociationFieldMeta(field)) return false;
+  return true;
+}
+
+function getTreeTableReadableTitleFieldScore(field, collectionMeta) {
+  const fieldName = normalizeText(field?.name);
+  const preferredIndex = TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.indexOf(fieldName);
+  if (preferredIndex !== -1) return preferredIndex;
+  if (fieldName && fieldName === normalizeText(collectionMeta?.titleField)) {
+    return TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.length;
+  }
+  return TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.length + 1;
+}
+
+function resolveTreeTableReadableTitleFieldName(block, options = {}) {
+  const collectionMeta = getCollectionMeta(
+    options.collectionMetadata || {},
+    getCollectionLabel(block),
+  );
+  if (!collectionMeta) return "";
+  return ensureArray(collectionMeta.fields)
+    .map((field, index) => ({ field, index }))
+    .filter(({ field }) => isTreeTableReadableTitleFieldCandidate(field))
+    .sort((left, right) => {
+      const scoreDiff =
+        getTreeTableReadableTitleFieldScore(left.field, collectionMeta) -
+        getTreeTableReadableTitleFieldScore(right.field, collectionMeta);
+      return scoreDiff || left.index - right.index;
+    })
+    .map(({ field }) => normalizeText(field.name))
+    .find(Boolean) || "";
+}
+
+function materializeTreeTableTitleFieldForWrite(block, options = {}) {
+  if (
+    !isPlainObject(block) ||
+    !isSupportedTreeTableBlock(block, options) ||
+    isTemplateBackedBlock(block)
+  ) {
+    return block;
+  }
+  const titleField = resolveTreeTableReadableTitleFieldName(block, options);
+  if (!titleField) return block;
+
+  if (!Array.isArray(block.fields) || block.fields.length === 0) {
+    return {
+      ...block,
+      fields: [titleField],
+    };
+  }
+
+  const collectionMeta = getCollectionMeta(
+    options.collectionMetadata || {},
+    getCollectionLabel(block),
+  );
+  const firstField = collectionMeta?.fieldsByName?.get(
+    getFieldEntryTopLevelPath(block.fields[0]),
+  );
+  if (isTreeTableReadableTitleFieldCandidate(firstField)) {
+    return block;
+  }
+
+  const existingIndex = block.fields.findIndex(
+    (field) => getFieldEntryTopLevelPath(field) === titleField,
+  );
+  if (existingIndex === 0) return block;
+
+  const nextFields = block.fields.slice();
+  const titleFieldEntry = existingIndex === -1 ? titleField : nextFields.splice(existingIndex, 1)[0];
+  nextFields.unshift(titleFieldEntry);
+  return {
+    ...block,
+    fields: nextFields,
+  };
+}
+
 function materializeBlockForWrite(block, options = {}) {
   if (!isPlainObject(block)) {
     return block;
@@ -5140,6 +5286,10 @@ function materializeBlockForWrite(block, options = {}) {
     }
   }
   nextBlock = materializeKanbanMainCardFieldsForWrite(nextBlock, {
+    ...options,
+    blockContext,
+  });
+  nextBlock = materializeTreeTableTitleFieldForWrite(nextBlock, {
     ...options,
     blockContext,
   });
@@ -5206,6 +5356,7 @@ function materializeBlockForWrite(block, options = {}) {
     nextBlock,
     {
       hasExplicitResourceBinding: isDataBlock(nextBlock),
+      supportedTreeTable: isSupportedTreeTableBlock(nextBlock, options),
     },
   );
   if (nextWithDefaultActionGroups !== nextBlock) {

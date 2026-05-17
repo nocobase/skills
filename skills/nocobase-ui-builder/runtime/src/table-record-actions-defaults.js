@@ -43,6 +43,10 @@ function isTableDefaultActionTarget(block, options = {}) {
   return !EXCLUDED_TABLE_USES.has(normalizeText(block.use));
 }
 
+function isSupportedTreeTable(block, options = {}) {
+  return block?.settings?.treeTable === true && options.supportedTreeTable === true;
+}
+
 function getActionType(action) {
   if (typeof action === 'string') return normalizeText(action);
   return normalizeText(action?.type);
@@ -74,7 +78,7 @@ function mergeDefaultActionList(existing, defaults) {
 }
 
 export function isTableRecordActionsDefaultTarget(block, options = {}) {
-  return isTableDefaultActionTarget(block, options);
+  return isTableDefaultActionTarget(block, options) && !isSupportedTreeTable(block, options);
 }
 
 export function materializeDefaultTableActions(block, options = {}) {
