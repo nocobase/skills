@@ -1915,6 +1915,57 @@ test('prepareApplyBlueprintRequest keeps English static required descriptions fr
   assert.equal(result.cliBody.reaction, undefined);
 });
 
+test('prepareApplyBlueprintRequest keeps pure generated-description helper text on explicit local forms', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'aiSummary',
+            interface: 'textarea',
+            description: '由 AI 自动生成，仅用于说明展示。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareWithDirectCollectionDefaults({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Tasks' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'taskForm',
+            type: 'createForm',
+            collection: 'tasks',
+            fields: ['aiSummary'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  }, {
+    collections: ['tasks'],
+    collectionMetadata: descriptionMetadata,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields[0], {
+    field: 'aiSummary',
+    settings: {
+      extra: '由 AI 自动生成，仅用于说明展示。',
+    },
+  });
+  assert.deepEqual(result.cliBody.defaults.collections.tasks.formBehavior, {});
+});
+
 test('prepareApplyBlueprintRequest materializes clear collection field description linkage into form reactions', () => {
   const descriptionMetadata = {
     collections: {
@@ -2704,7 +2755,55 @@ test('prepareApplyBlueprintRequest materializes default formBehavior linkage for
   ]);
 });
 
-test('prepareApplyBlueprintRequest preserves explicit empty or null generated popup formBehavior as no-op', () => {
+test('prepareApplyBlueprintRequest emits empty default formBehavior when generated popup descriptions have no structured rules', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'aiSummary',
+            interface: 'textarea',
+            description: '由 AI 自动生成，仅用于说明展示。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['tasks'],
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.defaults.collections.tasks.formBehavior, {});
+});
+
+test('prepareApplyBlueprintRequest preserves explicit empty generated popup formBehavior as no-op confirmation', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -2723,46 +2822,97 @@ test('prepareApplyBlueprintRequest preserves explicit empty or null generated po
     },
   };
 
-  for (const formBehavior of [{}, null]) {
-    const result = prepareApplyBlueprintRequest(
-      {
-        version: '1',
-        mode: 'create',
-        page: { title: 'Tasks' },
-        defaults: {
-          collections: {
-            tasks: {
-              popups: buildFixedCollectionPopupDefaults('tasks'),
-              formBehavior,
-            },
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+            formBehavior: {},
           },
         },
-        tabs: [
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title', 'status'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(result.cliBody.defaults.collections.tasks.formBehavior, {});
+});
+
+test('prepareApplyBlueprintRequest preserves null generated popup formBehavior for backend API compatibility', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'status', interface: 'select' },
           {
-            key: 'main',
-            title: 'Overview',
-            blocks: [
-              {
-                key: 'taskTable',
-                type: 'table',
-                collection: 'tasks',
-                fields: ['title', 'status'],
-              },
-            ],
+            name: 'approvalComment',
+            interface: 'textarea',
+            description: '当 status 为 published 时必填。',
           },
         ],
       },
-      {
-        collectionMetadata: descriptionMetadata,
-      },
-    );
+    },
+  };
 
-    assert.equal(result.ok, true, JSON.stringify(result.errors));
-    assert.deepEqual(
-      result.cliBody.defaults.collections.tasks.formBehavior,
-      formBehavior,
-    );
-  }
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+            formBehavior: null,
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title', 'status'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, null);
 });
 
 test('prepareApplyBlueprintRequest does not materialize formBehavior for hidden described generated popup fields', () => {

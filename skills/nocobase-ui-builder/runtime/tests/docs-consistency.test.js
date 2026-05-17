@@ -259,6 +259,19 @@ function assertExistingReferenceRoutingBridge(text, sourceLabel) {
   );
 }
 
+function assertFormBehaviorNoopGuidance(text, relativePath) {
+  assert.match(
+    text,
+    /formBehavior[\s\S]{0,360}(?:check(?:ed|ing)?|description)[\s\S]{0,360}\{\}|description[\s\S]{0,360}formBehavior[\s\S]{0,360}\{\}/i,
+    `${relativePath} should require checking descriptions before using empty formBehavior`,
+  );
+  assert.doesNotMatch(
+    text,
+    /formBehavior[\s\S]{0,360}(?:\{\}\s*(?:or|\/)|(?:or|\/)\s*`?null`?|null[\s\S]{0,120}(?:no-op|confirmation|confirm)|no-op[\s\S]{0,120}null)/i,
+    `${relativePath} should not recommend null as agent-facing formBehavior no-op`,
+  );
+}
+
 function assertExistingReferenceReadbackBridge(text, sourceLabel) {
   assertPointsToTemplates(text, sourceLabel);
   assert.match(text, /template[- ]source/i, `${sourceLabel} should keep template-source readback visible`);
@@ -2509,11 +2522,7 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
       /description[\s\S]{0,260}defaults\.collections\.<collection>\.formBehavior|defaults\.collections\.<collection>\.formBehavior[\s\S]{0,260}description/i,
       `${relativePath} should connect field descriptions to collection formBehavior`,
     );
-    assert.match(
-      text,
-      /formBehavior[\s\S]{0,320}(?:\{\}|null|no-op)/i,
-      `${relativePath} should document explicit empty or null formBehavior no-op confirmation`,
-    );
+    assertFormBehaviorNoopGuidance(text, relativePath);
   }
 
   const toolShapes = read('references/tool-shapes.md');

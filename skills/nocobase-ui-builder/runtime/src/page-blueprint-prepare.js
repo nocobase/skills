@@ -3210,7 +3210,7 @@ function validateRequiredDefaultFormBehaviorScene(
       seenErrors,
       path,
       "missing-default-form-behavior",
-      `${path} must be present because description-derived form behavior is required for generated popup forms; use {} or null to explicitly confirm no structured behavior.`,
+      `${path} must be present because description-derived form behavior is required for generated popup forms; generate structured addNew/edit behavior from field descriptions, or use {} to explicitly confirm no structured behavior.`,
     );
   }
 }
@@ -4627,6 +4627,7 @@ function buildDefaultFormBehaviorSceneForCollection(
       collectionName,
       fieldName: fieldPath,
       availableFieldNames,
+      emptyWhenNoStructuredDescriptionBehavior: true,
     });
     if (Object.keys(behavior.settings || {}).length > 0) {
       fields[fieldPath] = {
