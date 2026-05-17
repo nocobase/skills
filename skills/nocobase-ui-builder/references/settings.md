@@ -563,6 +563,51 @@ For existing update actions, `configure` uses the same key:
 
 `assignValues` must be a plain object keyed by fields in the host collection metadata. `{}` is valid and clears the persisted assignment.
 
+### Submit/update workflow bindings
+
+Use public `settings.triggerWorkflows` for new submit/update actions, or `configure.changes.triggerWorkflows` for existing action nodes. Do not write raw `flowModels` or internal `stepParams` for this binding.
+
+Supported targets:
+
+- form submit actions under `createForm` / `editForm` / form action containers
+- record `updateRecord` actions under `recordActions` or `add-record-action`
+
+`bulkUpdate`, filter-form submit, and standalone `triggerWorkflow` actions do not use this field. Each row is `{ "workflowKey": "<key>", "context": "<optional path>" }`. `workflowKey` must be a non-empty string, `context` is optional string, `[]` clears bindings, and `null` is invalid. Do not require workflow metadata during authoring; validate only shape and target.
+
+```json
+{
+  "type": "submit",
+  "settings": {
+    "triggerWorkflows": [
+      { "workflowKey": "employee_created" }
+    ]
+  }
+}
+```
+
+```json
+{
+  "type": "updateRecord",
+  "settings": {
+    "assignValues": {
+      "status": "active"
+    },
+    "triggerWorkflows": [
+      { "workflowKey": "employee_status_changed", "context": "department" }
+    ]
+  }
+}
+```
+
+```json
+{
+  "target": { "uid": "submit-action-uid" },
+  "changes": {
+    "triggerWorkflows": []
+  }
+}
+```
+
 Readback rule for localized creates:
 
 - `table` / `list` / `gridCard` / `calendar` / `kanban` may already come back with merged `filter` + `addNew` + `refresh`.

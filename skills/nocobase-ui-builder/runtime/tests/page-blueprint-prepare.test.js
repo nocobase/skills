@@ -18926,6 +18926,7 @@ test('prepareApplyBlueprintRequest validates update action assignValues against 
                 type: 'updateRecord',
                 settings: {
                   assignValues: { status: 'active' },
+                  triggerWorkflows: [{ workflowKey: 'wf_update_user', context: 'department' }],
                 },
                 ...recordActionPatch,
               },
@@ -18940,6 +18941,37 @@ test('prepareApplyBlueprintRequest validates update action assignValues against 
     collectionMetadata,
   });
   assert.equal(valid.ok, true);
+
+  const validSubmitBinding = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Submit workflow binding' },
+      tabs: [
+        {
+          title: 'Users',
+          blocks: [
+            {
+              key: 'usersForm',
+              type: 'createForm',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  type: 'submit',
+                  settings: {
+                    triggerWorkflows: [{ workflowKey: 'wf_create_user' }],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+  assert.equal(validSubmitBinding.ok, true);
 
   const unknownField = prepareWithDirectCollectionDefaults(
     buildBlueprint({
@@ -18976,6 +19008,57 @@ test('prepareApplyBlueprintRequest validates update action assignValues against 
     { collectionMetadata },
   );
   assert.equal(emptyClear.ok, true);
+
+  const emptyTriggerWorkflowsClear = prepareWithDirectCollectionDefaults(
+    buildBlueprint({}, {
+      settings: {
+        triggerWorkflows: [],
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(emptyTriggerWorkflowsClear.ok, true);
+
+  const invalidTriggerWorkflowKey = prepareWithDirectCollectionDefaults(
+    buildBlueprint({}, {
+      settings: {
+        triggerWorkflows: [{ workflowKey: '' }],
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(invalidTriggerWorkflowKey.ok, false);
+  assert.equal(
+    invalidTriggerWorkflowKey.errors.some((issue) => issue.ruleId === 'trigger-workflows-workflow-key-required'),
+    true,
+  );
+
+  const nullTriggerWorkflows = prepareWithDirectCollectionDefaults(
+    buildBlueprint({}, {
+      settings: {
+        triggerWorkflows: null,
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(nullTriggerWorkflows.ok, false);
+  assert.equal(nullTriggerWorkflows.errors.some((issue) => issue.ruleId === 'trigger-workflows-must-be-array'), true);
+
+  const unsupportedBulkUpdateTriggerWorkflows = prepareWithDirectCollectionDefaults(
+    buildBlueprint({
+      settings: {
+        triggerWorkflows: [{ workflowKey: 'wf_bulk' }],
+      },
+    }),
+    { collectionMetadata },
+  );
+  assert.equal(unsupportedBulkUpdateTriggerWorkflows.ok, false);
+  assert.equal(
+    unsupportedBulkUpdateTriggerWorkflows.errors.some(
+      (issue) => issue.ruleId === 'trigger-workflows-target-unsupported',
+    ),
+    true,
+  );
 
   const misplacedBulkUpdate = prepareWithDirectCollectionDefaults(
     buildBlueprint({}, {

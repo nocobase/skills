@@ -818,6 +818,15 @@ Field assignment for update actions uses only `settings.assignValues`:
 - `{}` is valid and clears the persisted field assignment
 - do not configure assignment fields through `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel`
 
+Workflow binding for submit/update actions uses only `settings.triggerWorkflows`:
+
+- form submit actions under `createForm` / `editForm` may use `settings.triggerWorkflows`
+- record `updateRecord` actions under `recordActions` may use `settings.triggerWorkflows`
+- each row is `{ workflowKey, context? }`; `workflowKey` is a non-empty string and `context` is optional string
+- `[]` clears bindings; `null` is invalid
+- do not configure this by writing raw `flowModels`, internal `stepParams`, or a standalone `triggerWorkflow` action unless the user explicitly wants a separate button
+- authoring validates shape only and does not require workflow metadata
+
 ```json
 {
   "type": "bulkUpdate",

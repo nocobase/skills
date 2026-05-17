@@ -40,9 +40,13 @@ When the user gives a NocoBase admin URL for a precise edit on an existing page,
     - `updateRecord` is a record action under `recordActions`
     - `assignValues` must be a plain object keyed by fields in the host collection metadata; `{}` clears assignment values
     - do not use `add-fields`, raw `flowModels`, `AssignFormGridModel`, or `AssignFormItemModel`
-13. When localized work must create a `createForm`, `editForm`, `details`, or `filterForm` with a controlled inner field grid, prefer `compose` plus block-level `fieldsLayout`. It must place every keyed field exactly once, and each object cell `span` must be numeric. `addBlock` does not accept `fieldsLayout`; use it only to create the shell, then continue with lower-level field/layout writes if needed.
-14. When you author one localized `compose` / `add-block` / `add-blocks` / `configure` body, send the raw business object directly through `nb api flow-surfaces <action>`. The backend validates host-aware shape before write side effects and returns aggregate `errors[]`; repair the full list and retry the raw payload.
-15. Open [tool-shapes.md](./tool-shapes.md) only when you are ready to form the exact raw nb body.
+13. For submit/update workflow bindings, use only `settings.triggerWorkflows` on new actions or `configure.changes.triggerWorkflows` on existing action nodes:
+    - form submit and record `updateRecord` support it; `bulkUpdate` and filter-form submit do not
+    - each row is `{ workflowKey, context? }`; `[]` clears bindings and `null` is invalid
+    - do not write raw `flowModels` or internal `stepParams`
+14. When localized work must create a `createForm`, `editForm`, `details`, or `filterForm` with a controlled inner field grid, prefer `compose` plus block-level `fieldsLayout`. It must place every keyed field exactly once, and each object cell `span` must be numeric. `addBlock` does not accept `fieldsLayout`; use it only to create the shell, then continue with lower-level field/layout writes if needed.
+15. When you author one localized `compose` / `add-block` / `add-blocks` / `configure` body, send the raw business object directly through `nb api flow-surfaces <action>`. The backend validates host-aware shape before write side effects and returns aggregate `errors[]`; repair the full list and retry the raw payload.
+16. Open [tool-shapes.md](./tool-shapes.md) only when you are ready to form the exact raw nb body.
 
 ## Minimal routing table
 

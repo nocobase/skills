@@ -128,6 +128,16 @@ function makeMetadata() {
           use: 'UpdateRecordActionModel',
           parentUid: 'users-table-uid',
         },
+        'form-submit-action-uid': {
+          uid: 'form-submit-action-uid',
+          use: 'FormSubmitActionModel',
+          parentUid: 'users-form-uid',
+        },
+        'filter-submit-action-uid': {
+          uid: 'filter-submit-action-uid',
+          use: 'FilterFormSubmitActionModel',
+          parentUid: 'users-filter-form-uid',
+        },
         'collection-tree-target-uid': {
           uid: 'collection-tree-target-uid',
           use: 'TreeCollectionBlockModel',
@@ -4249,4 +4259,163 @@ test('runLocalizedWritePreflight validates localized configure assignValues targ
   });
   assert.equal(nonObject.ok, false);
   assertHasRule(nonObject, 'assign-values-must-be-object', '$.changes.assignValues');
+});
+
+test('runLocalizedWritePreflight validates triggerWorkflows settings without workflow metadata', () => {
+  const makeBody = (actionPatch = {}, recordActionPatch = {}) => ({
+    target: { uid: 'page-tab-uid' },
+    blocks: [
+      {
+        key: 'usersForm',
+        type: 'createForm',
+        resource: {
+          dataSourceKey: 'main',
+          collectionName: 'users',
+        },
+        actions: [
+          {
+            type: 'submit',
+            settings: {
+              triggerWorkflows: [{ workflowKey: 'wf_create_user' }],
+            },
+            ...actionPatch,
+          },
+        ],
+      },
+      {
+        key: 'usersTable',
+        type: 'table',
+        resource: {
+          dataSourceKey: 'main',
+          collectionName: 'users',
+        },
+        defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
+        recordActions: [
+          {
+            type: 'updateRecord',
+            settings: {
+              triggerWorkflows: [{ workflowKey: 'wf_update_user', context: 'department' }],
+            },
+            ...recordActionPatch,
+          },
+        ],
+      },
+    ],
+  });
+
+  const valid = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody(),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(valid.ok, true);
+
+  const emptyClear = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        triggerWorkflows: [],
+      },
+    }, {
+      settings: {
+        triggerWorkflows: [],
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(emptyClear.ok, true);
+
+  const invalidWorkflowKey = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        triggerWorkflows: [{ workflowKey: '' }],
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(invalidWorkflowKey.ok, false);
+  assertHasRule(
+    invalidWorkflowKey,
+    'trigger-workflows-workflow-key-required',
+    '$.blocks[0].actions[0].settings.triggerWorkflows[0].workflowKey',
+  );
+
+  const nullValue = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: makeBody({
+      settings: {
+        triggerWorkflows: null,
+      },
+    }),
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(nullValue.ok, false);
+  assertHasRule(nullValue, 'trigger-workflows-must-be-array', '$.blocks[0].actions[0].settings.triggerWorkflows');
+
+  const unsupportedBulkUpdate = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
+          actions: [
+            {
+              type: 'bulkUpdate',
+              settings: {
+                triggerWorkflows: [{ workflowKey: 'wf_bulk' }],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(unsupportedBulkUpdate.ok, false);
+  assertHasRule(unsupportedBulkUpdate, 'trigger-workflows-target-unsupported');
+
+  const validFormConfigure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'form-submit-action-uid' },
+      changes: {
+        triggerWorkflows: [{ workflowKey: 'wf_create_user' }],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validFormConfigure.ok, true);
+
+  const validUpdateConfigure = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'update-record-action-uid' },
+      changes: {
+        triggerWorkflows: [],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(validUpdateConfigure.ok, true);
+
+  const invalidConfigureTarget = runLocalizedWritePreflight({
+    operation: 'configure',
+    body: {
+      target: { uid: 'filter-submit-action-uid' },
+      changes: {
+        triggerWorkflows: [{ workflowKey: 'wf_filter' }],
+      },
+    },
+    collectionMetadata: makeMetadata(),
+  });
+  assert.equal(invalidConfigureTarget.ok, false);
+  assertHasRule(invalidConfigureTarget, 'trigger-workflows-target-unsupported', '$.target.uid');
 });

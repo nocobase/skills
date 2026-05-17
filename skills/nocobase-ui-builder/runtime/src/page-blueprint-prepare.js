@@ -134,6 +134,11 @@ const KANBAN_ACTION_TYPE_MAP = new Map([
   ["jsitem", "jsItem"],
 ]);
 const EDIT_ACTION_TYPES = new Set(["edit"]);
+const FORM_SUBMIT_TRIGGER_WORKFLOWS_HOST_TYPES = new Set([
+  "createform",
+  "editform",
+  "form",
+]);
 const REAL_TEMPLATE_MODES = new Set(["reference", "copy"]);
 const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
   "setFieldValueRules",
@@ -6497,8 +6502,18 @@ function validateActions(
     }
     if (!recordActions && actionType === "bulkupdate") {
       validateActionAssignValues(item, itemPath, state, blockContext);
+      validateActionTriggerWorkflows(item, itemPath, state, {
+        actionType,
+        recordActions,
+        blockContext,
+      });
     }
     if (recordActions && actionType === "bulkupdate") {
+      validateActionTriggerWorkflows(item, itemPath, state, {
+        actionType,
+        recordActions,
+        blockContext,
+      });
       pushValidationError(
         state.errors,
         state.seenErrors,
@@ -6509,8 +6524,18 @@ function validateActions(
     }
     if (recordActions && actionType === "updaterecord") {
       validateActionAssignValues(item, itemPath, state, blockContext);
+      validateActionTriggerWorkflows(item, itemPath, state, {
+        actionType,
+        recordActions,
+        blockContext,
+      });
     }
     if (!recordActions && actionType === "updaterecord") {
+      validateActionTriggerWorkflows(item, itemPath, state, {
+        actionType,
+        recordActions,
+        blockContext,
+      });
       pushValidationError(
         state.errors,
         state.seenErrors,
@@ -6536,6 +6561,11 @@ function validateActions(
         continue;
       }
     }
+    validateActionTriggerWorkflows(item, itemPath, state, {
+      actionType,
+      recordActions,
+      blockContext,
+    });
     if (
       !recordActions &&
       hostBlockType === "calendar" &&
@@ -6573,6 +6603,103 @@ function validateActions(
     if (EDIT_ACTION_TYPES.has(normalizeLowerText(item.type))) {
       validateCustomEditPopup(item.popup, popupPath, state);
     }
+  }
+}
+
+function isTriggerWorkflowsActionSupported(actionType, recordActions, hostBlockType) {
+  if (recordActions) {
+    return actionType === "updaterecord";
+  }
+  return (
+    actionType === "submit" &&
+    FORM_SUBMIT_TRIGGER_WORKFLOWS_HOST_TYPES.has(hostBlockType)
+  );
+}
+
+function validateActionTriggerWorkflows(
+  item,
+  path,
+  state,
+  { actionType, recordActions = false, blockContext = {} } = {},
+) {
+  if (!isPlainObject(item) || !hasOwn(item, "settings")) {
+    return;
+  }
+  if (!isPlainObject(item.settings)) {
+    if (hasOwn(item.settings || {}, "triggerWorkflows")) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings`,
+        "action-settings-must-be-object",
+        "Action settings must be one plain object.",
+      );
+    }
+    return;
+  }
+  if (!hasOwn(item.settings, "triggerWorkflows")) {
+    return;
+  }
+
+  const triggerWorkflows = item.settings.triggerWorkflows;
+  const triggerWorkflowsPath = `${path}.settings.triggerWorkflows`;
+  if (!Array.isArray(triggerWorkflows)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      triggerWorkflowsPath,
+      "trigger-workflows-must-be-array",
+      "settings.triggerWorkflows must be an array of { workflowKey, context? } objects.",
+    );
+  } else {
+    for (const [index, row] of triggerWorkflows.entries()) {
+      const rowPath = `${triggerWorkflowsPath}[${index}]`;
+      if (!isPlainObject(row)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          rowPath,
+          "trigger-workflows-item-must-be-object",
+          "Each settings.triggerWorkflows item must be a plain object.",
+        );
+        continue;
+      }
+      if (typeof row.workflowKey !== "string" || !row.workflowKey.trim()) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${rowPath}.workflowKey`,
+          "trigger-workflows-workflow-key-required",
+          "settings.triggerWorkflows[].workflowKey must be a non-empty string.",
+        );
+      }
+      if (hasOwn(row, "context") && typeof row.context !== "string") {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${rowPath}.context`,
+          "trigger-workflows-context-must-be-string",
+          "settings.triggerWorkflows[].context must be a string when provided.",
+        );
+      }
+    }
+  }
+
+  const hostBlockType = normalizeLowerText(blockContext.hostBlockType);
+  if (
+    !isTriggerWorkflowsActionSupported(
+      actionType,
+      recordActions,
+      hostBlockType,
+    )
+  ) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "trigger-workflows-target-unsupported",
+      "settings.triggerWorkflows is only supported on form submit actions and record updateRecord actions.",
+    );
   }
 }
 

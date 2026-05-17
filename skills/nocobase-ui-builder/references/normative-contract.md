@@ -166,6 +166,7 @@ Canonical resource rule:
 - for popup relation tables that show records from the current record's relation, prefer the canonical semantic shape `resource.binding = "associatedRecords"` + `resource.associationField = "<relationField>"` (for example `roles`)
 - `applyBlueprint` may normalize `currentRecord | associatedRecords + associationPathName` into that canonical associated-records shape for convenience, but only when `associationPathName` is a single relation field name; the skill should author the canonical shape directly
 - on record-capable blocks (`table`, `details`, `list`, `gridCard`), author `view` / `edit` / `updateRecord` / `delete` under `recordActions`; `applyBlueprint` may auto-promote common record actions written under `actions`, and direct table partial `recordActions` are completed with `view` / `edit` / `delete`
+- bind workflows to form submit / record `updateRecord` buttons with public `settings.triggerWorkflows` or `configure.changes.triggerWorkflows`; `[]` clears, `null` is invalid, and raw `flowModels` / internal `stepParams` are not authoring surfaces
 
 It is **not** a plan API and must not expose:
 

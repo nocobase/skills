@@ -110,6 +110,8 @@ const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'TreeBlockModel',
 ]);
 const LIVE_UPDATE_ACTION_USES = new Set(['BulkUpdateActionModel', 'UpdateRecordActionModel']);
+const LIVE_TRIGGER_WORKFLOWS_ACTION_USES = new Set(['FormSubmitActionModel', 'UpdateRecordActionModel']);
+const FORM_SUBMIT_TRIGGER_WORKFLOWS_HOST_TYPES = new Set(['createform', 'editform', 'form']);
 const PUBLIC_MAIN_BLOCK_SECTION_RULES = {
   calendar: [
     {
@@ -1354,6 +1356,10 @@ function isJsItemActionType(actionType) {
 
 function hasAssignValues(item) {
   return isObjectRecord(item?.settings) && Object.hasOwn(item.settings, 'assignValues');
+}
+
+function hasTriggerWorkflows(item) {
+  return isObjectRecord(item?.settings) && Object.hasOwn(item.settings, 'triggerWorkflows');
 }
 
 function getBlockTitleField(block) {
@@ -2727,6 +2733,172 @@ function collectLocalizedAssignValuesErrors(payload, operation, metadata) {
   return errors;
 }
 
+function collectTriggerWorkflowsValidationIssues(value, path) {
+  const issues = [];
+  const push = (issuePath, ruleId, message, code) => {
+    issues.push({
+      path: issuePath,
+      ruleId,
+      message,
+      code,
+    });
+  };
+  if (!Array.isArray(value)) {
+    push(
+      path,
+      'trigger-workflows-must-be-array',
+      'settings.triggerWorkflows must be an array of { workflowKey, context? } objects.',
+      'TRIGGER_WORKFLOWS_MUST_BE_ARRAY',
+    );
+    return issues;
+  }
+  value.forEach((item, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isObjectRecord(item)) {
+      push(
+        itemPath,
+        'trigger-workflows-item-must-be-object',
+        'Each settings.triggerWorkflows item must be a plain object.',
+        'TRIGGER_WORKFLOWS_ITEM_MUST_BE_OBJECT',
+      );
+      return;
+    }
+    if (typeof item.workflowKey !== 'string' || !item.workflowKey.trim()) {
+      push(
+        `${itemPath}.workflowKey`,
+        'trigger-workflows-workflow-key-required',
+        'settings.triggerWorkflows[].workflowKey must be a non-empty string.',
+        'TRIGGER_WORKFLOWS_WORKFLOW_KEY_REQUIRED',
+      );
+    }
+    if (Object.hasOwn(item, 'context') && typeof item.context !== 'string') {
+      push(
+        `${itemPath}.context`,
+        'trigger-workflows-context-must-be-string',
+        'settings.triggerWorkflows[].context must be a string when provided.',
+        'TRIGGER_WORKFLOWS_CONTEXT_MUST_BE_STRING',
+      );
+    }
+  });
+  return issues;
+}
+
+function isTriggerWorkflowsActionSupported(actionType, slot, hostBlockType) {
+  if (slot === 'recordActions') {
+    return actionType === 'updaterecord';
+  }
+  return actionType === 'submit' && FORM_SUBMIT_TRIGGER_WORKFLOWS_HOST_TYPES.has(hostBlockType);
+}
+
+function collectLocalizedTriggerWorkflowsErrors(payload, operation, metadata) {
+  const errors = [];
+
+  const push = (path, ruleId, message, code, details = undefined) => {
+    errors.push({
+      path,
+      ruleId,
+      message,
+      code,
+      ...(details ? { details } : {}),
+    });
+  };
+
+  const validateTriggerWorkflows = (value, path) => {
+    collectTriggerWorkflowsValidationIssues(value, path).forEach((issue) => push(
+      issue.path,
+      issue.ruleId,
+      issue.message,
+      issue.code,
+    ));
+  };
+
+  const validateAction = (item, path, slot, hostBlockType) => {
+    if (!hasTriggerWorkflows(item)) {
+      return;
+    }
+    const actionType = getActionType(item);
+    const normalizedHostBlockType = normalizeText(hostBlockType).toLowerCase();
+    validateTriggerWorkflows(item.settings.triggerWorkflows, `${path}.settings.triggerWorkflows`);
+    if (!isTriggerWorkflowsActionSupported(actionType, slot, normalizedHostBlockType)) {
+      push(
+        path,
+        'trigger-workflows-target-unsupported',
+        'settings.triggerWorkflows is only supported on form submit actions and record updateRecord actions.',
+        'TRIGGER_WORKFLOWS_TARGET_UNSUPPORTED',
+        { actionType, slot, hostBlockType },
+      );
+    }
+  };
+
+  const visitActions = (items, path, slot, hostBlockType) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      const itemPath = `${path}[${index}]`;
+      validateAction(item, itemPath, slot, hostBlockType);
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${itemPath}.popup.blocks[${blockIndex}]`,
+          hostBlockType,
+        ));
+      }
+    });
+  };
+
+  const visitFieldPopups = (items, path, hostBlockType) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${path}[${index}].popup.blocks[${blockIndex}]`,
+          hostBlockType,
+        ));
+      }
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!isObjectRecord(block)) return;
+    const hostBlockType = normalizeText(block.type).toLowerCase();
+    visitActions(block.actions, `${path}.actions`, 'actions', hostBlockType);
+    visitActions(block.recordActions, `${path}.recordActions`, 'recordActions', hostBlockType);
+    visitFieldPopups(block.fields, `${path}.fields`, hostBlockType);
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        visitFieldPopups(group?.fields, `${path}.fieldGroups[${groupIndex}].fields`, hostBlockType);
+      });
+    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'triggerWorkflows')) {
+    validateTriggerWorkflows(payload.changes.triggerWorkflows, '$.changes.triggerWorkflows');
+    const targetUid = normalizeText(payload?.target?.uid);
+    const targetEntry = getLiveTopologyEntry(metadata, targetUid);
+    const targetUse = getLiveEntryUse(targetEntry);
+    if (targetEntry && targetUse && !LIVE_TRIGGER_WORKFLOWS_ACTION_USES.has(targetUse)) {
+      push(
+        '$.target.uid',
+        'trigger-workflows-target-unsupported',
+        'localized configure changes.triggerWorkflows requires a FormSubmitActionModel or UpdateRecordActionModel target.',
+        'TRIGGER_WORKFLOWS_TARGET_UNSUPPORTED',
+        { targetUse },
+      );
+    }
+  }
+
+  return errors;
+}
+
 function collectLocalizedJsItemActionSlotErrors(payload, operation, metadata) {
   const errors = [];
 
@@ -2888,6 +3060,7 @@ export function runLocalizedWritePreflight({
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedAssignValuesErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedTriggerWorkflowsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   audit.blockers.map(normalizeFinding).forEach(pushError);
 
   return {
