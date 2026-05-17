@@ -233,6 +233,29 @@ function hasLocalizedResourceBinding(block) {
   );
 }
 
+function isTreeCollectionMeta(collectionMeta) {
+  return collectionMeta?.template === 'tree' || collectionMeta?.tree === true;
+}
+
+function resolveTreeChildrenFieldName(collectionMeta) {
+  return (Array.isArray(collectionMeta?.fields) ? collectionMeta.fields : [])
+    .map((field) => {
+      if (field?.treeChildren === true || field?.options?.treeChildren === true) {
+        return normalizeText(field.name);
+      }
+      return '';
+    })
+    .find(Boolean) || '';
+}
+
+function isSupportedTreeTableBlock(block, metadata = {}, collectionName = '') {
+  if (!isObjectRecord(block) || normalizeText(block.type) !== 'table' || block.settings?.treeTable !== true) {
+    return false;
+  }
+  const collectionMeta = getCollectionMeta(metadata, collectionName || getBlockCollectionName(block));
+  return isTreeCollectionMeta(collectionMeta) && !!resolveTreeChildrenFieldName(collectionMeta);
+}
+
 function normalizeHeightSettingsInPopup(popup, options = {}) {
   if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
     return popup;
@@ -408,6 +431,7 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
   }
   return materializeDefaultTableActionGroups(nextBlock, {
     hasExplicitResourceBinding: hasLocalizedResourceBinding(nextBlock),
+    supportedTreeTable: isSupportedTreeTableBlock(nextBlock, options.metadata, blockCollectionName),
   });
 }
 

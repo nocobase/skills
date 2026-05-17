@@ -65,6 +65,17 @@ function makeMetadata() {
           { name: 'users', interface: 'm2m', type: 'belongsToMany', target: 'users' },
         ],
       },
+      categories: {
+        name: 'categories',
+        template: 'tree',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', interface: 'integer', type: 'bigInt' },
+          { name: 'title', interface: 'input' },
+          { name: 'code', interface: 'input' },
+          { name: 'children', interface: 'o2m', type: 'hasMany', target: 'categories', treeChildren: true },
+        ],
+      },
     },
     liveTopology: {
       byUid: {
@@ -288,6 +299,54 @@ test('runLocalizedWritePreflight defaults table actions and record actions for d
   assert.equal(result.ok, true);
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
   assert.deepEqual(actionTypes(result.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
+});
+
+test('runLocalizedWritePreflight skips ordinary record defaults only for metadata-proven tree tables', () => {
+  const supported = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'categories-tree',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'categories',
+          },
+          settings: { treeTable: true },
+          defaultFilter: makeDefaultFilter(['title', 'code']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(supported.ok, true, JSON.stringify(supported.errors));
+  assert.equal(Object.hasOwn(supported.cliBody.blocks[0], 'recordActions'), false);
+
+  const unsupported = runLocalizedWritePreflight({
+    operation: 'compose',
+    body: {
+      target: { uid: 'page-tab-uid' },
+      blocks: [
+        {
+          key: 'users-tree-flag',
+          type: 'table',
+          resource: {
+            dataSourceKey: 'main',
+            collectionName: 'users',
+          },
+          settings: { treeTable: true },
+          defaultFilter: makeDefaultFilter(['nickname', 'email', 'status', 'phone']),
+        },
+      ],
+    },
+    collectionMetadata: makeMetadata(),
+  });
+
+  assert.equal(unsupported.ok, true, JSON.stringify(unsupported.errors));
+  assert.deepEqual(actionTypes(unsupported.cliBody.blocks[0].recordActions), ['view', 'edit', 'delete']);
 });
 
 test('runLocalizedWritePreflight accepts jsItem in public collection and record action slots', () => {

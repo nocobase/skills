@@ -176,6 +176,7 @@ function normalizeCollectionField(field) {
   if (options.hidden) normalizedOptions.hidden = true;
   if (options.primaryKey) normalizedOptions.primaryKey = true;
   if (options.autoIncrement) normalizedOptions.autoIncrement = true;
+  if (options.treeChildren) normalizedOptions.treeChildren = true;
   if (typeof options.titleable === 'boolean') normalizedOptions.titleable = options.titleable;
   if (typeof options.titleUsable === 'boolean') normalizedOptions.titleUsable = options.titleUsable;
   if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
@@ -199,6 +200,7 @@ function normalizeCollectionField(field) {
     primaryKey: Boolean(field.primaryKey || options.primaryKey),
     autoIncrement: Boolean(field.autoIncrement || options.autoIncrement),
     hidden: Boolean(field.hidden || options.hidden),
+    treeChildren: Boolean(field.treeChildren || options.treeChildren),
     titleable: normalizeOptionalBoolean(field.titleable, options.titleable),
     titleUsable: normalizeOptionalBoolean(field.titleUsable, options.titleUsable),
     filterable:
@@ -237,6 +239,7 @@ function getCollectionMeta(collectionMetadata, collectionName) {
     titleField: normalizeText(source.titleField || values.titleField || options.titleField),
     explicitTitleField: normalizeText(source.explicitTitleField || options.titleField),
     template: normalizeText(source.template || values.template || options.template),
+    tree: Boolean(source.tree || values.tree || options.tree),
     filterTargetKey:
       normalizeFilterTargetKeyValue(source.filterTargetKey)
       || normalizeFilterTargetKeyValue(values.filterTargetKey)
