@@ -1182,7 +1182,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1300, 'openai default_prompt should stay at or below 1300 chars');
+  assert.ok(defaultPrompt.length <= 1400, 'openai default_prompt should stay at or below 1400 chars');
 });
 
 test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
@@ -1355,6 +1355,16 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
   assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}omit[\s\S]{0,60}backend4|backend4[\s\S]{0,60}defaultFilter/i);
   assert.match(defaultPrompt, /explicit[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}<4[\s\S]{0,36}errors/i);
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
+  assert.match(
+    defaultPrompt,
+    /treeTable[\s\S]{0,60}omit[\s\S]{0,40}recordActions[\s\S]{0,60}default[\s\S]{0,40}addChild/i,
+    'compressed prompt should keep tree-table default row-action guidance',
+  );
+  assert.match(
+    defaultPrompt,
+    /treeTable[\s\S]{0,80}first[\s\S]{0,80}live[\s\S]{0,80}direct[\s\S]{0,80}non-assoc[\s\S]{0,80}name>code>title/i,
+    'compressed prompt should keep tree-table first-field priority from live direct metadata',
+  );
 });
 
 test('gridCard reference documents public settings.columns without removed column count alias', () => {
@@ -1472,6 +1482,11 @@ test('JSBlock docs and prompt expose only canonical public authoring shapes', ()
     defaultPrompt,
     /changes\.settings/i,
     'compressed prompt should forbid changes.settings for JSBlock configure',
+  );
+  assert.match(
+    defaultPrompt,
+    /ban\([^)]*top-level code\/version[^)]*changes\.settings[^)]*stepParams[^)]*props[^)]*decoratorProps[^)]*flowRegistry[^)]*\)/i,
+    'compressed prompt should keep JSBlock forbidden public shapes under an explicit ban marker',
   );
   assert.match(
     defaultPrompt,
