@@ -259,16 +259,30 @@ function assertExistingReferenceRoutingBridge(text, sourceLabel) {
   );
 }
 
-function assertFormBehaviorNoopGuidance(text, relativePath) {
+function assertFormBehaviorDescriptionReviewGuidance(text, relativePath) {
   assert.match(
     text,
-    /formBehavior[\s\S]{0,360}(?:check(?:ed|ing)?|description)[\s\S]{0,360}\{\}|description[\s\S]{0,360}formBehavior[\s\S]{0,360}\{\}/i,
-    `${relativePath} should require checking descriptions before using empty formBehavior`,
+    /description[\s\S]{0,320}defaults\.collections\.<collection>\.formBehavior|defaults\.collections\.<collection>\.formBehavior[\s\S]{0,320}description/i,
+    `${relativePath} should connect field descriptions to collection formBehavior`,
+  );
+  assert.match(
+    text,
+    /formBehaviorDescriptionReview[\s\S]{0,220}hasTried|hasTried[\s\S]{0,220}formBehaviorDescriptionReview/i,
+    `${relativePath} should document formBehaviorDescriptionReview.hasTried`,
+  );
+  assert.match(
+    text,
+    /formBehaviorDescriptionReview\.fields[\s\S]{0,360}(?:described generated add\/edit|not safely converted|not already covered|structured formBehavior)|(?:described generated add\/edit|not safely converted|not already covered|structured formBehavior)[\s\S]{0,360}formBehaviorDescriptionReview\.fields/i,
+    `${relativePath} should explain when described generated add/edit fields belong in formBehaviorDescriptionReview.fields`,
+  );
+  const strippedNegativeWarnings = text.replace(
+    /(?:do not use|instead of using|do not send|never use)[\s\S]{0,220}(?:`?formBehavior\s*:\s*\{\}`?|`?null`?)/gi,
+    '',
   );
   assert.doesNotMatch(
-    text,
-    /formBehavior[\s\S]{0,360}(?:\{\}\s*(?:or|\/)|(?:or|\/)\s*`?null`?|null[\s\S]{0,120}(?:no-op|confirmation|confirm)|no-op[\s\S]{0,120}null)/i,
-    `${relativePath} should not recommend null as agent-facing formBehavior no-op`,
+    strippedNegativeWarnings,
+    /formBehavior\s*:\s*\{\}[\s\S]{0,120}(?:no-op|confirmation|confirm|escape hatch)|null[\s\S]{0,120}(?:no-op|confirmation|confirm|escape hatch)|formBehavior[\s\S]{0,360}(?:\{\}\s*(?:or|\/)|(?:or|\/)\s*`?null`?)/i,
+    `${relativePath} should not recommend formBehavior: {} or null as a no-op`,
   );
 }
 
@@ -2510,6 +2524,7 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
 
   for (const relativePath of [
     'SKILL.md',
+    'references/helper-contracts.md',
     'references/whole-page-quick.md',
     'references/page-blueprint.md',
     'references/settings.md',
@@ -2517,12 +2532,7 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
     'references/tool-shapes.md',
   ]) {
     const text = read(relativePath);
-    assert.match(
-      text,
-      /description[\s\S]{0,260}defaults\.collections\.<collection>\.formBehavior|defaults\.collections\.<collection>\.formBehavior[\s\S]{0,260}description/i,
-      `${relativePath} should connect field descriptions to collection formBehavior`,
-    );
-    assertFormBehaviorNoopGuidance(text, relativePath);
+    assertFormBehaviorDescriptionReviewGuidance(text, relativePath);
   }
 
   const toolShapes = read('references/tool-shapes.md');
@@ -2537,6 +2547,16 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
     defaultPrompt,
     /popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}[\s\S]{0,120}associations|associations[\s\S]{0,120}popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}/i,
     'default prompt should keep popup defaults { name, description } and associations visible together',
+  );
+  assert.match(
+    defaultPrompt,
+    /formBehaviorDescriptionReview[\s\S]{0,80}hasTried|hasTried[\s\S]{0,80}formBehaviorDescriptionReview/i,
+    'default prompt should mention formBehaviorDescriptionReview.hasTried for described generated add/edit fields',
+  );
+  assert.doesNotMatch(
+    defaultPrompt,
+    /formBehavior\s*:\s*\{\}|formBehavior[\s\S]{0,120}null/i,
+    'default prompt should not suggest formBehavior: {} or null no-op guidance',
   );
 });
 

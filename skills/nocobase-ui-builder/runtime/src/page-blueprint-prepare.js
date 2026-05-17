@@ -82,6 +82,7 @@ const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set([
   "fieldGroups",
   "popups",
   "formBehavior",
+  "formBehaviorDescriptionReview",
 ]);
 const DEFAULTS_FIELD_GROUP_ALLOWED_KEYS = new Set(["key", "title", "fields"]);
 const DEFAULTS_FIELD_GROUP_FIELD_ALLOWED_KEYS = new Set([
@@ -94,6 +95,10 @@ const DEFAULTS_FORM_BEHAVIOR_SCENE_ALLOWED_KEYS = new Set([
   "fieldLinkageRules",
 ]);
 const DEFAULTS_FORM_BEHAVIOR_FIELD_ALLOWED_KEYS = new Set(["settings"]);
+const DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS = new Set([
+  "fields",
+  "hasTried",
+]);
 const DEFAULTS_POPUPS_ALLOWED_KEYS = new Set([
   "view",
   "addNew",
@@ -2545,6 +2550,7 @@ function addCollectionPopupRequirement(requirements, targetCollection, action) {
 function addFixedCollectionPopupRequirements(requirements, targetCollection) {
   for (const action of DEFAULTS_POPUP_ACTIONS) {
     addCollectionPopupRequirement(requirements, targetCollection, action);
+    addCollectionFormBehaviorRequirement(requirements, targetCollection, action);
   }
 }
 
@@ -3210,9 +3216,32 @@ function validateRequiredDefaultFormBehaviorScene(
       seenErrors,
       path,
       "missing-default-form-behavior",
-      `${path} must be present because description-derived form behavior is required for generated popup forms; generate structured addNew/edit behavior from field descriptions, or use {} to explicitly confirm no structured behavior.`,
+      `${path} must be present because description-derived form behavior is required for generated popup forms.`,
     );
   }
+}
+
+function collectDefaultFormBehaviorCoveredFieldNames(formBehavior) {
+  const covered = new Set();
+  for (const action of ["addNew", "edit"]) {
+    const scene = isPlainObject(formBehavior?.[action]) ? formBehavior[action] : null;
+    if (isPlainObject(scene?.fields)) {
+      for (const fieldPath of Object.keys(scene.fields)) {
+        const normalizedFieldPath = normalizeText(fieldPath);
+        if (normalizedFieldPath) covered.add(normalizedFieldPath);
+      }
+    }
+    for (const rule of ensureArray(scene?.fieldLinkageRules)) {
+      for (const thenAction of ensureArray(rule?.then)) {
+        if (normalizeText(thenAction?.type) !== FIELD_STATE_ACTION_TYPE) continue;
+        for (const fieldPath of ensureArray(thenAction?.fieldPaths)) {
+          const normalizedFieldPath = normalizeText(fieldPath);
+          if (normalizedFieldPath) covered.add(normalizedFieldPath);
+        }
+      }
+    }
+  }
+  return covered;
 }
 
 function validateRequiredDefaultFieldGroups(
@@ -3341,12 +3370,84 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
       ),
     );
     if (requiredFormBehaviorActions.length > 0) {
-      validateRequiredDefaultFormBehaviorScene(
-        collectionDefaults.formBehavior,
-        `${collectionPath}.formBehavior`,
-        errors,
-        seenErrors,
+      const hasOwnFormBehavior = hasOwn(collectionDefaults, "formBehavior");
+      const hasOwnReview = hasOwn(
+        collectionDefaults,
+        "formBehaviorDescriptionReview",
       );
+      const coveredFieldNames = collectDefaultFormBehaviorCoveredFieldNames(
+        collectionDefaults.formBehavior,
+      );
+      const describedFieldNames = Array.from(
+        new Set(
+          requiredFormBehaviorActions.flatMap((action) =>
+            pickDefaultPopupSceneFieldPaths(
+              collectionMetadata,
+              entry.collection,
+              action,
+              collectionDefaults.fieldGroups,
+            ).filter((fieldPath) => {
+              const fieldMeta = getCollectionFieldMeta(
+                collectionMetadata,
+                entry.collection,
+                fieldPath,
+              );
+              return !!getFieldDescriptionText(fieldMeta);
+            }),
+          ),
+        ),
+      );
+      const reviewFieldNames = new Set(
+        ensureArray(collectionDefaults.formBehaviorDescriptionReview?.fields)
+          .map((fieldPath) => normalizeText(fieldPath))
+          .filter(Boolean),
+      );
+      const missingReviewFieldNames = describedFieldNames.filter(
+        (fieldName) =>
+          !coveredFieldNames.has(fieldName) && !reviewFieldNames.has(fieldName),
+      );
+      const duplicateReviewFieldNames = describedFieldNames.filter(
+        (fieldName) =>
+          coveredFieldNames.has(fieldName) && reviewFieldNames.has(fieldName),
+      );
+      const invalidReviewFieldNames = Array.from(reviewFieldNames).filter(
+        (fieldName) => !describedFieldNames.includes(fieldName),
+      );
+      if (!hasOwnFormBehavior && !hasOwnReview) {
+        validateRequiredDefaultFormBehaviorScene(
+          collectionDefaults.formBehavior,
+          `${collectionPath}.formBehavior`,
+          errors,
+          seenErrors,
+        );
+      }
+      if (missingReviewFieldNames.length > 0) {
+        pushValidationError(
+          errors,
+          seenErrors,
+          `${collectionPath}.formBehaviorDescriptionReview`,
+          "missing-default-form-behavior-description-review-fields",
+          `${collectionPath}.formBehaviorDescriptionReview.fields must list every described generated add/edit field not covered by structured formBehavior.`,
+        );
+      }
+      if (duplicateReviewFieldNames.length > 0) {
+        pushValidationError(
+          errors,
+          seenErrors,
+          `${collectionPath}.formBehaviorDescriptionReview.fields`,
+          "default-form-behavior-description-review-duplicate-covered-field",
+          `${collectionPath}.formBehaviorDescriptionReview.fields must not repeat fields already covered by structured formBehavior.`,
+        );
+      }
+      if (invalidReviewFieldNames.length > 0) {
+        pushValidationError(
+          errors,
+          seenErrors,
+          `${collectionPath}.formBehaviorDescriptionReview.fields`,
+          "default-form-behavior-description-review-invalid-field",
+          `${collectionPath}.formBehaviorDescriptionReview.fields only accepts described generated add/edit candidate fields for ${entry.collection}.`,
+        );
+      }
     }
   }
 
@@ -4676,33 +4777,58 @@ function buildDefaultFormBehaviorForCollection(
   fieldGroups,
 ) {
   const formBehavior = {};
-  let hasDescriptionFields = false;
+  const reviewFields = new Set();
   for (const action of ["addNew", "edit"]) {
-    if (
-      hasDefaultFormBehaviorDescriptionFieldsForCollection(
-        collectionMetadata,
-        collectionName,
-        action,
-        fieldGroups,
-      )
-    ) {
-      hasDescriptionFields = true;
-    }
+    const sceneFieldPaths = pickDefaultPopupSceneFieldPaths(
+      collectionMetadata,
+      collectionName,
+      action,
+      fieldGroups,
+    );
     const scene = buildDefaultFormBehaviorSceneForCollection(
       collectionMetadata,
       collectionName,
       action,
       fieldGroups,
     );
+    const coveredFieldPaths = new Set([
+      ...Object.keys(scene?.fields || {}),
+      ...ensureArray(scene?.fieldLinkageRules).flatMap((rule) =>
+        ensureArray(rule?.then).flatMap((thenAction) =>
+          normalizeText(thenAction?.type) === FIELD_STATE_ACTION_TYPE
+            ? ensureArray(thenAction?.fieldPaths).map((fieldPath) =>
+                normalizeText(fieldPath),
+              )
+            : [],
+        ),
+      ),
+    ].filter(Boolean));
+    for (const fieldPath of sceneFieldPaths) {
+      const normalizedFieldPath = normalizeText(fieldPath);
+      if (!normalizedFieldPath) continue;
+      const fieldMeta = getCollectionFieldMeta(
+        collectionMetadata,
+        collectionName,
+        normalizedFieldPath,
+      );
+      if (!getFieldDescriptionText(fieldMeta)) continue;
+      if (!coveredFieldPaths.has(normalizedFieldPath)) {
+        reviewFields.add(normalizedFieldPath);
+      }
+    }
     if (scene) {
       formBehavior[action] = scene;
     }
   }
-  return Object.keys(formBehavior).length
-    ? formBehavior
-    : hasDescriptionFields
-      ? {}
-      : undefined;
+  return {
+    formBehavior: Object.keys(formBehavior).length ? formBehavior : undefined,
+    formBehaviorDescriptionReview: reviewFields.size
+      ? {
+          fields: Array.from(reviewFields).sort(),
+          hasTried: true,
+        }
+      : undefined,
+  };
 }
 
 function mergeDefaultFormBehaviorFields(explicitFields, generatedFields) {
@@ -4820,13 +4946,6 @@ function mergeDefaultFormBehavior(explicitBehavior, generatedBehavior) {
   return nextBehavior;
 }
 
-function isExplicitDefaultFormBehaviorNoop(formBehavior) {
-  return (
-    formBehavior === null ||
-    (isPlainObject(formBehavior) && Object.keys(formBehavior).length === 0)
-  );
-}
-
 function materializeDefaultCollectionFormBehaviorForWrite(
   collectionDefaults,
   collectionName,
@@ -4835,28 +4954,36 @@ function materializeDefaultCollectionFormBehaviorForWrite(
   if (!isPlainObject(collectionDefaults)) {
     return collectionDefaults;
   }
-  if (
-    hasOwn(collectionDefaults, "formBehavior") &&
-    isExplicitDefaultFormBehaviorNoop(collectionDefaults.formBehavior)
-  ) {
-    return collectionDefaults;
-  }
   const collectionMetadata = options.collectionMetadata || {};
-  const generatedBehavior = buildDefaultFormBehaviorForCollection(
+  const generatedDefaults = buildDefaultFormBehaviorForCollection(
     collectionMetadata,
     collectionName,
     collectionDefaults.fieldGroups,
   );
-  if (!generatedBehavior) {
+  if (
+    typeof generatedDefaults.formBehavior === "undefined" &&
+    typeof generatedDefaults.formBehaviorDescriptionReview === "undefined"
+  ) {
     return collectionDefaults;
   }
-  return {
+  const nextCollectionDefaults = {
     ...collectionDefaults,
-    formBehavior: mergeDefaultFormBehavior(
-      collectionDefaults.formBehavior,
-      generatedBehavior,
-    ),
   };
+  if (typeof generatedDefaults.formBehavior !== "undefined") {
+    nextCollectionDefaults.formBehavior = mergeDefaultFormBehavior(
+      collectionDefaults.formBehavior,
+      generatedDefaults.formBehavior,
+    );
+  }
+  if (
+    !hasOwn(nextCollectionDefaults, "formBehaviorDescriptionReview") &&
+    generatedDefaults.formBehaviorDescriptionReview
+  ) {
+    nextCollectionDefaults.formBehaviorDescriptionReview = cloneSerializable(
+      generatedDefaults.formBehaviorDescriptionReview,
+    );
+  }
+  return nextCollectionDefaults;
 }
 
 function materializeDefaultCollectionForWrite(
@@ -5909,7 +6036,6 @@ function validateDefaultFormBehaviorScene(scene, path, state) {
 
 function validateDefaultFormBehavior(formBehavior, path, state) {
   if (typeof formBehavior === "undefined") return;
-  if (formBehavior === null) return;
   if (!isPlainObject(formBehavior)) {
     pushValidationError(
       state.errors,
@@ -5933,6 +6059,58 @@ function validateDefaultFormBehavior(formBehavior, path, state) {
       formBehavior[action],
       `${path}.${action}`,
       state,
+    );
+  }
+}
+
+function validateDefaultFormBehaviorDescriptionReview(review, path, state) {
+  if (typeof review === "undefined") return;
+  if (!isPlainObject(review)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      "invalid-default-form-behavior-description-review",
+      "defaults.collections.*.formBehaviorDescriptionReview must be one object.",
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    review,
+    path,
+    DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS,
+    state,
+    "unsupported-default-form-behavior-description-review-key",
+    "defaults formBehaviorDescriptionReview",
+  );
+  if (!Array.isArray(review.fields) || review.fields.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fields`,
+      "invalid-default-form-behavior-description-review-fields",
+      "defaults.collections.*.formBehaviorDescriptionReview.fields must be a non-empty array.",
+    );
+  } else {
+    review.fields.forEach((fieldPath, index) => {
+      if (!normalizeText(fieldPath)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${path}.fields[${index}]`,
+          "invalid-default-form-behavior-description-review-field",
+          "defaults.collections.*.formBehaviorDescriptionReview.fields entries must be non-empty field paths.",
+        );
+      }
+    });
+  }
+  if (review.hasTried !== true) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.hasTried`,
+      "invalid-default-form-behavior-description-review-hasTried",
+      "defaults.collections.*.formBehaviorDescriptionReview.hasTried must be true.",
     );
   }
 }
@@ -6016,6 +6194,11 @@ function validateBlueprintDefaults(blueprint, state) {
     validateDefaultFormBehavior(
       collectionDefaults.formBehavior,
       `${collectionPath}.formBehavior`,
+      state,
+    );
+    validateDefaultFormBehaviorDescriptionReview(
+      collectionDefaults.formBehaviorDescriptionReview,
+      `${collectionPath}.formBehaviorDescriptionReview`,
       state,
     );
   }
