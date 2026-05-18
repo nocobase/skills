@@ -5200,11 +5200,11 @@ function isTreeTableReadableTitleFieldCandidate(field) {
 
 function getTreeTableReadableTitleFieldScore(field, collectionMeta) {
   const fieldName = normalizeText(field?.name);
-  const preferredIndex = TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.indexOf(fieldName);
-  if (preferredIndex !== -1) return preferredIndex;
   if (fieldName && fieldName === normalizeText(collectionMeta?.titleField)) {
-    return TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.length;
+    return 0;
   }
+  const preferredIndex = TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.indexOf(fieldName);
+  if (preferredIndex !== -1) return preferredIndex + 1;
   return TREE_TABLE_PREFERRED_TITLE_FIELD_NAMES.length + 1;
 }
 
@@ -5227,6 +5227,51 @@ function resolveTreeTableReadableTitleFieldName(block, options = {}) {
     .find(Boolean) || "";
 }
 
+function isTreeTableReadableDirectFieldEntry(fieldEntry, collectionMeta) {
+  const fieldPath = getFieldEntryDirectPath(fieldEntry);
+  if (!fieldPath) return false;
+  const field = collectionMeta?.fieldsByName?.get(fieldPath);
+  return isTreeTableReadableTitleFieldCandidate(field);
+}
+
+function findTreeTableExistingReadableFieldIndex(fields, collectionMeta) {
+  return fields.findIndex((fieldEntry) =>
+    isTreeTableReadableDirectFieldEntry(fieldEntry, collectionMeta),
+  );
+}
+
+function validateTreeTableFirstField(block, path, state) {
+  if (
+    !isPlainObject(block) ||
+    !hasOwn(block, "fields") ||
+    !isSupportedTreeTableBlock(block, {
+      collectionMetadata: state.collectionMetadata,
+    }) ||
+    isTemplateBackedBlock(block)
+  ) {
+    return;
+  }
+  const fields = ensureArray(block.fields);
+  const collectionMeta = getCollectionMeta(
+    state.collectionMetadata || {},
+    getCollectionLabel(block),
+  );
+  if (isTreeTableReadableDirectFieldEntry(fields[0], collectionMeta)) {
+    return;
+  }
+  const readableIndex = findTreeTableExistingReadableFieldIndex(fields, collectionMeta);
+  if (readableIndex >= 0) {
+    return;
+  }
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    `${path}.fields[0]`,
+    "tree-table-first-field-unreadable",
+    "Tree table explicit fields[] must include at least one direct readable non-association field; do not rely on prepare-write to inject a title/name fallback.",
+  );
+}
+
 function materializeTreeTableTitleFieldForWrite(block, options = {}) {
   if (
     !isPlainObject(block) ||
@@ -5238,33 +5283,30 @@ function materializeTreeTableTitleFieldForWrite(block, options = {}) {
   const titleField = resolveTreeTableReadableTitleFieldName(block, options);
   if (!titleField) return block;
 
-  if (!Array.isArray(block.fields) || block.fields.length === 0) {
+  const collectionMeta = getCollectionMeta(
+    options.collectionMetadata || {},
+    getCollectionLabel(block),
+  );
+  if (!Array.isArray(block.fields)) {
     return {
       ...block,
       fields: [titleField],
     };
   }
 
-  const collectionMeta = getCollectionMeta(
-    options.collectionMetadata || {},
-    getCollectionLabel(block),
-  );
-  const firstFieldPath = getFieldEntryPath(block.fields[0]);
-  if (firstFieldPath && !firstFieldPath.includes(".")) {
-    const firstField = collectionMeta?.fieldsByName?.get(firstFieldPath);
-    if (isTreeTableReadableTitleFieldCandidate(firstField)) {
-      return block;
-    }
+  if (isTreeTableReadableDirectFieldEntry(block.fields[0], collectionMeta)) {
+    return block;
   }
 
-  const existingIndex = block.fields.findIndex(
-    (field) => getFieldEntryDirectPath(field) === titleField,
+  const existingIndex = findTreeTableExistingReadableFieldIndex(
+    block.fields,
+    collectionMeta,
   );
-  if (existingIndex === 0) return block;
+  if (existingIndex <= 0) return block;
 
   const nextFields = block.fields.slice();
-  const titleFieldEntry = existingIndex === -1 ? titleField : nextFields.splice(existingIndex, 1)[0];
-  nextFields.unshift(titleFieldEntry);
+  const readableFieldEntry = nextFields.splice(existingIndex, 1)[0];
+  nextFields.unshift(readableFieldEntry);
   return {
     ...block,
     fields: nextFields,
@@ -8872,6 +8914,7 @@ function validateBlock(block, path, state, parentContext = {}) {
   validateGridCardBlockSettings(block, path, state);
   validateCalendarMainBlockShape(block, path, state, blockContext);
   validateKanbanMainBlockShape(block, path, state, blockContext);
+  validateTreeTableFirstField(block, path, state);
   validateTreeConnectFields(
     block,
     path,

@@ -1373,8 +1373,13 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
   );
   assert.match(
     defaultPrompt,
-    /treeTable[\s\S]{0,80}first[\s\S]{0,80}live[\s\S]{0,80}direct[\s\S]{0,80}non-assoc[\s\S]{0,80}name>code>title/i,
+    /treeTable[\s\S]{0,80}first[\s\S]{0,80}live[\s\S]{0,80}direct[\s\S]{0,80}non-assoc[\s\S]{0,80}titleField>name>code>title/i,
     'compressed prompt should keep tree-table first-field priority from live direct metadata',
+  );
+  assert.match(
+    defaultPrompt,
+    /treeTable[\s\S]{0,100}EFmoveNoInject/i,
+    'compressed prompt should keep tree-table explicit fields move-only/no-inject guidance',
   );
 });
 

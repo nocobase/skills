@@ -16298,6 +16298,7 @@ test('prepareApplyBlueprintRequest selects readable tree table first fields and 
           { name: 'id', type: 'integer', interface: 'number', primaryKey: true },
           { name: 'uid', type: 'string', interface: 'input' },
           { name: 'parentId', type: 'integer', interface: 'number' },
+          { name: 'active', type: 'boolean', interface: 'checkbox', titleable: false },
           { name: 'code', type: 'string', interface: 'input' },
           { name: 'name', type: 'string', interface: 'input' },
           { name: 'title', type: 'string', interface: 'input' },
@@ -16336,6 +16337,93 @@ test('prepareApplyBlueprintRequest selects readable tree table first fields and 
   assert.deepEqual(actionTypes(omittedBlock.actions), ['filter', 'refresh', 'bulkDelete', 'addNew']);
   assert.equal(Object.hasOwn(omittedBlock, 'recordActions'), false);
 
+  const configuredTitleField = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks configured title field' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collections: ['treeTasks'],
+      collectionMetadata: {
+        collections: {
+          treeTasks: {
+            ...metadata.collections.treeTasks,
+            titleField: 'code',
+          },
+        },
+      },
+    },
+  );
+
+  assert.equal(configuredTitleField.ok, true);
+  assert.deepEqual(configuredTitleField.cliBody.tabs[0].blocks[0].fields, ['code']);
+
+  const explicitReadableFirst = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks readable first' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+              fields: ['code', 'name', 'title'],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(explicitReadableFirst.ok, true, JSON.stringify(explicitReadableFirst.errors));
+  assert.deepEqual(explicitReadableFirst.cliBody.tabs[0].blocks[0].fields, ['code', 'name', 'title']);
+
+  const explicitNonTitleableInterface = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks non-titleable interface first' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+              fields: ['parentId', 'active'],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(explicitNonTitleableInterface.ok, true, JSON.stringify(explicitNonTitleableInterface.errors));
+  assert.deepEqual(explicitNonTitleableInterface.cliBody.tabs[0].blocks[0].fields, ['active', 'parentId']);
+
   const explicit = prepareWithDirectCollectionDefaults(
     {
       version: '1',
@@ -16362,7 +16450,7 @@ test('prepareApplyBlueprintRequest selects readable tree table first fields and 
 
   assert.equal(explicit.ok, true);
   const explicitBlock = explicit.cliBody.tabs[0].blocks[0];
-  assert.deepEqual(explicitBlock.fields, ['name', 'parentId', 'title']);
+  assert.deepEqual(explicitBlock.fields, ['title', 'parentId']);
   assert.deepEqual(actionTypes(explicitBlock.recordActions), ['edit']);
 
   const dottedFirst = prepareWithDirectCollectionDefaults(
@@ -16389,7 +16477,71 @@ test('prepareApplyBlueprintRequest selects readable tree table first fields and 
   );
 
   assert.equal(dottedFirst.ok, true);
-  assert.deepEqual(dottedFirst.cliBody.tabs[0].blocks[0].fields, ['name', 'title.en', 'code']);
+  assert.deepEqual(dottedFirst.cliBody.tabs[0].blocks[0].fields, ['code', 'title.en']);
+
+  const noReadableExplicit = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks unreadable fields' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+              fields: ['id', 'parentId'],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(noReadableExplicit.ok, false);
+  assert.ok(
+    noReadableExplicit.errors.some(
+      (issue) =>
+        issue.ruleId === 'tree-table-first-field-unreadable' &&
+        issue.path === 'tabs[0].blocks[0].fields[0]',
+    ),
+  );
+
+  const emptyExplicit = prepareWithDirectCollectionDefaults(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tree tasks empty fields' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'tasksTreeTable',
+              type: 'table',
+              collection: 'treeTasks',
+              settings: { treeTable: true },
+              fields: [],
+            },
+          ],
+        },
+      ],
+    },
+    { collections: ['treeTasks'], collectionMetadata: metadata },
+  );
+
+  assert.equal(emptyExplicit.ok, false);
+  assert.ok(
+    emptyExplicit.errors.some(
+      (issue) =>
+        issue.ruleId === 'tree-table-first-field-unreadable' &&
+        issue.path === 'tabs[0].blocks[0].fields[0]',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest keeps ordinary table defaults when treeTable flag lacks tree metadata support', () => {
