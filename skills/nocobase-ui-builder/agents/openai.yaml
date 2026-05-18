@@ -10,7 +10,7 @@ interface:
 # fixed view/addNew/edit
 # table addNew threshold
 # associations popups{name,description} first-segment
-# described generated add/edit fields => structured formBehavior or formBehaviorDescriptionReview{fields,hasTried:true}; avoid empty-object no-op fallback
+# described generated add/edit fields => structured formBehavior or formBehaviorDescriptionReview.fields.<field>{decision,reasonCode}; no legacy review/empty-object fallback
 
 dependencies:
   tools:

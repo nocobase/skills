@@ -262,18 +262,35 @@ function assertFormBehaviorDescriptionReviewGuidance(text, relativePath) {
   );
   assert.match(
     text,
-    /formBehaviorDescriptionReview[\s\S]{0,220}hasTried|hasTried[\s\S]{0,220}formBehaviorDescriptionReview/i,
-    `${relativePath} should document formBehaviorDescriptionReview.hasTried`,
+    /formBehaviorDescriptionReview\.fields(?:\.<field>)?[\s\S]{0,360}decision|decision[\s\S]{0,360}formBehaviorDescriptionReview\.fields(?:\.<field>)?/i,
+    `${relativePath} should document per-field formBehaviorDescriptionReview decisions`,
   );
   assert.match(
     text,
-    /formBehaviorDescriptionReview\.fields[\s\S]{0,360}(?:described generated add\/edit|not safely converted|not already covered|structured formBehavior)|(?:described generated add\/edit|not safely converted|not already covered|structured formBehavior)[\s\S]{0,360}formBehaviorDescriptionReview\.fields/i,
-    `${relativePath} should explain when described generated add/edit fields belong in formBehaviorDescriptionReview.fields`,
+    /reasonCode[\s\S]{0,360}(?:noUiBehavior|unsupported)|(?:noUiBehavior|unsupported)[\s\S]{0,360}reasonCode/i,
+    `${relativePath} should require reasonCode for non-implemented review decisions`,
   );
-  const strippedNegativeWarnings = text.replace(
-    /(?:do not use|instead of using|do not send|never use)[\s\S]{0,220}(?:`?formBehavior\s*:\s*\{\}`?|`?null`?)/gi,
-    '',
+  assert.match(
+    text,
+    /implemented[\s\S]{0,360}(?:coverage|structured formBehavior)|(?:coverage|structured formBehavior)[\s\S]{0,360}implemented/i,
+    `${relativePath} should explain implemented review entries require structured coverage`,
   );
+  assert.match(
+    text,
+    /(?:old `?fields\[\]`?|old .*fields\[\]|hasTried)[\s\S]{0,220}(?:reject|rejected|do not|no)|(?:reject|rejected|do not|no)[\s\S]{0,220}(?:old `?fields\[\]`?|old .*fields\[\]|hasTried)/i,
+    `${relativePath} should reject old array/hasTried review shapes`,
+  );
+  const strippedNegativeWarnings = text
+    .split('\n')
+    .filter((line) => {
+      const mentionsNoopMarker = /formBehavior\s*:\s*\{\}|`?null`?/i.test(line);
+      const isNegativeWarning =
+        /do not use|instead of using|do not send|never use|rejects?|rejected|no-op|escape hatch|confirmation marker/i.test(
+          line,
+        );
+      return !(mentionsNoopMarker && isNegativeWarning);
+    })
+    .join('\n');
   assert.doesNotMatch(
     strippedNegativeWarnings,
     /formBehavior\s*:\s*\{\}[\s\S]{0,120}(?:no-op|confirmation|confirm|escape hatch)|null[\s\S]{0,120}(?:no-op|confirmation|confirm|escape hatch)|formBehavior[\s\S]{0,360}(?:\{\}\s*(?:or|\/)|(?:or|\/)\s*`?null`?)/i,
@@ -2731,8 +2748,13 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
   );
   assert.match(
     defaultPrompt,
-    /formBehaviorDescriptionReview[\s\S]{0,80}hasTried|hasTried[\s\S]{0,80}formBehaviorDescriptionReview/i,
-    'default prompt should mention formBehaviorDescriptionReview.hasTried for described generated add/edit fields',
+    /formBehaviorDescriptionReview\.fields\.<field>[\s\S]{0,120}\{decision,reasonCode\}|formBehaviorDescriptionReview[\s\S]{0,120}decision[\s\S]{0,120}reasonCode/i,
+    'default prompt should mention per-field formBehaviorDescriptionReview decisions for described generated add/edit fields',
+  );
+  assert.doesNotMatch(
+    defaultPrompt,
+    /hasTried/i,
+    'default prompt should not mention obsolete formBehaviorDescriptionReview.hasTried',
   );
   assert.doesNotMatch(
     defaultPrompt,

@@ -2086,8 +2086,12 @@ test('prepareApplyBlueprintRequest keeps pure generated-description helper text 
   });
   assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
   assert.deepEqual(result.cliBody.defaults.collections.tasks.formBehaviorDescriptionReview, {
-    fields: ['aiSummary'],
-    hasTried: true,
+    fields: {
+      aiSummary: {
+        decision: 'noUiBehavior',
+        reasonCode: 'ai-generated-content-out-of-scope',
+      },
+    },
   });
 });
 
@@ -2927,12 +2931,16 @@ test('prepareApplyBlueprintRequest emits review markers when generated popup des
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.cliBody.defaults.collections.tasks.formBehavior, undefined);
   assert.deepEqual(result.cliBody.defaults.collections.tasks.formBehaviorDescriptionReview, {
-    fields: ['aiSummary'],
-    hasTried: true,
+    fields: {
+      aiSummary: {
+        decision: 'noUiBehavior',
+        reasonCode: 'ai-generated-content-out-of-scope',
+      },
+    },
   });
 });
 
-test('prepareApplyBlueprintRequest rejects invalid review fields for direct collection generated popup descriptions', () => {
+test('prepareApplyBlueprintRequest rejects old array review shapes for direct collection generated popup descriptions', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -2990,13 +2998,24 @@ test('prepareApplyBlueprintRequest rejects invalid review fields for direct coll
   assert.ok(
     result.errors.some(
       (issue) =>
-        issue.ruleId === 'default-form-behavior-description-review-invalid-field'
-        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields',
+        issue.ruleId === 'invalid-default-form-behavior-description-review-fields'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields'
+        && issue.details?.migrationExample
+        && Array.isArray(issue.details?.fixOptions),
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'unsupported-default-form-behavior-description-review-key'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview'
+        && issue.details?.unsupportedKeys?.includes('hasTried')
+        && issue.details?.migrationExample,
     ),
   );
 });
 
-test('prepareApplyBlueprintRequest rejects duplicate covered review fields for direct collection generated popups', () => {
+test('prepareApplyBlueprintRequest accepts null review entries for generated popup fields without descriptions', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -3007,7 +3026,7 @@ test('prepareApplyBlueprintRequest rejects duplicate covered review fields for d
           {
             name: 'aiSummary',
             interface: 'textarea',
-            description: 'Shown only as background context.',
+            description: '由 AI 自动生成，仅用于说明展示。',
           },
         ],
       },
@@ -3023,20 +3042,74 @@ test('prepareApplyBlueprintRequest rejects duplicate covered review fields for d
         collections: {
           tasks: {
             popups: buildFixedCollectionPopupDefaults('tasks'),
-            formBehavior: {
-              addNew: {
-                fields: {
-                  aiSummary: {
-                    settings: {
-                      extra: 'Shown only as background context.',
-                    },
-                  },
+            formBehaviorDescriptionReview: {
+              fields: {
+                title: null,
+                aiSummary: {
+                  decision: 'noUiBehavior',
+                  reasonCode: 'ai-generated-content-out-of-scope',
                 },
               },
             },
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+});
+
+test('prepareApplyBlueprintRequest rejects implemented review entries when coverage is missing', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'aiSummary',
+            interface: 'textarea',
+            description: '由 AI 自动生成，仅用于说明展示。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
             formBehaviorDescriptionReview: {
-              fields: ['aiSummary'],
-              hasTried: true,
+              fields: {
+                aiSummary: {
+                  decision: 'implemented',
+                },
+              },
             },
           },
         },
@@ -3065,13 +3138,290 @@ test('prepareApplyBlueprintRequest rejects duplicate covered review fields for d
   assert.ok(
     result.errors.some(
       (issue) =>
-        issue.ruleId === 'default-form-behavior-description-review-duplicate-covered-field'
-        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields',
+        issue.ruleId === 'description-review-implemented-missing-coverage'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.aiSummary',
     ),
   );
 });
 
-test('prepareApplyBlueprintRequest rejects review-only coverage for auto-convertible direct collection descriptions', () => {
+test('prepareApplyBlueprintRequest rejects implemented review entries when formBehavior settings are empty', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'aiSummary',
+            interface: 'textarea',
+            description: '由 AI 自动生成，仅用于说明展示。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+            formBehavior: {
+              addNew: {
+                fields: {
+                  aiSummary: {
+                    settings: {},
+                  },
+                },
+              },
+              edit: {
+                fields: {
+                  aiSummary: {
+                    settings: {},
+                  },
+                },
+              },
+            },
+            formBehaviorDescriptionReview: {
+              fields: {
+                aiSummary: {
+                  decision: 'implemented',
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-implemented-missing-coverage'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.aiSummary',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest accepts implemented review coverage from applicable top-level form reactions', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'aiSummary',
+            interface: 'textarea',
+            description: '由 AI 自动生成，仅用于说明展示。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+            formBehaviorDescriptionReview: {
+              fields: {
+                aiSummary: {
+                  decision: 'implemented',
+                },
+              },
+            },
+          },
+        },
+      },
+      reaction: {
+        items: [
+          {
+            type: 'setFieldLinkageRules',
+            target: 'main.taskForm',
+            rules: [
+              {
+                key: 'requireAiSummary',
+                when: {
+                  logic: '$and',
+                  items: [],
+                },
+                then: [
+                  {
+                    type: 'setFieldState',
+                    fieldPaths: ['aiSummary'],
+                    state: 'required',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskForm',
+              type: 'createForm',
+              collection: 'tasks',
+              fields: ['title', 'aiSummary'],
+              actions: ['submit'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+});
+
+test('prepareApplyBlueprintRequest rejects implemented review coverage from unrelated top-level form reactions', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'aiSummary',
+            interface: 'textarea',
+            description: '由 AI 自动生成，仅用于说明展示。',
+          },
+        ],
+      },
+      reports: {
+        name: 'reports',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          { name: 'aiSummary', interface: 'textarea' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+            formBehaviorDescriptionReview: {
+              fields: {
+                aiSummary: {
+                  decision: 'implemented',
+                },
+              },
+            },
+          },
+          reports: {
+            popups: buildFixedCollectionPopupDefaults('reports'),
+          },
+        },
+      },
+      reaction: {
+        items: [
+          {
+            type: 'setFieldLinkageRules',
+            target: 'main.reportForm',
+            rules: [
+              {
+                key: 'requireReportAiSummary',
+                when: {
+                  logic: '$and',
+                  items: [],
+                },
+                then: [
+                  {
+                    type: 'setFieldState',
+                    fieldPaths: ['aiSummary'],
+                    state: 'required',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title'],
+            },
+            {
+              key: 'reportForm',
+              type: 'createForm',
+              collection: 'reports',
+              fields: ['title', 'aiSummary'],
+              actions: ['submit'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-implemented-missing-coverage'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.aiSummary',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects non-implemented review entries that omit reasonCode', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -3100,8 +3450,11 @@ test('prepareApplyBlueprintRequest rejects review-only coverage for auto-convert
           tasks: {
             popups: buildFixedCollectionPopupDefaults('tasks'),
             formBehaviorDescriptionReview: {
-              fields: ['approvalComment'],
-              hasTried: true,
+              fields: {
+                approvalComment: {
+                  decision: 'unsupported',
+                },
+              },
             },
           },
         },
@@ -3130,13 +3483,13 @@ test('prepareApplyBlueprintRequest rejects review-only coverage for auto-convert
   assert.ok(
     result.errors.some(
       (issue) =>
-        issue.ruleId === 'default-form-behavior-description-review-duplicate-covered-field'
-        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields',
+        issue.ruleId === 'description-review-reason-code-required'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.approvalComment.reasonCode',
     ),
   );
 });
 
-test('prepareApplyBlueprintRequest does not let explicit empty generated popup formBehavior bypass derived defaults', () => {
+test('prepareApplyBlueprintRequest rejects non-implemented review entries when coverage already exists', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -3164,7 +3517,14 @@ test('prepareApplyBlueprintRequest does not let explicit empty generated popup f
         collections: {
           tasks: {
             popups: buildFixedCollectionPopupDefaults('tasks'),
-            formBehavior: {},
+            formBehaviorDescriptionReview: {
+              fields: {
+                approvalComment: {
+                  decision: 'unsupported',
+                  reasonCode: 'ambiguous-description',
+                },
+              },
+            },
           },
         },
       },
@@ -3188,9 +3548,14 @@ test('prepareApplyBlueprintRequest does not let explicit empty generated popup f
     },
   );
 
-  assert.equal(result.ok, true, JSON.stringify(result.errors));
-  assert.deepEqual(Object.keys(result.cliBody.defaults.collections.tasks.formBehavior).sort(), ['addNew', 'edit']);
-  assert.equal(result.cliBody.defaults.collections.tasks.formBehaviorDescriptionReview, undefined);
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-nonimplemented-conflicts-with-coverage'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.approvalComment',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest rejects null generated popup formBehavior', () => {
@@ -4320,8 +4685,12 @@ test('prepareApplyBlueprintRequest accepts association target review-only covera
           },
           users: {
             formBehaviorDescriptionReview: {
-              fields: ['profileNote'],
-              hasTried: true,
+              fields: {
+                profileNote: {
+                  decision: 'noUiBehavior',
+                  reasonCode: 'ai-generated-content-out-of-scope',
+                },
+              },
             },
           },
         },
@@ -4355,12 +4724,16 @@ test('prepareApplyBlueprintRequest accepts association target review-only covera
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.cliBody.defaults.collections.users.formBehavior, undefined);
   assert.deepEqual(result.cliBody.defaults.collections.users.formBehaviorDescriptionReview, {
-    fields: ['profileNote'],
-    hasTried: true,
+    fields: {
+      profileNote: {
+        decision: 'noUiBehavior',
+        reasonCode: 'ai-generated-content-out-of-scope',
+      },
+    },
   });
 });
 
-test('prepareApplyBlueprintRequest rejects review-only coverage for auto-convertible association target descriptions', () => {
+test('prepareApplyBlueprintRequest rejects non-implemented association target review when coverage exists', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -4403,8 +4776,12 @@ test('prepareApplyBlueprintRequest rejects review-only coverage for auto-convert
           },
           users: {
             formBehaviorDescriptionReview: {
-              fields: ['approvalComment'],
-              hasTried: true,
+              fields: {
+                approvalComment: {
+                  decision: 'unsupported',
+                  reasonCode: 'ambiguous-description',
+                },
+              },
             },
           },
         },
@@ -4439,8 +4816,8 @@ test('prepareApplyBlueprintRequest rejects review-only coverage for auto-convert
   assert.ok(
     result.errors.some(
       (issue) =>
-        issue.ruleId === 'default-form-behavior-description-review-duplicate-covered-field'
-        && issue.path === 'defaults.collections.users.formBehaviorDescriptionReview.fields',
+        issue.ruleId === 'description-review-nonimplemented-conflicts-with-coverage'
+        && issue.path === 'defaults.collections.users.formBehaviorDescriptionReview.fields.approvalComment',
     ),
   );
 });

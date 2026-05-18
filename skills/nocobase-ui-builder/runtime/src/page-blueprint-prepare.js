@@ -97,7 +97,23 @@ const DEFAULTS_FORM_BEHAVIOR_SCENE_ALLOWED_KEYS = new Set([
 const DEFAULTS_FORM_BEHAVIOR_FIELD_ALLOWED_KEYS = new Set(["settings"]);
 const DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS = new Set([
   "fields",
-  "hasTried",
+]);
+const DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_FIELD_ALLOWED_KEYS = new Set([
+  "decision",
+  "reasonCode",
+]);
+const FORM_BEHAVIOR_DESCRIPTION_REVIEW_DECISIONS = new Set([
+  "implemented",
+  "noUiBehavior",
+  "unsupported",
+]);
+const FORM_BEHAVIOR_DESCRIPTION_REVIEW_REASON_CODES = new Set([
+  "no-ui-behavior",
+  "ambiguous-description",
+  "unsupported-cross-field-validation",
+  "unsupported-association-filter",
+  "workflow-or-ai-generation-out-of-scope",
+  "ai-generated-content-out-of-scope",
 ]);
 const DEFAULTS_POPUPS_ALLOWED_KEYS = new Set([
   "view",
@@ -2531,6 +2547,24 @@ function pickDefaultPopupSceneFieldPaths(
   return selectedFieldPaths;
 }
 
+function getDefaultPopupFormCandidateFieldNames(
+  collectionMetadata,
+  collectionName,
+  actions,
+  fieldGroups,
+) {
+  return unique(
+    ensureArray(actions).flatMap((action) =>
+      pickDefaultPopupSceneFieldPaths(
+        collectionMetadata,
+        collectionName,
+        action,
+        fieldGroups,
+      ),
+    ),
+  );
+}
+
 function createDefaultsCollectionRequirement(collectionName) {
   return {
     collection: collectionName,
@@ -3267,6 +3301,269 @@ function collectDefaultFormBehaviorCoveredFieldNames(formBehavior) {
   return covered;
 }
 
+function collectDefaultFormBehaviorCoverageByField(formBehavior) {
+  const coverage = new Map();
+  const addCoverage = (fieldPath, source) => {
+    const normalizedFieldPath = normalizeText(fieldPath);
+    if (!normalizedFieldPath) return;
+    const sources = coverage.get(normalizedFieldPath) || [];
+    sources.push(source);
+    coverage.set(normalizedFieldPath, sources);
+  };
+  for (const action of ["addNew", "edit"]) {
+    const scene = isPlainObject(formBehavior?.[action])
+      ? formBehavior[action]
+      : null;
+    if (isPlainObject(scene?.fields)) {
+      for (const fieldPath of Object.keys(scene.fields)) {
+        if (hasEffectiveDefaultFormBehaviorSettings(scene.fields[fieldPath]?.settings)) {
+          addCoverage(fieldPath, `formBehavior.${action}.fields.${fieldPath}.settings`);
+        }
+      }
+    }
+    for (const [ruleIndex, rule] of ensureArray(scene?.fieldLinkageRules).entries()) {
+      for (const thenAction of ensureArray(rule?.then)) {
+        if (normalizeText(thenAction?.type) !== FIELD_STATE_ACTION_TYPE) continue;
+        for (const fieldPath of ensureArray(thenAction?.fieldPaths)) {
+          addCoverage(
+            fieldPath,
+            `formBehavior.${action}.fieldLinkageRules[${ruleIndex}]`,
+          );
+        }
+      }
+    }
+  }
+  return coverage;
+}
+
+function hasEffectiveDefaultFormBehaviorSettings(settings) {
+  if (!isPlainObject(settings)) return false;
+  return Object.entries(settings).some(([key, value]) => {
+    if (typeof value === "undefined") return false;
+    if (key === "rules") return Array.isArray(value) && value.length > 0;
+    return true;
+  });
+}
+
+function collectReactionCoverageByField(blueprint, collectionName) {
+  const coverage = new Map();
+  const addCoverage = (fieldPath, source) => {
+    const normalizedFieldPath = normalizeText(fieldPath);
+    if (!normalizedFieldPath) return;
+    const sources = coverage.get(normalizedFieldPath) || [];
+    sources.push(source);
+    coverage.set(normalizedFieldPath, sources);
+  };
+  for (const [itemIndex, item] of ensureArray(blueprint?.reaction?.items).entries()) {
+    if (
+      !isPlainObject(item) ||
+      normalizeText(item.type) !== FIELD_LINKAGE_REACTION_TYPE
+    ) {
+      continue;
+    }
+    const targetBlock = resolveDescriptionReviewReactionTargetBlock(
+      blueprint,
+      item,
+      collectionName,
+    );
+    if (!targetBlock) continue;
+    for (const [ruleIndex, rule] of ensureArray(item.rules).entries()) {
+      for (const thenAction of ensureArray(rule?.then)) {
+        if (normalizeText(thenAction?.type) !== FIELD_STATE_ACTION_TYPE) continue;
+        for (const fieldPath of ensureArray(thenAction?.fieldPaths)) {
+          if (!hasBlockFieldPath(targetBlock, fieldPath)) continue;
+          addCoverage(
+            fieldPath,
+            `reaction.items[${itemIndex}].rules[${ruleIndex}]`,
+          );
+        }
+      }
+    }
+  }
+  return coverage;
+}
+
+function resolveDescriptionReviewReactionTargetBlock(blueprint, item, collectionName) {
+  const target = normalizeText(item?.target || item?.targetKey || item?.targetBlock);
+  if (!target) return null;
+  const match = findBlockByReactionTarget(blueprint, target);
+  if (!match?.block) return null;
+  if (!FORM_ACTION_HOST_BLOCK_TYPES.has(normalizeText(match.block.type))) {
+    return null;
+  }
+  if (getCollectionLabel(match.block) !== normalizeText(collectionName)) {
+    return null;
+  }
+  return match.block;
+}
+
+function hasBlockFieldPath(block, fieldPath) {
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedFieldPath) return false;
+  const hasExplicitFields = hasOwn(block, "fields") || hasOwn(block, "fieldGroups");
+  const fields = getBlockFieldEntries(block);
+  if (hasExplicitFields && fields.length === 0) return false;
+  if (!hasExplicitFields) return true;
+  return fields.some((field) => normalizeText(getDefaultFieldGroupFieldPath(field)) === normalizedFieldPath);
+}
+
+function mergeCoverageByField(...maps) {
+  const coverage = new Map();
+  for (const map of maps) {
+    for (const [fieldPath, sources] of map.entries()) {
+      coverage.set(fieldPath, [
+        ...(coverage.get(fieldPath) || []),
+        ...ensureArray(sources),
+      ]);
+    }
+  }
+  return coverage;
+}
+
+function getDescriptionReviewFieldsMap(review) {
+  return isPlainObject(review?.fields) ? review.fields : {};
+}
+
+function getDescriptionReviewReasonCodeForDescription(description) {
+  const normalized = normalizeText(description).toLowerCase();
+  if (
+    normalized.includes("ai") ||
+    normalized.includes("自动生成") ||
+    normalized.includes("generated")
+  ) {
+    return "ai-generated-content-out-of-scope";
+  }
+  return "no-ui-behavior";
+}
+
+function buildDescriptionReviewImplementedFixOptions(collectionName, fieldName) {
+  return [
+    {
+      type: "implementRequired",
+      whenToUse: "Use when the description means this field is always required.",
+      patchSkeleton: {
+        defaults: {
+          collections: {
+            [collectionName]: {
+              formBehavior: {
+                addNew: {
+                  fields: {
+                    [fieldName]: {
+                      settings: {
+                        required: true,
+                      },
+                    },
+                  },
+                },
+                edit: {
+                  fields: {
+                    [fieldName]: {
+                      settings: {
+                        required: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      type: "implementConditionalRequired",
+      whenToUse: "Use when the description means this field is conditionally required.",
+      patchSkeleton: {
+        defaults: {
+          collections: {
+            [collectionName]: {
+              formBehavior: {
+                addNew: {
+                  fieldLinkageRules: [
+                    {
+                      key: `description-${fieldName}-required`,
+                      when: {
+                        logic: "$and",
+                        items: [],
+                      },
+                      then: [
+                        {
+                          type: FIELD_STATE_ACTION_TYPE,
+                          fieldPaths: [fieldName],
+                          state: "required",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                edit: {
+                  fieldLinkageRules: [
+                    {
+                      key: `description-${fieldName}-required`,
+                      when: {
+                        logic: "$and",
+                        items: [],
+                      },
+                      then: [
+                        {
+                          type: FIELD_STATE_ACTION_TYPE,
+                          fieldPaths: [fieldName],
+                          state: "required",
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      type: "changeDecision",
+      whenToUse: "Use only when the description is not UI behavior or is unsupported.",
+      patchSkeleton: {
+        defaults: {
+          collections: {
+            [collectionName]: {
+              formBehaviorDescriptionReview: {
+                fields: {
+                  [fieldName]: {
+                    decision: "unsupported",
+                    reasonCode: "ambiguous-description",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  ];
+}
+
+function buildDescriptionReviewErrorDetails({
+  collection,
+  field,
+  description,
+  decision,
+  reason,
+  coverage = [],
+  missingCoverage = [],
+}) {
+  return {
+    collection,
+    field,
+    description,
+    ...(decision ? { decision } : {}),
+    ...(reason ? { reason } : {}),
+    ...(coverage.length ? { coverage } : {}),
+    ...(missingCoverage.length ? { missingCoverage } : {}),
+    fixOptions: buildDescriptionReviewImplementedFixOptions(collection, field),
+  };
+}
+
 function validateRequiredDefaultFieldGroups(
   fieldGroups,
   path,
@@ -3398,9 +3695,17 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
         collectionDefaults,
         "formBehaviorDescriptionReview",
       );
-      const coveredFieldNames = collectDefaultFormBehaviorCoveredFieldNames(
-        collectionDefaults.formBehavior,
+      const coverageByField = mergeCoverageByField(
+        collectDefaultFormBehaviorCoverageByField(collectionDefaults.formBehavior),
+        collectReactionCoverageByField(blueprint, entry.collection),
       );
+      const candidateFieldNames = getDefaultPopupFormCandidateFieldNames(
+        collectionMetadata,
+        entry.collection,
+        requiredFormBehaviorActions,
+        collectionDefaults.fieldGroups,
+      );
+      const candidateFieldNameSet = new Set(candidateFieldNames);
       const describedFieldNames = Array.from(
         new Set(
           requiredFormBehaviorActions.flatMap((action) =>
@@ -3420,56 +3725,260 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
           ),
         ),
       );
-      const reviewFieldNames = new Set(
-        ensureArray(collectionDefaults.formBehaviorDescriptionReview?.fields)
-          .map((fieldPath) => normalizeText(fieldPath))
-          .filter(Boolean),
+      const describedFieldNameSet = new Set(describedFieldNames);
+      const describedFieldsByName = new Map(
+        describedFieldNames.map((fieldName) => [
+          fieldName,
+          getCollectionFieldMeta(
+            collectionMetadata,
+            entry.collection,
+            fieldName,
+          ),
+        ]),
       );
+      const reviewFields = getDescriptionReviewFieldsMap(
+        collectionDefaults.formBehaviorDescriptionReview,
+      );
+      const reviewFieldNames = new Set(Object.keys(reviewFields).filter(Boolean));
       const missingReviewFieldNames = describedFieldNames.filter(
-        (fieldName) =>
-          !coveredFieldNames.has(fieldName) && !reviewFieldNames.has(fieldName),
-      );
-      const duplicateReviewFieldNames = describedFieldNames.filter(
-        (fieldName) =>
-          coveredFieldNames.has(fieldName) && reviewFieldNames.has(fieldName),
+        (fieldName) => !reviewFieldNames.has(fieldName),
       );
       const invalidReviewFieldNames = Array.from(reviewFieldNames).filter(
-        (fieldName) => !describedFieldNames.includes(fieldName),
+        (fieldName) => !candidateFieldNameSet.has(fieldName),
+      );
+      const emptyDescriptionReviewFieldNames = Array.from(reviewFieldNames).filter(
+        (fieldName) => candidateFieldNameSet.has(fieldName) && !describedFieldNameSet.has(fieldName),
       );
       if (!hasOwnFormBehavior && !hasOwnReview) {
-        validateRequiredDefaultFormBehaviorScene(
-          collectionDefaults.formBehavior,
-          `${collectionPath}.formBehavior`,
-          errors,
-          seenErrors,
-        );
-      }
-      if (missingReviewFieldNames.length > 0) {
         pushValidationError(
           errors,
           seenErrors,
           `${collectionPath}.formBehaviorDescriptionReview`,
           "missing-default-form-behavior-description-review-fields",
-          `${collectionPath}.formBehaviorDescriptionReview.fields must list every described generated add/edit field not covered by structured formBehavior.`,
+          `${collectionPath}.formBehaviorDescriptionReview.fields must review every described generated add/edit field.`,
+          undefined,
+          {
+            collection: entry.collection,
+            fields: describedFieldNames,
+            fixOptions: describedFieldNames.map((fieldName) => ({
+              type: "addReview",
+              patchSkeleton: {
+                defaults: {
+                  collections: {
+                    [entry.collection]: {
+                      formBehaviorDescriptionReview: {
+                        fields: {
+                          [fieldName]: {
+                            decision: coverageByField.has(fieldName)
+                              ? "implemented"
+                              : "unsupported",
+                            ...(coverageByField.has(fieldName)
+                              ? {}
+                              : { reasonCode: "ambiguous-description" }),
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            })),
+          },
         );
       }
-      if (duplicateReviewFieldNames.length > 0) {
-        pushValidationError(
-          errors,
-          seenErrors,
-          `${collectionPath}.formBehaviorDescriptionReview.fields`,
-          "default-form-behavior-description-review-duplicate-covered-field",
-          `${collectionPath}.formBehaviorDescriptionReview.fields must not repeat fields already covered by structured formBehavior.`,
-        );
+      if (missingReviewFieldNames.length > 0) {
+        for (const fieldName of missingReviewFieldNames) {
+          const fieldMeta = describedFieldsByName.get(fieldName);
+          pushValidationError(
+            errors,
+            seenErrors,
+            `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName}`,
+            "missing-default-form-behavior-description-review-field",
+            `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName} must review this described generated add/edit field.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              description: getFieldDescriptionText(fieldMeta),
+              reason: "missing review object",
+            }),
+          );
+        }
       }
       if (invalidReviewFieldNames.length > 0) {
-        pushValidationError(
-          errors,
-          seenErrors,
-          `${collectionPath}.formBehaviorDescriptionReview.fields`,
-          "default-form-behavior-description-review-invalid-field",
-          `${collectionPath}.formBehaviorDescriptionReview.fields only accepts described generated add/edit candidate fields for ${entry.collection}.`,
-        );
+        for (const fieldName of invalidReviewFieldNames) {
+          pushValidationError(
+            errors,
+            seenErrors,
+            `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName}`,
+            "default-form-behavior-description-review-invalid-field",
+            `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName} only accepts described generated add/edit candidate fields for ${entry.collection}.`,
+            undefined,
+            {
+              collection: entry.collection,
+              field: fieldName,
+              describedFields: describedFieldNames,
+              reason: "review field is not a described generated add/edit candidate",
+            },
+          );
+        }
+      }
+      if (emptyDescriptionReviewFieldNames.length > 0) {
+        for (const fieldName of emptyDescriptionReviewFieldNames) {
+          if (reviewFields[fieldName] === null) continue;
+          pushValidationError(
+            errors,
+            seenErrors,
+            `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName}`,
+            "description-review-empty-description-must-be-null",
+            `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName} may be omitted or set to null because this generated add/edit candidate field has no description.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              reason: "empty description review entries must be null when present",
+            }),
+          );
+        }
+      }
+      for (const fieldName of describedFieldNames) {
+        const reviewEntry = reviewFields[fieldName];
+        const reviewPath = `${collectionPath}.formBehaviorDescriptionReview.fields.${fieldName}`;
+        if (typeof reviewEntry === "undefined") continue;
+        const fieldMeta = describedFieldsByName.get(fieldName);
+        const description = getFieldDescriptionText(fieldMeta);
+        const coverage = coverageByField.get(fieldName) || [];
+        if (reviewEntry === null) {
+          pushValidationError(
+            errors,
+            seenErrors,
+            reviewPath,
+            "description-review-required",
+            `${reviewPath} must be a non-null review object because the field description is not empty.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              description,
+              reason: "non-empty description cannot use null review",
+            }),
+          );
+          continue;
+        }
+        if (!isPlainObject(reviewEntry) || Object.keys(reviewEntry).length === 0) {
+          pushValidationError(
+            errors,
+            seenErrors,
+            reviewPath,
+            "description-review-empty",
+            `${reviewPath} must be a non-empty review object with decision.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              description,
+              reason: "review object is missing decision",
+            }),
+          );
+          continue;
+        }
+        const decision = normalizeText(reviewEntry.decision);
+        if (!FORM_BEHAVIOR_DESCRIPTION_REVIEW_DECISIONS.has(decision)) {
+          pushValidationError(
+            errors,
+            seenErrors,
+            `${reviewPath}.decision`,
+            "description-review-decision-invalid",
+            `${reviewPath}.decision must be one of implemented, noUiBehavior, unsupported.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              description,
+              decision,
+              reason: "invalid decision",
+            }),
+          );
+          continue;
+        }
+        if (decision === "implemented" && !coverage.length) {
+          pushValidationError(
+            errors,
+            seenErrors,
+            reviewPath,
+            "description-review-implemented-missing-coverage",
+            `${reviewPath} is marked implemented, but no structured formBehavior or linkage coverage targets this field.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              description,
+              decision,
+              missingCoverage: [
+                `formBehavior.addNew.fields.${fieldName}.settings`,
+                `formBehavior.edit.fields.${fieldName}.settings`,
+                `formBehavior.addNew.fieldLinkageRules targeting ${fieldName}`,
+                `formBehavior.edit.fieldLinkageRules targeting ${fieldName}`,
+              ],
+            }),
+          );
+        }
+        if (decision !== "implemented") {
+          const reasonCode = normalizeText(reviewEntry.reasonCode);
+          if (!reasonCode) {
+            pushValidationError(
+              errors,
+              seenErrors,
+              `${reviewPath}.reasonCode`,
+              "description-review-reason-code-required",
+              `${reviewPath}.reasonCode is required when decision is ${decision}.`,
+              undefined,
+              buildDescriptionReviewErrorDetails({
+                collection: entry.collection,
+                field: fieldName,
+                description,
+                decision,
+                reason: "missing reasonCode",
+              }),
+            );
+          } else if (
+            !FORM_BEHAVIOR_DESCRIPTION_REVIEW_REASON_CODES.has(reasonCode)
+          ) {
+            pushValidationError(
+              errors,
+              seenErrors,
+              `${reviewPath}.reasonCode`,
+              "description-review-reason-code-invalid",
+              `${reviewPath}.reasonCode is not allowed.`,
+              undefined,
+              buildDescriptionReviewErrorDetails({
+                collection: entry.collection,
+                field: fieldName,
+                description,
+                decision,
+                reason: "invalid reasonCode",
+              }),
+            );
+          }
+          if (coverage.length) {
+            pushValidationError(
+              errors,
+              seenErrors,
+              reviewPath,
+              "description-review-nonimplemented-conflicts-with-coverage",
+              `${reviewPath} is marked ${decision}, but structured coverage already targets this field.`,
+              undefined,
+              buildDescriptionReviewErrorDetails({
+                collection: entry.collection,
+                field: fieldName,
+                description,
+                decision,
+                coverage,
+                reason: "non-implemented decision conflicts with existing coverage",
+              }),
+            );
+          }
+        }
       }
     }
   }
@@ -4800,7 +5309,7 @@ function buildDefaultFormBehaviorForCollection(
   fieldGroups,
 ) {
   const formBehavior = {};
-  const reviewFields = new Set();
+  const reviewFields = {};
   for (const action of ["addNew", "edit"]) {
     const sceneFieldPaths = pickDefaultPopupSceneFieldPaths(
       collectionMetadata,
@@ -4835,9 +5344,16 @@ function buildDefaultFormBehaviorForCollection(
         normalizedFieldPath,
       );
       if (!getFieldDescriptionText(fieldMeta)) continue;
-      if (!coveredFieldPaths.has(normalizedFieldPath)) {
-        reviewFields.add(normalizedFieldPath);
-      }
+      reviewFields[normalizedFieldPath] = coveredFieldPaths.has(
+        normalizedFieldPath,
+      )
+        ? { decision: "implemented" }
+        : {
+            decision: "noUiBehavior",
+            reasonCode: getDescriptionReviewReasonCodeForDescription(
+              getFieldDescriptionText(fieldMeta),
+            ),
+          };
     }
     if (scene) {
       formBehavior[action] = scene;
@@ -4845,10 +5361,13 @@ function buildDefaultFormBehaviorForCollection(
   }
   return {
     formBehavior: Object.keys(formBehavior).length ? formBehavior : undefined,
-    formBehaviorDescriptionReview: reviewFields.size
+    formBehaviorDescriptionReview: Object.keys(reviewFields).length
       ? {
-          fields: Array.from(reviewFields).sort(),
-          hasTried: true,
+          fields: Object.fromEntries(
+            Object.entries(reviewFields).sort(([left], [right]) =>
+              left.localeCompare(right),
+            ),
+          ),
         }
       : undefined,
   };
@@ -6292,44 +6811,113 @@ function validateDefaultFormBehaviorDescriptionReview(review, path, state) {
     );
     return;
   }
-  validateAllowedObjectKeys(
-    review,
-    path,
-    DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS,
-    state,
-    "unsupported-default-form-behavior-description-review-key",
-    "defaults formBehaviorDescriptionReview",
-  );
-  if (!Array.isArray(review.fields) || review.fields.length === 0) {
+  validateDefaultFormBehaviorDescriptionReviewKeys(review, path, state);
+  if (!isPlainObject(review.fields) || Object.keys(review.fields).length === 0) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       `${path}.fields`,
       "invalid-default-form-behavior-description-review-fields",
-      "defaults.collections.*.formBehaviorDescriptionReview.fields must be a non-empty array.",
+      "defaults.collections.*.formBehaviorDescriptionReview.fields must be a non-empty object keyed by field path.",
+      undefined,
+      buildDescriptionReviewMigrationDetails(),
     );
   } else {
-    review.fields.forEach((fieldPath, index) => {
+    Object.entries(review.fields).forEach(([fieldPath, entry]) => {
       if (!normalizeText(fieldPath)) {
         pushValidationError(
           state.errors,
           state.seenErrors,
-          `${path}.fields[${index}]`,
+          `${path}.fields`,
           "invalid-default-form-behavior-description-review-field",
-          "defaults.collections.*.formBehaviorDescriptionReview.fields entries must be non-empty field paths.",
+          "defaults.collections.*.formBehaviorDescriptionReview.fields keys must be non-empty field paths.",
         );
+        return;
       }
+      if (entry === null) return;
+      if (!isPlainObject(entry)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${path}.fields.${fieldPath}`,
+          "invalid-default-form-behavior-description-review-field",
+          "defaults.collections.*.formBehaviorDescriptionReview.fields.* must be null or one review object.",
+          undefined,
+          buildDescriptionReviewMigrationDetails(fieldPath),
+        );
+        return;
+      }
+      validateAllowedObjectKeys(
+        entry,
+        `${path}.fields.${fieldPath}`,
+        DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_FIELD_ALLOWED_KEYS,
+        state,
+        "unsupported-default-form-behavior-description-review-field-key",
+        "defaults formBehaviorDescriptionReview field review",
+      );
     });
   }
-  if (review.hasTried !== true) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.hasTried`,
-      "invalid-default-form-behavior-description-review-hasTried",
-      "defaults.collections.*.formBehaviorDescriptionReview.hasTried must be true.",
-    );
-  }
+}
+
+function validateDefaultFormBehaviorDescriptionReviewKeys(review, path, state) {
+  const unsupportedKeys = Object.keys(review).filter(
+    (key) => !DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS.has(key),
+  );
+  if (unsupportedKeys.length === 0) return;
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    "unsupported-default-form-behavior-description-review-key",
+    `defaults formBehaviorDescriptionReview only accepts ${Array.from(DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS).join(", ")}; unsupported keys: ${unsupportedKeys.join(", ")}.`,
+    undefined,
+    {
+      allowedKeys: Array.from(DEFAULTS_FORM_BEHAVIOR_DESCRIPTION_REVIEW_ALLOWED_KEYS),
+      unsupportedKeys,
+      ...buildDescriptionReviewMigrationDetails(),
+    },
+  );
+}
+
+function buildDescriptionReviewMigrationDetails(fieldName = "fieldName") {
+  return {
+    reason:
+      "formBehaviorDescriptionReview now uses a field-keyed review map; old fields arrays and hasTried are not supported.",
+    allowedShape:
+      "formBehaviorDescriptionReview.fields must be an object keyed by field path; each value is null or a review object with decision and optional reasonCode.",
+    migrationExample: {
+      formBehaviorDescriptionReview: {
+        fields: {
+          [fieldName]: {
+            decision: "unsupported",
+            reasonCode: "ambiguous-description",
+          },
+        },
+      },
+    },
+    fixOptions: [
+      {
+        type: "migrateReviewFieldsMap",
+        whenToUse: "Use when the payload still uses fields: string[] or hasTried.",
+        patchSkeleton: {
+          defaults: {
+            collections: {
+              collectionName: {
+                formBehaviorDescriptionReview: {
+                  fields: {
+                    [fieldName]: {
+                      decision: "unsupported",
+                      reasonCode: "ambiguous-description",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ],
+  };
 }
 
 function validateBlueprintDefaults(blueprint, state) {
