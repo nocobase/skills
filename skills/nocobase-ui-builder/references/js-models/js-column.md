@@ -76,7 +76,7 @@ ctx.element.innerHTML = '<span>...</span>';
 }
 ```
 
-否则 guard 会把它视为高风险 workaround，而不是默认推荐方案。
+否则后端聚合验证可能把它视为高风险 workaround，而不是默认推荐方案。
 
 ## 最小结构
 

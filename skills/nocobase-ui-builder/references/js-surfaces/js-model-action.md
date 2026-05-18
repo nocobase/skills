@@ -49,4 +49,4 @@ If a popup action could mean either the popup opener or a row inside the popup, 
 - Exact action leaf rules -> [../js-models/js-action.md](../js-models/js-action.md)
 - Popup/openView configuration -> [../patterns/popup-openview.md](../patterns/popup-openview.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

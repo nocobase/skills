@@ -8,7 +8,7 @@ Use this for every JS / RunJS write before code is produced.
 2. Fill the scenario card below.
 3. Pick exactly one `safe` snippet from [js-surfaces/snippet-manifest.json](./js-surfaces/snippet-manifest.json) or [js-snippets/catalog.json](./js-snippets/catalog.json), using `sceneHints`, `preferredForIntents`, and `offlineSafe` to narrow first.
 4. Edit only the documented slots in that snippet.
-5. Run the JS validator and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md). Retry at most 3 rounds.
+5. Write through `nb api flow-surfaces <action>` and repair backend aggregate `errors[]` from [runjs-repair-playbook.md](./runjs-repair-playbook.md), keyed by `details.repairClass`. `nb-runjs` is optional for local snippet checks and is not a write gate.
 
 ## Scenario Card
 
@@ -45,6 +45,13 @@ If both `popup.record` and `record` are available, do not guess from the word "c
 - `action`: side effects are allowed; top-level `return` is optional.
 - `value`: top-level `return` is required; `ctx.render(...)` is forbidden.
 - `render`: `ctx.render(...)` is required for render models.
+
+## Backend Repair Contract
+
+- Backend `flow-surfaces` is the authoritative JS / RunJS validation gate for writes.
+- RunJS validation failures are reported as aggregate `errors[]` with stable `path`, `ruleId`, `message`, and minimal `details`.
+- Use `details.repairClass` to choose the repair playbook row.
+- Do not expect skill-only metadata such as `docsKey`, `retryable`, `surfaceStyle`, or `suggestedSnippetIds`.
 
 ## UI Library Policy
 

@@ -1,6 +1,6 @@
 # RunJS runtime
 
-Read this file when you need to run the local RunJS validator CLI. For JS model selection and code rules, see [js.md](./js.md).
+Read this file only when you need to run the optional local RunJS helper CLI. Backend `flow-surfaces` aggregate validation remains the authoritative write gate. For JS model selection and code rules, see [js.md](./js.md).
 
 ## Contents
 
@@ -10,7 +10,7 @@ Read this file when you need to run the local RunJS validator CLI. For JS model 
 4. Network-mode constraints
 5. Validator semantics overview
 
-## Canonical repo-root entry
+## Optional repo-root entry
 
 The commands below assume that the current cwd is the repository root and that the Node version is `>=18`.
 
@@ -19,7 +19,7 @@ node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json -
 node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./runtime/fixtures/batch.json --skill-mode
 ```
 
-The canonical execution path for this skill always includes `--skill-mode`:
+When you choose to run the optional helper, include `--skill-mode`:
 
 - This is the conservative mode intended for normal skill execution
 - The runtime is self-contained inside this skill; copying `nocobase-ui-builder` is enough, with no `npm install` step and no `runtime/node_modules` requirement
@@ -68,7 +68,7 @@ node ./bin/nb-runjs.mjs validate --model ChartEventsModel --stdin-json
 node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 ```
 
-These commands are mainly for local runtime development or debugging. Normal skill execution should still prefer the repo-root canonical entry above.
+These commands are mainly for local runtime development or debugging. Normal authoring still writes through `nb api flow-surfaces <action>` and repairs backend aggregate `errors[]`.
 
 Additional notes:
 
@@ -99,12 +99,12 @@ Optional mock-network config example:
 
 ## Validator semantics overview
 
-This file only keeps CLI/runtime-layer semantics. For model selection, strict render rules, context contracts, and gate rules, [js.md](./js.md) remains authoritative.
+This file only keeps optional CLI/runtime-layer semantics. For model selection, strict render rules, context contracts, and backend repair rules, [js.md](./js.md) remains authoritative.
 
 - The public CLI only exposes `validate` / `batch`
-- When `surface` is present, `nb-runjs` first runs the same surface-first static contract as `runjs_guard.mjs`
+- When `surface` is present, `nb-runjs` runs the bundled surface-first static advisory contract
 - JSX goes through compat lowering before execution
 - The syntax layer uses Node `vm.Script` as a baseline syntax gate
 - The context layer checks the static contract of `ctx.*` / top-level aliases
 - The policy layer statically blocks side effects such as navigation, write requests, `fetch`, and dynamic code generation
-- The runtime layer only provides a minimal compat surface; the result returns a validation report, not a public preview payload
+- The runtime layer only provides a minimal compat surface; the result returns an advisory report, not a public preview payload or write decision

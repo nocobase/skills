@@ -1,6 +1,6 @@
 # RunJS Repair Playbook
 
-Use this after the JS validator or backend aggregate validation reports a RunJS finding with `details.repairClass`.
+Use this after backend aggregate validation reports a RunJS finding with `details.repairClass`. Optional local helper findings may use the same repair language, but backend `flow-surfaces` errors are authoritative for writes.
 
 ## Repair Classes
 
@@ -18,13 +18,13 @@ Use this after the JS validator or backend aggregate validation reports a RunJS 
 | `blocked-capability-reroute` | Code uses a skill-blocked capability such as `ctx.openView(...)` | Configure popup/action/field popup outside JS |
 | `ctx-root-mismatch-stop` | The chosen surface does not expose a required `ctx.*` root, or uses unresolved `ctx[...]` access | Switch surface/snippet or inspect live host context |
 
-## Deterministic Rewrites
+## Repair Method
 
-The guard may auto-rewrite only these safe patterns:
+Do not depend on skill-side automatic rewrites or canonicalization before writes. Repair the source or payload explicitly, then retry the direct backend write.
 
-- `ctx.element.innerHTML = ...` to `ctx.render(...)` when no later DOM dependency remains.
-- `auth:check` request to `ctx.user ?? ctx.auth?.user`.
-- Static `ctx.request({ url: 'collection:list/get' })` to resource API.
-- Builder-style filter groups to query filters during resource rewrite.
+- Replace `ctx.element.innerHTML = ...` with explicit `ctx.render(...)` yourself.
+- Replace `auth:check` reads with `ctx.user ?? ctx.auth?.user` when the current-user context is enough.
+- Replace static `ctx.request({ url: 'collection:list/get' })` collection reads with resource APIs.
+- Rewrite builder-style filter groups to query filters manually when resource code needs them.
 
-The guard must not auto-invent missing returns, form-only API substitutes, or unknown expression wrappers.
+Never auto-invent missing returns, form-only API substitutes, unknown expression wrappers, or hidden capability reroutes.

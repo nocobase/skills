@@ -52,4 +52,4 @@ For popup-level render blocks, prefer [scene/block/popup-record-summary](../js-s
 - Exact model constraints -> [../js-models/index.md](../js-models/index.md)
 - Render contract -> [../js-models/rendering-contract.md](../js-models/rendering-contract.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

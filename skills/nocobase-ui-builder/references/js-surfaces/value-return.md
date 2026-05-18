@@ -34,11 +34,11 @@ const taxRate = Number(ctx.formValues?.taxRate || 0);
 return amount + amount * taxRate;
 ```
 
-The bundled product snapshot and local validator both reinforce the same rule: use a top-level `return` to output the value.
+The bundled product snapshot and backend aggregate validation both reinforce the same rule: use a top-level `return` to output the value.
 
 ## What to open next
 
 - `ctx.*` lookup -> [../js-reference-index.md](../js-reference-index.md)
 - Field/default/linkage payload rules -> [../reaction.md](../reaction.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

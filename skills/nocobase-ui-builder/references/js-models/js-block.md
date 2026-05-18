@@ -216,7 +216,7 @@ await ctx.request({ url: 'tasks:list', method: 'get' });
 await fetch('/api/auth:check', { credentials: 'include' });
 ```
 
-其中 `innerHTML` 简单赋值可能会被 guard 自动改写为 `ctx.render(...)`，复杂场景会直接 blocker。
+其中 `innerHTML` 简单赋值也不要依赖本地自动改写；作者应显式改成 `ctx.render(...)`，复杂场景由后端聚合验证阻断。
 
 ## 何时再看别的文档
 

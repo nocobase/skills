@@ -40,4 +40,4 @@ ctx.message.success(ctx.t('Processed {{count}} rows', { count: rows.length }));
 - Missing `ctx.*` details -> [../js-reference-index.md](../js-reference-index.md)
 - Exact action leaf rules -> [../js-models/js-action.md](../js-models/js-action.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

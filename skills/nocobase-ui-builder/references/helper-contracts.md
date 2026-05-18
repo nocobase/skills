@@ -58,12 +58,14 @@ These notes document checks that now belong in backend authoring validation for 
 
 ## `nb-runjs validate --skill-mode`
 
-Use this when the task is JS / RunJS specific and you need local validation.
+Use this only when the task is JS / RunJS specific and a local snippet sanity check is useful. It is optional and does not define the write path.
 
 Before you run it, lock the authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), fill the loop in [runjs-authoring-loop.md](./runjs-authoring-loop.md), and choose a canonical snippet from [js-snippets/catalog.json](./js-snippets/catalog.json). The validator contract now differs between render-style JS models, action-style event/linkage code, and value-return RunJS.
 
 - CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode`
 - input: `{ model, code, context? }`
 - returns: validation result, policy issues, and execution summary
-- use it for: JS blocks, JS fields, JS actions, and event-flow `Execute JavaScript` snippets
-- if it fails: repair with [runjs-repair-playbook.md](./runjs-repair-playbook.md) and retry at most 3 rounds
+- use it for: local JS block, JS field, JS action, and event-flow `Execute JavaScript` snippet checks
+- if it fails: repair with [runjs-repair-playbook.md](./runjs-repair-playbook.md) before the real backend write when practical
+- if it cannot run: continue with the direct backend write path unless the user explicitly requested local helper verification
+- authoritative write validation remains backend aggregate `errors[]`; repair backend RunJS errors from `details.repairClass`

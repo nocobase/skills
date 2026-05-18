@@ -7,7 +7,7 @@ This file is the bridge between two layers:
 - Surface-first layer in [js-surfaces/index.md](./js-surfaces/index.md): choose the exact RunJS authoring scene first.
 - Canonical snippet layer in [js-snippets/index.md](./js-snippets/index.md): grab the smallest `safe` final-code example before opening upstream docs.
 - Bundled product reference snapshot in [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md): product/runtime capability docs copied into this skill and lightly adapted with skill-mode guardrails, useful for examples, `ctx` APIs, and scenario descriptions.
-- Skill contract in [js.md](./js.md), [runjs-runtime.md](./runjs-runtime.md), and [reaction.md](./reaction.md): validator rules, model selection, CLI/runtime constraints, and actual write payload rules.
+- Skill contract in [js.md](./js.md), [runjs-runtime.md](./runjs-runtime.md), and [reaction.md](./reaction.md): backend validation routing, model selection, optional helper constraints, and actual write payload rules.
 
 The bundled product reference snapshot is still only a progressive-disclosure reference layer. It does **not** replace the skill write contract.
 
@@ -44,7 +44,7 @@ When you already know the scenario and only need a specific runtime API:
 When reading the bundled reference docs, rewrite the following patterns before you treat them as final skill output:
 
 - strict render models must end in an explicit `ctx.render(...)`; do not ship examples that only mutate `ctx.element.innerHTML`, `replaceChildren(...)`, or DOM nodes without a final render call
-- do not emit `ctx.openView(...)` as final code under this skill; the local validator blocks it. Prefer field popup / popup action / event-flow configuration outside JS
+- do not emit `ctx.openView(...)` as final code under this skill; backend aggregate validation rejects it. Prefer field popup / popup action / event-flow configuration outside JS
 - for `ctx.request()` / `ctx.api.request()`, use `http/https` URLs under skill-mode; for NocoBase resource access prefer `ctx.initResource(...) + ctx.resource` or `ctx.makeResource(...)`
 - prefer `ctx.initResource(...)` + `ctx.resource` over upstream examples that use `ctx.createResource(...)` or `ctx.useResource(...)`
 
@@ -55,13 +55,13 @@ When reading the bundled reference docs, rewrite the following patterns before y
 3. Open [js-snippets/catalog.json](./js-snippets/catalog.json) and one safe snippet doc.
 4. Open the matching bundled scenario page under [`../runtime/reference-assets/upstream-js/interface-builder/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) only for missing capability detail.
 5. Open only the needed `ctx` pages under [`../runtime/reference-assets/upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md).
-6. Return to [runjs-runtime.md](./runjs-runtime.md) before validation.
+6. Return to [runjs-runtime.md](./runjs-runtime.md) only when optional local helper validation is useful.
 7. Return to [settings.md](./settings.md) before any event-flow write.
 8. Return to [reaction.md](./reaction.md) before any linkage / field-value / action-state write.
 
 ## Important Boundary
 
 - The bundled product reference snapshot describes product/runtime behavior and authoring examples.
-- The skill contract is stricter in several places: validator gate, runtime-model choice, skill-mode network policy, and strict `ctx.render(...)` requirements. Those rules stay in [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md).
+- The skill contract is stricter in several places: backend aggregate validation, runtime-model choice, optional helper network policy, and strict `ctx.render(...)` requirements. Those rules stay in [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md).
 - Event Flow `Execute JavaScript` and linkage-rule pages are reference material for author intent and available context, not the final write contract for this skill.
 - For actual field value, linkage, block linkage, or action linkage payloads, [reaction.md](./reaction.md) remains authoritative.

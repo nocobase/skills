@@ -1,16 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { maskJavaScriptSource } from '../src/source-mask.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
-const repoRoot = path.resolve(skillRoot, '..', '..');
 const backendWritePattern = /nb api flow-surfaces/i;
 const forbiddenWriteGatePattern =
-  /mandatory local prepare-write|prepare-write is mandatory|result\.cliBody|cliBody only|local preflight|nb-flow-surfaces\.mjs apply-blueprint|flow-surfaces behind the wrapper|wrapper is the public entry|wrapper raw body/i;
+  /mandatory local prepare-write|prepare-write is mandatory|result\.cliBody|cliBody only|local preflight|nb-flow-surfaces\.mjs apply-blueprint|flow-surfaces behind the wrapper|wrapper is the public entry|wrapper raw body|must run the local validator|local validator gate|validator failure is failure|write cannot continue|RunJS validator gate before/i;
 
 function read(relativePath) {
   return readFileSync(path.join(skillRoot, relativePath), 'utf8');
@@ -127,17 +125,14 @@ function extractCodeFences(markdown) {
   return [...markdown.matchAll(/^```(?:js|javascript|jsx|json)\n([\s\S]*?)\n```/gm)].map((match) => match[1]);
 }
 
-function validateRunjsSnippet(model, code) {
-  const cliPath = path.join(skillRoot, 'runtime/bin/nb-runjs.mjs');
-  const result = spawnSync(process.execPath, [cliPath, 'validate', '--stdin-json', '--skill-mode'], {
-    cwd: repoRoot,
-    input: JSON.stringify({ model, code }),
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, `runjs validator should exit 0 for ${model}: ${result.stderr || result.stdout}`);
-  const parsed = JSON.parse(result.stdout);
-  assert.equal(parsed.ok, true, `runjs validator should accept ${model}: ${result.stdout}`);
-  return parsed;
+function assertRunjsSnippetShape(model, code, label) {
+  assert.equal(typeof code, 'string', `${label} should have a code fence`);
+  assert.match(code, /\S/, `${label} should not be empty`);
+  assert.doesNotMatch(code, /\bctx\.openView\s*\(/, `${label} should not route popup/openView through RunJS`);
+  assert.doesNotMatch(code, /\b(?:fetch|localStorage|sessionStorage)\b/, `${label} should avoid browser globals`);
+  if (model !== 'JSActionModel' && model !== 'ChartEventsModel') {
+    assert.match(code, /\bctx\.render\s*\(/, `${label} should render explicitly`);
+  }
 }
 
 function assertNoDirectCtxRecordValueReads(code, label) {
@@ -706,8 +701,8 @@ test('runjs docs keep the self-contained zero-install runtime contract', () => {
   assert.match(runtimeDoc, /must not require installing external npm packages first/i);
 
   const jsDoc = read('references/js.md');
-  assert.match(jsDoc, /skill-local source and vendored assets/i);
-  assert.match(jsDoc, /Do not require external npm installs/i);
+  assert.match(jsDoc, /optional helper/i);
+  assert.match(jsDoc, /does not replace backend validation/i);
 });
 
 test('upstream js snapshot relative links stay valid', () => {
@@ -1004,16 +999,32 @@ test('key upstream js snapshot pages route back to skill contracts', () => {
   assert.match(requestDoc, /ctx\.initResource|ctx\.makeResource/i, 'request snapshot should redirect NocoBase resource access to resource APIs');
 });
 
-test('canonical patched JS examples satisfy skill-mode minimum contracts', () => {
+test('canonical patched JS examples satisfy backend-owned minimum contracts', () => {
   const jsBlock = read('runtime/reference-assets/upstream-js/interface-builder/blocks/other-blocks/js-block.md');
-  validateRunjsSnippet('JSBlockModel', extractFirstJsFenceAfterHeading(jsBlock, '2) API Request Template'));
-  validateRunjsSnippet('JSBlockModel', extractFirstJsFenceAfterHeading(jsBlock, '4) Skill-mode Feedback'));
+  assertRunjsSnippetShape(
+    'JSBlockModel',
+    extractFirstJsFenceAfterHeading(jsBlock, '2) API Request Template'),
+    'JSBlock API Request Template',
+  );
+  assertRunjsSnippetShape(
+    'JSBlockModel',
+    extractFirstJsFenceAfterHeading(jsBlock, '4) Skill-mode Feedback'),
+    'JSBlock Skill-mode Feedback',
+  );
 
   const jsField = read('runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-field.md');
-  validateRunjsSnippet('JSFieldModel', extractFirstJsFenceAfterHeading(jsField, '1) Basic Rendering (Reading Field Value)'));
+  assertRunjsSnippetShape(
+    'JSFieldModel',
+    extractFirstJsFenceAfterHeading(jsField, '1) Basic Rendering (Reading Field Value)'),
+    'JSField Basic Rendering',
+  );
 
   const jsAction = read('runtime/reference-assets/upstream-js/interface-builder/actions/types/js-action.md');
-  validateRunjsSnippet('JSActionModel', extractFirstJsFenceAfterHeading(jsAction, '1) API Request and Feedback'));
+  assertRunjsSnippetShape(
+    'JSActionModel',
+    extractFirstJsFenceAfterHeading(jsAction, '1) API Request and Feedback'),
+    'JSAction API Request and Feedback',
+  );
 });
 
 test('event-flow JS write contract stays discoverable across routing docs', () => {
@@ -1506,7 +1517,7 @@ test('JSBlock docs and prompt expose only canonical public authoring shapes', ()
   );
 });
 
-test('metric cards JSBlock safe snippet validates and stays cataloged', () => {
+test('metric cards JSBlock safe snippet stays cataloged as guidance', () => {
   const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
   const entry = catalog.snippets.find((item) => item.id === 'scene/block/metric-cards');
   assert.ok(entry, 'metric cards snippet should be listed in catalog');
@@ -1519,7 +1530,7 @@ test('metric cards JSBlock safe snippet validates and stays cataloged', () => {
   assert.match(code, /ctx\.makeResource/, 'metric snippet should create independent resources');
   assert.match(code, /getCount/, 'metric snippet should read server-side meta count');
   assert.match(code, /ctx\.render/, 'metric snippet should render explicitly');
-  validateRunjsSnippet('JSBlockModel', code);
+  assertRunjsSnippetShape('JSBlockModel', code, 'metric cards snippet');
 });
 
 test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel cues', () => {
@@ -2549,6 +2560,79 @@ test('localized write docs keep backend validation boundary', () => {
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /backend aggregate validation|aggregate errors/i);
   assert.match(defaultPrompt, /raw payload only/i);
+});
+
+test('JS authoring docs keep backend validation authoritative', () => {
+  for (const relativePath of [
+    'references/js.md',
+    'references/runjs-authoring-loop.md',
+    'references/helper-contracts.md',
+    'references/normative-contract.md',
+    'references/chart-core.md',
+    'references/js-snippets/index.md',
+    'references/js-reference-index.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /backend[\s\S]{0,180}(?:aggregate|validation|errors\[\]|flow-surfaces)/i,
+      `${relativePath} should route JS write validation to backend aggregate errors`,
+    );
+    assert.doesNotMatch(
+      text,
+      /must run the local validator|local validator gate|validator failure is failure|write cannot continue|do not continue to the nb write|must first pass the validator gate/i,
+      `${relativePath} should not define a local JS validator write gate`,
+    );
+  }
+
+  const chartCore = read('references/chart-core.md');
+  assert.doesNotMatch(chartCore, /-\s*`ctx\.openView`/i, 'chart events docs should not list ctx.openView as available');
+  assert.doesNotMatch(
+    chartCore,
+    /runtime treats `ctx\.openView\(\.\.\.\)` as a simulated call/i,
+    'chart events docs should not encourage backend-rejected ctx.openView code',
+  );
+  assert.match(
+    chartCore,
+    /backend validation rejects popup\/openView capabilities/i,
+    'chart events docs should route popup/openView behavior outside RunJS',
+  );
+});
+
+test('RunJS repair playbook covers backend repair classes', () => {
+  const playbook = read('references/runjs-repair-playbook.md');
+  for (const repairClass of [
+    'switch-to-resource-api',
+    'missing-top-level-return',
+    'value-surface-forbids-render',
+    'unknown-surface-stop',
+    'unknown-model-stop',
+    'replace-innerhtml-with-render',
+    'render-top-level-function-wrapper',
+    'render-unreachable-render-call',
+    'blocked-global-stop',
+    'blocked-capability-reroute',
+    'ctx-root-mismatch-stop',
+  ]) {
+    assert.match(playbook, new RegExp('\\| `' + repairClass + '` \\|'), `playbook should cover ${repairClass}`);
+  }
+  assert.match(playbook, /details\.repairClass/i);
+  assert.match(playbook, /Backend `?flow-surfaces`? errors are authoritative|backend `?flow-surfaces`? errors are authoritative/i);
+  assert.doesNotMatch(playbook, /auto-rewrite only|may auto-rewrite/i);
+});
+
+test('JS snippets are guidance, not a write gate', () => {
+  const snippetIndex = read('references/js-snippets/index.md');
+  assert.match(snippetIndex, /Use the snippet as guidance/i);
+  assert.match(snippetIndex, /not a write gate/i);
+  assert.doesNotMatch(snippetIndex, /Run the JS validator before writing|code-quality gate/i);
+  for (const relativePath of walkMarkdownFiles('references/js-snippets')) {
+    assert.doesNotMatch(
+      read(relativePath),
+      /Run the JS validator before writing|must run the local validator|local validator gate|validator failure is failure|write cannot continue|must first pass the validator gate/i,
+      `${relativePath} should not define snippets as a local validator write gate`,
+    );
+  }
 });
 
 test('docs keep migrated write ergonomics backend-owned', () => {

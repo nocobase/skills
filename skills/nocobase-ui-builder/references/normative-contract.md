@@ -285,7 +285,7 @@ Do **not** emulate a plan-style patch workflow in user-facing authoring.
 
 - Nested popups are allowed in page blueprint, but only as inline popup content beneath actions or fields.
 - When popup resource bindings, target-specific field addability, or JS/chart capability matters, read `catalog` before writing.
-- Any JS write must pass the local validator gate first.
+- Any JS write is validated by backend `flow-surfaces` aggregate validation on write. `nb-runjs` is an optional local helper only; do not require it before the raw backend payload.
 
 ## 7. Recovery / Stop Conditions
 

@@ -317,7 +317,7 @@ Typical uses:
 
 - click / dblclick
 - dataZoom
-- open popup / openView
+- lightweight selection or state synchronization
 - lightweight interactions
 
 ## How to use `context`
@@ -387,7 +387,7 @@ Two different context types must be distinguished here:
 
 ### `visual.raw`
 
-Any `visual.raw` write must first pass the validator gate described in [js.md](./js.md), using `ChartOptionModel`. For CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
+Any `visual.raw` write must use the JS rules in [js.md](./js.md), using `ChartOptionModel` as the modelUse when local helper checks are useful. Backend aggregate validation is the authoritative write gate. For optional helper CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
 
 At frontend runtime, you should assume these are available first:
 
@@ -404,12 +404,11 @@ Rules:
 
 ### `events.raw`
 
-Any `events.raw` write must first pass the validator gate described in [js.md](./js.md), using `ChartEventsModel`. For CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
+Any `events.raw` write must use the JS rules in [js.md](./js.md), using `ChartEventsModel` as the modelUse when local helper checks are useful. Backend aggregate validation is the authoritative write gate. For optional helper CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
 
 At frontend runtime, you should assume these are available first:
 
 - `chart`
-- `ctx.openView`
 - `ctx.record`
 - `ctx.popup.record`
 
@@ -418,7 +417,7 @@ Rules:
 - the `chart` instance is exposed through a top-level alias; primarily use bare `chart.on(...)` / `chart.off(...)`
 - do not write `ctx.chart.on(...)` / `ctx.chart.off(...)`
 - `ctx.render(...)` is not required
-- runtime treats `ctx.openView(...)` as a simulated call rather than actually opening a popup
+- do not write `ctx.openView(...)`; backend validation rejects popup/openView capabilities in RunJS, so configure popup/openView behavior outside `events.raw`
 
 ## Readback
 
