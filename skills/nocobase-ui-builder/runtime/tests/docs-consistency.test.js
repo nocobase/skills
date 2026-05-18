@@ -298,6 +298,39 @@ function assertFormBehaviorDescriptionReviewGuidance(text, relativePath) {
   );
 }
 
+function assertWholePageChartAssetGuidance(text, sourceLabel) {
+  assert.match(
+    text,
+    /assets\.charts[\s\S]{0,160}block\.chart|block\.chart[\s\S]{0,160}assets\.charts/i,
+    `${sourceLabel} should document the canonical assets.charts + block.chart shape`,
+  );
+  assert.match(
+    text,
+    /settings\.query[\s\S]{0,120}settings\.visual|settings\.visual[\s\S]{0,120}settings\.query/i,
+    `${sourceLabel} should say inline chart compatibility requires both settings.query and settings.visual`,
+  );
+  assert.match(
+    text,
+    /mixed `?block\.chart \+ settings\.query\/visual\/events`?[^.\n]*(?:reject|rejected)|do not mix `?block\.chart`?[\s\S]{0,120}settings\.query[\s\S]{0,120}settings\.visual[\s\S]{0,120}settings\.events|不能同时写[\s\S]{0,80}`?block\.chart`?[\s\S]{0,120}settings\.query[\s\S]{0,120}settings\.visual[\s\S]{0,120}settings\.events|block\.chart[\s\S]{0,160}settings\.query[\s\S]{0,160}settings\.visual[\s\S]{0,160}settings\.events[\s\S]{0,120}(?:reject|rejected|拒绝)/i,
+    `${sourceLabel} should reject mixed block.chart and inline chart settings`,
+  );
+  assert.match(
+    text,
+    /repairable-shape-error/i,
+    `${sourceLabel} should document repairable chart shape errors`,
+  );
+  assert.match(
+    text,
+    /details\.expectedAssetPath[\s\S]{0,80}assets\.charts|expectedAssetPath[\s\S]{0,80}assets\.charts/i,
+    `${sourceLabel} should document details.expectedAssetPath for chart repairs`,
+  );
+  assert.match(
+    text,
+    /stepParams[\s\S]{0,140}(?:do not|must not|not accept|unsupported|不要|不接受)|(?:do not|must not|not accept|unsupported|不要|不接受)[\s\S]{0,140}stepParams/i,
+    `${sourceLabel} should keep whole-page chart stepParams as an explicit rejection boundary`,
+  );
+}
+
 function assertExistingReferenceReadbackBridge(text, sourceLabel) {
   assertPointsToTemplates(text, sourceLabel);
   assert.match(text, /template[- ]source/i, `${sourceLabel} should keep template-source readback visible`);
@@ -2254,6 +2287,16 @@ test('chart docs reject builder relation fields and point relation labels to SQL
     /\{\s*"field"\s*:\s*\[\s*"customer"\s*,\s*"name"\s*\]\s*,\s*"alias"\s*:\s*"customer_name"\s*\}/i,
     'chart block docs must not keep the old builder relation dimension example',
   );
+});
+
+test('whole-page chart docs keep canonical assets and inline compatibility boundaries aligned', () => {
+  for (const relativePath of [
+    'references/blocks/chart.md',
+    'references/chart-core.md',
+    'references/page-blueprint.md',
+  ]) {
+    assertWholePageChartAssetGuidance(read(relativePath), relativePath);
+  }
 });
 
 test('whole-page authoring docs keep menu, layout, and filter gates aligned with runtime', () => {

@@ -1013,6 +1013,15 @@ Asset-backed `jsBlock`:
 }
 ```
 
+For `chart`, the canonical whole-page shape is the chart asset-reference form:
+
+- Put complete chart config under `assets.charts.<key>`.
+- Reference it from the chart block with `chart: "<key>"`.
+- Do not put internal `stepParams` on the block.
+- Do not mix `block.chart` with inline `settings.query`, `settings.visual`, or `settings.events`.
+
+Complete inline `settings.query + settings.visual` is accepted only as a whole-page compatibility safety net when `block.chart` is absent and the chart block has a non-empty `key`; prepare-write rewrites it into `assets.charts.<block.key>` plus `block.chart`. Optional `settings.events` is lifted too. Incomplete inline configs are rejected: `settings.query` and `settings.visual` are both required for compatibility. Repairable shape errors include details such as `repairable-shape-error`, `details.expectedAssetPath = "assets.charts"`, and the required inline settings `query` / `visual`.
+
 ## 8. Canonical Naming Rule
 
 When this skill authors `applyBlueprint`, always emit the canonical public names above.

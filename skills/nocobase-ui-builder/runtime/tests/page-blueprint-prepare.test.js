@@ -355,6 +355,15 @@ function buildChartAsset(overrides = {}) {
   };
 }
 
+function buildInlineChartSettings(overrides = {}) {
+  const asset = buildChartAsset(overrides);
+  return {
+    query: asset.query,
+    visual: asset.visual,
+    ...(isObjectRecord(asset.events) ? { events: asset.events } : {}),
+  };
+}
+
 function buildChartBlueprint({ asset = buildChartAsset(), block = {} } = {}) {
   return {
     version: '1',
@@ -393,6 +402,22 @@ function buildChartBlueprint({ asset = buildChartAsset(), block = {} } = {}) {
   };
 }
 
+function buildInlineChartBlueprint({ block = {}, assets = undefined } = {}) {
+  const blueprint = buildChartBlueprint({
+    block: {
+      chart: undefined,
+      settings: buildInlineChartSettings(),
+      ...block,
+    },
+  });
+  if (typeof assets === 'undefined') {
+    delete blueprint.assets;
+  } else {
+    blueprint.assets = assets;
+  }
+  return blueprint;
+}
+
 function prepareChartBlueprint(options = {}) {
   return rawPrepareApplyBlueprintRequest(
     buildChartBlueprint(options),
@@ -408,6 +433,23 @@ function assertRejectsChartBlueprint(options, expectedRuleIds) {
   }
   assert.equal(result.cliBody, undefined);
   return result;
+}
+
+function findIssue(result, ruleId) {
+  return result.errors.find((issue) => issue.ruleId === ruleId);
+}
+
+function assertChartRepairDetails(issue) {
+  assert.ok(issue, 'expected validation issue');
+  assert.equal(issue.details?.category, 'repairable-shape-error');
+  assert.equal(issue.details?.assetType, 'chart');
+  assert.equal(issue.details?.expectedReferenceField, 'chart');
+  assert.equal(issue.details?.expectedAssetPath, 'assets.charts');
+  assert.equal(issue.details?.repairStrategy, 'move-inline-config-to-asset-and-reference');
+  assert.deepEqual(issue.details?.requiredInlineSettings, ['query', 'visual']);
+  assert.deepEqual(issue.details?.optionalInlineSettings, ['events']);
+  assert.ok(Array.isArray(issue.details?.repairActions));
+  assert.equal(issue.details?.docs, 'references/blocks/chart.md');
 }
 
 function defaultFilterGroup(fieldNames = commonUserDefaultFilterFieldNames) {
@@ -14707,6 +14749,335 @@ test('prepareApplyBlueprintRequest rejects chart displayTitle before remote appl
 
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'chart-display-title-unsupported'));
+  assert.equal(result.cliBody, undefined);
+});
+
+test('prepareApplyBlueprintRequest reports repair details for missing chart asset reference', () => {
+  const result = assertRejectsChartBlueprint(
+    {
+      asset: undefined,
+      block: {
+        chart: undefined,
+      },
+    },
+    ['chart-block-asset-reference-required'],
+  );
+
+  assertChartRepairDetails(findIssue(result, 'chart-block-asset-reference-required'));
+});
+
+test('prepareApplyBlueprintRequest rejects chart asset reference mixed with inline chart settings', () => {
+  for (const inlineKey of ['query', 'visual', 'events']) {
+    const inlineSettings = buildInlineChartSettings();
+    const result = assertRejectsChartBlueprint(
+      {
+        block: {
+          settings: {
+            [inlineKey]: inlineSettings[inlineKey] || { onClick: 'return null;' },
+          },
+        },
+      },
+      ['chart-block-inline-config-conflicts-with-asset-reference'],
+    );
+
+    const issue = findIssue(result, 'chart-block-inline-config-conflicts-with-asset-reference');
+    assertChartRepairDetails(issue);
+    assert.deepEqual(issue.details.inlineSettingKeys, [inlineKey]);
+  }
+});
+
+test('prepareApplyBlueprintRequest rejects internal chart stepParams without auto-repair details', () => {
+  const result = assertRejectsChartBlueprint(
+    {
+      block: {
+        chart: 'missingChart',
+        stepParams: {
+          chartSettings: {
+            configure: {},
+          },
+        },
+      },
+    },
+    ['chart-block-step-params-unsupported', 'chart-block-asset-reference-missing'],
+  );
+
+  assert.equal(findIssue(result, 'chart-block-step-params-unsupported')?.details, undefined);
+  assertChartRepairDetails(findIssue(result, 'chart-block-asset-reference-missing'));
+});
+
+test('prepareApplyBlueprintRequest rejects incomplete inline chart settings before remote applyBlueprint', () => {
+  const inlineSettings = buildInlineChartSettings();
+  for (const settings of [
+    { query: inlineSettings.query },
+    { visual: inlineSettings.visual },
+    { events: { onClick: 'return null;' } },
+  ]) {
+    const result = assertRejectsChartBlueprint(
+      {
+        asset: undefined,
+        block: {
+          chart: undefined,
+          settings,
+        },
+      },
+      ['chart-block-inline-config-incomplete'],
+    );
+
+    const issue = findIssue(result, 'chart-block-inline-config-incomplete');
+    assertChartRepairDetails(issue);
+    assert.deepEqual(issue.details.requiredInlineSettings, ['query', 'visual']);
+  }
+});
+
+test('prepareApplyBlueprintRequest lifts complete inline chart settings into chart assets', () => {
+  const input = buildInlineChartBlueprint({
+    block: {
+      settings: {
+        ...buildInlineChartSettings(),
+        title: 'Status distribution',
+        height: 320,
+        heightMode: 'specifyValue',
+      },
+    },
+  });
+  const result = rawPrepareApplyBlueprintRequest(input, {
+    collectionMetadata: minimalUserCollectionMetadata,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(input.tabs[0].blocks[0].chart, undefined);
+  assert.deepEqual(result.cliBody.assets.charts.statusChart.query, buildChartAsset().query);
+  assert.deepEqual(result.cliBody.assets.charts.statusChart.visual, buildChartAsset().visual);
+  const block = result.cliBody.tabs[0].blocks[0];
+  assert.equal(block.chart, 'statusChart');
+  assert.equal(block.settings.query, undefined);
+  assert.equal(block.settings.visual, undefined);
+  assert.equal(block.settings.title, 'Status distribution');
+  assert.equal(block.settings.height, 320);
+  assert.equal(block.settings.heightMode, 'specifyValue');
+});
+
+test('prepareApplyBlueprintRequest copies inline chart events into the lifted chart asset', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildInlineChartBlueprint({
+      block: {
+        settings: {
+          ...buildInlineChartSettings(),
+          events: {
+            click: 'return ctx.message.info("clicked");',
+          },
+        },
+      },
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.assets.charts.statusChart.events, {
+    click: 'return ctx.message.info("clicked");',
+  });
+  assert.equal(result.cliBody.tabs[0].blocks[0].settings, undefined);
+});
+
+test('prepareApplyBlueprintRequest generates collision-free inline chart asset keys', () => {
+  const existingStatusChart = buildChartAsset({
+    query: {
+      dimensions: [{ field: 'email' }],
+    },
+    visual: {
+      mappings: { x: 'email', y: 'userCount' },
+    },
+  });
+  const result = rawPrepareApplyBlueprintRequest(
+    buildInlineChartBlueprint({
+      assets: {
+        charts: {
+          statusChart: existingStatusChart,
+        },
+      },
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.assets.charts.statusChart, existingStatusChart);
+  assert.deepEqual(result.cliBody.assets.charts.statusChartChart, buildChartAsset());
+  assert.equal(result.cliBody.tabs[0].blocks[0].chart, 'statusChartChart');
+});
+
+test('prepareApplyBlueprintRequest appends numeric suffixes for repeated inline chart key collisions', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildInlineChartBlueprint({
+      assets: {
+        charts: {
+          statusChart: buildChartAsset(),
+          statusChartChart: buildChartAsset({
+            query: {
+              dimensions: [{ field: 'email' }],
+            },
+            visual: {
+              mappings: { x: 'email', y: 'userCount' },
+            },
+          }),
+        },
+      },
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.assets.charts.statusChartChart2, buildChartAsset());
+  assert.equal(result.cliBody.tabs[0].blocks[0].chart, 'statusChartChart2');
+});
+
+test('prepareApplyBlueprintRequest rejects malformed chart asset containers instead of lifting inline charts', () => {
+  for (const { assets, ruleId } of [
+    { assets: 'bad-assets', ruleId: 'chart-assets-container-invalid' },
+    { assets: { charts: 'bad-charts' }, ruleId: 'chart-assets-map-invalid' },
+  ]) {
+    const result = rawPrepareApplyBlueprintRequest(
+      buildInlineChartBlueprint({
+        assets,
+        block: {
+          settings: buildInlineChartSettings({
+            query: {
+              resource: undefined,
+            },
+          }),
+        },
+      }),
+      { collectionMetadata: minimalUserCollectionMetadata },
+    );
+
+    assert.equal(result.ok, false);
+    assert.ok(findIssue(result, ruleId));
+    assert.equal(findIssue(result, 'chart-builder-query-resource-missing'), undefined);
+    assert.equal(result.cliBody, undefined);
+  }
+});
+
+test('prepareApplyBlueprintRequest lifts nested popup inline chart blocks', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Dashboard', icon: 'DashboardOutlined' },
+      },
+      page: { title: 'Dashboard' },
+      defaults: {
+        collections: {
+          users: {
+            popups: buildFixedCollectionPopupDefaults('users'),
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              title: 'Users',
+              collection: 'users',
+              fields: ['nickname'],
+              actions: [
+                {
+                  key: 'openPopupChart',
+                  type: 'popup',
+                  title: 'Open chart',
+                  popup: {
+                    blocks: [
+                      {
+                        key: 'popupStatusChart',
+                        type: 'chart',
+                        title: 'Popup status chart',
+                        settings: buildInlineChartSettings(),
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.assets.charts.popupStatusChart, buildChartAsset());
+  const popupAction = result.cliBody.tabs[0].blocks[0].actions.find(
+    (action) => action.key === 'openPopupChart',
+  );
+  assert.equal(
+    popupAction.popup.blocks[0].chart,
+    'popupStatusChart',
+  );
+  assert.equal(popupAction.popup.blocks[0].settings, undefined);
+});
+
+test('prepareApplyBlueprintRequest rejects complete inline chart settings without a block key', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildInlineChartBlueprint({
+      block: {
+        key: '',
+      },
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  const issue = findIssue(result, 'chart-block-inline-config-key-required');
+  assertChartRepairDetails(issue);
+  assert.equal(issue.path, 'tabs[0].blocks[0].key');
+  assert.equal(result.cliBody, undefined);
+});
+
+test('prepareApplyBlueprintRequest does not lift inline chart settings when internal stepParams are present', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildInlineChartBlueprint({
+      block: {
+        stepParams: {
+          chartSettings: {
+            configure: {},
+          },
+        },
+        settings: buildInlineChartSettings({
+          query: {
+            resource: undefined,
+          },
+        }),
+      },
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(findIssue(result, 'chart-block-step-params-unsupported')?.details, undefined);
+  assert.equal(findIssue(result, 'chart-builder-query-resource-missing'), undefined);
+  assert.equal(result.cliBody, undefined);
+});
+
+test('prepareApplyBlueprintRequest validates lifted inline chart assets at generated asset paths', () => {
+  const result = rawPrepareApplyBlueprintRequest(
+    buildInlineChartBlueprint({
+      block: {
+        settings: buildInlineChartSettings({
+          query: {
+            resource: undefined,
+          },
+        }),
+      },
+    }),
+    { collectionMetadata: minimalUserCollectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(findIssue(result, 'chart-builder-query-resource-missing')?.path, 'assets.charts.statusChart.query.resource');
   assert.equal(result.cliBody, undefined);
 });
 

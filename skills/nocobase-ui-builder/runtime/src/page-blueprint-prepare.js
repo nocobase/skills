@@ -272,6 +272,7 @@ const CALENDAR_FIELD_BINDING_KEYS = [
   "endField",
 ];
 const CHART_BLOCK_TYPES = new Set(["chart"]);
+const CHART_INLINE_ASSET_SETTING_KEYS = new Set(["query", "visual", "events"]);
 const CHART_VISUAL_LEGACY_BUILDER_KEYS = new Set([
   "xField",
   "yField",
@@ -9076,6 +9077,14 @@ function validateChartBlockSettings(block, path, state) {
     return;
   }
 
+  const inlineChartSettingKeys = getInlineChartSettingKeys(block);
+  const repairDetails = (overrides = {}) =>
+    buildChartAssetReferenceRepairDetails({
+      blockPath: path,
+      inlineSettingKeys: inlineChartSettingKeys,
+      ...overrides,
+    });
+
   if (hasOwn(block, "stepParams")) {
     pushValidationError(
       state.errors,
@@ -9087,13 +9096,52 @@ function validateChartBlockSettings(block, path, state) {
   }
 
   const chartKey = normalizeText(block.chart);
-  if (!chartKey) {
+  if (chartKey && inlineChartSettingKeys.length) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.settings`,
+      "chart-block-inline-config-conflicts-with-asset-reference",
+      "Whole-page chart blocks must not combine block.chart with inline settings.query, settings.visual, or settings.events.",
+      undefined,
+      repairDetails({
+        chartKey,
+        reason: "mixed-chart-reference-and-inline-config",
+      }),
+    );
+  }
+
+  if (!chartKey && inlineChartSettingKeys.length) {
+    if (!isCompleteInlineChartAssetSettings(block)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.settings`,
+        "chart-block-inline-config-incomplete",
+        "Inline whole-page chart compatibility requires both settings.query and settings.visual.",
+        undefined,
+        repairDetails({ reason: "incomplete-inline-chart-config" }),
+      );
+    } else if (!normalizeText(block.key)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.key`,
+        "chart-block-inline-config-key-required",
+        "Inline whole-page chart compatibility requires a non-empty block.key for the generated chart asset key.",
+        undefined,
+        repairDetails({ reason: "missing-block-key" }),
+      );
+    }
+  } else if (!chartKey) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       `${path}.chart`,
       "chart-block-asset-reference-required",
       "Whole-page chart blocks must reference one chart asset key with block.chart.",
+      undefined,
+      repairDetails({ reason: "missing-chart-reference" }),
     );
   } else if (!hasOwn(state.chartAssets, chartKey)) {
     pushValidationError(
@@ -9102,6 +9150,8 @@ function validateChartBlockSettings(block, path, state) {
       `${path}.chart`,
       "chart-block-asset-reference-missing",
       `Whole-page chart block references chart asset "${chartKey}", but assets.charts.${chartKey} is missing.`,
+      undefined,
+      repairDetails({ chartKey, reason: "missing-chart-asset" }),
     );
   }
 
@@ -9118,6 +9168,322 @@ function validateChartBlockSettings(block, path, state) {
     "chart-display-title-unsupported",
     "Chart block settings do not support displayTitle in the current flowSurfaces runtime; keep settings.title and omit displayTitle.",
   );
+}
+
+function getInlineChartSettingKeys(block) {
+  if (!isPlainObject(block?.settings)) {
+    return [];
+  }
+  return Array.from(CHART_INLINE_ASSET_SETTING_KEYS).filter((key) =>
+    hasOwn(block.settings, key),
+  );
+}
+
+function isCompleteInlineChartAssetSettings(block) {
+  const settings = block?.settings;
+  return (
+    isPlainObject(settings) &&
+    isPlainObject(settings.query) &&
+    isPlainObject(settings.visual)
+  );
+}
+
+function buildChartAssetReferenceRepairDetails(overrides = {}) {
+  return {
+    category: "repairable-shape-error",
+    assetType: "chart",
+    expectedReferenceField: "chart",
+    expectedAssetPath: "assets.charts",
+    repairStrategy: "move-inline-config-to-asset-and-reference",
+    requiredInlineSettings: ["query", "visual"],
+    optionalInlineSettings: ["events"],
+    suggestedFix: [
+      "Move complete chart query/visual config to assets.charts.<key>.",
+      "Set block.chart to the chart asset key.",
+      "Keep display-only settings such as title, height, and heightMode on the block.",
+    ],
+    repairActions: [
+      {
+        type: "move",
+        from: "block.settings.query",
+        to: "assets.charts.<key>.query",
+      },
+      {
+        type: "move",
+        from: "block.settings.visual",
+        to: "assets.charts.<key>.visual",
+      },
+      {
+        type: "moveOptional",
+        from: "block.settings.events",
+        to: "assets.charts.<key>.events",
+      },
+      { type: "set", path: "block.chart", value: "<key>" },
+      { type: "remove", path: "block.settings.query" },
+      { type: "remove", path: "block.settings.visual" },
+      { type: "removeOptional", path: "block.settings.events" },
+    ],
+    example: {
+      assets: {
+        charts: {
+          trendChart: {
+            query: { "...": "..." },
+            visual: { "...": "..." },
+          },
+        },
+      },
+      block: {
+        type: "chart",
+        key: "trendBlock",
+        chart: "trendChart",
+        settings: {
+          title: "Trend",
+          height: 320,
+          heightMode: "specifyValue",
+        },
+      },
+    },
+    docs: "references/blocks/chart.md",
+    ...overrides,
+  };
+}
+
+function isLiftableInlineChartBlock(block) {
+  return (
+    isPlainObject(block) &&
+    CHART_BLOCK_TYPES.has(normalizeText(block.type)) &&
+    !normalizeText(block.chart) &&
+    !hasOwn(block, "stepParams") &&
+    normalizeText(block.key) &&
+    isCompleteInlineChartAssetSettings(block)
+  );
+}
+
+function generateInlineChartAssetKey(blockKey, chartAssets) {
+  const normalizedBlockKey = normalizeText(blockKey);
+  if (!normalizedBlockKey) {
+    return "";
+  }
+  if (!hasOwn(chartAssets, normalizedBlockKey)) {
+    return normalizedBlockKey;
+  }
+  const fallbackKey = `${normalizedBlockKey}Chart`;
+  if (!hasOwn(chartAssets, fallbackKey)) {
+    return fallbackKey;
+  }
+  let index = 2;
+  while (hasOwn(chartAssets, `${fallbackKey}${index}`)) {
+    index += 1;
+  }
+  return `${fallbackKey}${index}`;
+}
+
+function liftInlineChartBlockToAsset(block, chartAssets) {
+  if (!isLiftableInlineChartBlock(block)) {
+    return { changed: false, block };
+  }
+
+  const settings = block.settings;
+  const assetKey = generateInlineChartAssetKey(block.key, chartAssets);
+  if (!assetKey) {
+    return { changed: false, block };
+  }
+
+  const asset = {
+    query: cloneSerializable(settings.query),
+    visual: cloneSerializable(settings.visual),
+    ...(hasOwn(settings, "events")
+      ? { events: cloneSerializable(settings.events) }
+      : {}),
+  };
+  const nextSettings = cloneSerializable(settings);
+  for (const key of CHART_INLINE_ASSET_SETTING_KEYS) {
+    delete nextSettings[key];
+  }
+  const nextBlock = {
+    ...cloneSerializable(block),
+    chart: assetKey,
+  };
+  if (Object.keys(nextSettings).length) {
+    nextBlock.settings = nextSettings;
+  } else {
+    delete nextBlock.settings;
+  }
+  chartAssets[assetKey] = asset;
+  return { changed: true, block: nextBlock, assetKey, asset };
+}
+
+function hasLiftableInlineChartBlocksInPopup(popup) {
+  return (
+    shouldTraversePopupBlocks(popup) &&
+    hasLiftableInlineChartBlocksInBlocks(popup.blocks)
+  );
+}
+
+function hasLiftableInlineChartBlocksInItems(items) {
+  for (const item of ensureArray(items)) {
+    if (!isPlainObject(item)) continue;
+    if (hasLiftableInlineChartBlocksInPopup(item.popup)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasLiftableInlineChartBlocksInFieldGroups(fieldGroups) {
+  for (const group of ensureArray(fieldGroups)) {
+    if (!isPlainObject(group)) continue;
+    if (hasLiftableInlineChartBlocksInItems(group.fields)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasLiftableInlineChartBlocksInBlock(block) {
+  if (!isPlainObject(block)) {
+    return false;
+  }
+  if (isLiftableInlineChartBlock(block)) {
+    return true;
+  }
+  if (hasLiftableInlineChartBlocksInItems(block.fields)) {
+    return true;
+  }
+  if (hasLiftableInlineChartBlocksInFieldGroups(block.fieldGroups)) {
+    return true;
+  }
+  if (hasLiftableInlineChartBlocksInItems(block.actions)) {
+    return true;
+  }
+  if (hasLiftableInlineChartBlocksInItems(block.recordActions)) {
+    return true;
+  }
+  if (hasLiftableInlineChartBlocksInPopup(block.popup)) {
+    return true;
+  }
+  let found = false;
+  forEachBlockHiddenPopup(block.settings, block, (popup) => {
+    if (found) return;
+    found = hasLiftableInlineChartBlocksInPopup(popup);
+  });
+  return found;
+}
+
+function hasLiftableInlineChartBlocksInBlocks(blocks) {
+  for (const block of ensureArray(blocks)) {
+    if (hasLiftableInlineChartBlocksInBlock(block)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasLiftableInlineChartBlocksInBlueprint(blueprint) {
+  for (const tab of ensureArray(blueprint?.tabs)) {
+    if (!isPlainObject(tab)) continue;
+    if (hasLiftableInlineChartBlocksInBlocks(tab.blocks)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function liftInlineChartBlocksInPopup(popup, chartAssets) {
+  if (!shouldTraversePopupBlocks(popup)) {
+    return false;
+  }
+  return liftInlineChartBlocksInBlocks(popup.blocks, chartAssets);
+}
+
+function liftInlineChartBlocksInItems(items, chartAssets) {
+  let changed = false;
+  for (const item of ensureArray(items)) {
+    if (!isPlainObject(item)) continue;
+    changed = liftInlineChartBlocksInPopup(item.popup, chartAssets) || changed;
+  }
+  return changed;
+}
+
+function liftInlineChartBlocksInFieldGroups(fieldGroups, chartAssets) {
+  let changed = false;
+  for (const group of ensureArray(fieldGroups)) {
+    if (!isPlainObject(group)) continue;
+    changed =
+      liftInlineChartBlocksInItems(group.fields, chartAssets) || changed;
+  }
+  return changed;
+}
+
+function liftInlineChartBlocksInBlock(block, chartAssets) {
+  if (!isPlainObject(block)) {
+    return { changed: false, block };
+  }
+
+  const lifted = liftInlineChartBlockToAsset(block, chartAssets);
+  const nextBlock = lifted.block;
+  let changed = lifted.changed;
+  changed = liftInlineChartBlocksInItems(nextBlock.fields, chartAssets) || changed;
+  changed =
+    liftInlineChartBlocksInFieldGroups(nextBlock.fieldGroups, chartAssets) ||
+    changed;
+  changed =
+    liftInlineChartBlocksInItems(nextBlock.actions, chartAssets) || changed;
+  changed =
+    liftInlineChartBlocksInItems(nextBlock.recordActions, chartAssets) ||
+    changed;
+  changed = liftInlineChartBlocksInPopup(nextBlock.popup, chartAssets) || changed;
+  forEachBlockHiddenPopup(nextBlock.settings, nextBlock, (popup) => {
+    changed = liftInlineChartBlocksInPopup(popup, chartAssets) || changed;
+  });
+  return { changed, block: nextBlock };
+}
+
+function liftInlineChartBlocksInBlocks(blocks, chartAssets) {
+  if (!Array.isArray(blocks)) {
+    return false;
+  }
+  let changed = false;
+  for (let index = 0; index < blocks.length; index += 1) {
+    const result = liftInlineChartBlocksInBlock(blocks[index], chartAssets);
+    if (!result.changed) continue;
+    blocks[index] = result.block;
+    changed = true;
+  }
+  return changed;
+}
+
+function liftInlineChartBlocksToAssetsForWrite(blueprint) {
+  if (
+    !isPlainObject(blueprint) ||
+    !hasLiftableInlineChartBlocksInBlueprint(blueprint)
+  ) {
+    return blueprint;
+  }
+
+  const nextBlueprint = cloneSerializable(blueprint);
+  if (hasOwn(nextBlueprint, "assets") && !isPlainObject(nextBlueprint.assets)) {
+    return blueprint;
+  }
+  if (
+    isPlainObject(nextBlueprint.assets) &&
+    hasOwn(nextBlueprint.assets, "charts") &&
+    !isPlainObject(nextBlueprint.assets.charts)
+  ) {
+    return blueprint;
+  }
+  if (!isPlainObject(nextBlueprint.assets)) {
+    nextBlueprint.assets = {};
+  }
+  if (!isPlainObject(nextBlueprint.assets.charts)) {
+    nextBlueprint.assets.charts = {};
+  }
+  const chartAssets = nextBlueprint.assets.charts;
+  for (const tab of ensureArray(nextBlueprint.tabs)) {
+    if (!isPlainObject(tab)) continue;
+    liftInlineChartBlocksInBlocks(tab.blocks, chartAssets);
+  }
+  return nextBlueprint;
 }
 
 function validateChartAssetVisual(asset, path, state) {
@@ -9322,6 +9688,32 @@ function validateChartAssetQuery(asset, path, state) {
 }
 
 function validateChartAssets(blueprint, state) {
+  if (hasOwn(blueprint, "assets") && !isPlainObject(blueprint.assets)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      "assets",
+      "chart-assets-container-invalid",
+      "Blueprint assets must be one object when chart assets or inline chart compatibility are used.",
+    );
+    return;
+  }
+
+  if (
+    isPlainObject(blueprint?.assets) &&
+    hasOwn(blueprint.assets, "charts") &&
+    !isPlainObject(blueprint.assets.charts)
+  ) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      "assets.charts",
+      "chart-assets-map-invalid",
+      "Blueprint assets.charts must be one object map of chart assets.",
+    );
+    return;
+  }
+
   const charts = blueprint?.assets?.charts;
   if (!isPlainObject(charts)) return;
   Object.entries(charts).forEach(([key, asset]) => {
@@ -10608,6 +11000,9 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     );
   }
   const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
+  const effectiveBlueprint = recognizableBlueprint
+    ? liftInlineChartBlocksToAssetsForWrite(blueprint)
+    : blueprint;
   const { errors: templateDecisionErrors, summary: templateDecision } =
     validateTemplateDecision(templateDecisionInput);
   const {
@@ -10618,17 +11013,16 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const hasUsableCollectionMetadata =
     hasCollectionMetadata && Object.keys(collectionMetadata).length > 0;
   const dataBoundBlockPaths = recognizableBlueprint
-    ? collectBlueprintDataBoundBlockPaths(blueprint)
+    ? collectBlueprintDataBoundBlockPaths(effectiveBlueprint)
     : [];
   const initialDefaultsCompleteness =
     recognizableBlueprint &&
     hasUsableCollectionMetadata &&
     collectionMetadataErrors.length === 0
-      ? validateDefaultsCompleteness(blueprint, {
+      ? validateDefaultsCompleteness(effectiveBlueprint, {
           collections: collectionMetadata,
         })
       : null;
-  const effectiveBlueprint = blueprint;
   const materializeOptions =
     hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
       ? { collectionMetadata: { collections: collectionMetadata }, warnings }

@@ -23,7 +23,7 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
 
 ## Whole-page public blueprint 写法
 
-在 `applyBlueprint` 里，chart block 不接受 `stepParams`。必须把图表配置放进 `assets.charts`，然后在 block 上用 `chart` 引用资产 key：
+在 `applyBlueprint` 里，chart block 不接受 `stepParams`。首选和 canonical 写法是把图表配置放进 `assets.charts`，然后在 block 上用 `chart` 引用资产 key：
 
 ```json
 {
@@ -65,6 +65,22 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
   ]
 }
 ```
+
+Whole-page `applyBlueprint` 有一个兼容安全网：如果一个 chart block 没有 `chart` 引用，但带有完整 inline `settings.query` + `settings.visual`，prepare-write 会把这两个配置（以及可选 `settings.events`）提升到 `assets.charts.<block.key>`，并把 block 改写为 `chart: "<assetKey>"`。这只是兼容旧草稿/模型输出，不是默认推荐写法；新草稿仍应直接写 canonical `assets.charts + block.chart`。
+
+兼容提升要求：
+
+- block 必须有非空 `key`，用于生成 chart asset key。
+- inline 配置必须同时包含 `settings.query` 和 `settings.visual`；只有其中一个，或只有 `settings.events`，会被拒绝。
+- 不能同时写 `block.chart` 和 `settings.query` / `settings.visual` / `settings.events`；混合 asset reference 与 inline chart config 会被拒绝。
+- 提升后，`settings.query` / `settings.visual` / `settings.events` 会从 block settings 移走；`settings.title`、`settings.height`、`settings.heightMode` 等 display-only 设置继续留在 block 上。
+
+当形状错误可以自动修复时，本地 prepare 结果会带 repair details，典型字段包括：
+
+- `details.category = "repairable-shape-error"`
+- `details.expectedAssetPath = "assets.charts"`
+- `details.requiredInlineSettings = ["query", "visual"]`
+- `details.optionalInlineSettings = ["events"]`
 
 For localized `compose` / `add-block` / `configure`, put the same public groups under `settings` or `changes`:
 

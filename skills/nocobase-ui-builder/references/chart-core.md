@@ -43,7 +43,9 @@ The priority is to stabilize both "card displays" and "chart renders". Do not ex
 
 Chart is also an example of the general public-settings pattern: when creating or reconfiguring, prefer public semantics such as `query / visual / events / title / height / heightMode`. Do not reverse internal `props / decoratorProps / stepParams` from readback into the next input template.
 
-For whole-page `applyBlueprint`, put chart configs under `assets.charts` and reference them from block `chart`. Do not put `stepParams` on the block. Public `visual` uses `mode / type / mappings`; do not write internal option-builder keys such as `xField`, `yField`, `pieCategory`, or `pieValue` as public input.
+For whole-page `applyBlueprint`, the canonical shape is `assets.charts + block.chart`: put chart configs under `assets.charts` and reference them from block `chart`. Do not put `stepParams` on the block. Public `visual` uses `mode / type / mappings`; do not write internal option-builder keys such as `xField`, `yField`, `pieCategory`, or `pieValue` as public input.
+
+Whole-page `applyBlueprint` also accepts complete inline chart compatibility input as a safety net: a chart block with no `block.chart` but with both `settings.query` and `settings.visual` can be rewritten during prepare-write into `assets.charts.<block.key>` plus `block.chart`. Optional `settings.events` is lifted with the asset. This compatibility path is not the default authoring style. Incomplete inline config is rejected, and mixed `block.chart + settings.query/visual/events` is rejected with repair details such as `repairable-shape-error`, `details.expectedAssetPath = "assets.charts"`, and required `settings.query` plus `settings.visual`.
 
 Use canonical `query.resource.collectionName` in public chart input; do not use the deprecated alias `query.resource.collection`.
 
