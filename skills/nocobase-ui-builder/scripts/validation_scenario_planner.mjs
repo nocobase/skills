@@ -308,7 +308,8 @@ function buildVisualizationBlock({
   operationIntent,
 }) {
   const collectionName = collectionMeta?.name || '';
-  if (shouldPreferJsBlockForAggregation({
+  const allowsJsAggregationFallback = ['ChartBlockModel', 'GridCardBlockModel', 'JSBlockModel'].includes(use);
+  if (allowsJsAggregationFallback && !(use === 'GridCardBlockModel' && hasRecordCardIntent(requestText)) && shouldPreferJsBlockForAggregation({
     requestText,
     collectionMeta,
     requestedFields: fields,
@@ -440,6 +441,9 @@ function resolveSectionRoleForBlock(block, options = {}) {
   if (options.preferPrimary === true) {
     return 'primary';
   }
+  if (use === 'JSBlockModel' && isDashboardMetricRequest(options.requestText, block)) {
+    return 'insight';
+  }
   if (INSIGHT_SECTION_BLOCK_USES.has(use)) {
     return 'insight';
   }
@@ -447,6 +451,37 @@ function resolveSectionRoleForBlock(block, options = {}) {
     return 'extension';
   }
   return 'secondary';
+}
+
+function isDashboardMetricRequest(requestText = '', block = null) {
+  const text = normalizeText([
+    requestText,
+    block?.title,
+    ...(Array.isArray(block?.fields) ? block.fields : []),
+  ].join(' '));
+  return hasAnyKeyword(text, [
+    'KPI',
+    'kpi',
+    '指标卡',
+    '数字统计',
+    '统计卡',
+    '追踪产品数',
+    '待阅数',
+    '本周新增',
+    'summary numbers',
+    '汇总',
+    '总数',
+    '总额',
+    '平均',
+    '金额',
+    '聚合',
+    'summary',
+    'aggregate',
+    'aggregation',
+    'count',
+    'sum',
+    'avg',
+  ]);
 }
 
 function resolveSectionIntent(role) {
@@ -678,6 +713,7 @@ const BASE_AVAILABLE_USES = [
   'BlockGridModel',
   'ActionModel',
   'JSBlockModel',
+  'ActionPanelBlockModel',
 ];
 
 const DEFAULT_PLANNING_MODE = 'creative-first';
@@ -928,6 +964,55 @@ function hasKanbanIntent(requestText = '') {
     || KANBAN_INTENT_PATTERNS.some((pattern) => pattern.test(normalizeText(requestText)));
 }
 
+function hasActionEntryIntent(requestText = '') {
+  return hasAnyKeyword(requestText, [
+    '快捷操作',
+    '操作入口',
+    '操作区',
+    'shortcuts',
+    'shortcut',
+    'action entry',
+    'action panel',
+    'operations',
+  ]);
+}
+
+function hasChartSpecificIntent(requestText = '') {
+  return hasAnyKeyword(requestText, [
+    '趋势',
+    '分布',
+    '排行',
+    '排名',
+    '占比',
+    '图表',
+    '报表',
+    'chart',
+    'trend',
+    'distribution',
+    'ranking',
+    'rank',
+    'ratio',
+    'analytics',
+    'visualization',
+  ]);
+}
+
+function hasRecordCardIntent(requestText = '') {
+  return hasAnyKeyword(requestText, [
+    'grid card',
+    'gridcard',
+    '卡片墙',
+    '卡片页',
+    '卡片视图',
+    '产品卡片',
+    '客户卡片',
+    '任务卡片',
+    '记录卡片',
+    '卡片列表',
+    'record cards',
+  ]);
+}
+
 function getCreativePriorityUses(requestText = '') {
   if (hasKanbanIntent(requestText)) {
     return [
@@ -959,6 +1044,21 @@ function getCreativePriorityUses(requestText = '') {
       'TableBlockModel',
     ];
   }
+  if (hasActionEntryIntent(requestText)) {
+    return [
+      'ActionPanelBlockModel',
+      'JSBlockModel',
+      'ChartBlockModel',
+      'GridCardBlockModel',
+      'ListBlockModel',
+      'MapBlockModel',
+      'MarkdownBlockModel',
+      'DetailsBlockModel',
+      'CreateFormModel',
+      'EditFormModel',
+      'TableBlockModel',
+    ];
+  }
   if (hasAnyKeyword(requestText, JS_INSIGHT_KEYWORDS)) {
     return [
       'JSBlockModel',
@@ -973,11 +1073,11 @@ function getCreativePriorityUses(requestText = '') {
       'TableBlockModel',
     ];
   }
-  if (hasAnyKeyword(requestText, ['指标卡', 'kpi', '指标', 'summary'])) {
+  if (isDashboardMetricRequest(requestText)) {
     return [
-      'GridCardBlockModel',
-      'ChartBlockModel',
       'JSBlockModel',
+      'ChartBlockModel',
+      'GridCardBlockModel',
       'ListBlockModel',
       'MapBlockModel',
       'MarkdownBlockModel',
@@ -995,7 +1095,7 @@ const PRIMARY_BLOCK_DEFINITIONS = [
     use: 'JSBlockModel',
     archetypeId: 'js-main',
     archetypeLabel: 'JS 主块页',
-    keywords: ['jsblock', 'js block', 'custom js', '自定义 js', '脚本区块', 'js 区块'],
+    keywords: ['jsblock', 'js block', 'custom js', '自定义 js', '脚本区块', 'js 区块', '指标卡', 'kpi', '数字统计', '统计卡', 'summary numbers', '追踪产品数', '待阅数', '本周新增', '总数', '平均', '汇总', '聚合', 'count', 'sum', 'avg', 'aggregate'],
     collectionRequired: false,
     titleSuffix: '自定义面板',
     kind: 'public-use',
@@ -1031,9 +1131,18 @@ const PRIMARY_BLOCK_DEFINITIONS = [
     use: 'GridCardBlockModel',
     archetypeId: 'gridcard-main',
     archetypeLabel: '卡片主块页',
-    keywords: ['指标卡', 'grid card', '卡片', 'kpi', '指标', '总览', '概览', 'summary', 'overview'],
+    keywords: ['grid card', 'gridcard', '卡片墙', '卡片页', '卡片视图', '产品卡片', '客户卡片', '任务卡片', '记录卡片', '卡片列表', 'record cards'],
     collectionRequired: true,
-    titleSuffix: '指标概览',
+    titleSuffix: '卡片墙',
+    kind: 'public-use',
+  },
+  {
+    use: 'ActionPanelBlockModel',
+    archetypeId: 'action-panel-main',
+    archetypeLabel: '操作入口区',
+    keywords: ['快捷操作', '操作入口', '操作区', 'shortcuts', 'shortcut', 'action entry', 'action panel', 'operations'],
+    collectionRequired: false,
+    titleSuffix: '操作入口',
     kind: 'public-use',
   },
   {
@@ -1566,6 +1675,26 @@ export function splitValidationRequestIntoPageSpecs({ caseRequest, collectionsIn
 
 function pickPrimaryBlockDefinition(requestText, availableUses) {
   const normalizedAvailable = new Set(uniqueStrings(availableUses));
+  const chartDefinition = PRIMARY_BLOCK_DEFINITIONS.find((entry) => entry.use === 'ChartBlockModel');
+  if (
+    chartDefinition
+    && hasChartSpecificIntent(requestText)
+    && !hasKanbanIntent(requestText)
+    && !requestAvoidsCharts(requestText)
+    && normalizedAvailable.has(chartDefinition.use)
+  ) {
+    return chartDefinition;
+  }
+  const actionEntryDefinition = PRIMARY_BLOCK_DEFINITIONS.find((entry) => entry.use === 'ActionPanelBlockModel');
+  if (
+    actionEntryDefinition
+    && hasActionEntryIntent(requestText)
+    && !isDashboardMetricRequest(requestText)
+    && !hasChartSpecificIntent(requestText)
+    && normalizedAvailable.has(actionEntryDefinition.use)
+  ) {
+    return actionEntryDefinition;
+  }
   const matched = PRIMARY_BLOCK_DEFINITIONS.find((entry) => {
     if (!hasAnyKeyword(requestText, entry.keywords)) {
       return false;
@@ -2024,6 +2153,8 @@ function collectUseFamilies(use, catalogEntry = null) {
     base.push('collection', 'filter');
   } else if (normalizedUse === 'GridCardBlockModel') {
     base.push('collection', 'metrics');
+  } else if (normalizedUse === 'ActionPanelBlockModel') {
+    base.push('actions', 'operations');
   } else if (normalizedUse === 'ListBlockModel') {
     base.push('collection', 'feed');
   } else if (normalizedUse === 'MapBlockModel') {
@@ -2499,6 +2630,7 @@ function findExplicitPublicUses(requestText, availableUses, primaryBlockUse) {
     .filter((entry) => entry.kind === 'public-use' && entry.use !== primaryBlockUse)
     .filter((entry) => hasAnyKeyword(requestText, entry.keywords))
     .filter((entry) => entry.use !== 'ChartBlockModel' || !requestAvoidsCharts(requestText))
+    .filter((entry) => entry.use !== 'ChartBlockModel' || hasChartSpecificIntent(requestText))
     .filter((entry) => availableSet.has(entry.use))
     .map((entry) => entry.use);
 }
@@ -3223,6 +3355,9 @@ function createCreativeRootLayout({
 }
 
 function deriveCreativeIntent(requestText = '', anchorUse = '') {
+  if (normalizeText(anchorUse) === 'ActionPanelBlockModel' || hasActionEntryIntent(requestText)) {
+    return 'action-first';
+  }
   if (
     (INSIGHT_PRIORITY_USES.has(normalizeText(anchorUse)) && !hasKanbanIntent(requestText))
     || (!hasKanbanIntent(requestText) && hasAnyKeyword(requestText, TREND_OR_DASHBOARD_KEYWORDS))
@@ -4060,6 +4195,7 @@ function buildCreativeRecipeCandidates({
   eligibleDescriptors,
   anchorDescriptor,
   explicitAnchorUse,
+  explicitPublicUses = [],
 }) {
   const publicUseCatalog = inventoryMerge.publicUseCatalog;
   const availableUses = inventoryMerge.availableUses;
@@ -4112,7 +4248,17 @@ function buildCreativeRecipeCandidates({
     });
   };
 
-  const jsPeerBlock = buildBlock(jsPeerDefinition, resolvedFields);
+  const jsPeerBlock = anchorDescriptor?.use === 'JSBlockModel'
+    ? null
+    : buildBlock(jsPeerDefinition, resolvedFields);
+  const explicitSupportBlocks = buildExplicitPublicUseBlocks({
+    explicitPublicUses,
+    collectionMeta,
+    availableUses,
+    requestText,
+    fields: resolvedFields,
+    operationIntent,
+  });
   const collectionFallbackBlock = buildBlock(collectionDefinition, resolvedFields);
   const anchorBlock = buildBlock(anchorDescriptor, resolvedFields);
   const contentBlock = buildBlock(contentDefinition, resolvedFields);
@@ -4148,6 +4294,7 @@ function buildCreativeRecipeCandidates({
         blocks: [
           anchorBlock,
           INSIGHT_PRIORITY_USES.has(anchorDescriptor?.use || '') ? jsPeerBlock : null,
+          ...explicitSupportBlocks.map((block) => cloneJson(block)),
         ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
@@ -4173,6 +4320,7 @@ function buildCreativeRecipeCandidates({
           contentBlock,
           INSIGHT_PRIORITY_USES.has(contentDefinition?.use || '') ? visualBlock : null,
           contentDefinition?.use === 'JSBlockModel' ? anchorBlock : null,
+          ...explicitSupportBlocks.map((block) => cloneJson(block)),
         ],
         collectionMeta,
         collectionFallbackBlock: detailsBlock || supportTableBlock || collectionFallbackBlock,
@@ -4195,6 +4343,7 @@ function buildCreativeRecipeCandidates({
           collectionFallbackBlock,
           detailsBlock || formBlock,
           jsPeerBlock || supportPublicBlock,
+          ...explicitSupportBlocks.map((block) => cloneJson(block)),
         ],
         collectionMeta,
         collectionFallbackBlock,
@@ -4216,6 +4365,7 @@ function buildCreativeRecipeCandidates({
         blocks: [
           visualBlock || anchorBlock,
           jsPeerBlock || supportPublicBlock,
+          ...explicitSupportBlocks.map((block) => cloneJson(block)),
           supportTableBlock || collectionFallbackBlock,
         ],
         collectionMeta,
@@ -4247,7 +4397,10 @@ function buildCreativeRecipeCandidates({
           },
           {
             title: '洞察扩展',
-            blocks: [jsPeerBlock || contentBlock || supportPublicBlock || detailsBlock || formBlock].filter(Boolean).map((block) => cloneJson(block)),
+            blocks: [
+              jsPeerBlock || contentBlock || supportPublicBlock || detailsBlock || formBlock,
+              ...explicitSupportBlocks,
+            ].filter(Boolean).map((block) => cloneJson(block)),
           },
         ],
         collectionMeta,
@@ -4324,6 +4477,11 @@ function buildCreativeFirstValidationScenario({
   const anchorDescriptor = anchorResolution.descriptor;
   const explicitAnchorUse = anchorResolution.explicit ? anchorDescriptor?.use || '' : '';
   const creativeIntent = deriveCreativeIntent(requestText, anchorDescriptor?.use || '');
+  const explicitPublicUses = findExplicitPublicUses(
+    requestText,
+    inventoryMerge.availableUses,
+    anchorDescriptor?.use || '',
+  );
   const planningBlockers = [];
 
   if (!anchorDescriptor) {
@@ -4379,14 +4537,44 @@ function buildCreativeFirstValidationScenario({
       eligibleDescriptors,
       anchorDescriptor,
       explicitAnchorUse,
+      explicitPublicUses,
     }).slice(0, 5)
     : [];
 
-  const selectedCandidatePool = explicitAnchorUse
-    ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).includes(explicitAnchorUse))
-    : (creativeIntent === 'insight-first'
-      ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).some((use) => INSIGHT_PRIORITY_USES.has(use)))
-      : layoutCandidates);
+  const selectedCandidatePool = (
+    explicitAnchorUse === 'JSBlockModel'
+    && isDashboardMetricRequest(requestText)
+    && hasActionEntryIntent(requestText)
+    && !hasChartSpecificIntent(requestText)
+  )
+    ? layoutCandidates.filter((candidate) => {
+      const uses = collectLayoutUses(candidate.layout);
+      return normalizeText(candidate.primaryBlockType) === 'JSBlockModel'
+        && uses.includes('ActionPanelBlockModel')
+        && uses.every((use) => use === 'JSBlockModel' || use === 'ActionPanelBlockModel');
+    })
+    : (
+    explicitAnchorUse === 'JSBlockModel'
+    && isDashboardMetricRequest(requestText)
+    && !hasActionEntryIntent(requestText)
+  )
+    ? layoutCandidates.filter((candidate) => (
+      normalizeText(candidate.primaryBlockType) === 'JSBlockModel'
+      && collectLayoutUses(candidate.layout).every((use) => use === 'JSBlockModel')
+    ))
+    : (((
+      creativeIntent === 'action-first'
+      && anchorDescriptor?.use === 'ActionPanelBlockModel'
+    )
+      ? layoutCandidates.filter((candidate) => (
+        normalizeText(candidate.primaryBlockType) === 'ActionPanelBlockModel'
+        && !collectLayoutUses(candidate.layout).includes('JSBlockModel')
+      ))
+      : (explicitAnchorUse
+        ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).includes(explicitAnchorUse))
+        : (creativeIntent === 'insight-first'
+          ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).some((use) => INSIGHT_PRIORITY_USES.has(use)))
+          : layoutCandidates))));
   const explicitPrimarySelectedCandidatePool = explicitAnchorUse
     ? selectedCandidatePool.filter((candidate) => normalizeText(candidate.primaryBlockType) === explicitAnchorUse)
     : [];

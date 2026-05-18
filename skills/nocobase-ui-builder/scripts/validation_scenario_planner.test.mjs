@@ -53,6 +53,7 @@ function makeInstanceInventory() {
         'KanbanBlockModel',
         'ChartBlockModel',
         'JSBlockModel',
+        'ActionPanelBlockModel',
         'MarkdownBlockModel',
         'CommentsBlockModel',
       ],
@@ -100,6 +101,13 @@ function makeInstanceInventory() {
           unresolvedReasons: [],
         },
         {
+          use: 'ActionPanelBlockModel',
+          title: 'Action panel',
+          semanticTags: ['actions', 'operations', 'shortcuts'],
+          contextRequirements: [],
+          unresolvedReasons: [],
+        },
+        {
           use: 'MarkdownBlockModel',
           title: 'Markdown',
           semanticTags: ['docs'],
@@ -112,14 +120,22 @@ function makeInstanceInventory() {
     },
     collections: {
       detected: true,
-      names: ['approvals'],
+      names: ['approvals', 'ai_products'],
       byName: {
+        ai_products: {
+          name: 'ai_products',
+          title: 'AI 产品',
+          titleField: 'name',
+          fieldNames: ['name', 'vendor', 'category', 'is_tracking', 'createdAt'],
+          scalarFieldNames: ['name', 'vendor', 'category', 'is_tracking', 'createdAt'],
+          relationFields: [],
+        },
         approvals: {
           name: 'approvals',
           title: '审批单',
           titleField: 'title',
-          fieldNames: ['title', 'status', 'applicant', 'createdAt'],
-          scalarFieldNames: ['title', 'status', 'applicant', 'createdAt'],
+          fieldNames: ['title', 'status', 'applicant', 'value', 'createdAt'],
+          scalarFieldNames: ['title', 'status', 'applicant', 'value', 'createdAt'],
           relationFields: [],
         },
       },
@@ -510,6 +526,30 @@ test('dynamic scenario planner emits visualizationSpec for selected chart layout
   assert.equal(selectedCandidate.plannedCoverage.patterns.includes('chart-builder'), true);
 });
 
+test('dynamic scenario planner keeps chart-specific aggregation requests on ChartBlockModel', () => {
+  for (const [index, caseRequest] of [
+    '做一个趋势图，展示按 status 的 count',
+    '基于 approvals 做一个图表分析页，展示 status count trend',
+    'build an approvals dashboard with summary chart of count by status',
+  ].entries()) {
+    const result = buildDynamicValidationScenario({
+      caseRequest,
+      sessionId: `sess-chart-aggregation-${index}`,
+      baseSlug: `approvals-chart-aggregation-${index}`,
+      candidatePageUrl: `http://localhost:23000/admin/approvals-chart-aggregation-${index}`,
+      instanceInventory: makeInstanceInventory(),
+    });
+
+    const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+    const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+    assert.ok(selectedCandidate, caseRequest);
+    assert.equal(result.scenario.primaryBlockType, 'ChartBlockModel', caseRequest);
+    assert.equal(selectedCandidate.primaryBlockType, 'ChartBlockModel', caseRequest);
+    assert.equal(selectedUses.includes('ChartBlockModel'), true, caseRequest);
+  }
+});
+
 test('dynamic scenario planner keeps insight-first selection without forcing table or details and promotes JS as an insight peer', () => {
   const result = buildDynamicValidationScenario({
     caseRequest: '基于 approvals 做一个交互式总览页面，需要图表、指标卡和自定义说明层，并带筛选',
@@ -552,6 +592,187 @@ test('dynamic scenario planner uses JS blocks for numeric aggregation dashboards
   assert.ok(selectedCandidate);
   assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
   assert.equal(selectedUses.includes('JSBlockModel'), true);
+  assert.equal(selectedUses.includes('ChartBlockModel'), false);
+});
+
+test('dynamic scenario planner does not treat value fields as dashboard metrics for explicit list pages', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个列表页，展示 title value',
+    sessionId: 'sess-list-value-field',
+    baseSlug: 'approvals-list-value-field',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-list-value-field',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'ListBlockModel');
+  assert.equal(selectedCandidate.layout.blocks[0].use, 'ListBlockModel');
+});
+
+test('dynamic scenario planner routes pure dashboard KPI metrics to JSBlock only', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '做一个总览页，包含追踪产品数、本周新增情报数、高重要度情报数、待阅情报数',
+    sessionId: 'sess-dashboard-kpi-jsblock',
+    baseSlug: 'dashboard-kpi-jsblock',
+    candidatePageUrl: 'http://localhost:23000/admin/dashboard-kpi-jsblock',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
+  assert.equal(selectedUses.includes('JSBlockModel'), true);
+  assert.equal(selectedUses.includes('GridCardBlockModel'), false);
+  assert.equal(selectedUses.includes('ActionPanelBlockModel'), false);
+  assert.deepEqual(selectedUses, ['JSBlockModel']);
+});
+
+test('dynamic scenario planner routes generic summary numbers to JSBlock only', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个 dashboard，展示总数和平均处理时长',
+    sessionId: 'sess-dashboard-summary-numbers',
+    baseSlug: 'dashboard-summary-numbers',
+    candidatePageUrl: 'http://localhost:23000/admin/dashboard-summary-numbers',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
+  assert.deepEqual(selectedUses, ['JSBlockModel']);
+});
+
+test('dynamic scenario planner separates KPI metrics from shortcut actions', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '做一个 dashboard，顶部 4 个指标卡，右上角 3 个快捷操作按钮',
+    sessionId: 'sess-dashboard-kpi-shortcuts',
+    baseSlug: 'dashboard-kpi-shortcuts',
+    candidatePageUrl: 'http://localhost:23000/admin/dashboard-kpi-shortcuts',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(selectedUses.includes('JSBlockModel'), true);
+  assert.equal(selectedUses.includes('ActionPanelBlockModel'), true);
+  assert.equal(selectedUses.includes('GridCardBlockModel'), false);
+  assert.deepEqual(selectedUses, ['JSBlockModel', 'ActionPanelBlockModel']);
+});
+
+test('dynamic scenario planner separates generic summary numbers from shortcut actions', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '做一个 dashboard，展示总数和平均处理时长，右上角 3 个快捷操作按钮',
+    sessionId: 'sess-dashboard-summary-shortcuts',
+    baseSlug: 'dashboard-summary-shortcuts',
+    candidatePageUrl: 'http://localhost:23000/admin/dashboard-summary-shortcuts',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
+  assert.deepEqual(selectedUses, ['JSBlockModel', 'ActionPanelBlockModel']);
+});
+
+test('dynamic scenario planner keeps collection-bound KPI shortcuts from pulling generic charts', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 ai_products 做一个 dashboard，顶部 4 个指标卡，右上角 3 个快捷操作按钮',
+    sessionId: 'sess-dashboard-kpi-shortcuts-collection',
+    baseSlug: 'dashboard-kpi-shortcuts-collection',
+    candidatePageUrl: 'http://localhost:23000/admin/dashboard-kpi-shortcuts-collection',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
+  assert.equal(selectedUses.includes('JSBlockModel'), true);
+  assert.equal(selectedUses.includes('ActionPanelBlockModel'), true);
+  assert.equal(selectedUses.includes('ChartBlockModel'), false);
+  assert.equal(selectedUses.includes('GridCardBlockModel'), false);
+  assert.deepEqual(selectedUses, ['JSBlockModel', 'ActionPanelBlockModel']);
+});
+
+test('dynamic scenario planner keeps record card wall on GridCardBlockModel', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '做一个 AI 产品卡片墙',
+    sessionId: 'sess-product-card-wall',
+    baseSlug: 'product-card-wall',
+    candidatePageUrl: 'http://localhost:23000/admin/product-card-wall',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'GridCardBlockModel');
+  assert.equal(selectedUses.includes('GridCardBlockModel'), true);
+});
+
+test('dynamic scenario planner keeps record card wall overview on GridCardBlockModel', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '做一个 AI 产品卡片墙总览',
+    sessionId: 'sess-product-card-wall-overview',
+    baseSlug: 'product-card-wall-overview',
+    candidatePageUrl: 'http://localhost:23000/admin/product-card-wall-overview',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'GridCardBlockModel');
+  assert.equal(selectedUses.includes('GridCardBlockModel'), true);
+});
+
+test('dynamic scenario planner routes pure operation entry areas to ActionPanelBlockModel', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '做一个操作入口区，包含新增、导入、同步、导出',
+    sessionId: 'sess-action-entry-panel',
+    baseSlug: 'action-entry-panel',
+    candidatePageUrl: 'http://localhost:23000/admin/action-entry-panel',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'ActionPanelBlockModel');
+  assert.equal(selectedUses.includes('ActionPanelBlockModel'), true);
+  assert.equal(selectedUses.includes('JSBlockModel'), false);
+});
+
+test('dynamic scenario planner keeps collection-bound dashboard operation entry on ActionPanelBlockModel', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 ai_products 做一个 dashboard 操作入口区，包含新增、导入、同步、导出',
+    sessionId: 'sess-dashboard-action-entry-panel',
+    baseSlug: 'dashboard-action-entry-panel',
+    candidatePageUrl: 'http://localhost:23000/admin/dashboard-action-entry-panel',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'ActionPanelBlockModel');
+  assert.equal(selectedUses.includes('ActionPanelBlockModel'), true);
+  assert.equal(selectedUses.includes('JSBlockModel'), false);
   assert.equal(selectedUses.includes('ChartBlockModel'), false);
 });
 

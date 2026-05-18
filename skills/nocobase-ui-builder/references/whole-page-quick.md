@@ -17,6 +17,17 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
    - analytics dashboard / 分析看板 -> summary, charts, light actions
    - kanban / pipeline / 状态列 / 拖拽 / 泳道 / backlog -> kanban
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
+
+Dashboard self-check before first write:
+
+- numeric metrics / KPI cards -> `jsBlock`
+- trends / distributions / rankings -> `chart`
+- latest records / top-N records -> `table` or `list`
+- `actionPanel` only when the user asked for operations or shortcuts
+- if a KPI area is implemented with `actionPanel`, regenerate before `applyBlueprint`
+
+Do not treat "can render something" as sufficient for dashboard metric sections. Block choice must match the section semantics.
+
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
   - You do not need to hand-build a helper envelope; backend authoring validation uses live metadata and returns aggregate errors for hard failures.

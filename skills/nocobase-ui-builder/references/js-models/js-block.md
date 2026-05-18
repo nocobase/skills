@@ -157,6 +157,12 @@ ctx.render(
 
 当用户要的是 `KPI`、`指标卡`、`数字统计`、`追踪产品数`、`待阅情报数`、`本周新增数` 这类一个或多个数字时，默认生成 JSBlock 统计面板，而不是 GridCard。GridCard 是记录展示块；统计数字需要 JSBlock 主动读取 resource meta count。
 
+Why not `actionPanel`:
+
+- `actionPanel` expresses operations, not passive summary display.
+- Metric cards are insight blocks, not action containers.
+- Dashboard KPI sections should read as one visualization surface, so prefer one `jsBlock` that renders a metric panel.
+
 ```js
 const { Alert, Card, Col, Row, Statistic } = ctx.libs.antd;
 
@@ -177,23 +183,42 @@ async function countRecords(collectionName, filter) {
 }
 
 try {
-  const [trackedProducts, pendingIntel] = await Promise.all([
+  const startOfWeek = new Date();
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7));
+
+  const [
+    trackedProducts,
+    weeklyIntel,
+    highImportanceIntel,
+    pendingIntel,
+  ] = await Promise.all([
     countRecords('ai_products', { is_tracking: { $eq: true } }),
-    countRecords('intelligenceEntries', { status: { $eq: '新收集' } }),
+    countRecords('intelligenceEntries', { createdAt: { $gte: startOfWeek.toISOString() } }),
+    countRecords('intelligenceEntries', { importance: { $in: ['high', '高'] } }),
+    countRecords('intelligenceEntries', { status: { $in: ['pending', '待阅', '新收集'] } }),
   ]);
+
+  const cards = [
+    { title: '追踪产品数', value: trackedProducts, color: '#1677ff' },
+    { title: '本周新增情报', value: weeklyIntel, color: '#52c41a' },
+    { title: '高重要度情报', value: highImportanceIntel, color: '#fa8c16' },
+    { title: '待阅情报', value: pendingIntel, color: '#722ed1' },
+  ];
 
   ctx.render(
     <Row gutter={[12, 12]}>
-      <Col xs={24} sm={12} lg={6}>
-        <Card size="small">
-          <Statistic title={ctx.t('追踪产品数')} value={trackedProducts} />
-        </Card>
-      </Col>
-      <Col xs={24} sm={12} lg={6}>
-        <Card size="small">
-          <Statistic title={ctx.t('待阅情报数')} value={pendingIntel} />
-        </Card>
-      </Col>
+      {cards.map((item) => (
+        <Col key={item.title} xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <Statistic
+              title={ctx.t(item.title)}
+              value={item.value}
+              valueStyle={{ color: item.color }}
+            />
+          </Card>
+        </Col>
+      ))}
     </Row>,
   );
 } catch (error) {

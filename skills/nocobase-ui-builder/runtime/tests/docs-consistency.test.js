@@ -1412,6 +1412,7 @@ test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
   const gridCard = read('references/blocks/grid-card.md');
   const chart = read('references/blocks/chart.md');
   const aliases = read('references/aliases.md');
+  const dashboardRouting = read('references/dashboard-routing.md');
   const blocksIndex = read('references/blocks/index.md');
   const jsBlock = read('references/js-models/js-block.md');
   const skill = read('SKILL.md');
@@ -1424,6 +1425,7 @@ test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
     ['grid-card', gridCard],
     ['chart', chart],
     ['aliases', aliases],
+    ['dashboard-routing', dashboardRouting],
     ['blocks-index', blocksIndex],
     ['js-block', jsBlock],
     ['openai-default-prompt', defaultPrompt],
@@ -1449,6 +1451,21 @@ test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
     skill,
     /KPI[\s\S]{0,80}chart\/grid-card|chart\/grid-card[\s\S]{0,80}KPI/i,
     'top-level SKILL router should not send KPI to chart/grid-card',
+  );
+  assert.match(
+    dashboardRouting,
+    /Do not implement[\s\S]{0,120}actionPanel[\s\S]{0,120}js/i,
+    'dashboard routing should forbid actionPanel + js actions for KPI cards',
+  );
+  assert.match(
+    aliases,
+    /actionPanel[\s\S]{0,120}not a valid fallback|ActionPanelBlockModel[\s\S]{0,120}pure numeric metrics/i,
+    'aliases should reject actionPanel fallback for dashboard summary numbers',
+  );
+  assert.match(
+    skill,
+    /dashboard-routing\.md/i,
+    'SKILL should link dashboard-routing.md so the new reference is discoverable',
   );
   assert.doesNotMatch(
     defaultPrompt,

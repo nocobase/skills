@@ -34,9 +34,12 @@ Use this file when natural-language wording is ambiguous and you still need to n
 | user expression | default narrowing path | when to stop and confirm |
 | --- | --- | --- |
 | 分析看板 / dashboard / trend / 概览 | default to chart / JSBlock insight routing; use chart for trend/distribution/ranking and JSBlock for numeric metrics | when the user also adds explicit kanban cues in the same request |
-| KPI / 指标卡 / 数字统计 / 统计卡 / 追踪产品数 / 待阅数 / 本周新增数 | narrow to `JSBlockModel` metric panel, not `GridCardBlockModel` | when the user explicitly wants record cards instead of numeric metrics |
+| KPI / 指标卡 / 数字统计 / 统计卡 / 追踪产品数 / 待阅数 / 本周新增数 / summary numbers | must narrow to `JSBlockModel` metric panel; do not use `GridCardBlockModel` or `ActionPanelBlockModel` for pure numeric metrics | when the user explicitly wants record cards or clickable action cards instead of passive metrics |
+| 快捷操作 / 操作入口 / shortcuts / action entry / 操作区 | narrow to `ActionPanelBlockModel` | when the same section is actually describing passive KPI metrics |
 | 看板区块 / kanban / pipeline / status columns / 拖拽 / 泳道 / backlog | narrow to `KanbanBlockModel` | when neither a collection-bound kanban block nor an analytics page remains clearly supported |
 | plain `看板` with no kanban cues | keep the analytics/dashboard path by default; do not globally remap it to kanban | when the surrounding sentence gives neither analytics nor kanban cues |
+
+For dashboard summary numbers, `actionPanel` is not a valid fallback. Use `ActionPanelBlockModel` only when the request is for clickable operations rather than passive metric display.
 
 ## 5. Conservative Moves
 
