@@ -7,7 +7,7 @@
       "editorScene": "eventFlow",
       "validationStyle": "action",
       "writePathHints": [
-        "flowRegistry.*.steps.*.params.code"
+        "flowRegistry.*.steps.*.defaultParams.code"
       ],
       "recommendedSnippetIds": [
         "global/message-success",

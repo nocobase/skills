@@ -570,6 +570,7 @@ test('JSItemActionModel can mutate mock form state with record context', async (
     model: 'JSItemActionModel',
     code: `
       ctx.form.setFieldValue('status', 'done');
+      ctx.render(String(ctx.record?.id || ''));
       return {
         id: ctx.record?.id,
         status: ctx.form.getFieldValue('status'),

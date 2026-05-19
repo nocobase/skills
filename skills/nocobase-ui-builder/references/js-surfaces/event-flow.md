@@ -5,10 +5,11 @@ Use this surface for event-flow steps whose action title is `Execute JavaScript`
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `eventFlow`
-- Writeback path in this skill: `flowRegistry.*.steps.*.params.code`
+- Writeback path in this skill: `flowRegistry.*.steps.*.defaultParams.code`
+- Step action shape: `flowRegistry.*.steps.*.use = "runjs"` with settings under `defaultParams`
 - Validation style: action-style
 - Return is optional. Do not force `ctx.render(...)`, and do not silently treat this as `JSBlockModel`.
-- Before writing back, return to [../settings.md](../settings.md) for full `flowRegistry` replacement rules.
+- Before writing back, return to [../settings.md](../settings.md). Localized event-flow edits should use `get-event-flow-meta` plus `add-event-flow`, `set-event-flow`, or `remove-event-flow`; full `set-event-flows` replacement is the compatibility/high-control path only.
 
 ## Minimal examples
 
@@ -39,4 +40,4 @@ ctx.message.success(ctx.t('Processed {{count}} rows', { count: rows.length }));
 - Missing `ctx.*` details -> [../js-reference-index.md](../js-reference-index.md)
 - Exact action leaf rules -> [../js-models/js-action.md](../js-models/js-action.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

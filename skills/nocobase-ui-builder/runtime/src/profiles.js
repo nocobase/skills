@@ -462,6 +462,8 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
+    enforceCtxQualifiedAccess: true,
+    requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({

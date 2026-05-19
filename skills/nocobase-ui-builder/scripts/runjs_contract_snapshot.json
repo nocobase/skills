@@ -198,8 +198,8 @@
       ]
     },
     "JSItemActionModel": {
-      "flowKey": "clickSettings",
-      "flowPath": "clickSettings.runJs",
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
       "scene": "table",
       "properties": [
         "element",

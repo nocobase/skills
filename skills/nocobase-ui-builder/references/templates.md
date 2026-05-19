@@ -4,7 +4,7 @@ Read this file when template routing is already confirmed: reusable popup / bloc
 
 Start with [template-quick.md](./template-quick.md) when you are still deciding whether template routing is in scope. Come here once that route is clear.
 
-Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. JSON examples below use the raw business object that the wrapper eventually sends. Do not wrap that object again. For body details see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
+Agent-facing front door is `nb api flow-surfaces <action>`. JSON examples below use the raw business object passed through `--body` / `--body-file`. Do not wrap that object again. For body details see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
 
 This file is the single normative source for template selection and localized existing-reference edit routing. If another doc starts restating the template rules, shorten the other doc and point back here.
 
@@ -88,24 +88,47 @@ Rules that never change:
 
 - `popup.tryTemplate=true` is a write-time fallback, not a planning shortcut.
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` popup specs, and whole-page `applyBlueprint` inline popup specs.
+- `popup.tryTemplate=false` is a hard backend opt-out from popup template reuse. Emit it only when the user explicitly asks for no template / no reuse / local-only / current-only / copy / detach behavior. Do not add it merely because you supplied inline `popup.blocks`.
+- When `popup.tryTemplate=true` hits a compatible popup template, that opener's popup creation is complete. Do not treat the absence of expanded local `popup.blocks` in the persisted response as a failure.
 - If `popup.tryTemplate=true` misses and local popup content exists, that local popup content is the fallback.
 - If `popup.tryTemplate=true` misses and there is no local popup content, let backend fallback continue. Do not invent a popup locally.
+- If several popup openers in one successful write bind existing templates, accept those bindings. Do not remove `popup.tryTemplate`, switch to `replace`, or force inline/local popup content unless the user explicitly requested local-only behavior.
 - `popup.saveAsTemplate={ name, description }` is the bootstrap path when the new local popup itself should become a reusable popup template immediately.
 - `popup.saveAsTemplate` cannot be combined with `popup.template`.
 - `popup.saveAsTemplate` may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved as a template.
+- `popup.saveAsTemplate` still prefers compatible existing popup templates unless `popup.tryTemplate=false` was explicit. Do not use `saveAsTemplate` as a way to force duplicate templates.
 - For repeated popup scenes with no usable template yet, prefer `popup.saveAsTemplate={ name, description }` on the first explicit local popup instead of delaying template creation to a second step.
-- In this skill's whole-page prepare-write flow, explicit local inline popups with `popup.blocks` may auto-receive generated `popup.saveAsTemplate={ name, description }`; keep `popup.tryTemplate=true` unless the blueprint explicitly sets `popup.tryTemplate=false`.
+- Backend authoring may auto-receive generated `popup.saveAsTemplate={ name, description }` for explicit local inline popups with `popup.blocks`; keep `popup.tryTemplate=true` unless the user explicitly requested the hard reuse opt-out and the blueprint intentionally sets `popup.tryTemplate=false`.
+
+## Anti-Regression Scenario
+
+Scenario: create a users details page where a `详情` action opens a current-user popup, the popup contains user details and a related `roles` table in one row, shown roles open role details, and user/role details each expose edit-form popups.
+
+Correct behavior:
+
+- Author inline popup intent with local `popup.blocks` as fallback and keep `popup.tryTemplate=true`.
+- If the successful response binds the user details popup, role details popup, edit user popup, or edit role popup to existing `popup.template` references, stop and report successful template reuse.
+- If multiple compatible templates are found, rely on contextual ranking / backend order to select the usable candidate.
+
+Incorrect behavior:
+
+- Removing `popup.tryTemplate` after success because template reuse hid local fallback blocks.
+- Re-running `applyBlueprint replace` just to force the same popup structure to persist inline.
+- Converting a template reference to `copy` without explicit local-only, copy, or detach intent from the user.
 
 ## Auto-generated Name and Description
 
 When the skill auto-creates a template:
 
 - keep `name` short, readable, and in the current conversation language
+- keep direct/current-record popup names in the existing readable form, such as `用户详情弹窗模板` / `User details popup template`
+- for relation-scoped popup seeds, append the association path to the readable popup name and omit both the generic template suffix and extra `弹窗`/`popup` wording, such as `角色详情(users.roles)` / `Role details(users.roles)`
 - keep most structural/search detail in `description`, not `name`
-- `description` should include reusable scene, collection/resource/association context, and key popup content / trigger clues that help later contextual search
+- popup template reuse is semantic: field-opened and action-opened popups should share a template when the scene, collection/resource, relation context, and content shape are compatible; host/trigger wording belongs in `description` and must not be the only reason to create another template
+- `description` should include reusable scene, collection/resource/host/trigger context, direct/current-record vs relation context, and key popup content clues that help later contextual search
 - for popup seeds, include opener/resource or relation context so later contextual search can rank it higher
 - avoid timestamps or hashes unless a real name collision forces them
-- for whole-page prepare-write auto-generated popup seeds, derive `name` / `description` from the popup title or trigger first, then host block + popup local blocks as fallback context
+- for whole-page backend-generated popup seeds, derive `name` / `description` from the popup title or trigger first, then host block + popup local blocks as fallback context
 
 ## Read or Refine Template Metadata
 

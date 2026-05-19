@@ -863,6 +863,7 @@ function makeEditFormBlock({
   includeActions = true,
   includeFieldSubModel = true,
   putSubmitInGridItems = false,
+  actions = null,
 } = {}) {
   const items = [
     {
@@ -914,11 +915,13 @@ function makeEditFormBlock({
         },
       },
       actions: includeActions
-        ? [
-            {
-              use: 'FormSubmitActionModel',
-            },
-          ]
+        ? (Array.isArray(actions)
+          ? actions
+          : [
+              {
+                use: 'FormSubmitActionModel',
+              },
+            ])
         : [],
     },
   };
@@ -927,6 +930,20 @@ function makeEditFormBlock({
 function makeActionTargetBlock(collectionName = 'order_items', actions = []) {
   return {
     use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit(collectionName),
+      },
+    },
+    subModels: {
+      actions,
+    },
+  };
+}
+
+function makeListActionTargetBlock(collectionName = 'order_items', actions = []) {
+  return {
+    use: 'ListBlockModel',
     stepParams: {
       resourceSettings: {
         init: makeCollectionResourceInit(collectionName),
@@ -2602,6 +2619,19 @@ test('auditPayload blocks generic ActionModel in TableBlockModel actions slot', 
   assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID'), true);
 });
 
+test('auditPayload blocks generic ActionModel in ListBlockModel actions slot', () => {
+  const payload = makeListActionTargetBlock('order_items', [{ use: 'ActionModel' }]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'LIST_COLLECTION_ACTION_SLOT_USE_INVALID'), true);
+});
+
 test('auditPayload blocks generic ActionModel in TableActionsColumnModel actions slot', () => {
   const payload = makeRowActionTargetBlock('order_items', [{ use: 'ActionModel' }]);
 
@@ -2639,6 +2669,72 @@ test('auditPayload blocks generic ActionModel in FilterFormBlockModel actions sl
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload accepts JSItemActionModel in collection record and form action slots', () => {
+  const table = auditPayload({
+    payload: makeActionTargetBlock('order_items', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(table.ok, true, JSON.stringify(table.blockers));
+
+  const list = auditPayload({
+    payload: makeListActionTargetBlock('order_items', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(list.ok, true, JSON.stringify(list.blockers));
+
+  const row = auditPayload({
+    payload: makeRowActionTargetBlock('order_items', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(row.ok, true, JSON.stringify(row.blockers));
+
+  const details = auditPayload({
+    payload: makeDetailsActionTargetBlock('orders', [{ use: 'JSItemActionModel' }]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(details.blockers.some((item) => item.code === 'DETAILS_ACTION_SLOT_USE_INVALID'), false);
+
+  const form = auditPayload({
+    payload: makeEditFormBlock({
+      includeActions: true,
+      actions: [{ use: 'FormSubmitActionModel' }, { use: 'JSItemActionModel' }],
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(form.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_DUPLICATED'), false);
+  assert.equal(form.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), false);
+});
+
+test('auditPayload does not treat JSItemActionModel as a submit-like form action', () => {
+  const payload = makeEditFormBlock({
+    includeActions: true,
+    actions: [{ use: 'JSItemActionModel' }],
+  });
+
+  const audit = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(audit.ok, false);
+  assert.equal(audit.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), true);
+  assert.equal(audit.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_DUPLICATED'), false);
+
+  const canonicalized = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(canonicalized.payload.subModels.actions.some((item) => item.use === 'JSItemActionModel'), true);
+  assert.equal(canonicalized.payload.subModels.actions.some((item) => item.use === 'FormSubmitActionModel'), true);
+  assert.equal(canonicalized.transforms.some((item) => item.code === 'FORM_SUBMIT_ACTION_INSERTED'), true);
 });
 
 test('auditPayload blocks declared edit-record-popup requirements when target block has no stable edit action tree', () => {
@@ -2706,6 +2802,28 @@ test('auditPayload accepts declared edit-record-popup requirements when stable a
 
 test('auditPayload accepts declared create-popup requirements in block actions slot', () => {
   const payload = makeActionTargetBlock('order_items', [makeCreatePopupAction('order_items', '新建订单项')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'create-popup',
+          collectionName: 'order_items',
+          scope: 'block-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_CREATE_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared create-popup requirements in list block actions slot', () => {
+  const payload = makeListActionTargetBlock('order_items', [makeCreatePopupAction('order_items', '新建订单项')]);
 
   const result = auditPayload({
     payload,
@@ -3153,6 +3271,41 @@ test('auditPayload blocks multi-block layouts that keep filters away from the fi
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_LAYOUT_NOT_LEADING_ROW'), true);
   assert.equal(result.blockers.some((item) => item.code === 'MULTI_BLOCK_LAYOUT_SINGLE_COLUMN'), true);
+});
+
+test('auditPayload blocks over-wide single-row multi-block layouts', () => {
+  const payload = {
+    uid: 'grid-root',
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [['chart-1'], ['chart-2'], ['chart-3'], ['chart-4'], ['chart-5'], ['chart-6'], ['chart-7']],
+          },
+          sizes: {
+            row1: [4, 4, 4, 3, 3, 3, 3],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: Array.from({ length: 7 }, (_, index) => ({
+        uid: `chart-${index + 1}`,
+        use: 'ChartBlockModel',
+      })),
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'MULTI_BLOCK_LAYOUT_OVERWIDE_ROW'), true);
 });
 
 test('auditPayload blocks raw set-layout payloads that use one-dimensional rows', () => {
@@ -5767,7 +5920,7 @@ test('auditPayload blocks grid card payloads missing item subtree or invalid act
   assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID'), true);
 });
 
-test('auditPayload blocks public add-block table payloads missing block-level defaultFilter', () => {
+test('auditPayload allows public add-block table payloads missing block-level defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5781,11 +5934,11 @@ test('auditPayload blocks public add-block table payloads missing block-level de
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
 });
 
-test('auditPayload does not accept add-block table payloads that only place defaultFilter under settings', () => {
+test('auditPayload does not treat settings.defaultFilter as required block-level defaultFilter coverage', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5799,8 +5952,7 @@ test('auditPayload does not accept add-block table payloads that only place defa
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
 });
 
 test('auditPayload accepts public add-block table payloads with top-level defaultFilter and no filter action', () => {
@@ -5822,7 +5974,7 @@ test('auditPayload accepts public add-block table payloads with top-level defaul
   assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
 });
 
-test('auditPayload blocks public add-block table payloads whose top-level defaultFilter misses common business fields', () => {
+test('auditPayload blocks public add-block table payloads with narrow top-level defaultFilter coverage', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -5838,10 +5990,7 @@ test('auditPayload blocks public add-block table payloads whose top-level defaul
   });
 
   assert.equal(result.ok, false);
-  assert.equal(
-    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
-    true,
-  );
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'), true);
 });
 
 test('auditPayload blocks public add-block table payloads with empty top-level defaultFilter', () => {
@@ -5863,23 +6012,158 @@ test('auditPayload blocks public add-block table payloads with empty top-level d
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-test('auditPayload accepts public add-block table payloads with any non-empty defaultFilter when no common candidate fields exist', () => {
+test('auditPayload blocks public add-block table payloads with non-empty but narrow defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
-      resourceInit: makeCollectionResourceInit('order_items'),
-      defaultFilter: makePublicDefaultFilterFromFieldNames(['quantity']),
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username']),
       settings: {
-        title: 'Order items',
+        title: 'Users',
       },
     },
     metadata,
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')), false);
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'
+        && item.details?.requiredFieldCount === 3
+        && item.details?.fieldCount === 2,
+    ),
+    true,
+  );
+});
+
+test('auditPayload sizes defaultFilter minimum coverage from eligible direct interface fields', () => {
+  const metadataWithDefaultFilterCases = {
+    collections: {
+      ...metadata.collections,
+      narrow_roles: {
+        fields: [
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+      hidden_roles: {
+        fields: [
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'internalCode', type: 'string', interface: 'input', hidden: true },
+          { name: 'internalScope', type: 'string', interface: 'input', options: { hidden: true } },
+          { name: 'blockedCode', type: 'string', interface: 'input', filterable: false },
+          { name: 'blockedScope', type: 'string', interface: 'input', options: { filterable: false } },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+      options_only_roles: {
+        fields: [
+          { key: 'title', options: { type: 'string', interface: 'input' } },
+          { field: 'code', options: { type: 'string', interface: 'input' } },
+          { options: { name: 'scope', type: 'string', interface: 'select' } },
+          { name: 'internalName', options: { type: 'string', interface: 'input', hidden: true } },
+          { name: 'users', options: { type: 'belongsToMany', interface: 'm2m', target: 'users' } },
+        ],
+      },
+    },
+  };
+
+  const acceptedNarrow = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('narrow_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title', 'name']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(acceptedNarrow.ok, true, JSON.stringify(acceptedNarrow.blockers));
+
+  const rejectedNarrow = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('narrow_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(rejectedNarrow.ok, false);
+  assert.equal(
+    rejectedNarrow.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'
+        && item.details?.requiredFieldCount === 2
+        && item.details?.fieldCount === 1,
+    ),
+    true,
+  );
+
+  const hiddenFieldsDoNotRaiseMinimum = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('hidden_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(hiddenFieldsDoNotRaiseMinimum.ok, true, JSON.stringify(hiddenFieldsDoNotRaiseMinimum.blockers));
+
+  const rejectedUnfilterable = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('hidden_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['blockedCode']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(rejectedUnfilterable.ok, false);
+  assert.equal(
+    rejectedUnfilterable.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE',
+    ),
+    true,
+  );
+
+  const acceptedOptionsOnly = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('options_only_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title', 'code', 'scope']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(acceptedOptionsOnly.ok, true, JSON.stringify(acceptedOptionsOnly.blockers));
+
+  const rejectedOptionsOnly = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'table',
+      resourceInit: makeCollectionResourceInit('options_only_roles'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['title', 'code']),
+    },
+    metadata: metadataWithDefaultFilterCases,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(rejectedOptionsOnly.ok, false);
+  assert.equal(
+    rejectedOptionsOnly.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'
+        && item.details?.requiredFieldCount === 3
+        && item.details?.fieldCount === 2,
+    ),
+    true,
+  );
 });
 
 test('auditPayload accepts template-backed public add-block table payloads without block-level defaultFilter', () => {
@@ -5957,13 +6241,13 @@ test('auditPayload validates add-block defaultActionSettings filterable fields a
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_ITEMS_INCOMPLETE'), true);
 });
 
-test('auditPayload blocks add-block defaultActionSettings.defaultFilter without explicit filterableFieldNames when common business fields are incomplete', () => {
+test('auditPayload blocks narrow add-block defaultActionSettings.defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
       resourceInit: makeCollectionResourceInit('users'),
-      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email']),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'status']),
       defaultActionSettings: {
         filter: {
           defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname']),
@@ -5975,19 +6259,16 @@ test('auditPayload blocks add-block defaultActionSettings.defaultFilter without 
   });
 
   assert.equal(result.ok, false);
-  assert.equal(
-    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
-    true,
-  );
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS'), true);
 });
 
-test('auditPayload does not apply common business field coverage when defaultActionSettings.filterableFieldNames is explicit but empty', () => {
+test('auditPayload keeps filterableFieldNames validation when defaultActionSettings.filterableFieldNames is explicit but empty', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
       resourceInit: makeCollectionResourceInit('users'),
-      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email']),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'status']),
       defaultActionSettings: {
         filter: {
           filterableFieldNames: [],
@@ -6001,10 +6282,6 @@ test('auditPayload does not apply common business field coverage when defaultAct
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_FILTERABLE_FIELDS_REQUIRED'), true);
-  assert.equal(
-    result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE'),
-    false,
-  );
 });
 
 test('auditPayload lets add-block defaultActionSettings.defaultFilter override block-level coverage', () => {
@@ -6012,14 +6289,16 @@ test('auditPayload lets add-block defaultActionSettings.defaultFilter override b
     payload: {
       target: { uid: 'grid-uid' },
       type: 'table',
-      resourceInit: makeCollectionResourceInit('orders'),
-      defaultFilter: makePublicDefaultFilter(),
+      resourceInit: makeCollectionResourceInit('users'),
+      defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'status']),
       defaultActionSettings: {
         filter: {
-          filterableFieldNames: ['status', 'customer'],
+          filterableFieldNames: ['username', 'email', 'status', 'phone'],
           defaultFilter: makePublicDefaultFilter([
+            { path: 'username', operator: '$includes', value: '' },
+            { path: 'email', operator: '$includes', value: '' },
             { path: 'status', operator: '$eq', value: '' },
-            { path: 'customer', operator: '$eq', value: '' },
+            { path: 'phone', operator: '$includes', value: '' },
           ]),
         },
       },
@@ -6054,7 +6333,7 @@ test('auditPayload blocks empty add-block defaultActionSettings.defaultFilter', 
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
-test('auditPayload blocks public blocks payloads whose data-surface blocks omit block-level defaultFilter', () => {
+test('auditPayload allows public blocks payloads whose data-surface blocks omit block-level defaultFilter', () => {
   const result = auditPayload({
     payload: {
       target: { uid: 'grid-uid' },
@@ -6069,8 +6348,8 @@ test('auditPayload blocks public blocks payloads whose data-surface blocks omit 
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
 });
 
 test('auditPayload accepts public blocks payloads whose data-surface blocks keep top-level defaultFilter', () => {
@@ -6165,8 +6444,100 @@ test('auditPayload blocks public blocks payloads with normalized empty top-level
   assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EMPTY'), true);
 });
 
+test('auditPayload validates public data-surface defaultFilters inside hidden popup blocks', () => {
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      type: 'calendar',
+      resourceInit: makeCollectionResourceInit('orders'),
+      settings: {
+        quickCreatePopup: {
+          blocks: [
+            {
+              type: 'table',
+              resourceInit: makeCollectionResourceInit('users'),
+              defaultFilter: makePublicDefaultFilterFromFieldNames(['roles']),
+            },
+          ],
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.blockers.some(
+      (item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE'
+        && item.path === '$.settings.quickCreatePopup.blocks[0].defaultFilter.items[0].path',
+    ),
+    true,
+  );
+});
+
+test('auditPayload resolves associatedRecords inside relation field popup from popup target collection', () => {
+  const metadataWithRoleUsers = {
+    collections: {
+      ...metadata.collections,
+      roles: {
+        titleField: 'name',
+        filterTargetKey: 'id',
+        fields: [
+          { name: 'id', type: 'integer', interface: 'number' },
+          { name: 'name', type: 'string', interface: 'input' },
+          { name: 'title', type: 'string', interface: 'input' },
+          { name: 'description', type: 'string', interface: 'textarea' },
+          { name: 'scope', type: 'string', interface: 'select' },
+          { name: 'users', type: 'belongsToMany', interface: 'm2m', target: 'users' },
+        ],
+      },
+    },
+  };
+  const result = auditPayload({
+    payload: {
+      target: { uid: 'grid-uid' },
+      blocks: [
+        {
+          key: 'usersTable',
+          type: 'table',
+          resourceInit: makeCollectionResourceInit('users'),
+          defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'phone']),
+          fields: [
+            {
+              field: 'roles',
+              popup: {
+                blocks: [
+                  {
+                    key: 'roleUsersTable',
+                    type: 'table',
+                    resource: {
+                      binding: 'associatedRecords',
+                      associationField: 'users',
+                    },
+                    defaultFilter: makePublicDefaultFilterFromFieldNames(['nickname', 'username', 'email', 'phone']),
+                    fields: ['nickname'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+    metadata: metadataWithRoleUsers,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true, JSON.stringify(result.blockers));
+  assert.equal(
+    result.blockers.some((item) => item.code.startsWith('PUBLIC_DATA_SURFACE_DEFAULT_FILTER_')),
+    false,
+  );
+});
+
 for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
-  test(`auditPayload blocks public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
+  test(`auditPayload allows public blocks payloads whose ${dataSurfaceBlockType} blocks omit block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
         target: { uid: 'grid-uid' },
@@ -6181,8 +6552,8 @@ for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
       mode: VALIDATION_CASE_MODE,
     });
 
-    assert.equal(result.ok, false);
-    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
   });
 
   test(`auditPayload accepts public blocks payloads whose ${dataSurfaceBlockType} blocks keep top-level defaultFilter`, () => {
@@ -6207,7 +6578,7 @@ for (const dataSurfaceBlockType of ['list', 'gridCard', 'calendar', 'kanban']) {
 }
 
 for (const dataSurfaceBlockType of ['calendar', 'kanban']) {
-  test(`auditPayload blocks public add-block ${dataSurfaceBlockType} payloads missing block-level defaultFilter`, () => {
+  test(`auditPayload allows public add-block ${dataSurfaceBlockType} payloads missing block-level defaultFilter`, () => {
     const result = auditPayload({
       payload: {
         target: { uid: 'grid-uid' },
@@ -6218,8 +6589,8 @@ for (const dataSurfaceBlockType of ['calendar', 'kanban']) {
       mode: VALIDATION_CASE_MODE,
     });
 
-    assert.equal(result.ok, false);
-    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), true);
+    assert.equal(result.ok, true);
+    assert.equal(result.blockers.some((item) => item.code === 'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED'), false);
   });
 
   test(`auditPayload accepts public add-block ${dataSurfaceBlockType} payloads with top-level defaultFilter`, () => {
@@ -6297,6 +6668,7 @@ test('auditPayload accepts CalendarBlockModel as a collection resource block wit
           { use: 'CalendarSelectViewActionModel' },
           { use: 'FilterActionModel' },
           { use: 'AddNewActionModel' },
+          { use: 'JSItemActionModel' },
         ],
       },
     },
@@ -6382,6 +6754,7 @@ test('auditPayload accepts KanbanBlockModel as a collection resource block with 
           { use: 'PopupCollectionActionModel' },
           { use: 'RefreshActionModel' },
           { use: 'JSCollectionActionModel' },
+          { use: 'JSItemActionModel' },
         ],
       },
     },

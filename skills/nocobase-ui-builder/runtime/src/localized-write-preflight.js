@@ -5,7 +5,6 @@ import {
   extractRequiredMetadata,
 } from '../../scripts/flow_payload_guard.mjs';
 import { collectAssignValuesValidationIssues } from './assign-values-validation.js';
-import { resolveDefaultFilterMinimumCandidateFieldNames } from './default-filter-candidates.js';
 import {
   isSortablePublicBlockType,
   isSortablePublicLiveUse,
@@ -18,6 +17,7 @@ import {
   buildPublicRelationFieldTitleFieldRequiredMessage,
   buildPublicRelationFieldTitleFieldInvalidMessage,
   buildPublicRelationFieldTitleFieldInvalidTargetMessage,
+  buildJsItemActionSlotUnsupportedMessage,
   collectCalendarKanbanMainBlockSemanticIssues,
   forEachBlockHiddenPopup,
   getPublicBlockCollectionName,
@@ -27,12 +27,16 @@ import {
   getPublicRelationFieldTitleFieldRequirement,
   isPublicDataSurfaceBlockType,
   isPublicAssociationFieldMeta,
+  isPublicJsItemActionSlotSupported,
+  JS_ITEM_ACTION_SLOT_UNSUPPORTED_CODE,
+  JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_FORBIDDEN_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_INVALID_RULE_ID,
   PUBLIC_RELATION_FIELD_TITLE_FIELD_REQUIRED_RULE_ID,
+  resolveReadableRelationTitleField,
   resolvePublicFieldPathInCollectionMetadata,
 } from './public-block-contract.js';
-import { materializeDefaultTableRecordActions } from './table-record-actions-defaults.js';
+import { materializeDefaultTableActionGroups } from './table-record-actions-defaults.js';
 
 const LOCALIZED_WRITE_OPERATIONS = new Set(['add-block', 'add-blocks', 'compose', 'configure']);
 const INTERNAL_FIELD_OBJECT_KEYS = new Set([
@@ -45,6 +49,20 @@ const INTERNAL_FIELD_OBJECT_KEYS = new Set([
   'props',
   'stepParams',
 ]);
+const JS_BLOCK_ALLOWED_SETTINGS_KEYS = new Set([
+  'title',
+  'description',
+  'className',
+  'code',
+  'version',
+]);
+const JS_BLOCK_TOP_LEVEL_JS_KEYS = new Set(['code', 'version']);
+const JS_BLOCK_INTERNAL_AUTHORING_KEYS = new Set([
+  'props',
+  'decoratorProps',
+  'flowRegistry',
+  'stepParams',
+]);
 const TREE_CONNECT_TARGET_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban', 'details', 'chart', 'map', 'comments', 'tree']);
 const DISPLAY_ASSOCIATION_FIELD_POPUP_REQUIRED_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'details']);
 const RELATION_FIELD_POPUP_CURRENT_RECORD_BLOCK_TYPES = new Set(['details', 'editForm']);
@@ -53,6 +71,33 @@ const TREE_LIVE_BLOCK_USES = new Set(['TreeBlockModel']);
 const CHART_PUBLIC_BLOCK_TYPES = new Set(['chart']);
 const GRID_CARD_PUBLIC_BLOCK_TYPES = new Set(['gridCard']);
 const GRID_CARD_LIVE_BLOCK_USES = new Set(['GridCardBlockModel']);
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT = 3;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS = 4;
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES = new Set([
+  'input',
+  'email',
+  'url',
+  'phone',
+  'textarea',
+  'select',
+  'radioGroup',
+]);
+const PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES = new Set([
+  'id',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'createdBy',
+  'updatedBy',
+  'deletedBy',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+  'created_by',
+  'updated_by',
+  'deleted_by',
+  'sort',
+]);
 const GRID_CARD_ALLOWED_SETTINGS_KEYS = new Set([
   'title',
   'description',
@@ -79,6 +124,8 @@ const TREE_CONNECT_TARGET_LIVE_USES = new Set([
   'TreeBlockModel',
 ]);
 const LIVE_UPDATE_ACTION_USES = new Set(['BulkUpdateActionModel', 'UpdateRecordActionModel']);
+const LIVE_TRIGGER_WORKFLOWS_ACTION_USES = new Set(['FormSubmitActionModel', 'UpdateRecordActionModel']);
+const FORM_SUBMIT_TRIGGER_WORKFLOWS_HOST_TYPES = new Set(['createform', 'editform', 'form']);
 const PUBLIC_MAIN_BLOCK_SECTION_RULES = {
   calendar: [
     {
@@ -138,6 +185,10 @@ function isObjectRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function hasOwn(target, key) {
+  return isObjectRecord(target) && Object.prototype.hasOwnProperty.call(target, key);
+}
+
 function ensureArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -182,6 +233,29 @@ function hasLocalizedResourceBinding(block) {
   );
 }
 
+function isTreeCollectionMeta(collectionMeta) {
+  return collectionMeta?.template === 'tree' || collectionMeta?.tree === true;
+}
+
+function resolveTreeChildrenFieldName(collectionMeta) {
+  return (Array.isArray(collectionMeta?.fields) ? collectionMeta.fields : [])
+    .map((field) => {
+      if (field?.treeChildren === true || field?.options?.treeChildren === true) {
+        return normalizeText(field.name);
+      }
+      return '';
+    })
+    .find(Boolean) || '';
+}
+
+function isSupportedTreeTableBlock(block, metadata = {}, collectionName = '') {
+  if (!isObjectRecord(block) || normalizeText(block.type) !== 'table' || block.settings?.treeTable !== true) {
+    return false;
+  }
+  const collectionMeta = getCollectionMeta(metadata, collectionName || getBlockCollectionName(block));
+  return isTreeCollectionMeta(collectionMeta) && !!resolveTreeChildrenFieldName(collectionMeta);
+}
+
 function normalizeHeightSettingsInPopup(popup, options = {}) {
   if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) {
     return popup;
@@ -216,11 +290,32 @@ function normalizeHeightSettingsInPopup(popup, options = {}) {
 }
 
 function normalizeHeightSettingsInPopupItem(item, options = {}) {
-  if (!isObjectRecord(item) || !isObjectRecord(item.popup)) {
+  if (!isObjectRecord(item)) {
     return item;
   }
-  const popup = normalizeHeightSettingsInPopup(item.popup, options);
-  return popup === item.popup ? item : { ...item, popup };
+  let nextItem = item;
+  if (options.autoFillRelationTitleField && !Object.hasOwn(item, 'titleField')) {
+    const sourceCollection = normalizeText(options.parentCollectionName);
+    const fieldPath = getPublicRelationFieldObjectPath(item);
+    const resolvedField = sourceCollection && fieldPath
+      ? resolveFieldPathInMetadata(options.metadata || {}, sourceCollection, fieldPath)
+      : null;
+    if (isPublicAssociationFieldMeta(resolvedField?.field)) {
+      const targetCollection = normalizeText(resolvedField?.field?.target);
+      const requirement = getPublicRelationFieldTitleFieldRequirement(options.metadata || {}, sourceCollection, fieldPath);
+      const readableTitleField = requirement
+        ? resolveReadableRelationTitleField(options.metadata || {}, targetCollection)
+        : '';
+      if (readableTitleField) {
+        nextItem = { ...nextItem, titleField: readableTitleField };
+      }
+    }
+  }
+  if (!isObjectRecord(nextItem.popup)) {
+    return nextItem;
+  }
+  const popup = normalizeHeightSettingsInPopup(nextItem.popup, options);
+  return popup === nextItem.popup ? nextItem : { ...nextItem, popup };
 }
 
 function normalizeHeightSettingsInFieldGroup(group, options = {}) {
@@ -233,6 +328,7 @@ function normalizeHeightSettingsInFieldGroup(group, options = {}) {
       metadata: options.metadata,
       relationField: isObjectRecord(field) ? normalizeText(field.field) : '',
       parentCollectionName: options.parentCollectionName,
+      autoFillRelationTitleField: true,
     };
     const normalizedField = normalizeHeightSettingsInPopupItem(field, fieldOptions);
     if (normalizedField !== field) changed = true;
@@ -308,6 +404,7 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
         metadata: options.metadata,
         parentCollectionName: blockCollectionName,
         relationField: slot === 'fields' && isObjectRecord(item) ? normalizeText(item.field) : '',
+        autoFillRelationTitleField: slot === 'fields',
       };
       const normalizedItem = normalizeHeightSettingsInPopupItem(item, itemOptions);
       if (normalizedItem !== item) changed = true;
@@ -329,8 +426,12 @@ function normalizeHeightSettingsInBlock(block, options = {}) {
     if (changed) nextBlock = { ...nextBlock, fieldGroups };
   }
 
-  return materializeDefaultTableRecordActions(nextBlock, {
+  if (options.materializeDefaultTableActions === false) {
+    return nextBlock;
+  }
+  return materializeDefaultTableActionGroups(nextBlock, {
     hasExplicitResourceBinding: hasLocalizedResourceBinding(nextBlock),
+    supportedTreeTable: isSupportedTreeTableBlock(nextBlock, options.metadata, blockCollectionName),
   });
 }
 
@@ -343,6 +444,7 @@ function normalizeHeightSettingsForWrite(operation, payload, metadata = {}) {
       const normalizedTargetBlock = normalizeHeightSettingsInBlock(targetBlock, {
         metadata,
         normalizeSortAliasInOwnSettings: isSortablePublicLiveUse(getLiveEntryUse(getLiveTopologyEntry(metadata, payload?.target?.uid))),
+        materializeDefaultTableActions: false,
       });
       const changes = createConfigureChangesFromTargetBlock(payload.changes, normalizedTargetBlock);
       return changes === payload.changes ? payload : { ...payload, changes };
@@ -546,6 +648,222 @@ function collectLocalizedGridCardSettingsErrors(payload, operation, metadata = {
   return errors;
 }
 
+function isPublicJsBlockSpec(block) {
+  if (!isObjectRecord(block)) return false;
+  return normalizeText(block.type) === 'jsBlock' ||
+    normalizeText(block.type) === 'js' ||
+    normalizeText(block.use) === 'JSBlockModel';
+}
+
+function isDeprecatedJsBlockTypeAlias(block) {
+  return isObjectRecord(block) && normalizeText(block.type) === 'js';
+}
+
+function collectJsBlockPublicContractErrorsFromBlock(block, path, { allowScriptAssets = false } = {}) {
+  const errors = [];
+  if (!isPublicJsBlockSpec(block)) return errors;
+
+  if (isDeprecatedJsBlockTypeAlias(block)) {
+    errors.push({
+      path: `${path}.type`,
+      ruleId: 'jsBlock-type-alias-unsupported',
+      message: `${path}.type must be "jsBlock"; "js" is only an action type and is not a public JSBlock block alias. Use ${path}.settings.code for inline JSBlock code.`,
+      code: 'JS_BLOCK_TYPE_ALIAS_UNSUPPORTED',
+    });
+    return errors;
+  }
+
+  for (const key of JS_BLOCK_TOP_LEVEL_JS_KEYS) {
+    if (!hasOwn(block, key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: `jsBlock-top-level-${key}-unsupported`,
+      message: `${path}.${key} is not accepted on public jsBlock blocks; use ${path}.settings.code and ${path}.settings.version for inline JS code.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key },
+    });
+  }
+
+  if (hasOwn(block, 'stepParams')) {
+    errors.push({
+      path: `${path}.stepParams`,
+      ruleId: 'jsBlock-stepParams-unsupported',
+      message: `${path}.stepParams is not accepted on public jsBlock blocks; use ${path}.settings.code and ${path}.settings.version instead of internal persisted fields.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key: 'stepParams' },
+    });
+  }
+
+  for (const key of JS_BLOCK_INTERNAL_AUTHORING_KEYS) {
+    if (key === 'stepParams' || !hasOwn(block, key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: 'jsBlock-internal-field-unsupported',
+      message: `${path}.${key} is an internal JSBlock field and is not accepted in public authoring payloads.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key },
+    });
+  }
+
+  if (isObjectRecord(block.settings)) {
+    for (const key of Object.keys(block.settings)) {
+      if (JS_BLOCK_ALLOWED_SETTINGS_KEYS.has(key)) continue;
+      errors.push({
+        path: `${path}.settings.${key}`,
+        ruleId: 'jsBlock-settings-unsupported-key',
+        message: `${path}.settings.${key} is not accepted on public jsBlock blocks; supported settings are ${Array.from(JS_BLOCK_ALLOWED_SETTINGS_KEYS).join(', ')}.`,
+        code: 'JS_BLOCK_SETTINGS_UNSUPPORTED_KEY',
+        details: { key },
+      });
+    }
+  }
+
+  const inlineKeys = isObjectRecord(block.settings)
+    ? ['code', 'version'].filter((key) => hasOwn(block.settings, key))
+    : [];
+  if (hasOwn(block, 'script')) {
+    if (!allowScriptAssets) {
+      errors.push({
+        path: `${path}.script`,
+        ruleId: 'jsBlock-script-unsupported',
+        message: `${path}.script is only accepted in applyBlueprint with assets.scripts; localized jsBlock writes must use ${path}.settings.code.`,
+        code: 'JS_BLOCK_SCRIPT_UNSUPPORTED',
+      });
+    }
+    if (inlineKeys.length) {
+      errors.push({
+        path: `${path}.script`,
+        ruleId: 'jsBlock-mixed-inline-and-script',
+        message: `${path} cannot combine a script asset reference with settings.${inlineKeys.join(', settings.')}; use either assets.scripts + block.script or inline ${path}.settings.code.`,
+        code: 'JS_BLOCK_MIXED_INLINE_AND_SCRIPT',
+        details: { inlineKeys },
+      });
+    }
+  }
+
+  const hasInlineCode = typeof block.settings?.code === 'string' && !!block.settings.code.trim();
+  const hasScriptReference = allowScriptAssets && typeof block.script === 'string' && !!block.script.trim();
+  if (!hasInlineCode && !hasScriptReference) {
+    errors.push({
+      path,
+      ruleId: 'jsBlock-source-required',
+      message: `${path} jsBlock must include inline ${path}.settings.code${allowScriptAssets ? ' or a block.script asset reference' : ''}.`,
+      code: 'JS_BLOCK_SOURCE_REQUIRED',
+    });
+  }
+
+  return errors;
+}
+
+function collectJsBlockConfigurePublicContractErrors(changes, path) {
+  const errors = [];
+  if (!isObjectRecord(changes)) return errors;
+
+  if (hasOwn(changes, 'script')) {
+    errors.push({
+      path: `${path}.script`,
+      ruleId: 'jsBlock-script-unsupported',
+      message: `${path}.script is only accepted in applyBlueprint with assets.scripts; localized jsBlock configure writes must use ${path}.code.`,
+      code: 'JS_BLOCK_SCRIPT_UNSUPPORTED',
+    });
+  }
+
+  const inlineKeys = ['code', 'version'].filter((key) => hasOwn(changes, key));
+  if (hasOwn(changes, 'script') && inlineKeys.length) {
+    errors.push({
+      path: `${path}.script`,
+      ruleId: 'jsBlock-mixed-inline-and-script',
+      message: `${path} cannot combine a script asset reference with ${inlineKeys.map((key) => `${path}.${key}`).join(', ')}; use either assets.scripts + block.script or localized ${path}.code.`,
+      code: 'JS_BLOCK_MIXED_INLINE_AND_SCRIPT',
+      details: { inlineKeys },
+    });
+  }
+
+  if (hasOwn(changes, 'stepParams')) {
+    errors.push({
+      path: `${path}.stepParams`,
+      ruleId: 'jsBlock-stepParams-unsupported',
+      message: `${path}.stepParams is not accepted on public jsBlock configure changes; use ${path}.code and ${path}.version instead of internal persisted fields.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key: 'stepParams' },
+    });
+  }
+
+  for (const key of JS_BLOCK_INTERNAL_AUTHORING_KEYS) {
+    if (key === 'stepParams' || !hasOwn(changes, key)) continue;
+    errors.push({
+      path: `${path}.${key}`,
+      ruleId: 'jsBlock-internal-field-unsupported',
+      message: `${path}.${key} is an internal JSBlock field and is not accepted in public configure changes.`,
+      code: 'JS_BLOCK_PUBLIC_CONTRACT_UNSUPPORTED',
+      details: { key },
+    });
+  }
+
+  if (hasOwn(changes, 'settings')) {
+    if (!isObjectRecord(changes.settings)) {
+      errors.push({
+        path: `${path}.settings`,
+        ruleId: 'jsBlock-settings-unsupported-key',
+        message: `${path}.settings is not accepted on public jsBlock configure changes; use direct ${path}.code and ${path}.version keys.`,
+        code: 'JS_BLOCK_SETTINGS_UNSUPPORTED_KEY',
+      });
+    } else {
+      Object.keys(changes.settings).forEach((key) => {
+        errors.push({
+          path: `${path}.settings.${key}`,
+          ruleId: 'jsBlock-settings-unsupported-key',
+          message: `${path}.settings.${key} is not accepted on public jsBlock configure changes; use direct ${path}.${key}.`,
+          code: 'JS_BLOCK_SETTINGS_UNSUPPORTED_KEY',
+          details: { key },
+        });
+      });
+    }
+  }
+
+  return errors;
+}
+
+function collectLocalizedJsBlockPublicContractErrors(payload, operation, metadata = {}) {
+  const errors = [];
+  if (!isObjectRecord(payload)) return errors;
+
+  const visitBlock = (block, path, { configureTarget = false } = {}) => {
+    if (!isObjectRecord(block)) return;
+    collectJsBlockPublicContractErrorsFromBlock(block, path).forEach((issue) => errors.push(issue));
+    const visitChildren = configureTarget ? forEachConfigureTargetChildBlockContainer : forEachLocalizedChildBlockContainer;
+    visitChildren(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`, { configureTarget }));
+    });
+  };
+
+  if (operation === 'configure') {
+    const liveUse = getLiveEntryUse(getLiveTopologyEntry(metadata, payload?.target?.uid));
+    if (normalizeText(liveUse) === 'JSBlockModel') {
+      collectJsBlockConfigurePublicContractErrors(payload.changes, '$.changes').forEach((issue) => errors.push(issue));
+      return errors;
+    }
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      visitBlock(context.block, context.path, { configureTarget: true });
+    }
+    return errors;
+  }
+
+  if (operation === 'add-block') {
+    visitBlock(payload, '$');
+    return errors;
+  }
+
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload.blocks).forEach((block, index) => {
+      visitBlock(block, `$.blocks[${index}]`);
+    });
+  }
+
+  return errors;
+}
+
 function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation, metadata = {}) {
   const errors = [];
 
@@ -559,13 +877,7 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     });
   };
 
-  const getMinimumCandidateFieldNames = (block) => {
-    const collectionName = getBlockCollectionName(block);
-    const collectionMeta = getCollectionMeta(metadata, collectionName);
-    return collectionMeta ? resolveDefaultFilterMinimumCandidateFieldNames(collectionMeta) : [];
-  };
-
-  const validateDefaultFilterGroup = (defaultFilter, path, block) => {
+  const validateDefaultFilterGroup = (defaultFilter, path, block, blockContext = {}) => {
     if (defaultFilter === null || (isObjectRecord(defaultFilter) && Object.keys(defaultFilter).length === 0)) {
       push(
         path,
@@ -579,16 +891,16 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     if (!isObjectRecord(defaultFilter)) {
       push(
         path,
-        'public-data-surface-default-filter-required',
+        'public-data-surface-default-filter-invalid-shape',
         'defaultFilter must be one filter group object when provided.',
-        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
+        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_INVALID_SHAPE',
       );
       return;
     }
 
-    const minimumCandidateFieldNames = getMinimumCandidateFieldNames(block);
-    const filterItemPaths = new Set();
     let filterItemCount = 0;
+    const filterItemPaths = new Set();
+    const eligibleFilterItemPaths = new Set();
 
     const visitGroup = (group, groupPath) => {
       const logic = normalizeText(group.logic);
@@ -645,8 +957,12 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
           );
         } else {
           filterItemPaths.add(filterPath);
-          const collectionName = getBlockCollectionName(block);
-          if (collectionName && getCollectionMeta(metadata, collectionName) && !resolveFieldPathInMetadata(metadata, collectionName, filterPath)) {
+          const collectionName = getLocalizedDataSurfaceDefaultFilterCollectionName(block, blockContext);
+          const collectionMeta = getCollectionMeta(metadata, collectionName);
+          const resolved = collectionName
+            ? resolveFieldPathInMetadata(metadata, collectionName, filterPath)
+            : null;
+          if (collectionName && collectionMeta && !resolved) {
             push(
               `${itemPath}.path`,
               'public-data-surface-default-filter-unknown-field',
@@ -654,6 +970,22 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
               'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_UNKNOWN_FIELD',
               { collectionName, fieldPath: filterPath },
             );
+          } else {
+            const isEligible = collectionName && collectionMeta && resolved
+              ? isPublicDataSurfaceDefaultFilterDirectFieldPath(filterPath)
+                && isPublicDataSurfaceDefaultFilterCandidateField(resolved.field)
+              : true;
+            if (isEligible) {
+              eligibleFilterItemPaths.add(filterPath);
+            } else {
+              push(
+                `${itemPath}.path`,
+                'public-data-surface-default-filter-field-ineligible',
+                `defaultFilter.items path "${filterPath}" is not eligible for defaultFilter.`,
+                'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_FIELD_INELIGIBLE',
+                { collectionName, fieldPath: filterPath },
+              );
+            }
           }
         }
 
@@ -680,43 +1012,80 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
       return;
     }
 
-    const coveredCandidateFieldCount = minimumCandidateFieldNames.filter((fieldName) => filterItemPaths.has(fieldName)).length;
-    if (
-      minimumCandidateFieldNames.length > 0
-      && coveredCandidateFieldCount < minimumCandidateFieldNames.length
-    ) {
-      const collectionName = getBlockCollectionName(block);
+    const requiredFieldCount = resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata, blockContext);
+    if (eligibleFilterItemPaths.size < requiredFieldCount) {
       push(
-        `${path}.items`,
-        'public-data-surface-default-filter-common-fields-incomplete',
-        `defaultFilter.items must cover at least ${minimumCandidateFieldNames.length} common business fields when available for collection ${collectionName}: ${minimumCandidateFieldNames.join(', ')}.`,
-        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_COMMON_FIELDS_INCOMPLETE',
+        path,
+        'public-data-surface-default-filter-minimum-fields',
+        `defaultFilter must include at least ${requiredFieldCount} distinct filterable fields.`,
+        'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MINIMUM_FIELDS',
         {
-          collectionName,
-          minimumCandidateFieldNames,
-          coveredCandidateFieldCount,
+          fieldCount: eligibleFilterItemPaths.size,
+          requiredFieldCount,
+          fieldNames: [...eligibleFilterItemPaths],
         },
       );
     }
+
   };
 
-  const visitBlock = (block, path) => {
+  const visitBlockChildren = (block, path, blockContext, directSettingsPath = false) => {
+    const childContext = {
+      surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext),
+      associationRequirement: blockContext?.associationRequirement || null,
+    };
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => visitBlock(child, `${path}.blocks[${index}]`, childContext));
+    }
+    if (Array.isArray(block.popup?.blocks)) {
+      block.popup.blocks.forEach((child, index) => visitBlock(child, `${path}.popup.blocks[${index}]`, childContext));
+    }
+    forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      if (!Array.isArray(popup?.blocks)) return;
+      const popupBlocksPath = directSettingsPath ? `${path}.${key}.blocks` : `${path}.settings.${key}.blocks`;
+      popup.blocks.forEach((child, index) => visitBlock(child, `${popupBlocksPath}[${index}]`, childContext));
+    });
+    for (const slot of ['actions', 'recordActions']) {
+      if (!Array.isArray(block[slot])) continue;
+      block[slot].forEach((item, index) => {
+        if (!Array.isArray(item?.popup?.blocks)) return;
+        item.popup.blocks.forEach((child, blockIndex) => {
+          visitBlock(child, `${path}.${slot}[${index}].popup.blocks[${blockIndex}]`, childContext);
+        });
+      });
+    }
+    const visitFieldPopup = (field, fieldPath) => {
+      if (!Array.isArray(field?.popup?.blocks)) return;
+      const fieldSurfaceContext = getLocalizedFieldPopupSurfaceContext(
+        metadata,
+        blockContext,
+        getPublicRelationFieldObjectPath(field),
+      );
+      field.popup.blocks.forEach((child, blockIndex) => {
+        visitBlock(child, `${fieldPath}.popup.blocks[${blockIndex}]`, fieldSurfaceContext);
+      });
+    };
+    if (Array.isArray(block.fields)) {
+      block.fields.forEach((field, index) => visitFieldPopup(field, `${path}.fields[${index}]`));
+    }
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        ensureArray(group?.fields).forEach((field, fieldIndex) => {
+          visitFieldPopup(field, `${path}.fieldGroups[${groupIndex}].fields[${fieldIndex}]`);
+        });
+      });
+    }
+  };
+
+  const visitBlock = (block, path, parentContext = {}, { directSettingsPath = false } = {}) => {
     if (!isObjectRecord(block)) return;
+    const blockContext = buildLocalizedBlockTraversalContext(block, parentContext, metadata);
     if (isPublicDataSurfaceBlockType(block.type) && !block.template) {
-      if (!Object.hasOwn(block, 'defaultFilter')) {
-        push(
-          `${path}.defaultFilter`,
-          'public-data-surface-default-filter-required',
-          'Data-surface blocks of type table, list, gridCard, calendar, and kanban must include block-level defaultFilter.',
-          'PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED',
-        );
-      } else {
-        validateDefaultFilterGroup(block.defaultFilter, `${path}.defaultFilter`, block);
+      if (Object.hasOwn(block, 'defaultFilter') && typeof block.defaultFilter !== 'undefined') {
+        validateDefaultFilterGroup(block.defaultFilter, `${path}.defaultFilter`, block, blockContext);
       }
     }
-    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
-      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
-    });
+    visitBlockChildren(block, path, blockContext, directSettingsPath);
   };
 
   if (operation === 'add-block') {
@@ -731,11 +1100,9 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
           ...context.block,
           defaultFilter: payload.changes.defaultFilter,
         };
-        visitBlock(block, context.path);
+        visitBlock(block, context.path, {}, { directSettingsPath: true });
       } else {
-        forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
-          blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
-        });
+        visitBlock(context.block, context.path, {}, { directSettingsPath: true });
       }
     }
     return errors;
@@ -744,6 +1111,94 @@ function collectLocalizedPublicDataSurfaceDefaultFilterErrors(payload, operation
     ensureArray(payload?.blocks).forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
   }
   return errors;
+}
+
+function collectLocalizedDefaultActionOptOutErrors(payload, operation, metadata = {}) {
+  const errors = [];
+
+  const push = (path, keys) => {
+    if (!keys.length) return;
+    errors.push({
+      path,
+      ruleId: 'default-actions-opt-out-unsupported',
+      message: 'skipDefaultActions and skipDefaultRecordActions are unsupported; default actions always merge with explicit actions.',
+      code: 'DEFAULT_ACTIONS_OPT_OUT_UNSUPPORTED',
+      details: { keys },
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!isObjectRecord(block)) return;
+    push(
+      path,
+      ['skipDefaultActions', 'skipDefaultRecordActions'].filter((key) => Object.hasOwn(block, key)),
+    );
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
+  };
+
+  if (operation === 'add-block') {
+    visitBlock(payload, '$');
+    return errors;
+  }
+  if (operation === 'configure') {
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      const keys = ['skipDefaultActions', 'skipDefaultRecordActions'].filter((key) =>
+        Object.hasOwn(payload?.changes || {}, key),
+      );
+      push('$.changes', keys);
+      forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
+        blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+      });
+    }
+    return errors;
+  }
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload?.blocks).forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  }
+  return errors;
+}
+
+function getLocalizedDataSurfaceDefaultFilterCollectionName(block, blockContext = {}) {
+  return normalizeText(blockContext?.surfaceCollection) || getBlockCollectionName(block);
+}
+
+function resolvePublicDataSurfaceDefaultFilterRequiredFieldCount(block, metadata, blockContext = {}) {
+  const collectionName = getLocalizedDataSurfaceDefaultFilterCollectionName(block, blockContext);
+  const collectionMeta = collectionName ? getCollectionMeta(metadata || {}, collectionName) : null;
+  if (!collectionMeta) {
+    return PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT;
+  }
+  const candidateFieldCount = ensureArray(collectionMeta.fields).filter(isPublicDataSurfaceDefaultFilterCandidateField).length;
+  return Math.min(
+    PUBLIC_DATA_SURFACE_DEFAULT_FILTER_REQUIRED_FIELD_COUNT,
+    Math.min(PUBLIC_DATA_SURFACE_DEFAULT_FILTER_MAX_CANDIDATE_FIELDS, candidateFieldCount),
+  );
+}
+
+function isPublicDataSurfaceDefaultFilterCandidateField(field) {
+  const fieldName = normalizeText(field?.name);
+  const fieldInterface = normalizeText(field?.interface);
+  if (!fieldName || !fieldInterface) return false;
+  if (PUBLIC_DATA_SURFACE_DEFAULT_FILTER_EXCLUDED_FIELD_NAMES.has(fieldName)) {
+    return false;
+  }
+  if (!PUBLIC_DATA_SURFACE_DEFAULT_FILTER_CANDIDATE_INTERFACES.has(fieldInterface)) {
+    return false;
+  }
+  if (field?.hidden === true || field?.options?.hidden === true) {
+    return false;
+  }
+  if (field?.filterable === false || field?.options?.filterable === false) {
+    return false;
+  }
+  return !isAssociationField(field);
+}
+
+function isPublicDataSurfaceDefaultFilterDirectFieldPath(fieldPath) {
+  return normalizeText(fieldPath).split('.').filter(Boolean).length === 1;
 }
 
 function normalizeMetadata(value) {
@@ -772,6 +1227,10 @@ function normalizeCollectionField(field) {
     : {};
   const name = normalizeText(field.name) || normalizeText(field.field) || normalizeText(field.key) || normalizeText(options.name);
   if (!name) return null;
+  const normalizedOptions = {
+    ...(options.hidden === true ? { hidden: true } : {}),
+    ...(options.filterable === false ? { filterable: false } : {}),
+  };
   return {
     name,
     interface: normalizeText(field.interface) || normalizeText(options.interface),
@@ -779,6 +1238,12 @@ function normalizeCollectionField(field) {
     target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    hidden: field.hidden === true || options.hidden === true,
+    filterable:
+      field.filterable === false || options.filterable === false
+        ? false
+        : undefined,
+    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }
 
@@ -1042,6 +1507,15 @@ function getLocalizedTraversalSurfaceCollection(context) {
   return normalizeText(context?.surfaceCollection || context?.currentCollection);
 }
 
+function buildLocalizedPopupSurfaceContext(blockContext = {}, associationRequirement = null) {
+  return {
+    surfaceCollection:
+      normalizeText(associationRequirement?.targetCollection)
+      || getLocalizedTraversalSurfaceCollection(blockContext),
+    associationRequirement: null,
+  };
+}
+
 function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fieldPath) {
   const canonicalAssociationField = getDefaultsAssociationFieldKey(fieldPath);
   if (!sourceCollectionName || !canonicalAssociationField) return null;
@@ -1050,6 +1524,7 @@ function resolveAssociationFieldRequirement(metadata, sourceCollectionName, fiel
   const targetCollection = normalizeText(resolved?.field?.target);
   if (!targetCollection) return null;
   return {
+    sourceCollection: sourceCollectionName,
     associationField: canonicalAssociationField,
     targetCollection,
   };
@@ -1075,12 +1550,15 @@ function buildLocalizedBlockTraversalContext(block, parentContext, metadata) {
   let associationRequirement = null;
 
   if (binding === 'associatedrecords') {
+    const inheritedAssociationRequirement = parentContext?.associationRequirement || null;
+    const associationSourceCollection =
+      inheritedAssociationRequirement?.sourceCollection || inheritedSurfaceCollection;
     associationRequirement = resolveAssociationFieldRequirement(
       metadata,
-      inheritedSurfaceCollection,
+      associationSourceCollection,
       getNodeAssociationField(block),
     );
-    surfaceCollection = normalizedDirectCollection || associationRequirement?.targetCollection || '';
+    surfaceCollection = associationRequirement?.targetCollection || normalizedDirectCollection || '';
   } else if (binding === 'currentrecord' && normalizedDirectCollection) {
     surfaceCollection = normalizedDirectCollection;
   }
@@ -1098,9 +1576,7 @@ function getLocalizedFieldPopupSurfaceContext(metadata, blockContext, fieldPath 
     getLocalizedTraversalSurfaceCollection(blockContext),
     fieldPath,
   );
-  return {
-    surfaceCollection: associationRequirement?.targetCollection || getLocalizedTraversalSurfaceCollection(blockContext),
-  };
+  return buildLocalizedPopupSurfaceContext(blockContext, associationRequirement);
 }
 
 function normalizeRelationPopupCurrentRecordBlock(block, targetCollection) {
@@ -1132,8 +1608,16 @@ function getActionType(item) {
       : '';
 }
 
+function isJsItemActionType(actionType) {
+  return normalizeText(actionType).toLowerCase() === 'jsitem';
+}
+
 function hasAssignValues(item) {
   return isObjectRecord(item?.settings) && Object.hasOwn(item.settings, 'assignValues');
+}
+
+function hasTriggerWorkflows(item) {
+  return isObjectRecord(item?.settings) && Object.hasOwn(item.settings, 'triggerWorkflows');
 }
 
 function getBlockTitleField(block) {
@@ -1762,18 +2246,73 @@ function collectLocalizedHiddenPopupContractErrorsForOperation(payload, operatio
 function collectLocalizedCalendarKanbanSemanticErrors(payload, operation, metadata = {}) {
   const errors = [];
 
-  const visitBlock = (block, path) => {
+  const visitPopup = (popup, path, parentContext = {}) => {
+    if (!isObjectRecord(popup) || !Array.isArray(popup.blocks)) return;
+    popup.blocks.forEach((block, index) => visitBlock(block, `${path}.blocks[${index}]`, parentContext));
+  };
+
+  const visitFieldPopups = (fields, path, blockContext) => {
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field, index) => {
+      if (!isObjectRecord(field) || !isObjectRecord(field.popup)) return;
+      visitPopup(
+        field.popup,
+        `${path}[${index}].popup`,
+        getLocalizedFieldPopupSurfaceContext(metadata, blockContext, getPublicRelationFieldObjectPath(field)),
+      );
+    });
+  };
+
+  const visitFieldGroupPopups = (fieldGroups, path, blockContext) => {
+    if (!Array.isArray(fieldGroups)) return;
+    fieldGroups.forEach((group, groupIndex) => {
+      visitFieldPopups(group?.fields, `${path}[${groupIndex}].fields`, blockContext);
+    });
+  };
+
+  const visitActionPopups = (items, path, blockContext) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (!isObjectRecord(item) || !isObjectRecord(item.popup)) return;
+      visitPopup(
+        item.popup,
+        `${path}[${index}].popup`,
+        buildLocalizedPopupSurfaceContext(blockContext),
+      );
+    });
+  };
+
+  const visitBlock = (block, path, parentContext = {}, { directSettingsPath = false } = {}) => {
     if (!isObjectRecord(block)) return;
-    collectCalendarKanbanMainBlockSemanticIssues(block, path, metadata).forEach((issue) => {
+    const blockContext = buildLocalizedBlockTraversalContext(block, parentContext, metadata);
+    collectCalendarKanbanMainBlockSemanticIssues(block, path, metadata, {
+      directSettingsPath,
+      collectionName: getLocalizedTraversalSurfaceCollection(blockContext),
+    }).forEach((issue) => {
       errors.push({
         path: issue.path,
         ruleId: issue.ruleId,
         message: issue.message,
       });
     });
-    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
-      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    if (Array.isArray(block.blocks)) {
+      block.blocks.forEach((child, index) => {
+        visitBlock(child, `${path}.blocks[${index}]`, {
+          surfaceCollection: getLocalizedTraversalSurfaceCollection(blockContext),
+        });
+      });
+    }
+    if (isObjectRecord(block.popup)) {
+      visitPopup(block.popup, `${path}.popup`, buildLocalizedPopupSurfaceContext(blockContext));
+    }
+    forEachBlockHiddenPopup(block.settings, block, (popup, { key }) => {
+      const popupPath = directSettingsPath ? `${path}.${key}` : `${path}.settings.${key}`;
+      visitPopup(popup, popupPath, buildLocalizedPopupSurfaceContext(blockContext));
     });
+    visitFieldPopups(block.fields, `${path}.fields`, blockContext);
+    visitFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, blockContext);
+    visitActionPopups(block.actions, `${path}.actions`, blockContext);
+    visitActionPopups(block.recordActions, `${path}.recordActions`, blockContext);
   };
 
   if (Array.isArray(payload?.blocks)) {
@@ -1785,16 +2324,7 @@ function collectLocalizedCalendarKanbanSemanticErrors(payload, operation, metada
   if (operation === 'configure') {
     const context = createConfigureTargetBlockContext(metadata, payload);
     if (context) {
-      collectCalendarKanbanMainBlockSemanticIssues(context.block, context.path, metadata, { directSettingsPath: true }).forEach((issue) => {
-        errors.push({
-          path: issue.path,
-          ruleId: issue.ruleId,
-          message: issue.message,
-        });
-      });
-        forEachConfigureTargetChildBlockContainer(context.block, context.path, (blocks, blocksPath) => {
-          blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
-        });
+      visitBlock(context.block, context.path, {}, { directSettingsPath: true });
     }
   }
 
@@ -1873,11 +2403,14 @@ function collectLocalizedRelationPopupResourceErrors(payload, operation = 'compo
           return;
         }
         const blockAssociationField = getDefaultsAssociationFieldKey(getNodeAssociationField(block));
-        if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField) {
+        const targetAssociationRequirement = targetCollection
+          ? resolveAssociationFieldRequirement(metadata, targetCollection, blockAssociationField)
+          : null;
+        if (canonicalAssociationField && blockAssociationField !== canonicalAssociationField && !targetAssociationRequirement) {
           push(
             `${blockPath}.resource.associationField`,
             'relation-popup-associated-records-association-field-required',
-            `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}".`,
+            `Relation field popup associatedRecords blocks must set resource.associationField="${canonicalAssociationField}" or use an association on popup target collection "${targetCollection}".`,
             'RELATION_POPUP_ASSOCIATED_RECORDS_ASSOCIATION_FIELD_REQUIRED',
             { expectedAssociationField: canonicalAssociationField, actualAssociationField: blockAssociationField },
           );
@@ -2458,6 +2991,251 @@ function collectLocalizedAssignValuesErrors(payload, operation, metadata) {
   return errors;
 }
 
+function collectTriggerWorkflowsValidationIssues(value, path) {
+  const issues = [];
+  const push = (issuePath, ruleId, message, code) => {
+    issues.push({
+      path: issuePath,
+      ruleId,
+      message,
+      code,
+    });
+  };
+  if (!Array.isArray(value)) {
+    push(
+      path,
+      'trigger-workflows-must-be-array',
+      'settings.triggerWorkflows must be an array of { workflowKey, context? } objects.',
+      'TRIGGER_WORKFLOWS_MUST_BE_ARRAY',
+    );
+    return issues;
+  }
+  value.forEach((item, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isObjectRecord(item)) {
+      push(
+        itemPath,
+        'trigger-workflows-item-must-be-object',
+        'Each settings.triggerWorkflows item must be a plain object.',
+        'TRIGGER_WORKFLOWS_ITEM_MUST_BE_OBJECT',
+      );
+      return;
+    }
+    if (typeof item.workflowKey !== 'string' || !item.workflowKey.trim()) {
+      push(
+        `${itemPath}.workflowKey`,
+        'trigger-workflows-workflow-key-required',
+        'settings.triggerWorkflows[].workflowKey must be a non-empty string.',
+        'TRIGGER_WORKFLOWS_WORKFLOW_KEY_REQUIRED',
+      );
+    }
+    if (Object.hasOwn(item, 'context') && typeof item.context !== 'string') {
+      push(
+        `${itemPath}.context`,
+        'trigger-workflows-context-must-be-string',
+        'settings.triggerWorkflows[].context must be a string when provided.',
+        'TRIGGER_WORKFLOWS_CONTEXT_MUST_BE_STRING',
+      );
+    }
+  });
+  return issues;
+}
+
+function isTriggerWorkflowsActionSupported(actionType, slot, hostBlockType) {
+  if (slot === 'recordActions') {
+    return actionType === 'updaterecord';
+  }
+  return actionType === 'submit' && FORM_SUBMIT_TRIGGER_WORKFLOWS_HOST_TYPES.has(hostBlockType);
+}
+
+function collectLocalizedTriggerWorkflowsErrors(payload, operation, metadata) {
+  const errors = [];
+
+  const push = (path, ruleId, message, code, details = undefined) => {
+    errors.push({
+      path,
+      ruleId,
+      message,
+      code,
+      ...(details ? { details } : {}),
+    });
+  };
+
+  const validateTriggerWorkflows = (value, path) => {
+    collectTriggerWorkflowsValidationIssues(value, path).forEach((issue) => push(
+      issue.path,
+      issue.ruleId,
+      issue.message,
+      issue.code,
+    ));
+  };
+
+  const validateAction = (item, path, slot, hostBlockType) => {
+    if (!hasTriggerWorkflows(item)) {
+      return;
+    }
+    const actionType = getActionType(item);
+    const normalizedHostBlockType = normalizeText(hostBlockType).toLowerCase();
+    validateTriggerWorkflows(item.settings.triggerWorkflows, `${path}.settings.triggerWorkflows`);
+    if (!isTriggerWorkflowsActionSupported(actionType, slot, normalizedHostBlockType)) {
+      push(
+        path,
+        'trigger-workflows-target-unsupported',
+        'settings.triggerWorkflows is only supported on form submit actions and record updateRecord actions.',
+        'TRIGGER_WORKFLOWS_TARGET_UNSUPPORTED',
+        { actionType, slot, hostBlockType },
+      );
+    }
+  };
+
+  const visitActions = (items, path, slot, hostBlockType) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      const itemPath = `${path}[${index}]`;
+      validateAction(item, itemPath, slot, hostBlockType);
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${itemPath}.popup.blocks[${blockIndex}]`,
+          hostBlockType,
+        ));
+      }
+    });
+  };
+
+  const visitFieldPopups = (items, path, hostBlockType) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${path}[${index}].popup.blocks[${blockIndex}]`,
+          hostBlockType,
+        ));
+      }
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!isObjectRecord(block)) return;
+    const hostBlockType = normalizeText(block.type).toLowerCase();
+    visitActions(block.actions, `${path}.actions`, 'actions', hostBlockType);
+    visitActions(block.recordActions, `${path}.recordActions`, 'recordActions', hostBlockType);
+    visitFieldPopups(block.fields, `${path}.fields`, hostBlockType);
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        visitFieldPopups(group?.fields, `${path}.fieldGroups[${groupIndex}].fields`, hostBlockType);
+      });
+    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
+  };
+
+  if (Array.isArray(payload?.blocks)) {
+    payload.blocks.forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  } else {
+    visitBlock(payload, '$');
+  }
+
+  if (operation === 'configure' && Object.hasOwn(payload?.changes || {}, 'triggerWorkflows')) {
+    validateTriggerWorkflows(payload.changes.triggerWorkflows, '$.changes.triggerWorkflows');
+    const targetUid = normalizeText(payload?.target?.uid);
+    const targetEntry = getLiveTopologyEntry(metadata, targetUid);
+    const targetUse = getLiveEntryUse(targetEntry);
+    if (targetEntry && targetUse && !LIVE_TRIGGER_WORKFLOWS_ACTION_USES.has(targetUse)) {
+      push(
+        '$.target.uid',
+        'trigger-workflows-target-unsupported',
+        'localized configure changes.triggerWorkflows requires a FormSubmitActionModel or UpdateRecordActionModel target.',
+        'TRIGGER_WORKFLOWS_TARGET_UNSUPPORTED',
+        { targetUse },
+      );
+    }
+  }
+
+  return errors;
+}
+
+function collectLocalizedJsItemActionSlotErrors(payload, operation, metadata) {
+  const errors = [];
+
+  const push = (path, blockType, slot) => {
+    errors.push({
+      path,
+      ruleId: JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID,
+      message: buildJsItemActionSlotUnsupportedMessage(),
+      code: JS_ITEM_ACTION_SLOT_UNSUPPORTED_CODE,
+      details: {
+        blockType: normalizeText(blockType),
+        slot,
+      },
+    });
+  };
+
+  const visitActions = (items, path, blockType, slot) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      const itemPath = `${path}[${index}]`;
+      if (isJsItemActionType(getActionType(item)) && !isPublicJsItemActionSlotSupported(blockType, slot)) {
+        push(itemPath, blockType, slot);
+      }
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${itemPath}.popup.blocks[${blockIndex}]`,
+        ));
+      }
+    });
+  };
+
+  const visitFieldPopups = (items, path) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item, index) => {
+      if (Array.isArray(item?.popup?.blocks)) {
+        item.popup.blocks.forEach((block, blockIndex) => visitBlock(
+          block,
+          `${path}[${index}].popup.blocks[${blockIndex}]`,
+        ));
+      }
+    });
+  };
+
+  const visitBlock = (block, path) => {
+    if (!isObjectRecord(block)) return;
+    const blockType = normalizeText(block.type);
+    visitActions(block.actions, `${path}.actions`, blockType, 'actions');
+    visitActions(block.recordActions, `${path}.recordActions`, blockType, 'recordActions');
+    visitFieldPopups(block.fields, `${path}.fields`);
+    if (Array.isArray(block.fieldGroups)) {
+      block.fieldGroups.forEach((group, groupIndex) => {
+        visitFieldPopups(group?.fields, `${path}.fieldGroups[${groupIndex}].fields`);
+      });
+    }
+    forEachLocalizedChildBlockContainer(block, path, (blocks, blocksPath) => {
+      blocks.forEach((child, index) => visitBlock(child, `${blocksPath}[${index}]`));
+    });
+  };
+
+  if (operation === 'configure') {
+    const context = createConfigureTargetBlockContext(metadata, payload);
+    if (context) {
+      visitBlock(context.block, context.path);
+    }
+    return errors;
+  }
+
+  if (operation === 'add-block') {
+    visitBlock(payload, '$');
+    return errors;
+  }
+
+  if (operation === 'add-blocks' || operation === 'compose') {
+    ensureArray(payload?.blocks).forEach((block, index) => visitBlock(block, `$.blocks[${index}]`));
+  }
+  return errors;
+}
+
 export function runLocalizedWritePreflight({
   operation,
   body,
@@ -2529,15 +3307,19 @@ export function runLocalizedWritePreflight({
   collectLocalizedMainBlockSectionErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedHiddenPopupContractErrorsForOperation(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicDataSurfaceDefaultFilterErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedDefaultActionOptOutErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedCalendarKanbanSemanticErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedJsItemActionSlotErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedChartDisplayTitleErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedChartBuilderRelationFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedGridCardSettingsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedJsBlockPublicContractErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedPublicFieldObjectErrorsForOperation(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedRelationFieldExplicitTitleFieldErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedRelationPopupResourceErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedTreeConnectFieldsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   collectLocalizedAssignValuesErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
+  collectLocalizedTriggerWorkflowsErrors(cliBody, normalizedOperation, normalizedMetadata).forEach(pushError);
   audit.blockers.map(normalizeFinding).forEach(pushError);
 
   return {

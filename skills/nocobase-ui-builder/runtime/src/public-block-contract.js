@@ -1,4 +1,4 @@
-import { isPlainObject } from './utils.js';
+import { cloneSerializable, isPlainObject, unique } from './utils.js';
 
 const CALENDAR_TITLE_FIELD_INTERFACES = new Set(['input', 'select', 'phone', 'email', 'radioGroup']);
 const CALENDAR_COLOR_FIELD_INTERFACES = new Set(['select', 'radioGroup']);
@@ -8,6 +8,11 @@ const KANBAN_GROUP_FIELD_INTERFACES = new Set(['select', 'm2o']);
 const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany', 'belongstoarray', 'onetoone']);
 const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'o2o', 'mbm', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
 const PUBLIC_DATA_SURFACE_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const JS_ITEM_COLLECTION_ACTION_HOST_BLOCK_TYPES = new Set(['table', 'list', 'gridCard', 'calendar', 'kanban']);
+const JS_ITEM_RECORD_ACTION_HOST_BLOCK_TYPES = new Set(['table', 'details', 'list', 'gridCard']);
+const JS_ITEM_FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
+export const JS_ITEM_ACTION_SLOT_UNSUPPORTED_RULE_ID = 'js-item-action-slot-unsupported';
+export const JS_ITEM_ACTION_SLOT_UNSUPPORTED_CODE = 'JS_ITEM_ACTION_SLOT_UNSUPPORTED';
 const PUBLIC_BLOCK_TYPE_BY_LIVE_USE = new Map([
   ['TableBlockModel', 'table'],
   ['ListBlockModel', 'list'],
@@ -15,6 +20,10 @@ const PUBLIC_BLOCK_TYPE_BY_LIVE_USE = new Map([
   ['CalendarBlockModel', 'calendar'],
   ['KanbanBlockModel', 'kanban'],
   ['DetailsBlockModel', 'details'],
+  ['CreateFormModel', 'createForm'],
+  ['EditFormModel', 'editForm'],
+  ['FilterFormBlockModel', 'filterForm'],
+  ['ActionPanelBlockModel', 'actionPanel'],
   ['MapBlockModel', 'map'],
   ['ChartBlockModel', 'chart'],
   ['TreeBlockModel', 'tree'],
@@ -37,7 +46,7 @@ const HIDDEN_POPUP_SETTINGS_BY_BLOCK_TYPE = new Map([
     ],
   ],
 ]);
-const READABLE_RELATION_DISPLAY_FIELD_NAMES = new Set([
+const READABLE_RELATION_DISPLAY_FIELD_NAMES = [
   'name',
   'title',
   'nickname',
@@ -51,10 +60,45 @@ const READABLE_RELATION_DISPLAY_FIELD_NAMES = new Set([
   'scope',
   'priority',
   'description',
+];
+const READABLE_RELATION_DISPLAY_FIELD_SUFFIXES = ['Name', 'Title', 'Code', 'Number'];
+const FALLBACK_TITLE_USABLE_INTERFACES = new Set([
+  'attachmentURL',
+  'date',
+  'datetime',
+  'datetimeNoTz',
+  'email',
+  'formula',
+  'id',
+  'input',
+  'integer',
+  'nanoid',
+  'number',
+  'percent',
+  'phone',
+  'radioGroup',
+  'select',
+  'sequence',
+  'snowflakeId',
+  'sort',
+  'space',
+  'textarea',
+  'time',
+  'unixTimestamp',
+  'url',
+  'uuid',
+  'vditor',
 ]);
 
 function normalizeText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function normalizeOptionalBoolean(...values) {
+  for (const value of values) {
+    if (typeof value === 'boolean') return value;
+  }
+  return undefined;
 }
 
 function normalizeLowerText(value) {
@@ -70,7 +114,25 @@ function isReadableDisplayFieldMeta(field) {
     return false;
   }
   const fieldName = normalizeText(field.name || field.field || field.key);
-  return !!fieldName && fieldName !== 'id' && !!normalizeText(field.interface);
+  return (
+    !!fieldName &&
+    fieldName !== 'id' &&
+    isTitleableCollectionFieldMeta(field)
+  );
+}
+
+function isTitleableCollectionFieldMeta(field) {
+  const configured = normalizeOptionalBoolean(
+    field?.titleable,
+    field?.titleUsable,
+    field?.options?.titleable,
+    field?.options?.titleUsable,
+  );
+  if (typeof configured === 'boolean') {
+    return configured;
+  }
+  const interfaceName = normalizeText(field?.interface || field?.options?.interface);
+  return !!interfaceName && FALLBACK_TITLE_USABLE_INTERFACES.has(interfaceName);
 }
 
 function normalizeFilterTargetKeyValue(value) {
@@ -85,8 +147,44 @@ function normalizeCollectionField(field) {
     return null;
   }
   const options = isPlainObject(field.options) ? field.options : {};
+  const descriptionBehavior =
+    isPlainObject(field.descriptionBehavior) ||
+    isPlainObject(options.descriptionBehavior) ||
+    isPlainObject(field.uiSchema?.descriptionBehavior) ||
+    isPlainObject(options.uiSchema?.descriptionBehavior)
+      ? cloneSerializable(
+          field.descriptionBehavior ||
+            options.descriptionBehavior ||
+            field.uiSchema?.descriptionBehavior ||
+            options.uiSchema?.descriptionBehavior,
+        )
+      : undefined;
   const name = normalizeText(field.name) || normalizeText(field.field) || normalizeText(field.key) || normalizeText(options.name);
   if (!name) return null;
+  const description = normalizeText(field.description) || normalizeText(options.description);
+  const validation = isPlainObject(field.validation)
+    ? cloneSerializable(field.validation)
+    : isPlainObject(options.validation)
+      ? cloneSerializable(options.validation)
+      : undefined;
+  const uiSchema = isPlainObject(field.uiSchema)
+    ? cloneSerializable(field.uiSchema)
+    : isPlainObject(options.uiSchema)
+      ? cloneSerializable(options.uiSchema)
+      : undefined;
+  const normalizedOptions = {};
+  if (options.hidden) normalizedOptions.hidden = true;
+  if (options.primaryKey) normalizedOptions.primaryKey = true;
+  if (options.autoIncrement) normalizedOptions.autoIncrement = true;
+  if (options.treeChildren) normalizedOptions.treeChildren = true;
+  if (typeof options.titleable === 'boolean') normalizedOptions.titleable = options.titleable;
+  if (typeof options.titleUsable === 'boolean') normalizedOptions.titleUsable = options.titleUsable;
+  if (normalizeText(options.description)) normalizedOptions.description = normalizeText(options.description);
+  if (Array.isArray(field.options)) normalizedOptions.options = cloneSerializable(field.options);
+  if (Array.isArray(options.options)) normalizedOptions.options = cloneSerializable(options.options);
+  if (isPlainObject(options.validation)) normalizedOptions.validation = cloneSerializable(options.validation);
+  if (isPlainObject(options.uiSchema)) normalizedOptions.uiSchema = cloneSerializable(options.uiSchema);
+  if (options.filterable === false) normalizedOptions.filterable = false;
   return {
     name,
     interface: normalizeText(field.interface) || normalizeText(options.interface),
@@ -94,6 +192,22 @@ function normalizeCollectionField(field) {
     target: normalizeText(field.target) || normalizeText(field.targetCollection) || normalizeText(options.target),
     foreignKey: normalizeText(field.foreignKey) || normalizeText(options.foreignKey),
     targetKey: normalizeText(field.targetKey) || normalizeText(options.targetKey),
+    scopeKey: normalizeText(field.scopeKey) || normalizeText(options.scopeKey),
+    ...(description ? { description } : {}),
+    ...(validation ? { validation } : {}),
+    ...(uiSchema ? { uiSchema } : {}),
+    ...(descriptionBehavior ? { descriptionBehavior } : {}),
+    primaryKey: Boolean(field.primaryKey || options.primaryKey),
+    autoIncrement: Boolean(field.autoIncrement || options.autoIncrement),
+    hidden: Boolean(field.hidden || options.hidden),
+    treeChildren: Boolean(field.treeChildren || options.treeChildren),
+    titleable: normalizeOptionalBoolean(field.titleable, options.titleable),
+    titleUsable: normalizeOptionalBoolean(field.titleUsable, options.titleUsable),
+    filterable:
+      field.filterable === false || options.filterable === false
+        ? false
+        : undefined,
+    options: Object.keys(normalizedOptions).length ? normalizedOptions : undefined,
   };
 }
 
@@ -123,6 +237,9 @@ function getCollectionMeta(collectionMetadata, collectionName) {
   return {
     name: normalizedCollectionName,
     titleField: normalizeText(source.titleField || values.titleField || options.titleField),
+    explicitTitleField: normalizeText(source.explicitTitleField || options.titleField),
+    template: normalizeText(source.template || values.template || options.template),
+    tree: Boolean(source.tree || values.tree || options.tree),
     filterTargetKey:
       normalizeFilterTargetKeyValue(source.filterTargetKey)
       || normalizeFilterTargetKeyValue(values.filterTargetKey)
@@ -192,6 +309,21 @@ export function isPublicDataSurfaceBlockType(blockType) {
   return PUBLIC_DATA_SURFACE_BLOCK_TYPES.has(normalizeText(blockType));
 }
 
+export function isPublicJsItemActionSlotSupported(blockType, slot) {
+  const normalizedBlockType = normalizeText(blockType);
+  if (normalizeText(slot) === 'recordActions') {
+    return JS_ITEM_RECORD_ACTION_HOST_BLOCK_TYPES.has(normalizedBlockType);
+  }
+  return (
+    JS_ITEM_COLLECTION_ACTION_HOST_BLOCK_TYPES.has(normalizedBlockType)
+    || JS_ITEM_FORM_ACTION_HOST_BLOCK_TYPES.has(normalizedBlockType)
+  );
+}
+
+export function buildJsItemActionSlotUnsupportedMessage() {
+  return '`jsItem` actions are only supported in block actions for table/list/gridCard/calendar/kanban, in recordActions for record-capable hosts, or in form actions for createForm/editForm.';
+}
+
 export function forEachBlockHiddenPopup(settings, block, visitor) {
   if (!isPlainObject(settings)) return;
   for (const popupSetting of getHiddenPopupSettingsForBlockType(block?.type)) {
@@ -226,7 +358,32 @@ export function isKanbanGroupFieldMeta(field) {
     && KANBAN_GROUP_FIELD_INTERFACES.has(normalizeText(field.interface));
 }
 
-export function collectCalendarKanbanMainBlockSemanticIssues(block, path, collectionMetadata, { directSettingsPath = false } = {}) {
+function getKanbanDefaultGroupFieldMeta(collectionMeta) {
+  return collectionMeta?.fields?.find((field) => isKanbanGroupFieldMeta(field)) || null;
+}
+
+function getKanbanGroupFieldSortScopeKeys(groupField) {
+  const groupFieldName = normalizeText(groupField?.name);
+  if (!groupFieldName) return [];
+  if (normalizeText(groupField?.interface) !== 'm2o' || !normalizeText(groupField?.foreignKey)) {
+    return [groupFieldName];
+  }
+  return unique([normalizeText(groupField.foreignKey), groupFieldName]);
+}
+
+function isKanbanCompatibleSortFieldMeta(field, groupField) {
+  if (!field || normalizeText(field.interface) !== 'sort') {
+    return false;
+  }
+  return getKanbanGroupFieldSortScopeKeys(groupField).includes(normalizeText(field.scopeKey || field.options?.scopeKey));
+}
+
+export function collectCalendarKanbanMainBlockSemanticIssues(
+  block,
+  path,
+  collectionMetadata,
+  { directSettingsPath = false, collectionName = "" } = {},
+) {
   const issues = [];
   const push = (issuePath, ruleId, message) => {
     issues.push({
@@ -243,7 +400,7 @@ export function collectCalendarKanbanMainBlockSemanticIssues(block, path, collec
   const type = normalizeText(block.type);
   const settings = isPlainObject(block.settings) ? block.settings : {};
   const settingsPath = directSettingsPath ? path : `${path}.settings`;
-  const collection = getPublicBlockCollectionName(block);
+  const collection = normalizeText(collectionName) || getPublicBlockCollectionName(block);
   if (!collection || !collectionMetadata || Object.keys(collectionMetadata).length === 0) {
     return issues;
   }
@@ -302,23 +459,46 @@ export function collectCalendarKanbanMainBlockSemanticIssues(block, path, collec
     return issues;
   }
 
-  if (type === 'kanban' && hasOwn(settings, 'groupField')) {
-    const groupFieldName = normalizeText(settings.groupField);
-    if (!groupFieldName) {
-      push(
-        `${settingsPath}.groupField`,
-        'kanban-group-field-required',
-        'kanban settings.groupField must be a non-empty field name.',
-      );
-      return issues;
+  if (type === 'kanban') {
+    let groupField = getKanbanDefaultGroupFieldMeta(collectionMeta);
+    if (hasOwn(settings, 'groupField')) {
+      const groupFieldName = normalizeText(settings.groupField);
+      if (!groupFieldName) {
+        push(
+          `${settingsPath}.groupField`,
+          'kanban-group-field-required',
+          'kanban settings.groupField must be a non-empty field name.',
+        );
+        return issues;
+      }
+      groupField = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, groupFieldName)?.field || null;
+      if (!isKanbanGroupFieldMeta(groupField)) {
+        push(
+          `${settingsPath}.groupField`,
+          'kanban-group-field-invalid',
+          `kanban settings.groupField must reference a select or m2o field; got "${groupFieldName}".`,
+        );
+      }
     }
-    const groupField = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, groupFieldName)?.field || null;
-    if (!isKanbanGroupFieldMeta(groupField)) {
-      push(
-        `${settingsPath}.groupField`,
-        'kanban-group-field-invalid',
-        `kanban settings.groupField must reference a select or m2o field; got "${groupFieldName}".`,
-      );
+
+    if (hasOwn(settings, 'dragSortBy')) {
+      const dragSortBy = normalizeText(settings.dragSortBy);
+      if (!dragSortBy) {
+        push(
+          `${settingsPath}.dragSortBy`,
+          'kanban-drag-sort-field-required',
+          'kanban settings.dragSortBy must be a non-empty field name when present.',
+        );
+        return issues;
+      }
+      const sortField = resolveFieldPathInCollectionMetadata(collectionMetadata, collection, dragSortBy)?.field || null;
+      if (!groupField || !isKanbanCompatibleSortFieldMeta(sortField, groupField)) {
+        push(
+          `${settingsPath}.dragSortBy`,
+          'kanban-drag-sort-field-invalid',
+          `kanban settings.dragSortBy must reference an interface=sort field scoped to the current groupField; got "${dragSortBy}".`,
+        );
+      }
     }
   }
 
@@ -360,24 +540,28 @@ export function buildPublicRelationFieldTitleFieldRequiredMessage(fieldPath, tar
   const normalizedTargetCollection = normalizeText(targetCollection) || '(unknown collection)';
   const readableField = normalizeText(readableDisplayFieldName);
   if (readableField) {
-    return `Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id". You must explicitly set titleField on this relation field object. Use "${readableField}" or another readable field; "id" is not allowed.`;
+    return `Please add titleField for "${normalizedFieldPath}". Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id". Use "${readableField}" or another readable field; "id" is not allowed.`;
   }
-  return `Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id". You must explicitly set titleField on this relation field object and add a readable display field to the target collection. "id" is not allowed.`;
+  return `Please add titleField for "${normalizedFieldPath}". Relation field "${normalizedFieldPath}" targets collection "${normalizedTargetCollection}" whose display field would resolve to "id", and the target collection does not expose a readable display field. "id" is not allowed.`;
 }
 
-export function resolveReadableDisplayFieldName(collectionMetadata, collectionName) {
+export function resolveReadableRelationTitleField(collectionMetadata, collectionName) {
   const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
   if (!collectionMeta || !Array.isArray(collectionMeta.fields)) {
     return '';
   }
 
   const fieldsByName = collectionMeta.fieldsByName instanceof Map ? collectionMeta.fieldsByName : new Map();
-  const candidates = [
-    normalizeText(collectionMeta.titleField),
-    normalizeText(collectionMeta.filterTargetKey),
-    ...READABLE_RELATION_DISPLAY_FIELD_NAMES,
-  ];
-
+  const candidates = [normalizeText(collectionMeta.titleField)];
+  for (const suffix of READABLE_RELATION_DISPLAY_FIELD_SUFFIXES) {
+    for (const field of collectionMeta.fields) {
+      const fieldName = normalizeText(field.name || field.field || field.key);
+      if (fieldName && fieldName.toLowerCase().endsWith(suffix.toLowerCase())) {
+        candidates.push(fieldName);
+      }
+    }
+  }
+  candidates.push(...READABLE_RELATION_DISPLAY_FIELD_NAMES);
   const seen = new Set();
   for (const candidate of candidates) {
     const normalizedCandidate = normalizeText(candidate);
@@ -400,11 +584,15 @@ export function resolveReadableDisplayFieldName(collectionMetadata, collectionNa
   return '';
 }
 
+export function resolveReadableDisplayFieldName(collectionMetadata, collectionName) {
+  return resolveReadableRelationTitleField(collectionMetadata, collectionName);
+}
+
 export function buildPublicRelationFieldTitleFieldInvalidMessage(fieldPath, targetCollection, titleField) {
   const normalizedFieldPath = normalizeText(fieldPath) || '(unknown field)';
   const normalizedTargetCollection = normalizeText(targetCollection) || '(unknown collection)';
   const normalizedTitleField = normalizeText(titleField) || '(empty)';
-  return `Relation field "${normalizedFieldPath}" on collection "${normalizedTargetCollection}" cannot use titleField "${normalizedTitleField}". Choose a readable field such as "name", "title", or "code".`;
+  return `Please choose a different field for titleField on "${normalizedFieldPath}". Relation field "${normalizedFieldPath}" on collection "${normalizedTargetCollection}" cannot use titleField "${normalizedTitleField}". "id" is not allowed.`;
 }
 
 export function buildPublicRelationFieldTitleFieldInvalidTargetMessage(fieldPath, targetCollection, titleField) {

@@ -13,7 +13,7 @@ This directory is the canonical local snippet library for JS / RunJS authoring.
 1. Lock the authoring surface in [../js-surfaces/index.md](../js-surfaces/index.md).
 2. Read [catalog.json](./catalog.json) for the matching `safe` snippet ID.
 3. Open exactly one snippet doc and edit only the documented slots.
-4. Run the validator / preflight gate before writing.
+4. Use the snippet as guidance and write through backend `flow-surfaces`. Optional local helper checks may catch obvious issues, but snippets are not a write gate.
 
 `catalog.json` is the machine-readable index for snippet retrieval. Use these fields directly:
 

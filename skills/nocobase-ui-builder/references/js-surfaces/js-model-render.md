@@ -5,11 +5,14 @@ Use this surface for JS models whose main job is to render content in a block, f
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `jsModel`
-- Writeback path in this skill: `stepParams.jsSettings.runJs`
+- Public writeback path for new `jsBlock`: inline `settings.code/settings.version`, or whole-page `assets.scripts.<key>.code` referenced by block `script`.
+- Public configure path for existing `jsBlock`: direct `changes.code/changes.version`.
+- Internal readback may contain `stepParams.jsSettings.runJs`; do not copy that persisted shape into public write requests.
 - Validation style: render
-- `ctx.render(...)` is required.
+- `ctx.render(...)` is required on the directly executed top-level path.
+- Do not wrap all render logic in an uncalled function or callback; move that body to top-level code.
 - Do not rely on top-level `return` for rendering.
-- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, or `JSColumnModel`.
+- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, or `JSItemActionModel`.
 - Default UI library policy: render React JSX with Ant Design components from `ctx.libs.antd` / `ctx.libs.antdIcons`.
 - Use external UI libraries only when the requested UI needs capabilities Ant Design does not provide.
 
@@ -49,4 +52,4 @@ For popup-level render blocks, prefer [scene/block/popup-record-summary](../js-s
 - Exact model constraints -> [../js-models/index.md](../js-models/index.md)
 - Render contract -> [../js-models/rendering-contract.md](../js-models/rendering-contract.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

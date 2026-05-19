@@ -50,5 +50,5 @@ Read this file when you already know you need to add something into a content ar
 - `addChild` is a record action, not a block action.
 - For the canonical `addChild` placement and live-target rule, follow [normative-contract.md](./normative-contract.md).
 - For localized creates, read back the persisted surface before adding follow-up actions or popup wiring. If the user explicitly asked for filter/search on a new `table` / `list` / `gridCard` / `calendar` / `kanban`, add a normal block-level `filter` action on that host.
-- When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
+- When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` exists or the user explicitly asked for the hard no-reuse path (`popup.tryTemplate=false`).
 - If click-to-open already covers the requested details behavior on a shown Name/Title-like field, avoid adding a separate `view` record action unless the user explicitly asked for a button/action column.
