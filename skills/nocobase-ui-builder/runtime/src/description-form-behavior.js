@@ -565,6 +565,13 @@ function hasDescriptionConditionCue(description) {
   );
 }
 
+export function hasConditionalFieldStateDescription(description) {
+  if (!hasDescriptionConditionCue(description)) return false;
+  return ["required", "disabled", "hidden"].includes(
+    getDescriptionStateKeyword(description),
+  );
+}
+
 function collectLinkageConditionFieldNames(condition, output) {
   if (!isPlainObject(condition)) return;
   const path = normalizeText(condition.path);

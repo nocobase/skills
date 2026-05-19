@@ -3269,6 +3269,223 @@ test('prepareApplyBlueprintRequest rejects implemented review entries when formB
   );
 });
 
+test('prepareApplyBlueprintRequest rejects implemented conditional description review when only helper text is covered', () => {
+  const descriptionMetadata = {
+    collections: {
+      weeklyReports: {
+        name: 'weeklyReports',
+        titleField: 'reportTitle',
+        fields: [
+          { name: 'reportTitle', interface: 'input' },
+          {
+            name: 'status',
+            interface: 'select',
+            uiSchema: {
+              title: '状态',
+              enum: [
+                { value: '草稿', label: '草稿' },
+                { value: '已生成', label: '已生成' },
+                { value: '已发布', label: '已发布' },
+              ],
+            },
+          },
+          {
+            name: 'highlights',
+            interface: 'textarea',
+            uiSchema: {
+              title: '重点变化',
+            },
+            description: '当状态为“已发布”时，“重点变化”字段为必填项；默认从高重要度情报标题和关键信号提取。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Weekly reports' },
+      defaults: {
+        collections: {
+          weeklyReports: {
+            popups: buildFixedCollectionPopupDefaults('weeklyReports'),
+            formBehavior: {
+              addNew: {
+                fields: {
+                  highlights: {
+                    settings: {
+                      extra: '当状态为“已发布”时，“重点变化”字段为必填项；默认从高重要度情报标题和关键信号提取。',
+                    },
+                  },
+                },
+              },
+              edit: {
+                fields: {
+                  highlights: {
+                    settings: {
+                      extra: '当状态为“已发布”时，“重点变化”字段为必填项；默认从高重要度情报标题和关键信号提取。',
+                    },
+                  },
+                },
+              },
+            },
+            formBehaviorDescriptionReview: {
+              fields: {
+                highlights: {
+                  decision: 'implemented',
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'reportsTable',
+              type: 'table',
+              collection: 'weeklyReports',
+              fields: ['reportTitle', 'status', 'highlights'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-implemented-missing-linkage-coverage'
+        && issue.path === 'defaults.collections.weeklyReports.formBehaviorDescriptionReview.fields.highlights',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects implemented conditional description review when linkage covers only one generated action', () => {
+  const descriptionMetadata = {
+    collections: {
+      weeklyReports: {
+        name: 'weeklyReports',
+        titleField: 'reportTitle',
+        fields: [
+          { name: 'reportTitle', interface: 'input' },
+          {
+            name: 'status',
+            interface: 'select',
+            uiSchema: {
+              title: '状态',
+            },
+          },
+          {
+            name: 'highlights',
+            interface: 'textarea',
+            uiSchema: {
+              title: '重点变化',
+            },
+            description: '当状态为“已发布”时，“重点变化”字段为必填项；默认从高重要度情报标题和关键信号提取。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Weekly reports' },
+      defaults: {
+        collections: {
+          weeklyReports: {
+            popups: buildFixedCollectionPopupDefaults('weeklyReports'),
+            formBehavior: {
+              addNew: {
+                fields: {
+                  highlights: {
+                    settings: {
+                      extra: '当状态为“已发布”时，“重点变化”字段为必填项；默认从高重要度情报标题和关键信号提取。',
+                    },
+                  },
+                },
+              },
+              edit: {
+                fieldLinkageRules: [
+                  {
+                    key: 'description-highlights-status-required',
+                    when: {
+                      logic: '$and',
+                      items: [
+                        {
+                          path: 'formValues.status',
+                          operator: '$eq',
+                          value: '已发布',
+                        },
+                      ],
+                    },
+                    then: [
+                      {
+                        type: 'setFieldState',
+                        fieldPaths: ['highlights'],
+                        state: 'required',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            formBehaviorDescriptionReview: {
+              fields: {
+                highlights: {
+                  decision: 'implemented',
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'reportsTable',
+              type: 'table',
+              collection: 'weeklyReports',
+              fields: ['reportTitle', 'status', 'highlights'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-implemented-missing-linkage-coverage'
+        && issue.path === 'defaults.collections.weeklyReports.formBehaviorDescriptionReview.fields.highlights'
+        && issue.details?.missingCoverage?.some((source) =>
+          source.includes('formBehavior.addNew.fieldLinkageRules'),
+        ),
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest accepts implemented review coverage from applicable top-level form reactions', () => {
   const descriptionMetadata = {
     collections: {
@@ -3563,6 +3780,104 @@ test('prepareApplyBlueprintRequest rejects non-implemented review entries when c
               fields: {
                 approvalComment: {
                   decision: 'unsupported',
+                  reasonCode: 'ambiguous-description',
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          key: 'main',
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'taskTable',
+              type: 'table',
+              collection: 'tasks',
+              fields: ['title', 'status'],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      collectionMetadata: descriptionMetadata,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-nonimplemented-conflicts-with-coverage'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.approvalComment',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects non-implemented conditional review entries when field-state settings already exist', () => {
+  const descriptionMetadata = {
+    collections: {
+      tasks: {
+        name: 'tasks',
+        titleField: 'title',
+        fields: [
+          { name: 'title', interface: 'input' },
+          {
+            name: 'status',
+            interface: 'select',
+            uiSchema: {
+              title: '状态',
+            },
+          },
+          {
+            name: 'approvalComment',
+            interface: 'textarea',
+            uiSchema: {
+              title: '审批意见',
+            },
+            description: '当状态为“已发布”时，“审批意见”字段为必填项。',
+          },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Tasks' },
+      defaults: {
+        collections: {
+          tasks: {
+            popups: buildFixedCollectionPopupDefaults('tasks'),
+            formBehavior: {
+              addNew: {
+                fields: {
+                  approvalComment: {
+                    settings: {
+                      required: true,
+                    },
+                  },
+                },
+              },
+              edit: {
+                fields: {
+                  approvalComment: {
+                    settings: {
+                      required: true,
+                    },
+                  },
+                },
+              },
+            },
+            formBehaviorDescriptionReview: {
+              fields: {
+                approvalComment: {
+                  decision: 'noUiBehavior',
                   reasonCode: 'ambiguous-description',
                 },
               },
@@ -4451,7 +4766,7 @@ test('prepareApplyBlueprintRequest merges explicit non-empty formBehavior linkag
   );
 });
 
-test('prepareApplyBlueprintRequest lets explicit empty formBehavior linkage override description-derived defaults', () => {
+test('prepareApplyBlueprintRequest rejects explicit empty formBehavior linkage override that leaves conditional generated actions partially covered', () => {
   const descriptionMetadata = {
     collections: {
       tasks: {
@@ -4507,10 +4822,16 @@ test('prepareApplyBlueprintRequest lets explicit empty formBehavior linkage over
     },
   );
 
-  assert.equal(result.ok, true, JSON.stringify(result.errors));
-  assert.deepEqual(
-    result.cliBody.defaults.collections.tasks.formBehavior.edit.fieldLinkageRules,
-    [],
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'description-review-implemented-missing-linkage-coverage'
+        && issue.path === 'defaults.collections.tasks.formBehaviorDescriptionReview.fields.approvalComment'
+        && issue.details?.missingCoverage?.some((source) =>
+          source.includes('formBehavior.edit.fieldLinkageRules'),
+        ),
+    ),
   );
 });
 

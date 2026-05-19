@@ -23,6 +23,7 @@ import {
   FIELD_LINKAGE_REACTION_TYPE,
   getFieldDescriptionText,
   getFieldLinkageRuleSemanticKey,
+  hasConditionalFieldStateDescription,
 } from "./description-form-behavior.js";
 import {
   collectDescriptionDrivenFieldLinkageItems,
@@ -452,6 +453,8 @@ const FORM_ACTION_HOST_BLOCK_TYPES = new Set(["createForm", "editForm"]);
 const FORM_SUBMIT_ACTION_KEY = "submitAction";
 const FORM_SUBMIT_ACTION_TYPE = "submit";
 const FIELD_STATE_ACTION_TYPE = "setFieldState";
+const DEFAULT_FORM_BEHAVIOR_ACTIONS = ["addNew", "edit"];
+const DEFAULT_FORM_BEHAVIOR_HELPER_SETTING_KEYS = new Set(["extra"]);
 const FIELD_STATE_BOOLEAN_SHORTHANDS = {
   disabled: { true: "disabled", false: "enabled" },
   enabled: { true: "enabled", false: "disabled" },
@@ -3281,7 +3284,7 @@ function validateRequiredDefaultFormBehaviorScene(
 
 function collectDefaultFormBehaviorCoveredFieldNames(formBehavior) {
   const covered = new Set();
-  for (const action of ["addNew", "edit"]) {
+  for (const action of DEFAULT_FORM_BEHAVIOR_ACTIONS) {
     const scene = isPlainObject(formBehavior?.[action]) ? formBehavior[action] : null;
     if (isPlainObject(scene?.fields)) {
       for (const fieldPath of Object.keys(scene.fields)) {
@@ -3292,7 +3295,7 @@ function collectDefaultFormBehaviorCoveredFieldNames(formBehavior) {
     for (const rule of ensureArray(scene?.fieldLinkageRules)) {
       for (const thenAction of ensureArray(rule?.then)) {
         if (normalizeText(thenAction?.type) !== FIELD_STATE_ACTION_TYPE) continue;
-        for (const fieldPath of ensureArray(thenAction?.fieldPaths)) {
+        for (const fieldPath of normalizeFieldStateActionFieldPaths(thenAction)) {
           const normalizedFieldPath = normalizeText(fieldPath);
           if (normalizedFieldPath) covered.add(normalizedFieldPath);
         }
@@ -3304,31 +3307,42 @@ function collectDefaultFormBehaviorCoveredFieldNames(formBehavior) {
 
 function collectDefaultFormBehaviorCoverageByField(formBehavior) {
   const coverage = new Map();
-  const addCoverage = (fieldPath, source) => {
+  const addCoverage = (fieldPath, entry) => {
     const normalizedFieldPath = normalizeText(fieldPath);
     if (!normalizedFieldPath) return;
-    const sources = coverage.get(normalizedFieldPath) || [];
-    sources.push(source);
-    coverage.set(normalizedFieldPath, sources);
+    const entries = coverage.get(normalizedFieldPath) || [];
+    entries.push(entry);
+    coverage.set(normalizedFieldPath, entries);
   };
-  for (const action of ["addNew", "edit"]) {
+  for (const action of DEFAULT_FORM_BEHAVIOR_ACTIONS) {
     const scene = isPlainObject(formBehavior?.[action])
       ? formBehavior[action]
       : null;
     if (isPlainObject(scene?.fields)) {
       for (const fieldPath of Object.keys(scene.fields)) {
-        if (hasEffectiveDefaultFormBehaviorSettings(scene.fields[fieldPath]?.settings)) {
-          addCoverage(fieldPath, `formBehavior.${action}.fields.${fieldPath}.settings`);
+        const kind = getDefaultFormBehaviorSettingsCoverageKind(
+          scene.fields[fieldPath]?.settings,
+        );
+        if (kind) {
+          addCoverage(fieldPath, {
+            source: `formBehavior.${action}.fields.${fieldPath}.settings`,
+            action,
+            kind,
+          });
         }
       }
     }
     for (const [ruleIndex, rule] of ensureArray(scene?.fieldLinkageRules).entries()) {
       for (const thenAction of ensureArray(rule?.then)) {
         if (normalizeText(thenAction?.type) !== FIELD_STATE_ACTION_TYPE) continue;
-        for (const fieldPath of ensureArray(thenAction?.fieldPaths)) {
+        for (const fieldPath of normalizeFieldStateActionFieldPaths(thenAction)) {
           addCoverage(
             fieldPath,
-            `formBehavior.${action}.fieldLinkageRules[${ruleIndex}]`,
+            {
+              source: `formBehavior.${action}.fieldLinkageRules[${ruleIndex}]`,
+              action,
+              kind: "linkage",
+            },
           );
         }
       }
@@ -3337,23 +3351,112 @@ function collectDefaultFormBehaviorCoverageByField(formBehavior) {
   return coverage;
 }
 
+function getFieldCoverageSource(coverage) {
+  return typeof coverage === "string"
+    ? normalizeText(coverage)
+    : normalizeText(coverage?.source);
+}
+
+function getFieldCoverageSources(coverage) {
+  return ensureArray(coverage)
+    .map((entry) => getFieldCoverageSource(entry))
+    .filter(Boolean);
+}
+
+function isFieldLinkageCoverageSource(coverage) {
+  if (normalizeText(coverage?.kind) === "linkage") return true;
+  const normalizedSource = getFieldCoverageSource(coverage);
+  return (
+    normalizedSource.includes(".fieldLinkageRules[") ||
+    normalizedSource.startsWith("reaction.items[")
+  );
+}
+
+function getEffectiveDefaultFormBehaviorSettingKeys(settings) {
+  if (!isPlainObject(settings)) return [];
+  return Object.entries(settings)
+    .filter(([key, value]) => {
+      if (typeof value === "undefined") return false;
+      if (key === "rules") return Array.isArray(value) && value.length > 0;
+      return true;
+    })
+    .map(([key]) => key);
+}
+
+function getDefaultFormBehaviorSettingsCoverageKind(settings) {
+  const settingKeys = getEffectiveDefaultFormBehaviorSettingKeys(settings);
+  if (!settingKeys.length) return "";
+  return settingKeys.every((key) =>
+    DEFAULT_FORM_BEHAVIOR_HELPER_SETTING_KEYS.has(key),
+  )
+    ? "settings-helper"
+    : "settings-behavior";
+}
+
 function hasEffectiveDefaultFormBehaviorSettings(settings) {
-  if (!isPlainObject(settings)) return false;
-  return Object.entries(settings).some(([key, value]) => {
-    if (typeof value === "undefined") return false;
-    if (key === "rules") return Array.isArray(value) && value.length > 0;
-    return true;
-  });
+  return getEffectiveDefaultFormBehaviorSettingKeys(settings).length > 0;
+}
+
+function isConditionalFieldStateConflictCoverage(coverage) {
+  return normalizeText(coverage?.kind) !== "settings-helper";
+}
+
+function coverageMatchesDefaultFormBehaviorAction(coverage, action) {
+  const normalizedAction = normalizeText(action);
+  const coverageAction = normalizeText(coverage?.action);
+  return !coverageAction || !normalizedAction || coverageAction === normalizedAction;
+}
+
+function hasFieldLinkageCoverageForDefaultFormBehaviorAction(coverage, action) {
+  return ensureArray(coverage).some(
+    (entry) =>
+      isFieldLinkageCoverageSource(entry) &&
+      coverageMatchesDefaultFormBehaviorAction(entry, action),
+  );
+}
+
+function getMissingConditionalFieldStateLinkageCoverage(
+  fieldName,
+  requiredActions,
+  coverage,
+) {
+  return ensureArray(requiredActions)
+    .map((action) => normalizeText(action))
+    .filter(Boolean)
+    .filter(
+      (action) =>
+        !hasFieldLinkageCoverageForDefaultFormBehaviorAction(coverage, action),
+    )
+    .map((action) => `formBehavior.${action}.fieldLinkageRules targeting ${fieldName}`);
+}
+
+function hasImplementedDescriptionReviewCoverage(
+  description,
+  coverage,
+  requiredActions,
+) {
+  const entries = ensureArray(coverage);
+  if (!entries.length) return false;
+  if (!hasConditionalFieldStateDescription(description)) return true;
+  const actions = ensureArray(requiredActions)
+    .map((action) => normalizeText(action))
+    .filter(Boolean);
+  if (!actions.length) {
+    return entries.some(isFieldLinkageCoverageSource);
+  }
+  return actions.every((action) =>
+    hasFieldLinkageCoverageForDefaultFormBehaviorAction(entries, action),
+  );
 }
 
 function collectReactionCoverageByField(blueprint, collectionName) {
   const coverage = new Map();
-  const addCoverage = (fieldPath, source) => {
+  const addCoverage = (fieldPath, entry) => {
     const normalizedFieldPath = normalizeText(fieldPath);
     if (!normalizedFieldPath) return;
-    const sources = coverage.get(normalizedFieldPath) || [];
-    sources.push(source);
-    coverage.set(normalizedFieldPath, sources);
+    const entries = coverage.get(normalizedFieldPath) || [];
+    entries.push(entry);
+    coverage.set(normalizedFieldPath, entries);
   };
   for (const [itemIndex, item] of ensureArray(blueprint?.reaction?.items).entries()) {
     if (
@@ -3368,20 +3471,32 @@ function collectReactionCoverageByField(blueprint, collectionName) {
       collectionName,
     );
     if (!targetBlock) continue;
+    const action = getDefaultFormBehaviorActionForBlockType(targetBlock.type);
     for (const [ruleIndex, rule] of ensureArray(item.rules).entries()) {
       for (const thenAction of ensureArray(rule?.then)) {
         if (normalizeText(thenAction?.type) !== FIELD_STATE_ACTION_TYPE) continue;
-        for (const fieldPath of ensureArray(thenAction?.fieldPaths)) {
+        for (const fieldPath of normalizeFieldStateActionFieldPaths(thenAction)) {
           if (!hasBlockFieldPath(targetBlock, fieldPath)) continue;
           addCoverage(
             fieldPath,
-            `reaction.items[${itemIndex}].rules[${ruleIndex}]`,
+            {
+              source: `reaction.items[${itemIndex}].rules[${ruleIndex}]`,
+              action,
+              kind: "linkage",
+            },
           );
         }
       }
     }
   }
   return coverage;
+}
+
+function getDefaultFormBehaviorActionForBlockType(blockType) {
+  const normalizedType = normalizeText(blockType);
+  if (normalizedType === "createForm") return "addNew";
+  if (normalizedType === "editForm") return "edit";
+  return "";
 }
 
 function resolveDescriptionReviewReactionTargetBlock(blueprint, item, collectionName) {
@@ -3427,6 +3542,9 @@ function getDescriptionReviewFieldsMap(review) {
 
 function getDescriptionReviewReasonCodeForDescription(description) {
   const normalized = normalizeText(description).toLowerCase();
+  if (hasConditionalFieldStateDescription(description)) {
+    return "ambiguous-description";
+  }
   if (
     normalized.includes("ai") ||
     normalized.includes("自动生成") ||
@@ -3707,25 +3825,28 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
         collectionDefaults.fieldGroups,
       );
       const candidateFieldNameSet = new Set(candidateFieldNames);
-      const describedFieldNames = Array.from(
-        new Set(
-          requiredFormBehaviorActions.flatMap((action) =>
-            pickDefaultPopupSceneFieldPaths(
-              collectionMetadata,
-              entry.collection,
-              action,
-              collectionDefaults.fieldGroups,
-            ).filter((fieldPath) => {
-              const fieldMeta = getCollectionFieldMeta(
-                collectionMetadata,
-                entry.collection,
-                fieldPath,
-              );
-              return !!getFieldDescriptionText(fieldMeta);
-            }),
-          ),
-        ),
-      );
+      const describedFieldActionsByName = new Map();
+      for (const action of requiredFormBehaviorActions) {
+        for (const fieldPath of pickDefaultPopupSceneFieldPaths(
+          collectionMetadata,
+          entry.collection,
+          action,
+          collectionDefaults.fieldGroups,
+        )) {
+          const normalizedFieldPath = normalizeText(fieldPath);
+          if (!normalizedFieldPath) continue;
+          const fieldMeta = getCollectionFieldMeta(
+            collectionMetadata,
+            entry.collection,
+            normalizedFieldPath,
+          );
+          if (!getFieldDescriptionText(fieldMeta)) continue;
+          const actions = describedFieldActionsByName.get(normalizedFieldPath) || [];
+          if (!actions.includes(action)) actions.push(action);
+          describedFieldActionsByName.set(normalizedFieldPath, actions);
+        }
+      }
+      const describedFieldNames = Array.from(describedFieldActionsByName.keys());
       const describedFieldNameSet = new Set(describedFieldNames);
       const describedFieldsByName = new Map(
         describedFieldNames.map((fieldName) => [
@@ -3761,29 +3882,47 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
           {
             collection: entry.collection,
             fields: describedFieldNames,
-            fixOptions: describedFieldNames.map((fieldName) => ({
-              type: "addReview",
-              patchSkeleton: {
-                defaults: {
-                  collections: {
-                    [entry.collection]: {
-                      formBehaviorDescriptionReview: {
-                        fields: {
-                          [fieldName]: {
-                            decision: coverageByField.has(fieldName)
-                              ? "implemented"
-                              : "unsupported",
-                            ...(coverageByField.has(fieldName)
-                              ? {}
-                              : { reasonCode: "ambiguous-description" }),
+            fixOptions: describedFieldNames.map((fieldName) => {
+              const fieldMeta = getCollectionFieldMeta(
+                collectionMetadata,
+                entry.collection,
+                fieldName,
+              );
+              const description = getFieldDescriptionText(fieldMeta);
+              const hasImplementedCoverage = hasImplementedDescriptionReviewCoverage(
+                description,
+                coverageByField.get(fieldName) || [],
+                describedFieldActionsByName.get(fieldName) || [],
+              );
+              return {
+                type: "addReview",
+                patchSkeleton: {
+                  defaults: {
+                    collections: {
+                      [entry.collection]: {
+                        formBehaviorDescriptionReview: {
+                          fields: {
+                            [fieldName]: {
+                              decision: hasImplementedCoverage
+                                ? "implemented"
+                                : "noUiBehavior",
+                              ...(hasImplementedCoverage
+                                ? {}
+                                : {
+                                    reasonCode:
+                                      getDescriptionReviewReasonCodeForDescription(
+                                        description,
+                                      ),
+                                  }),
+                            },
                           },
                         },
                       },
                     },
                   },
                 },
-              },
-            })),
+              };
+            }),
           },
         );
       }
@@ -3849,6 +3988,8 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
         const fieldMeta = describedFieldsByName.get(fieldName);
         const description = getFieldDescriptionText(fieldMeta);
         const coverage = coverageByField.get(fieldName) || [];
+        const coverageSources = getFieldCoverageSources(coverage);
+        const describedActions = describedFieldActionsByName.get(fieldName) || [];
         if (reviewEntry === null) {
           pushValidationError(
             errors,
@@ -3924,6 +4065,36 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
             }),
           );
         }
+        const missingConditionalLinkageCoverage =
+          decision === "implemented" &&
+          coverage.length &&
+          hasConditionalFieldStateDescription(description)
+            ? getMissingConditionalFieldStateLinkageCoverage(
+                fieldName,
+                describedActions,
+                coverage,
+              )
+            : [];
+        if (
+          missingConditionalLinkageCoverage.length
+        ) {
+          pushValidationError(
+            errors,
+            seenErrors,
+            reviewPath,
+            "description-review-implemented-missing-linkage-coverage",
+            `${reviewPath} is marked implemented for a conditional field-state description, but no field linkage rule targets this field.`,
+            undefined,
+            buildDescriptionReviewErrorDetails({
+              collection: entry.collection,
+              field: fieldName,
+              description,
+              decision,
+              coverage: coverageSources,
+              missingCoverage: missingConditionalLinkageCoverage,
+            }),
+          );
+        }
         if (decision !== "implemented") {
           const reasonCode = normalizeText(reviewEntry.reasonCode);
           if (!reasonCode) {
@@ -3961,7 +4132,10 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
               }),
             );
           }
-          if (coverage.length) {
+          const conflictingCoverage = hasConditionalFieldStateDescription(description)
+            ? coverage.filter(isConditionalFieldStateConflictCoverage)
+            : coverage;
+          if (conflictingCoverage.length) {
             pushValidationError(
               errors,
               seenErrors,
@@ -3974,7 +4148,7 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
                 field: fieldName,
                 description,
                 decision,
-                coverage,
+                coverage: getFieldCoverageSources(conflictingCoverage),
                 reason: "non-implemented decision conflicts with existing coverage",
               }),
             );
@@ -5310,8 +5484,8 @@ function buildDefaultFormBehaviorForCollection(
   fieldGroups,
 ) {
   const formBehavior = {};
-  const reviewFields = {};
-  for (const action of ["addNew", "edit"]) {
+  const reviewFieldStates = new Map();
+  for (const action of DEFAULT_FORM_BEHAVIOR_ACTIONS) {
     const sceneFieldPaths = pickDefaultPopupSceneFieldPaths(
       collectionMetadata,
       collectionName,
@@ -5324,17 +5498,21 @@ function buildDefaultFormBehaviorForCollection(
       action,
       fieldGroups,
     );
-    const coveredFieldPaths = new Set([
-      ...Object.keys(scene?.fields || {}),
-      ...ensureArray(scene?.fieldLinkageRules).flatMap((rule) =>
+    const settingsCoveredFieldPaths = new Set(Object.keys(scene?.fields || {}));
+    const linkageCoveredFieldPaths = new Set(
+      ensureArray(scene?.fieldLinkageRules).flatMap((rule) =>
         ensureArray(rule?.then).flatMap((thenAction) =>
           normalizeText(thenAction?.type) === FIELD_STATE_ACTION_TYPE
-            ? ensureArray(thenAction?.fieldPaths).map((fieldPath) =>
+            ? normalizeFieldStateActionFieldPaths(thenAction).map((fieldPath) =>
                 normalizeText(fieldPath),
               )
             : [],
         ),
       ),
+    );
+    const coveredFieldPaths = new Set([
+      ...settingsCoveredFieldPaths,
+      ...linkageCoveredFieldPaths,
     ].filter(Boolean));
     for (const fieldPath of sceneFieldPaths) {
       const normalizedFieldPath = normalizeText(fieldPath);
@@ -5345,20 +5523,47 @@ function buildDefaultFormBehaviorForCollection(
         normalizedFieldPath,
       );
       if (!getFieldDescriptionText(fieldMeta)) continue;
-      reviewFields[normalizedFieldPath] = coveredFieldPaths.has(
-        normalizedFieldPath,
-      )
-        ? { decision: "implemented" }
-        : {
-            decision: "noUiBehavior",
-            reasonCode: getDescriptionReviewReasonCodeForDescription(
-              getFieldDescriptionText(fieldMeta),
-            ),
-          };
+      const requiresLinkageCoverage = hasConditionalFieldStateDescription(
+        getFieldDescriptionText(fieldMeta),
+      );
+      const hasImplementedCoverage = requiresLinkageCoverage
+        ? linkageCoveredFieldPaths.has(normalizedFieldPath)
+        : coveredFieldPaths.has(normalizedFieldPath);
+      const reviewState = reviewFieldStates.get(normalizedFieldPath) || {
+        fieldMeta,
+        requiresLinkageCoverage,
+        actions: [],
+        implementedActions: [],
+        hasAnyImplementedCoverage: false,
+      };
+      if (!reviewState.actions.includes(action)) {
+        reviewState.actions.push(action);
+      }
+      if (hasImplementedCoverage && !reviewState.implementedActions.includes(action)) {
+        reviewState.implementedActions.push(action);
+      }
+      reviewState.hasAnyImplementedCoverage ||= hasImplementedCoverage;
+      reviewFieldStates.set(normalizedFieldPath, reviewState);
     }
     if (scene) {
       formBehavior[action] = scene;
     }
+  }
+  const reviewFields = {};
+  for (const [fieldPath, reviewState] of reviewFieldStates.entries()) {
+    const hasImplementedCoverage = reviewState.requiresLinkageCoverage
+      ? reviewState.actions.every((action) =>
+          reviewState.implementedActions.includes(action),
+        )
+      : reviewState.hasAnyImplementedCoverage;
+    reviewFields[fieldPath] = hasImplementedCoverage
+      ? { decision: "implemented" }
+      : {
+          decision: "noUiBehavior",
+          reasonCode: getDescriptionReviewReasonCodeForDescription(
+            getFieldDescriptionText(reviewState.fieldMeta),
+          ),
+        };
   }
   return {
     formBehavior: Object.keys(formBehavior).length ? formBehavior : undefined,
@@ -5477,7 +5682,7 @@ function mergeDefaultFormBehavior(explicitBehavior, generatedBehavior) {
       : explicitBehavior;
   }
   const nextBehavior = cloneSerializable(explicitBehavior);
-  for (const action of ["addNew", "edit"]) {
+  for (const action of DEFAULT_FORM_BEHAVIOR_ACTIONS) {
     const mergedScene = mergeDefaultFormBehaviorScene(
       explicitBehavior[action],
       generatedBehavior[action],
@@ -6791,7 +6996,7 @@ function validateDefaultFormBehavior(formBehavior, path, state) {
     "unsupported-default-form-behavior-key",
     "defaults formBehavior",
   );
-  for (const action of ["addNew", "edit"]) {
+  for (const action of DEFAULT_FORM_BEHAVIOR_ACTIONS) {
     validateDefaultFormBehaviorScene(
       formBehavior[action],
       `${path}.${action}`,
