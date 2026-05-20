@@ -21,8 +21,8 @@ Use an LLM to summarize a submitted record, classify a customer request, extract
 
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| llmService | string | None | Yes | Name of the configured LLM service (`llmServices.name`). The server resolves it and loads the matching provider. |
-| model | string | Provider-specific | Usually | Model id. This is part of the provider model options and is normally configured by the selected provider's settings form. |
+| llmService | string | None | Yes | Name of the configured LLM service (`llmServices.name`). The server resolves it and loads the matching provider. Should select from the list of `llmServices:list` API. |
+| model | string | Provider-specific | Usually | Model id. This is part of the provider model options and is normally configured by the selected provider's settings form. The available models can be retrieved from `ai:listModels` API with parameter `llmService` set to the selected LLM service name. |
 | responseFormat | string/object | Provider-specific | No | Provider-specific response format. Common values include text mode, JSON object mode, or JSON schema mode, depending on provider/model support. |
 | messages | array | `[{ role: "user", content: [{ type: "text" }] }]` | Yes | Prompt message list. See [Message Format](#message-format). |
 | structuredOutput | object | None | No | Structured output options. See [Structured Output](#structured-output). |

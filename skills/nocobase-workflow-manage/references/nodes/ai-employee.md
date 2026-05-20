@@ -23,8 +23,8 @@ Assign an AI employee to read a submitted document, query permitted business dat
 
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| username | string | `atlas` in UI defaults | Yes | AI employee username (`aiEmployees.username`). |
-| model | object | None | Yes | Model override for this task: `{ "llmService": "<service name>", "model": "<model id>" }`. Must be one of the models available to the selected AI employee. |
+| username | string | `atlas` in UI defaults | Yes | AI employee username (`aiEmployees.username`). Should select from the list of `aiEmployees:listByUser` API. |
+| model | object | None | Yes | Model override for this task: `{ "llmService": "<service name>", "model": "<model id>" }`. Must be one of the models available to the selected AI employee. The available models can be retrieved from `ai:listAllEnabledModels` API. |
 | userId | number/string | None | Yes | Operator user id. The AI employee uses this user's permissions when accessing data. If the upstream trigger/input already provides an operator user, that user takes precedence. |
 | message.system | string/object | None | No | Background/system prompt appended to the AI employee definition. Objects are JSON-stringified by the server. |
 | message.user | string/object | None | Yes | Task description sent as the user message. Objects are JSON-stringified by the server. |
@@ -67,16 +67,16 @@ Example:
 
 ```json
 {
-  "skills": ["data-analysis"],
-  "tools": ["queryRecords"]
+  "skills": ["data-metadata", "data-query", "business-analysis-report", "document-search"],
+  "tools": ["dispatch-sub-agent-task", "list-ai-employees", "get-ai-employee", "chartGenerator", "formFiller", "getSkill", "suggestions"]
 }
 ```
 
 Notes:
 
-- Omit `skills` or `tools` to use the AI employee preset for that category.
+- By default, omit `skills` or `tools` to use the AI employee preset for that category.
 - Use an empty array to disable skills or tools for that category.
-- Server code backfills `skillsVersion: 2` and `toolsVersion: 2` when `skillSettings` exists and the version fields are missing.
+- If you can not make sure what skills or tools are available, DO NOT set `skillSettings` and the AI employee will use their preset skills and tools.
 
 ## Structured Output
 
@@ -147,10 +147,6 @@ Not supported. The server-side instruction does not implement `test()`.
       "value": "{{$context.data.receipts}}"
     }
   ],
-  "skillSettings": {
-    "skills": ["policy-review"],
-    "tools": []
-  },
   "webSearch": false,
   "structuredOutput": {
     "schema": {
