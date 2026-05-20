@@ -19,6 +19,7 @@ When the user gives a NocoBase admin URL for a precise edit on an existing page,
 1. Resolve the start target first from an admin URL or explicit uid, then read that surface with the backend `get` action.
 2. Use `describe-surface` only when the richer public tree really helps.
 3. Use `catalog` only when capability uncertainty is the blocker.
+   For localized `comments` and `recordHistory` adds, `catalog` is mandatory because availability depends on the target surface, popup scene, associations, plugin state, and collection metadata. If the block or resource binding is absent, do not guess a payload.
 4. Choose the smallest write family that matches the intent: `compose`, `add-*`, `configure`, `update-settings`, `move-*`, or `remove-*`.
 5. Keep common public keys inline when possible: `title`, `label`, `required`, simple button `type`, and similar semantic `settings` do not need a deep settings pass first. Use `displayTitle` only on block families whose runtime configureOptions expose it; known unsupported cases include `chart` and `tree`.
 6. Use `set-layout` only for explicit whole-layout replacement after full live readback. For low-level `set-layout`, `rows` is `Record<string, string[][]>`, each row entry is one column cell of stacked live child `uid`s, `[[uidA], [uidB]]` means two same-row columns, `[[uidA, uidB]]` means one stacked column, and `sizes` is `Record<string, number[]>`. Do not reuse page/popup `{ rows: [[{ key, span }]] }` layout or block `key`s here.
@@ -79,6 +80,7 @@ The JSON can stay schematic. It only needs the target locator, chosen write fami
 - [runtime-playbook.md](./runtime-playbook.md) for the full family / locator model
 - [capabilities.md](./capabilities.md) when the main question is block vs field vs action
 - [settings.md](./settings.md) only when the change no longer fits the common public semantic keys above
+- [blocks/comments.md](./blocks/comments.md) or [blocks/record-history.md](./blocks/record-history.md) if the edit adds comments, discussion threads, record history, or audit history
 - [popup.md](./popup.md) when the localized edit changes popup/openView/click-to-open behavior
 - [template-quick.md](./template-quick.md) if the live target already carries a template reference
 - [reaction-quick.md](./reaction-quick.md) if the real request is default values, linkage, computed fields, or show/hide / disable state

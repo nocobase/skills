@@ -29,6 +29,7 @@ Canonical write path is `nb api flow-surfaces <action>`. Use this file for the r
 - When authoring direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, `defaultFilter` may be omitted; backend authoring materializes one from live metadata with up to 4 scalar/filterable fields. Explicit `defaultFilter` overrides must be concrete, metadata-valid, and backed by at least the smaller of 3 and the collection's eligible direct interface-field count; empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through aggregate `errors[]`. Use scalar fields or relation child paths such as `department.title`, not `department` itself. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional. For every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`). Ordinary table partial `recordActions` complete to `view` / `edit` / `delete`; tree table partial `recordActions` do not complete those defaults and should usually be omitted so the backend injects only `addChild`.
 - Direct non-template `applyBlueprint` `kanban` main blocks have a 2-field cap on explicit card `fields[]`; omitted `fields[]` is prepared from live metadata with at most 2 suitable display fields. `compose`, `add-block`, and `add-blocks` keep their existing Kanban field behavior and are not capped by this rule.
 - Direct non-template `applyBlueprint` `kanban` defaults to `settings.dragEnabled=true`. Send `settings.dragSortBy` only when live metadata has a sort field compatible with the current/effective `groupField`; otherwise omit it so the backend can create a hidden sort field on writable main datasource collections. Explicit `settings.dragEnabled=false` opts out, and explicit incompatible `settings.dragSortBy` fails validation.
+- `comments` and `recordHistory` are public block types. For localized adds, inspect `catalog.blocks` first. `comments` page blocks require a comment-template collection; popup comments use `resource.binding: "associatedRecords"` and a legal comment association. `recordHistory` requires a collection with a real `filterTargetKey`; current-record history only uses `resource.binding: "currentRecord"` in one-record popup/details scenes. Do not write raw model names or handwritten `stepParams`.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, whole-page `applyBlueprint` inline popup specs, and calendar/kanban hidden popup specs. In whole-page `create`, the backend can auto-add missing direct non-template calendar/kanban hidden popup specs with `tryTemplate=true`; local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - `popup.tryTemplate=false` is a hard backend no-reuse switch. Emit it only when the user explicitly asks for no template / no reuse / local-only / current-only / copy / detach behavior, not merely because inline `popup.blocks` are present.
@@ -710,6 +711,36 @@ Notes:
 - `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` exists or the user explicitly asked for the hard no-reuse path (`popup.tryTemplate=false`).
 - After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
 
+Comments and record history examples:
+
+```json
+{
+  "target": { "uid": "record-popup-uid" },
+  "blocks": [
+    {
+      "key": "popupComments",
+      "type": "comments",
+      "resource": {
+        "binding": "associatedRecords",
+        "associationField": "comments"
+      },
+      "settings": { "title": "Comments", "pageSize": 10 }
+    },
+    {
+      "key": "popupHistory",
+      "type": "recordHistory",
+      "resource": { "binding": "currentRecord" },
+      "settings": {
+        "title": "History",
+        "sortOrder": { "order": "desc" },
+        "expand": { "expand": true },
+        "template": { "apply": "current" }
+      }
+    }
+  ]
+}
+```
+
 ### `configure`
 
 ```json
@@ -717,6 +748,31 @@ Notes:
   "target": { "uid": "table-block-uid" },
   "changes": {
     "pageSize": 20
+  }
+}
+```
+
+Comments and record history configure examples:
+
+```json
+{
+  "target": { "uid": "comments-block-uid" },
+  "changes": {
+    "title": "Verification comments",
+    "pageSize": 5,
+    "dataScope": { "logic": "$and", "items": [] }
+  }
+}
+```
+
+```json
+{
+  "target": { "uid": "record-history-block-uid" },
+  "changes": {
+    "title": "Verification history",
+    "sortOrder": { "order": "asc" },
+    "expand": { "expand": true },
+    "template": { "apply": "current" }
   }
 }
 ```

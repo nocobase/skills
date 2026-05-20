@@ -41,7 +41,16 @@ Use this file when natural-language wording is ambiguous and you still need to n
 
 For dashboard summary numbers, `actionPanel` is not a valid fallback. Use `ActionPanelBlockModel` only when the request is for clickable operations rather than passive metric display.
 
-## 5. Conservative Moves
+## 5. Comments / Record History
+
+| user expression | default narrowing path | when to stop and confirm |
+| --- | --- | --- |
+| 评论 / 评论区块 / comment block / comments | narrow to public `comments` / `CommentsBlockModel`; read [blocks/comments.md](blocks/comments.md) and use `catalog` before localized adds | when no comment-template collection or legal popup association is exposed |
+| 历史记录 / 记录历史 / 审计历史 / record history / audit history | narrow to public `recordHistory` / `RecordHistoryBlockModel`; read [blocks/record-history.md](blocks/record-history.md) and use `catalog` before localized adds | when the collection lacks a real `filterTargetKey` or current-record history is requested outside a one-record popup/details scene |
+
+Do not create either block with internal model names, raw schema, or handwritten `stepParams`. If `catalog` does not expose the block for the current target, repair the target/context first or report the unsupported context.
+
+## 6. Conservative Moves
 
 - Aliases only choose semantics; they do not choose the final API by themselves.
 - If the input still describes a whole page, route it to page-blueprint authoring instead of low-level APIs.
