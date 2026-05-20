@@ -690,6 +690,7 @@ test('required docs and relative links stay valid', () => {
   const docs = [
     'SKILL.md',
     'agents/openai.yaml',
+    'references/ai-employee-actions.md',
     'references/aliases.md',
     'references/boundary-quick.md',
     'references/blocks/chart.md',

@@ -36,6 +36,7 @@ Canonical write path is `nb api flow-surfaces <action>`. Use this file for the r
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - For localized create/append writes, do not assume the request body is the final action list; read back the persisted surface before adding more actions or popup wiring.
 - When the intended UX is "click the shown title/name to open details", prefer field popup / `clickToOpen` / `openView` semantics and avoid adding a redundant `view` record action unless the user explicitly asked for a button/action column.
+- AI employee shortcuts are public actions: use `type: "aiEmployee"` and public `settings.username`, `settings.auto`, `settings.workContext`, `settings.tasks`, and `settings.style`. In whole-page `applyBlueprint` and same-run `compose`, work-context items may use `target: "self"` or a same-run block key; localized edits may use `self` for the owning block/form or a live Flow Model `uid`. Never author raw AI `props`, `stepParams`, `flowModels`, or DB writes.
 
 Safe mental model:
 
@@ -773,6 +774,58 @@ Comments and record history configure examples:
     "sortOrder": { "order": "asc" },
     "expand": { "expand": true },
     "template": { "apply": "current" }
+  }
+}
+```
+
+AI employee action reconfiguration uses the same public settings keys:
+
+```json
+{
+  "target": { "uid": "ai-employee-action-uid" },
+  "changes": {
+    "tasks": [
+      {
+        "title": "Generate table insights",
+        "message": {
+          "user": "Summarize risks and recommended next steps.",
+          "workContext": [{ "type": "flow-model", "target": "self" }]
+        },
+        "autoSend": true,
+        "webSearch": false
+      }
+    ]
+  }
+}
+```
+
+### `add-action` / `add-record-action` for AI employee
+
+Use `add-action` for block/form action slots and `add-record-action` for table/details/list/gridCard record slots.
+
+```json
+{
+  "target": { "uid": "table-block-uid" },
+  "type": "aiEmployee",
+  "settings": {
+    "username": "dex",
+    "auto": false,
+    "workContext": [{ "type": "flow-model", "target": "self" }],
+    "tasks": [
+      {
+        "title": "Analyze current record",
+        "message": {
+          "system": "Use the current UI context.",
+          "user": "Analyze this record and suggest next steps.",
+          "workContext": [{ "type": "flow-model", "target": "self" }]
+        },
+        "autoSend": false,
+        "skillSettings": { "skills": [], "tools": [] },
+        "model": null,
+        "webSearch": false
+      }
+    ],
+    "style": { "size": 40, "mask": false }
   }
 }
 ```
