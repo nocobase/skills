@@ -74,3 +74,5 @@ Subsequent nodes can reference these variables in their configuration to impleme
 | `subflow` | Call Workflow | plugin-workflow-subflow | [subflow.md](subflow.md) |
 | `response` | Response (for webhook) | plugin-workflow-webhook | [response.md](response.md) |
 | `approval` | Approval | plugin-workflow-approval | [approval.md](approval.md) |
+| `llm` | LLM | plugin-ai | [llm.md](llm.md) |
+| `ai-employee` | AI Employee | plugin-ai | [ai-employee.md](ai-employee.md) |
