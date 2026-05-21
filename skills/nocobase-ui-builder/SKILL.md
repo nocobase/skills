@@ -1,20 +1,17 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  **DEFAULT entry point for any NocoBase UI authoring or tweak** — new
-  pages, new blocks, new menu items, AND localized edits (move / reorder /
-  reconfigure a single block, field, action, or reaction rule) on an
-  already-running NocoBase app. Uses the backend `flow-surfaces`
-  authoring API through `nb api`; no DSL file commit required.
-
-  Only hand off to `nocobase-dsl-reconciler` when the user **explicitly
-  asks for** DSL / YAML / committed-to-git / `cli push` workflow (e.g. "use
-  the DSL reconciler", "I want YAML files", "commit the spec"). The DSL
-  reconciler is in active development and has rough edges; prefer this
-  skill unless the user opts in.
-
-  Does not handle ACL, data modeling, workflow orchestration, browser
-  reproduction, page error postmortems, or non-Modern-page navigation.
+  DEFAULT entry point for NocoBase Modern UI authoring or tweaks: new pages,
+  blocks, menu items, and localized edits to blocks, fields, actions, layouts,
+  or reactions on an already-running app via backend flow-surfaces through
+  nb api. Also handles AI employee / AI assistant action placement on UI
+  surfaces. Hand off employee lifecycle work such as discovering, judging,
+  creating, or configuring profile, prompt, model, skills, tools, or knowledge
+  base to nocobase-ai-employee, then return for the UI write. Only hand off to
+  nocobase-dsl-reconciler when the user explicitly asks for DSL, YAML, git, or
+  cli push workflow. Does not handle ACL, data modeling, workflow
+  orchestration, browser reproduction, page error postmortems, or non-Modern
+  page navigation.
 ---
 
 # Goal
@@ -32,7 +29,7 @@ description: >-
 # Router
 
 - whole-page authoring goes through backend `applyBlueprint`, `nb api flow-surfaces apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
-- AI employee / AI assistant action authoring stays inside whole-page or localized `flow-surfaces` writes; read [ai-employee-actions.md](./references/ai-employee-actions.md) when the request mentions AI employee placement, AI analysis buttons, AI assistants, or AI task reconfiguration
+- AI employee / AI assistant action authoring stays inside whole-page or localized `flow-surfaces` writes; read [ai-employee-actions.md](./references/ai-employee-actions.md) when the request mentions AI employee placement, AI analysis buttons, AI assistants, or AI task reconfiguration. Use `nocobase-ai-employee` first only when the request needs employee discovery, matching, creation, prompt/model/skill/tool configuration, or a lifecycle decision beyond binding an existing visible username.
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)
 - Comments and record history route through public Flow Surfaces block types; read [comments.md](./references/blocks/comments.md) or [record-history.md](./references/blocks/record-history.md) when the request mentions comments, discussion threads, history, audit history, or change history
 - localized existing-surface edits go through backend actions such as `compose`, `configure`, `update-settings`, `add-*`, `move-*`, and `remove-*`, plus [local-edit-quick.md](./references/local-edit-quick.md)

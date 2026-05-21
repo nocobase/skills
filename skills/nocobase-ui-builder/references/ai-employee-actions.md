@@ -4,6 +4,21 @@ Use this file when a page or localized edit asks for an AI employee, AI assistan
 
 AI employee authoring is public `flow-surfaces` action authoring. Do not write raw `props`, `stepParams`, `flowModels`, or database rows. Use `type: "aiEmployee"` with public `settings`.
 
+## UI Builder vs AI Employee Skill
+
+`nocobase-ui-builder` remains the entry point when the user is building or editing a page, block, form, table, or record action. It should judge whether an AI employee action is the right UI behavior, and it should place the action when an existing visible employee is enough.
+
+Use `nocobase-ai-employee` first when any of these are true:
+
+- no existing employee clearly matches the requested business role;
+- the task requires creating a dedicated AI employee;
+- the employee prompt, profile, model restriction, skill binding, tool binding, or knowledge base needs to be designed;
+- choosing between candidate employees is a business-role decision rather than a simple username lookup.
+
+After `nocobase-ai-employee` returns an employee username and task contract, come back to this file and perform the actual `flow-surfaces` write.
+
+Do not use `nocobase-ai-employee` for ordinary deterministic UI behavior. Built-in actions, JS actions, reactions, and workflows should stay on their normal routes.
+
 ## Settings Shape
 
 ```json
