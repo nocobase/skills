@@ -27,7 +27,7 @@ Use only:
           "workContext": [{ "type": "flow-model", "target": "self" }]
         },
         "autoSend": false,
-        "skillSettings": { "skills": [], "tools": [] },
+        "skillSettings": null,
         "model": null,
         "webSearch": false
       }
@@ -55,6 +55,8 @@ Use only:
 ## Safety Rules
 
 - `settings.username` must be an existing visible employee username.
+- Preset skills/tools are represented by omitting `tasks[].skillSettings` or setting it to `null`.
+- Do not use `{ "skills": [], "tools": [] }` as a default. To intentionally disable all skills/tools, use `{ "skills": [], "tools": [], "skillsVersion": 2, "toolsVersion": 2 }`.
 - Avoid `auto: true` or `autoSend: true` unless the user explicitly wants immediate AI execution.
 - Do not write raw `props`, `stepParams`, `flowModels`, internal model names, or direct database rows for shortcuts.
 - Keep task text concrete and bounded to the current surface.

@@ -35,7 +35,7 @@ Do not use `nocobase-ai-employee` for ordinary deterministic UI behavior. Built-
         "workContext": [{ "type": "flow-model", "target": "self" }]
       },
       "autoSend": false,
-      "skillSettings": { "skills": [], "tools": [] },
+      "skillSettings": null,
       "model": null,
       "webSearch": false
     }
@@ -49,6 +49,7 @@ Rules:
 - `username` is required and must be a visible row from `aiEmployees.username`.
 - Discover usernames with the user-visible AI employee list when available, for example the `aiEmployees:listByUser` public read path. If you must fall back to `aiEmployees` list data, filter candidates to `enabled=true`, `deprecated=false`, `category!="developer"`, and current-role-visible before choosing one.
 - `workContext` and `tasks[].message.workContext` may use `{ "type": "flow-model", "target": "self" }`.
+- For preset employee skills/tools, omit `tasks[].skillSettings` or set it to `null`. Do not use `{ "skills": [], "tools": [] }` as a default. To intentionally disable all skills/tools, use `{ "skills": [], "tools": [], "skillsVersion": 2, "toolsVersion": 2 }`.
 - In `applyBlueprint` and `compose`, `target` may also be a same-run block key such as `"employeesTable"` or `"employeeForm"`.
 - Localized existing-surface edits should use `target: "self"` for the owning block/form, or a persisted `{ "type": "flow-model", "uid": "<live-flow-model-uid>" }` read from live structure.
 - The backend resolves all public targets to real Flow Model `uid` values before persistence. Do not persist `target`, block keys, or `"self"` manually.
@@ -88,7 +89,7 @@ Place AI employees in the first `applyBlueprint` when the user asks for them. Do
                       "workContext": [{ "type": "flow-model", "target": "self" }]
                     },
                     "autoSend": false,
-                    "skillSettings": { "skills": [], "tools": [] },
+                    "skillSettings": null,
                     "model": null,
                     "webSearch": false
                   }
@@ -120,7 +121,7 @@ Place AI employees in the first `applyBlueprint` when the user asks for them. Do
                       "workContext": [{ "type": "flow-model", "target": "employeesTable" }]
                     },
                     "autoSend": false,
-                    "skillSettings": { "skills": [], "tools": [] },
+                    "skillSettings": null,
                     "model": null,
                     "webSearch": false
                   }
@@ -146,7 +147,7 @@ Place AI employees in the first `applyBlueprint` when the user asks for them. Do
                       "workContext": [{ "type": "flow-model", "target": "self" }]
                     },
                     "autoSend": false,
-                    "skillSettings": { "skills": [], "tools": [] },
+                    "skillSettings": null,
                     "model": null,
                     "webSearch": false
                   }
@@ -186,7 +187,7 @@ Block or form action:
           "workContext": [{ "type": "flow-model", "target": "self" }]
         },
         "autoSend": false,
-        "skillSettings": { "skills": [], "tools": [] },
+        "skillSettings": null,
         "model": null,
         "webSearch": false
       }
@@ -215,7 +216,7 @@ Record action:
           "workContext": [{ "type": "flow-model", "target": "self" }]
         },
         "autoSend": false,
-        "skillSettings": { "skills": [], "tools": [] },
+        "skillSettings": null,
         "model": null,
         "webSearch": false
       }

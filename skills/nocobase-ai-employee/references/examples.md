@@ -22,7 +22,7 @@ Task:
     "workContext": [{ "type": "flow-model", "target": "self" }]
   },
   "autoSend": false,
-  "skillSettings": { "skills": [], "tools": [] },
+  "skillSettings": null,
   "model": null,
   "webSearch": false
 }
@@ -48,7 +48,7 @@ Task:
     "workContext": [{ "type": "flow-model", "target": "self" }]
   },
   "autoSend": false,
-  "skillSettings": { "skills": [], "tools": [] },
+  "skillSettings": null,
   "model": null,
   "webSearch": false
 }
@@ -88,7 +88,7 @@ Action task:
     "workContext": [{ "type": "flow-model", "target": "self" }]
   },
   "autoSend": false,
-  "skillSettings": { "skills": [], "tools": [] },
+  "skillSettings": null,
   "model": null,
   "webSearch": false
 }
