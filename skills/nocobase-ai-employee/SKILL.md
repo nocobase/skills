@@ -54,6 +54,8 @@ Only choose AI employee when model judgment materially reduces ambiguity or give
    - Reuse an existing employee when one clearly covers the role with compatible tools and model restrictions.
    - Create a new employee only when no existing employee reaches roughly 70% fit, or when the user explicitly wants a dedicated employee.
    - For new employees, keep `bio` human-facing and put operational behavior in `about`.
+   - For new employees, validate the create payload has `avatar` set to a supported avatar seed before calling `aiEmployees:create`.
+   - If `avatar` is missing, empty, null, or unsupported, set it to the default supported seed `nocobase-015-male`.
    - Do not create developer-category employees for business users unless explicitly requested.
 
 5. **Bind the employee to the block**
@@ -65,7 +67,7 @@ Only choose AI employee when model judgment materially reduces ambiguity or give
 6. **Verify**
    - Read back or inspect the target surface through `nocobase-ui-builder` when a write occurred.
    - Verify the AI action points at the intended username and has the intended task message.
-   - If a new employee was created, verify it appears in `aiEmployees:listByUser` for the intended role, or explain any role/ACL follow-up needed.
+   - If a new employee was created, verify it appears in `aiEmployees:listByUser` for the intended role, and verify its `avatar` is non-empty and still one of the supported avatar seeds. Explain any role/ACL follow-up if it is not visible.
 
 ## Employee Matching Rules
 
@@ -79,6 +81,79 @@ Prefer built-ins when they fit:
 - `nathan`: frontend code authoring or JS/code-editor work; developer-facing.
 
 Create a dedicated employee when the task needs domain-specific behavior, a constrained model set, dedicated custom workflow tools, or a role/persona that should be exposed to business users.
+
+## Avatar Payload Rules
+
+- `avatar` is a preset seed string, not an uploaded file object or external image URL.
+- Default seed: `nocobase-015-male`.
+- Every new `aiEmployees:create` payload must include `avatar`.
+- Before create, validate `avatar` against the supported seeds below. Replace missing, empty, null, or unsupported values with `nocobase-015-male`.
+- After create, read back the employee through `aiEmployees:list` or `aiEmployees:listByUser` and verify `avatar` is present.
+
+Supported avatar seeds:
+
+```text
+nocobase-001-male
+nocobase-002-male
+nocobase-003-female
+nocobase-004-male
+nocobase-005-female
+nocobase-006-male
+nocobase-007-male
+nocobase-008-female
+nocobase-009-female
+nocobase-010-male
+nocobase-011-male
+nocobase-012-male
+nocobase-013-female
+nocobase-014-female
+nocobase-015-male
+nocobase-016-female
+nocobase-017-female
+nocobase-018-female
+nocobase-019-female
+nocobase-020-female
+nocobase-021-male
+nocobase-022-male
+nocobase-023-female
+nocobase-024-male
+nocobase-025-male
+nocobase-026-male
+nocobase-027-female
+nocobase-028-male
+nocobase-029-male
+nocobase-030-male
+nocobase-031-female
+nocobase-032-male
+nocobase-033-male
+nocobase-034-female
+nocobase-035-male
+nocobase-036-female
+nocobase-037-male
+nocobase-038-female
+nocobase-039-female
+nocobase-040-female
+nocobase-041-male
+nocobase-042-male
+nocobase-043-male
+nocobase-044-male
+nocobase-045-female
+nocobase-046-female
+nocobase-047-male
+nocobase-048-female
+nocobase-049-male
+nocobase-050-female
+nocobase-051-female
+nocobase-052-female
+nocobase-053-male
+nocobase-054-female
+nocobase-055-male
+nocobase-056-female
+nocobase-057-female
+nocobase-058-female
+nocobase-059-male
+nocobase-060-female
+```
 
 ## Task Contract Template
 

@@ -13,7 +13,7 @@ Important fields:
 | `username` | Primary key. Stable identifier used by AI employee actions. |
 | `nickname` | Human-visible name. Required in the admin form. |
 | `position` | Short responsibility label. |
-| `avatar` | Preset avatar seed. |
+| `avatar` | Preset avatar seed. Required in create payloads; default to `nocobase-015-male` if missing or unsupported. |
 | `bio` | Human-facing introduction shown on profile cards; not the main prompt. |
 | `about` | Custom role setting used in the final system prompt. |
 | `defaultPrompt` | Built-in employee default prompt. |
@@ -43,6 +43,13 @@ Use the available NocoBase API/CLI transport in the current environment.
 Prefer `listByUser` for selecting a username to bind to a user-facing action.
 
 ## Create Payload Shape
+
+Avatar validation:
+
+- Always include `avatar` in new employee payloads.
+- Use only supported seeds listed in `../SKILL.md`.
+- If the requested seed is missing, empty, null, or unsupported, set `avatar` to `nocobase-015-male` before calling `aiEmployees:create`.
+- After create, read back the employee and verify `avatar` is non-empty.
 
 Minimal business employee:
 
@@ -105,6 +112,7 @@ Custom tool permission:
 
 1. Choose `category: "business"` by default.
 2. Use stable, lowercase, hyphen-safe usernames.
-3. Keep `about` specific enough for behavior, but do not hard-code one page/block UID in the employee if the task belongs in the action's task message.
-4. Put block-specific instructions in the AI action task, not in the employee persona, unless the employee is dedicated to that exact domain.
-5. After creation, verify the employee appears in the intended visible list or handle role ACL separately.
+3. Include a supported `avatar` seed in every create payload; use `nocobase-015-male` when no specific supported avatar is required.
+4. Keep `about` specific enough for behavior, but do not hard-code one page/block UID in the employee if the task belongs in the action's task message.
+5. Put block-specific instructions in the AI action task, not in the employee persona, unless the employee is dedicated to that exact domain.
+6. After creation, verify the employee appears in the intended visible list and has a non-empty supported `avatar`, or handle role ACL separately.
