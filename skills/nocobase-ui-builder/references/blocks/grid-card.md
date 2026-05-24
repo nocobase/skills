@@ -95,7 +95,7 @@ skill 至少要知道三件事：
 - 删除
 - record popup
 
-不要把两层 action 混用。skill 和 guard 都应该显式区分。
+不要把两层 action 混用。skill 文档和 backend aggregate `errors[]` 都应该显式区分。
 
 ## skill 默认策略
 
@@ -105,17 +105,16 @@ skill 至少要知道三件事：
 4. 默认先生成空的 `actions: []`，不要为了“看起来完整”乱猜 action use。
 5. 如果 item subtree 缺失，先补 `GridCardItemModel + DetailsGridModel`，再继续下游字段/动作配置。
 
-## guard 关注点
+## Backend validation 关注点
 
-payload guard 应至少检查：
+Backend authoring 会补齐 direct public data surface 的默认 actions，并校验 action slot 语义。对 GridCard 来说，最重要的边界是：
 
-- `GRID_CARD_ITEM_SUBMODEL_MISSING`
-- `GRID_CARD_ITEM_USE_INVALID`
-- `GRID_CARD_ITEM_GRID_MISSING_OR_INVALID`
-- `GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID`
-- `GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID`
+- collection action 只能放在 block `actions`。
+- record action 只能放在 item/record 层 `recordActions`。
+- 缺省 `defaultFilter` 可由 backend 依 live metadata 生成；显式空组、非法 operator、未知字段路径会通过 aggregate `errors[]` 返回。
+- `settings.columns` 是 public 列数入口，不要使用旧别名。
 
-validation case 下，缺 `item` 或 `grid` 应视为 blocker，因为这是高频“落库成功但页面空白”的来源。
+如果 readback 出现 item/grid 子树缺失，视为 backend 或模型编译问题处理，不再依赖 skill-local 写前脚本。
 
 ## 继续读
 

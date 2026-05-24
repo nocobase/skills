@@ -23,7 +23,7 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
 
 ## Whole-page public blueprint 写法
 
-在 `applyBlueprint` 里，chart block 不接受 `stepParams`。首选和 canonical 写法是把图表配置放进 `assets.charts`，然后在 block 上用 `chart` 引用资产 key：
+在 `applyBlueprint` 里，chart block 不接受 `stepParams`。首选和 canonical 写法是把图表配置放进 `assets.charts`，然后在 block 上用 `block.chart` 引用资产 key：
 
 ```json
 {
@@ -66,21 +66,14 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
 }
 ```
 
-Whole-page `applyBlueprint` 有一个兼容安全网：如果一个 chart block 没有 `chart` 引用，但带有完整 inline `settings.query` + `settings.visual`，prepare-write 会把这两个配置（以及可选 `settings.events`）提升到 `assets.charts.<block.key>`，并把 block 改写为 `chart: "<assetKey>"`。这只是兼容旧草稿/模型输出，不是默认推荐写法；新草稿仍应直接写 canonical `assets.charts + block.chart`。
+Whole-page `applyBlueprint` 现在不提供 inline chart 自动提升。旧草稿如果把 `settings.query` / `settings.visual` / `settings.events` 写在 chart block 上，写入前先手动迁移到 `assets.charts.<key>`，并让 block 写 `chart: "<key>"`；`settings.title`、`settings.height`、`settings.heightMode` 等 display-only 设置仍留在 block 上。
 
-兼容提升要求：
+Backend authoring 的边界：
 
-- block 必须有非空 `key`，用于生成 chart asset key。
-- inline 配置必须同时包含 `settings.query` 和 `settings.visual`；只有其中一个，或只有 `settings.events`，会被拒绝。
-- 不能同时写 `block.chart` 和 `settings.query` / `settings.visual` / `settings.events`；混合 asset reference 与 inline chart config 会被拒绝。
-- 提升后，`settings.query` / `settings.visual` / `settings.events` 会从 block settings 移走；`settings.title`、`settings.height`、`settings.heightMode` 等 display-only 设置继续留在 block 上。
-
-当形状错误可以自动修复时，本地 prepare 结果会带 repair details，典型字段包括：
-
-- `details.category = "repairable-shape-error"`
-- `details.expectedAssetPath = "assets.charts"`
-- `details.requiredInlineSettings = ["query", "visual"]`
-- `details.optionalInlineSettings = ["events"]`
+- chart block 缺少 `chart` 引用时，返回 aggregate error `chart-block-asset-reference-required`。
+- `chart` 指向不存在的 asset 时，返回 `chart-block-asset-reference-missing`。
+- public chart block 上写 `stepParams` 时，返回 `chart-block-step-params-unsupported`。
+- 不要混写 `block.chart` 和 inline `settings.query` / `settings.visual` / `settings.events`；asset 是 whole-page 图表配置的唯一来源。
 
 For localized `compose` / `add-block` / `configure`, put the same public groups under `settings` or `changes`:
 
@@ -123,10 +116,9 @@ For localized `compose` / `add-block` / `configure`, put the same public groups 
 ### builder field contract
 
 - scalar 字段继续用字符串，例如 `"amount"`、`"status"`。
-- builder chart query 默认只使用宿主 collection 的 scalar 字段，例如 `"amount"`、`"status"`、`"employerGroupId"`。
-- 不要在 builder chart query 的 `measures[]` / `dimensions[]` / `sorting[]` / `orders[]` 里写 relation path：数组路径如 `["customer", "name"]` 或 dotted string 如 `"customer.name"` 都会被本地 helper 拦截。
-- 本地错误码是 `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED` / `chart-builder-relation-field-runtime-unsupported`。
-- 如果图表必须按 relation 的显示名称分组，改用 SQL chart 显式 join 并设置稳定 alias；只接受显示 ID 时，才用 scalar foreign key 作为 fallback。
+- builder chart query 默认优先使用宿主 collection 的 scalar 字段，例如 `"amount"`、`"status"`、`"employerGroupId"`。
+- 不要直接把 association 字段本身写进 `measures[]` / `dimensions[]`，例如 `"customer"`。backend aggregate validation 会用 `chart-builder-query-association-field-requires-subfield` 拒绝，并在 `details.suggestedFieldPath` 里提示类似 `"customer.name"` 的 scalar subfield。
+- 如果 relation label 分组可以用 backend 建议的 scalar subfield 表达，可以改写为该 subfield；如果需要更复杂 join、聚合或 label 逻辑，改用 SQL chart 显式 join 并设置稳定 alias。只接受显示 ID 时，才用 scalar foreign key 作为 fallback。
 - `visual.mappings.*` 写 query 输出字段或 alias，例如 `"status"`、`"count_orders"`。
 
 例子：
@@ -195,21 +187,22 @@ Required mappings:
 4. 用户明确说 `SQL`，或 relation label 分组无法用 scalar 字段表达时，再生成 `sql + basic` 或 `sql + custom`。
 5. 用户明确要求自定义 ECharts option / events 时，才生成 `custom`。
 
-## guard 关注点
+## Backend validation 关注点
 
-payload guard 应至少检查：
+Backend aggregate `errors[]` 是写入边界。常见 rule id：
 
-- `CHART_QUERY_MODE_MISSING`
-- `CHART_BUILDER_RESOURCE_MISSING` / `CHART_BUILDER_COLLECTION_PATH_MISSING`
-- `CHART_BUILDER_MEASURES_MISSING`
-- `CHART_VISUAL_TYPE_MISSING`
-- `CHART_VISUAL_MAPPINGS_MISSING`
-- `CHART_VISUAL_LEGACY_BUILDER_KEYS_UNSUPPORTED`
-- `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED`
-- `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED`
-- `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED`
-- `CHART_SQL_TEXT_MISSING`
-- `CHART_CUSTOM_OPTION_RAW_MISSING`
+- `chart-block-asset-reference-required`
+- `chart-block-asset-reference-missing`
+- `chart-block-step-params-unsupported`
+- `chart-query-missing`
+- `chart-builder-query-resource-missing`
+- `chart-builder-query-measures-missing`
+- `chart-builder-query-association-field-requires-subfield`
+- `chart-visual-missing`
+- `chart-visual-required-mappings-missing`
+- `chart-visual-legacy-builder-keys-unsupported`
+- `chart-sql-query-text-missing`
+- `chart-custom-visual-raw-missing`
 
 ## 继续读
 

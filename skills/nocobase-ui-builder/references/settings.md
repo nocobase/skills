@@ -396,7 +396,7 @@ Calendar reminders:
 - `settings.startField` and `settings.endField` must bind date-capable non-association fields.
 - `settings.titleField` and `settings.colorField` must bind existing non-association display fields.
 - Public main calendar blocks do not accept `fields`, `fieldGroups`, or `recordActions`; event forms/details belong in the quick-create and event-view popup hosts.
-- Backend authoring may materialize missing direct non-template calendar hidden popup settings as `{ tryTemplate: true }`. [helper-contracts.md](./helper-contracts.md) keeps only deprecated local-helper compatibility notes.
+- Backend authoring may materialize missing direct non-template calendar hidden popup settings as `{ tryTemplate: true }`. See [helper-contracts.md](./helper-contracts.md) for backend-owned defaulting and validation boundaries.
 
 Kanban reminders:
 
@@ -404,7 +404,7 @@ Kanban reminders:
 - Direct non-template whole-page `applyBlueprint` kanban main blocks are capped at 2 card `fields[]`; omitted fields are auto-selected from live metadata, while explicit overflow returns `kanban-main-fields-too-many`. This cap does not apply to low-level `add-block` / `compose`.
 - Whole-page `applyBlueprint` kanban defaults `dragEnabled=true`. Provide `dragSortBy` only when it is a sort field scoped to the current/effective `groupField`; otherwise omit it and let the backend create a hidden sort field for writable main datasource collections. Set `dragEnabled=false` only when the page intentionally disables drag sorting.
 - Quick-create content belongs in `settings.quickCreatePopup`; card click/view content belongs in `settings.cardPopup`.
-- Backend authoring may materialize missing direct non-template kanban hidden popup settings as `{ tryTemplate: true }`, default missing `quickCreateEnabled` / `enableCardClick` to `true`, and preserve explicit overrides. [helper-contracts.md](./helper-contracts.md) keeps only deprecated local-helper compatibility notes.
+- Backend authoring may materialize missing direct non-template kanban hidden popup settings as `{ tryTemplate: true }`, default missing `quickCreateEnabled` / `enableCardClick` to `true`, and preserve explicit overrides. See [helper-contracts.md](./helper-contracts.md) for backend-owned defaulting and validation boundaries.
 
 ### `add-field`
 

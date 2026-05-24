@@ -306,28 +306,38 @@ function assertWholePageChartAssetGuidance(text, sourceLabel) {
   );
   assert.match(
     text,
-    /settings\.query[\s\S]{0,120}settings\.visual|settings\.visual[\s\S]{0,120}settings\.query/i,
-    `${sourceLabel} should say inline chart compatibility requires both settings.query and settings.visual`,
+    /(?:does not auto-lift|does not provide inline chart automatic|不提供 inline chart 自动提升|不自动提升)[\s\S]{0,220}(?:settings\.query|settings\.visual)|(?:settings\.query|settings\.visual)[\s\S]{0,220}(?:manually move|manual(?:ly)? migrate|手动迁移|move .*assets\.charts)/i,
+    `${sourceLabel} should say whole-page inline chart settings are not auto-lifted and must be migrated manually`,
   );
   assert.match(
     text,
-    /mixed `?block\.chart \+ settings\.query\/visual\/events`?[^.\n]*(?:reject|rejected)|do not mix `?block\.chart`?[\s\S]{0,120}settings\.query[\s\S]{0,120}settings\.visual[\s\S]{0,120}settings\.events|不能同时写[\s\S]{0,80}`?block\.chart`?[\s\S]{0,120}settings\.query[\s\S]{0,120}settings\.visual[\s\S]{0,120}settings\.events|block\.chart[\s\S]{0,160}settings\.query[\s\S]{0,160}settings\.visual[\s\S]{0,160}settings\.events[\s\S]{0,120}(?:reject|rejected|拒绝)/i,
-    `${sourceLabel} should reject mixed block.chart and inline chart settings`,
+    /chart-block-asset-reference-required/i,
+    `${sourceLabel} should document backend chart-block-asset-reference-required errors`,
   );
   assert.match(
     text,
-    /repairable-shape-error/i,
-    `${sourceLabel} should document repairable chart shape errors`,
+    /chart-block-asset-reference-missing/i,
+    `${sourceLabel} should document backend chart-block-asset-reference-missing errors`,
   );
   assert.match(
     text,
-    /details\.expectedAssetPath[\s\S]{0,80}assets\.charts|expectedAssetPath[\s\S]{0,80}assets\.charts/i,
-    `${sourceLabel} should document details.expectedAssetPath for chart repairs`,
+    /(?:do not mix|不要混写|do not put|don't put)[\s\S]{0,160}block\.chart[\s\S]{0,160}settings\.query[\s\S]{0,160}settings\.visual/i,
+    `${sourceLabel} should discourage mixed block.chart and inline chart settings`,
   );
   assert.match(
     text,
     /stepParams[\s\S]{0,140}(?:do not|must not|not accept|unsupported|不要|不接受)|(?:do not|must not|not accept|unsupported|不要|不接受)[\s\S]{0,140}stepParams/i,
     `${sourceLabel} should keep whole-page chart stepParams as an explicit rejection boundary`,
+  );
+  assert.doesNotMatch(
+    text,
+    /repairable-shape-error|expectedAssetPath/i,
+    `${sourceLabel} should not document removed local inline-chart repair details`,
+  );
+  assert.doesNotMatch(
+    text,
+    /applyBlueprint[\s\S]{0,220}(?:inline|settings\.query)[\s\S]{0,260}(?:normalized by backend authoring|normalizes? it into `?assets\.charts|提升到 `?assets\.charts)/i,
+    `${sourceLabel} should not claim backend auto-lifts whole-page inline chart settings`,
   );
 }
 
@@ -2084,9 +2094,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /optional local helpers[\s\S]{0,120}do not define the write path/i);
   assert.match(helperContracts, /common-case drafting|do not open runtime source files/i);
   assert.match(helperContracts, /nb-runjs/i);
-  assert.match(helperContracts, /Deprecated local write gates|Legacy PrepareWrite/i);
+  assert.match(helperContracts, /Backend-Owned Write Behavior/i);
   assert.match(helperContracts, /optional local helpers|do not define the write path|does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
+  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-template-decision\.mjs/i);
+  assert.doesNotMatch(helperContracts, /nb-flow-surfaces\.mjs/i);
   assert.doesNotMatch(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
 
@@ -2274,8 +2286,13 @@ test('chart docs reject builder relation fields and point relation labels to SQL
     const text = read(relativePath);
     assert.match(
       text,
-      /CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED|chart-builder-relation-field-runtime-unsupported/i,
-      `${relativePath} should name the stable local validation rule`,
+      /chart-builder-query-association-field-requires-subfield/i,
+      `${relativePath} should name the backend aggregate validation rule`,
+    );
+    assert.match(
+      text,
+      /suggestedFieldPath|suggested scalar subfield|建议的 scalar subfield/i,
+      `${relativePath} should document backend association subfield repair guidance`,
     );
     assert.match(
       text,
@@ -2727,7 +2744,7 @@ test('docs keep migrated write ergonomics backend-owned', () => {
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /backend authoring[\s\S]{0,120}strips[\s\S]{0,160}single-scope[\s\S]{0,160}data blocks/i);
   assert.match(helperContracts, /backend authoring[\s\S]{0,160}fieldGroups[\s\S]{0,160}large generated popups/i);
-  assert.match(helperContracts, /chart relation field paths[\s\S]{0,120}backend aggregate validation/i);
+  assert.match(helperContracts, /builder chart direct association fields[\s\S]{0,120}backend aggregate validation/i);
 
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(wholePageQuick, /backend authoring[\s\S]{0,120}strips[\s\S]{0,120}single-scope[\s\S]{0,120}data blocks/i);
@@ -2854,9 +2871,9 @@ test('general skill docs stay env-neutral while helper scripts avoid fixed local
   }
 
   for (const relativePath of [
-    'scripts/rest_template_clone_runner.mjs',
-    'scripts/live_template_catalog.mjs',
-    'scripts/validation_browser_smoke.mjs',
+    'scripts/check_docs_contract.mjs',
+    'scripts/check_runjs_snippet_catalog.mjs',
+    'scripts/check_runjs_snippet_manifest.mjs',
   ]) {
     assertFileDoesNotContain(
       relativePath,

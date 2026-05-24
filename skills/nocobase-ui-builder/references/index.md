@@ -39,4 +39,4 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 - Reactions: [reaction.md](reaction.md)
 - Templates / popup reuse: [templates.md](templates.md), [template-decision-summary.md](template-decision-summary.md), [popup.md](popup.md)
 - JS / charts: [js.md](js.md), [js-surfaces/index.md](js-surfaces/index.md), [runjs-authoring-loop.md](runjs-authoring-loop.md), [runjs-repair-playbook.md](runjs-repair-playbook.md), [runjs-failure-taxonomy.md](runjs-failure-taxonomy.md), [js-reference-index.md](js-reference-index.md), [runjs-runtime.md](runjs-runtime.md), [chart.md](chart.md), [chart-core.md](chart-core.md), [chart-validation.md](chart-validation.md)
-- Deep catalogs and naming: [blocks/index.md](blocks/index.md), [js-surfaces/index.md](js-surfaces/index.md), [js-snippets/index.md](js-snippets/index.md), [js-models/index.md](js-models/index.md), [aliases.md](aliases.md), [opaque-uid.md](opaque-uid.md)
+- Deep catalogs and naming: [blocks/index.md](blocks/index.md), [js-surfaces/index.md](js-surfaces/index.md), [js-snippets/index.md](js-snippets/index.md), [js-models/index.md](js-models/index.md), [aliases.md](aliases.md)

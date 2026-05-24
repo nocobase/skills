@@ -45,7 +45,7 @@ Chart is also an example of the general public-settings pattern: when creating o
 
 For whole-page `applyBlueprint`, the canonical shape is `assets.charts + block.chart`: put chart configs under `assets.charts` and reference them from block `chart`. Do not put `stepParams` on the block. Public `visual` uses `mode / type / mappings`; do not write internal option-builder keys such as `xField`, `yField`, `pieCategory`, or `pieValue` as public input.
 
-Whole-page `applyBlueprint` also accepts complete inline chart compatibility input as a safety net: a chart block with no `block.chart` but with both `settings.query` and `settings.visual` can be rewritten during prepare-write into `assets.charts.<block.key>` plus `block.chart`. Optional `settings.events` is lifted with the asset. This compatibility path is not the default authoring style. Incomplete inline config is rejected, and mixed `block.chart + settings.query/visual/events` is rejected with repair details such as `repairable-shape-error`, `details.expectedAssetPath = "assets.charts"`, and required `settings.query` plus `settings.visual`.
+Whole-page `applyBlueprint` does not auto-lift inline chart settings. If a legacy draft has `settings.query` / `settings.visual` / `settings.events` on the chart block, move them into `assets.charts.<key>` before writing and set `block.chart = "<key>"`. Do not mix `block.chart` with inline `settings.query` / `settings.visual` / `settings.events`. Missing or bad chart references return backend aggregate errors such as `chart-block-asset-reference-required` and `chart-block-asset-reference-missing`; handwritten `stepParams` returns `chart-block-step-params-unsupported`.
 
 Use canonical `query.resource.collectionName` in public chart input; do not use the deprecated alias `query.resource.collection`.
 
@@ -178,8 +178,8 @@ Valid:
 - `measures[].field` is required
 - `aggregation` only supports `sum | count | avg | max | min`
 - `dimensions` is optional
-- builder chart `measures[]`, `dimensions[]`, `sorting[]`, and `orders[]` should only use scalar fields on the host collection
-- relation field paths are blocked by backend aggregate validation with `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED` / `chart-builder-relation-field-runtime-unsupported`; use SQL chart with an explicit join for relation-label grouping, or a scalar foreign-key field only when ID display is acceptable
+- builder chart `measures[]` and `dimensions[]` should default to scalar fields on the host collection
+- direct association fields are blocked by backend aggregate validation with `chart-builder-query-association-field-requires-subfield`; use the suggested scalar subfield from `details.suggestedFieldPath` when it matches the user intent, use SQL chart with an explicit join for complex relation-label grouping, or use a scalar foreign-key field only when ID display is acceptable
 - `filter` is optional and should be a FilterGroup structure
 - `sorting` is optional; to maximize first-try success, the skill should not proactively generate sorting unless the user explicitly asks for it
 - If existing sorting needs to be cleared, pass `sorting: []` explicitly. Do not rely on omission
@@ -200,7 +200,7 @@ Invalid:
 - writing both `resource` and `collectionPath`
 - empty `measures`
 - empty-string `field`
-- relation field paths such as `["department", "title"]` or `"department.title"` in builder `measures[]`, `dimensions[]`, `sorting[]`, or `orders[]`
+- direct association fields such as `"department"` in builder `measures[]` or `dimensions[]`; rewrite to the backend-suggested scalar subfield such as `"department.title"` when appropriate
 - aggregate sorting that references an unselected field
 - aggregate sorting that still uses the original field name after introducing a custom alias, for example `sum(amount) as totalAmount` while still writing `sorting.field = "amount"`
 - empty-string `filter.items[].path`

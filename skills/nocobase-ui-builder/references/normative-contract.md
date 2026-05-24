@@ -7,7 +7,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 - Agent-facing write path: `nb api flow-surfaces <action>` with the raw business payload.
 - Backend transport contract: flow-surfaces is the authoring compiler and safety gate.
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
-- `nb-runjs` and `nb-template-decision` remain optional local planning helpers. Do not run local PrepareWrite / PreFlight / `cliBody` generation as a write prerequisite.
+- `nb-runjs` and `nb-template-decision` remain optional local planning helpers. Do not run skill-local write-gate output or `cliBody` generation as a write prerequisite.
 - Flow Surface write APIs accept the UI Builder raw business payload directly. Backend authoring validation returns aggregate `errors[]`; repair the full list and retry once the payload is coherent.
 
 ## 1. Precedence
