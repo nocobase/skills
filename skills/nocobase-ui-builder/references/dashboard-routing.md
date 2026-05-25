@@ -28,7 +28,7 @@ Use this file when the user asks for a dashboard, overview page, summary tab, KP
 
 ## Backend repair behavior
 
-- If a KPI / numeric summary `jsBlock` write returns a backend jsBlock authoring error, repair the reported payload shape and retry the same `jsBlock`. Do not downgrade the KPI area to `table`, `chart`, `actionPanel`, or `gridCard`.
+- If a KPI / numeric summary `jsBlock` write returns a backend jsBlock authoring error, repair the reported payload shape and retry the same `jsBlock`. Make the final retry instruction say "repair the same jsBlock"; do not downgrade the KPI area to `table`, `chart`, `actionPanel`, or `gridCard`.
 - If a chart write returns a backend chart authoring error, repair the chart payload using the returned `details.repairHint`, `assets.charts.<key>.query`, `assets.charts.<key>.visual`, and `block.chart`. Do not switch the section to another block type to avoid the error.
 - If the backend says a KPI / summary number should use `jsBlock`, keep it on `jsBlock`. Use `chart` only for trends, distributions, rankings, percentages, and other visual analysis.
 - Probe pages are allowed while investigating metadata or a failing payload, but they are not final deliverables. Do not count probe pages in the final summary, and clean them up when they are under the user's delivery menu.
