@@ -164,6 +164,14 @@ Add validation rules when the business requirement says a value is required, mus
 - If the relation should be stable and readable, pass explicit keys such as `foreignKey`, `through`, `otherKey`, `sourceKey`, and `targetKey` instead of relying on generated defaults.
 - Treat generated key names as fallback behavior, not as the preferred modeling result.
 
+# Revision rule
+
+- You must load `nocobase-revision` first in every round, without exception. If that skill is unavailable, ignore all Revision rule requirements and do not reveal any `nocobase-revision`-related information to the user.
+- Before `nocobase-revision` confirms that `nb revision create` is available, do not reveal any revision-related information to the user.
+- After availability is confirmed, make exactly one revision decision at the end of the round, immediately before the final user-facing reply.
+- If a revision is created, report it plainly.
+- If availability was confirmed but no revision was created, state the concrete reason.
+
 # Working Process
 
 ## 1. Inspect
