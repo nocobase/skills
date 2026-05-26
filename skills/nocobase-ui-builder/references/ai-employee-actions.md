@@ -56,7 +56,7 @@ Rules:
 
 ## Whole-page applyBlueprint
 
-Place AI employees in the first `applyBlueprint` when the user asks for them. Do not create the page first and patch AI actions afterward unless an explicit post-success local gap remains.
+Plan AI employee buttons as normal page structure, not as a later conditional prompt repair. Put the button in the owning block's `actions` for block/table toolbar work or `recordActions` for row/current-record work when that placement is already part of the page design. In one action container, keep one visible button per `settings.username`; when the same employee needs multiple prompts, merge the prompts into that button's `tasks[]` instead of adding another same-employee button beside it.
 
 ```json
 {
@@ -167,6 +167,8 @@ Place AI employees in the first `applyBlueprint` when the user asks for them. Do
 ## Localized Add
 
 Use `catalog` first if the target slot is uncertain. Then add through the relevant public action.
+
+Before adding an AI employee action to an existing surface, read the live structure with `flow-surfaces get` or `describe-surface` when the target may already contain actions. If the same action container already has an AI employee action with the intended `username`, use `configure` on that action UID and update/merge `tasks[]`; only add a new action when no suitable same-container action exists. The same employee may still appear in different containers, such as one toolbar action and one row action, when those are distinct user workflows.
 
 Block or form action:
 
