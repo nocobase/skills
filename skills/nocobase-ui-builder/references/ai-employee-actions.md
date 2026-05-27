@@ -25,14 +25,14 @@ Do not use `nocobase-ai-employee` for ordinary deterministic UI behavior. Built-
 {
   "username": "dex",
   "auto": false,
-  "workContext": [{ "type": "flow-model", "target": "self" }],
+  "workContext": [{ "target": "self" }],
   "tasks": [
     {
       "title": "Analyze current record",
+      "prompt": "Analyze the current record and suggest next steps.",
       "message": {
         "system": "Use the current UI context.",
-        "user": "Analyze the current record and suggest next steps.",
-        "workContext": [{ "type": "flow-model", "target": "self" }]
+        "workContext": [{ "target": "self" }]
       },
       "autoSend": false,
       "skillSettings": null,
@@ -48,10 +48,11 @@ Rules:
 
 - `username` is required and must be a visible row from `aiEmployees.username`.
 - Discover usernames with the user-visible AI employee list when available, for example the `aiEmployees:listByUser` public read path. If you must fall back to `aiEmployees` list data, filter candidates to `enabled=true`, `deprecated=false`, `category!="developer"`, and current-role-visible before choosing one.
-- `workContext` and `tasks[].message.workContext` may use `{ "type": "flow-model", "target": "self" }`.
+- `workContext` and `tasks[].message.workContext` may use `{ "target": "self" }`; `type` is optional and defaults to `"flow-model"`.
+- `tasks[].prompt` is accepted as an alias for `tasks[].message.user`. Use one or the other, not both in the same task patch.
 - For preset employee skills/tools, omit `tasks[].skillSettings` or set it to `null`. Do not use `{ "skills": [], "tools": [] }` as a default. To intentionally disable all skills/tools, use `{ "skills": [], "tools": [], "skillsVersion": 2, "toolsVersion": 2 }`.
 - In `applyBlueprint` and `compose`, `target` may also be a same-run block key such as `"employeesTable"` or `"employeeForm"`.
-- Localized existing-surface edits should use `target: "self"` for the owning block/form, or a persisted `{ "type": "flow-model", "uid": "<live-flow-model-uid>" }` read from live structure.
+- Localized existing-surface edits should use `target: "self"` for the owning block/form, or a persisted `{ "uid": "<live-flow-model-uid>" }` read from live structure.
 - The backend resolves all public targets to real Flow Model `uid` values before persistence. Do not persist `target`, block keys, or `"self"` manually.
 
 ## Whole-page applyBlueprint
@@ -79,14 +80,14 @@ Plan AI employee buttons as normal page structure, not as a later conditional pr
               "settings": {
                 "username": "dex",
                 "auto": false,
-                "workContext": [{ "type": "flow-model", "target": "self" }],
+                "workContext": [{ "target": "self" }],
                 "tasks": [
                   {
                     "title": "Check current form",
                     "message": {
                       "system": "Use the current form context.",
                       "user": "Review this form and suggest improvements.",
-                      "workContext": [{ "type": "flow-model", "target": "self" }]
+                      "workContext": [{ "target": "self" }]
                     },
                     "autoSend": false,
                     "skillSettings": null,
@@ -111,14 +112,14 @@ Plan AI employee buttons as normal page structure, not as a later conditional pr
               "settings": {
                 "username": "dex",
                 "auto": false,
-                "workContext": [{ "type": "flow-model", "target": "self" }],
+                "workContext": [{ "target": "self" }],
                 "tasks": [
                   {
                     "title": "Analyze table data",
                     "message": {
                       "system": "Use the current table context.",
                       "user": "Summarize table risks and opportunities.",
-                      "workContext": [{ "type": "flow-model", "target": "employeesTable" }]
+                      "workContext": [{ "target": "employeesTable" }]
                     },
                     "autoSend": false,
                     "skillSettings": null,
@@ -137,14 +138,14 @@ Plan AI employee buttons as normal page structure, not as a later conditional pr
               "settings": {
                 "username": "dex",
                 "auto": false,
-                "workContext": [{ "type": "flow-model", "target": "self" }],
+                "workContext": [{ "target": "self" }],
                 "tasks": [
                   {
                     "title": "Analyze current record",
                     "message": {
                       "system": "Use the current record context.",
                       "user": "Analyze this record and suggest next steps.",
-                      "workContext": [{ "type": "flow-model", "target": "self" }]
+                      "workContext": [{ "target": "self" }]
                     },
                     "autoSend": false,
                     "skillSettings": null,
@@ -179,14 +180,14 @@ Block or form action:
   "settings": {
     "username": "dex",
     "auto": false,
-    "workContext": [{ "type": "flow-model", "target": "self" }],
+    "workContext": [{ "target": "self" }],
     "tasks": [
       {
         "title": "Analyze table data",
         "message": {
           "system": "Use the current table context.",
           "user": "Summarize table risks and opportunities.",
-          "workContext": [{ "type": "flow-model", "target": "self" }]
+          "workContext": [{ "target": "self" }]
         },
         "autoSend": false,
         "skillSettings": null,
@@ -208,14 +209,14 @@ Record action:
   "settings": {
     "username": "dex",
     "auto": false,
-    "workContext": [{ "type": "flow-model", "target": "self" }],
+    "workContext": [{ "target": "self" }],
     "tasks": [
       {
         "title": "Analyze current record",
         "message": {
           "system": "Use the current record context.",
           "user": "Analyze this record and suggest next steps.",
-          "workContext": [{ "type": "flow-model", "target": "self" }]
+          "workContext": [{ "target": "self" }]
         },
         "autoSend": false,
         "skillSettings": null,
@@ -241,7 +242,7 @@ Use `configure` for existing AI employee action nodes. `changes` uses the same p
         "title": "Generate table insights",
         "message": {
           "user": "Summarize risks and recommended next steps.",
-          "workContext": [{ "type": "flow-model", "target": "self" }]
+          "workContext": [{ "target": "self" }]
         },
         "autoSend": true,
         "webSearch": false
