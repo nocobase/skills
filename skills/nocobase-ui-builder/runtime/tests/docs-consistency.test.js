@@ -1249,7 +1249,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1450, 'openai default_prompt should stay at or below 1450 chars');
+  assert.ok(defaultPrompt.length <= 1470, 'openai default_prompt should stay at or below 1470 chars');
 });
 
 test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
@@ -1529,6 +1529,7 @@ test('dashboard chart requests require chart blocks and cannot downgrade to JSBl
     ['dashboard-routing', dashboardRouting],
     ['whole-page-quick', wholePageQuick],
     ['chart', chart],
+    ['chart-core', chartCore],
     ['page-blueprint', pageBlueprint],
     ['execution-checklist', executionChecklist],
     ['verification', verification],
@@ -1548,6 +1549,11 @@ test('dashboard chart requests require chart blocks and cannot downgrade to JSBl
       text,
       /table[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}chart|chart[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}table/i,
       `${label} should forbid table/list as chart coverage`,
+    );
+    assert.match(
+      text,
+      /list[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}chart|chart[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}list/i,
+      `${label} should forbid list as chart coverage`,
     );
   }
 
@@ -1698,6 +1704,7 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
 
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(defaultPrompt, /分析看板[\s\S]{0,80}trend[\s\S]{0,40}chart/i);
+  assert.match(defaultPrompt, /distribution[\s\S]{0,40}ranking[\s\S]{0,40}占比[\s\S]{0,40}chart/i);
   assert.match(defaultPrompt, /chart[\s\S]{0,40}required/i);
   assert.match(defaultPrompt, /table\/list!=chart/i);
   assert.match(defaultPrompt, /assets\.charts[\s\S]{0,30}block\.chart/i);

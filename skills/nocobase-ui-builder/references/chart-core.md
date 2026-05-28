@@ -80,7 +80,7 @@ When reconfiguring an existing chart, you may skip the initial block-creation st
 
 This prevents old query residue from contaminating the new configuration and affecting runtime behavior later.
 
-For whole-page dashboards that explicitly require chart blocks, a successful `applyBlueprint` response is not the final evidence. Read back the returned `pageSchemaUid` with `flow-surfaces get` and confirm the page contains `chart` / `ChartBlockModel` nodes with titles and a bound chart asset/config. If readback only shows `jsBlock`, `table`, or `list`, the chart requirement is still missing and must be repaired as chart or reported unfinished.
+For whole-page dashboards that explicitly require chart blocks, a successful `applyBlueprint` response is not the final evidence. Read back the returned `pageSchemaUid` with `flow-surfaces get` and confirm the page contains `chart` / `ChartBlockModel` nodes with titles and a bound chart asset/config. `JSBlock`, `table`, and `list` evidence is not chart evidence. If readback only shows `jsBlock`, `table`, or `list`, the chart requirement is still missing and must be repaired as chart or reported unfinished.
 
 Only use `changes.configure` when you are explicitly preserving compatibility with old configuration. Once you use `configure`:
 
