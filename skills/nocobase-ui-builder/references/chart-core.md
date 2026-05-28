@@ -389,7 +389,7 @@ Two different context types must be distinguished here:
 
 ### `visual.raw`
 
-Any `visual.raw` write must use the JS rules in [js.md](./js.md), using `ChartOptionModel` as the modelUse when local helper checks are useful. Backend aggregate validation is the authoritative write gate. For optional helper CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
+Any `visual.raw` write must use the JS rules in [js.md](./js.md), using `ChartOptionModel` as the modelUse. If the response returns `errors[]`, fix the raw chart code and retry.
 
 At frontend runtime, you should assume these are available first:
 
@@ -406,7 +406,7 @@ Rules:
 
 ### `events.raw`
 
-Any `events.raw` write must use the JS rules in [js.md](./js.md), using `ChartEventsModel` as the modelUse when local helper checks are useful. Backend aggregate validation is the authoritative write gate. For optional helper CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
+Any `events.raw` write must use the JS rules in [js.md](./js.md), using `ChartEventsModel` as the modelUse. If the response returns `errors[]`, fix the raw chart code and retry.
 
 At frontend runtime, you should assume these are available first:
 
@@ -419,7 +419,7 @@ Rules:
 - the `chart` instance is exposed through a top-level alias; primarily use bare `chart.on(...)` / `chart.off(...)`
 - do not write `ctx.chart.on(...)` / `ctx.chart.off(...)`
 - `ctx.render(...)` is not required
-- do not write `ctx.openView(...)`; backend validation rejects popup/openView capabilities in RunJS, so configure popup/openView behavior outside `events.raw`
+- do not write `ctx.openView(...)`; configure popup/openView behavior outside `events.raw`
 
 ## Readback
 

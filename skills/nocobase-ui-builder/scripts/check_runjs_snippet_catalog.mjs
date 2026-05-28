@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { inspectRunJSStaticCode } from './runjs_guard.mjs';
 import {
   RUNJS_EFFECT_STYLES,
   RUNJS_MODEL_USES,
@@ -20,7 +19,6 @@ const __dirname = path.dirname(__filename);
 
 export const DEFAULT_SKILL_ROOT = path.resolve(__dirname, '..');
 export const DEFAULT_CATALOG_PATH = path.join(DEFAULT_SKILL_ROOT, 'references', 'js-snippets', 'catalog.json');
-const SNAPSHOT_PATH = path.join(DEFAULT_SKILL_ROOT, 'scripts', 'runjs_contract_snapshot.json');
 
 const FORBIDDEN_KEYS = new Set(['sourcePath', 'upstreamPath', 'externalPath', 'absolutePath']);
 
@@ -108,35 +106,13 @@ function validateModelUsesBySurface(failures, label, surfaces, value) {
   return normalized;
 }
 
-function validateSafeSnippetCode({ failures, label, entry, code, modelUsesBySurface }) {
+function validateSafeSnippetCode({ failures, label, entry, code }) {
   if (!code) {
     failures.push(`${label}.doc must contain one js code fence`);
     return;
   }
   if (entry.forbidsCtxRender && /\bctx\.render\s*\(/.test(code)) {
     failures.push(`${label}.doc uses ctx.render even though forbidsCtxRender is true`);
-  }
-  if (/\bctx\.openView\s*\(/.test(code)) {
-    failures.push(`${label}.doc uses blocked capability ctx.openView`);
-  }
-  if (entry.tier !== 'safe') {
-    return;
-  }
-
-  for (const surface of entry.surfaces || []) {
-    const modelUses = modelUsesBySurface.get(surface) || [];
-    for (const modelUse of modelUses) {
-      const result = inspectRunJSStaticCode({
-        code,
-        surface,
-        modelUse,
-        snapshotPath: SNAPSHOT_PATH,
-        path: `$catalog.${entry.id}`,
-      });
-      if (!result.ok) {
-        failures.push(`${label}.doc failed ${surface} validation for ${modelUse}: ${(result.blockers || []).map((item) => item.code).join(', ')}`);
-      }
-    }
   }
 }
 

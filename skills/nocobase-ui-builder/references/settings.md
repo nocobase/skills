@@ -178,7 +178,7 @@ Core rules:
 - Prefer `get-event-flow-meta` plus `add-event-flow` / `set-event-flow` / `remove-event-flow` for localized edits.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
 - Frontend-created event-flow steps use `use` for the action name and `defaultParams` for that action's settings. Do not author new event-flow steps with `name` / `params`.
-- For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `defaultParams.code`.
+- For `Execute JavaScript` steps, prepare the code through [js.md](./js.md) and [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), then write it back into the existing step's `defaultParams.code`.
 - Do not invent event names, flow keys, step keys, or step payload shapes locally when the live readback has not shown them yet.
 - If `on` is an object instead of a bare string, preserve its `eventName / phase / flowKey / stepKey / defaultParams` structure from readback. Event trigger conditions live under `on.defaultParams.condition`.
 

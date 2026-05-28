@@ -31,4 +31,4 @@ ctx.message.success(ctx.t('Operation succeeded'));
 - Replace `Operation succeeded` with the final message key/text.
 
 ## Skill-mode notes
-Backend `flow-surfaces` aggregate validation is authoritative for writes. Use `nb-runjs` only as an optional local helper when you want a quick snippet sanity check.
+Write through `nb api flow-surfaces <action>`. If the response returns `errors[]`, fix the payload and retry.

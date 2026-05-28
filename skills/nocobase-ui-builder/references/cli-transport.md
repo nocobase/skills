@@ -5,9 +5,9 @@ This file defines the transport policy for `nocobase-ui-builder`.
 ## Canonical Front Door
 
 - Use `nb api flow-surfaces <action>` as the agent-facing front door for `flow-surfaces` work.
-- Treat `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the backend authoring compiler contract and payload reference.
-- Keep `nb-runjs` and `nb-template-decision` as local helper CLIs only. They are planning/validation aids, not write gates.
-- Do not require skill-local write-gate CLIs, generated local output, wrapper envelopes, or `cliBody` before backend writes.
+- Treat `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the payload reference.
+- Keep `nb-template-decision` as the only local helper CLI. It is a planning aid.
+- Do not require skill-local helper output, wrapper envelopes, or `cliBody` before writes.
 
 ## Selection Rule
 

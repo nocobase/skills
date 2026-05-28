@@ -5,10 +5,10 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 ## 0. Canonical Transport
 
 - Agent-facing write path: `nb api flow-surfaces <action>` with the raw business payload.
-- Backend transport contract: flow-surfaces is the authoring compiler and safety gate.
+- Backend transport contract: flow-surfaces is the authoring compiler for raw UI Builder payloads.
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
-- `nb-runjs` and `nb-template-decision` remain optional local planning helpers. Do not run skill-local write-gate output or `cliBody` generation as a write prerequisite.
-- Flow Surface write APIs accept the UI Builder raw business payload directly. Backend authoring validation returns aggregate `errors[]`; repair the full list and retry once the payload is coherent.
+- `nb-template-decision` remains an optional local planning helper. Do not run skill-local helper output or `cliBody` generation as a write prerequisite.
+- Flow Surface write APIs accept the UI Builder raw business payload directly. If a write returns `errors[]`, repair the full list and retry once the payload is coherent.
 
 ## 1. Precedence
 
@@ -252,7 +252,7 @@ Do not use UI-builder skill docs to invent missing schema. If the requested fiel
 
 ## 4. Backend Write + Confirmation Threshold
 
-For any whole-page `applyBlueprint` authoring run, the first mutating write must go through `nb api flow-surfaces apply-blueprint` with the raw business payload. Backend authoring normalizes compatible payloads and returns aggregate `errors[]` for hard validation failures; local helpers are optional planning aids, not write gates.
+For any whole-page `applyBlueprint` authoring run, the first mutating write must go through `nb api flow-surfaces apply-blueprint` with the raw business payload. If a write returns `errors[]`, repair the full list and retry once the payload is coherent. Local helpers are optional planning aids.
 
 Stop for confirmation before the write when any of the following is true:
 
@@ -285,7 +285,7 @@ Do **not** emulate a plan-style patch workflow in user-facing authoring.
 
 - Nested popups are allowed in page blueprint, but only as inline popup content beneath actions or fields.
 - When popup resource bindings, target-specific field addability, or JS/chart capability matters, read `catalog` before writing.
-- Any JS write is validated by backend `flow-surfaces` aggregate validation on write. `nb-runjs` is an optional local helper only; do not require it before the raw backend payload.
+- Any JS write goes through `nb api flow-surfaces <action>` with the raw payload. If the response returns `errors[]`, repair the listed issues and retry.
 
 ## 7. Recovery / Stop Conditions
 

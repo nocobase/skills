@@ -34,7 +34,7 @@ const taxRate = Number(ctx.formValues?.taxRate || 0);
 return amount + amount * taxRate;
 ```
 
-The bundled product snapshot and backend aggregate validation both reinforce the same rule: use a top-level `return` to output the value.
+The bundled product snapshot and repair playbook both reinforce the same rule: use a top-level `return` to output the value.
 
 ## What to open next
 

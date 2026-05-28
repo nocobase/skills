@@ -2,7 +2,7 @@
 
 Programmatically open a specified view (drawer, dialog, embedded page, etc.). Provided by `FlowModelContext`, it is used to open configured `ChildPage` or `PopupAction` views in scenarios such as `JSBlock`, table cells, and workflows.
 
-> Local skill note: this page documents product/runtime capability only. The skill-mode validator does **not** accept direct `ctx.openView(...)` as final output. Do not emit `ctx.openView(...)` as the final answer for this skill. Use this page as reference, then return to [js-reference-index.md](../../../../../references/js-reference-index.md) and [js.md](../../../../../references/js.md). For final user-facing solutions, prefer popup actions, field popups, or event flows outside the JS snippet. Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values.
+> Local skill note: this page documents product/runtime capability only. Do not emit `ctx.openView(...)` as the final answer for this skill. Use this page as reference, then return to [js-reference-index.md](../../../../../references/js-reference-index.md) and [js.md](../../../../../references/js.md). For final user-facing solutions, prefer popup actions, field popups, or event flows outside the JS snippet. Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values.
 
 ## Use Cases
 

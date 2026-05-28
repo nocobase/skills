@@ -224,7 +224,7 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
 - [whole-page-recipes.md](./whole-page-recipes.md) for reusable whole-page blueprint patterns with paired blocks, nested popups, and top-level reactions
 - [page-archetypes.md](./page-archetypes.md) if none of the common page shapes fits cleanly
 - [page-blueprint.md](./page-blueprint.md) for the full page grammar, uncommon block shapes, or exact field / action structures
-- [helper-contracts.md](./helper-contracts.md) only for optional helper behavior, not write-gate routing
+- [helper-contracts.md](./helper-contracts.md) only for optional helper behavior
 - [template-quick.md](./template-quick.md) if popup / block / fields reuse, existing template references, or `copy` vs `reference` is actually in scope
 - [reaction-quick.md](./reaction-quick.md) if the page needs detailed reaction payload recipes
 - [js.md](./js.md) if JS, charts, or `ctx.*` enters the page

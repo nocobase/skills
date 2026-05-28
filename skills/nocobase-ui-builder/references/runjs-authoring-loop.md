@@ -8,7 +8,7 @@ Use this for every JS / RunJS write before code is produced.
 2. Fill the scenario card below.
 3. Pick exactly one `safe` snippet from [js-surfaces/snippet-manifest.json](./js-surfaces/snippet-manifest.json) or [js-snippets/catalog.json](./js-snippets/catalog.json), using `sceneHints`, `preferredForIntents`, and `offlineSafe` to narrow first.
 4. Edit only the documented slots in that snippet.
-5. Write through `nb api flow-surfaces <action>` and repair backend aggregate `errors[]` from [runjs-repair-playbook.md](./runjs-repair-playbook.md), keyed by `details.repairClass`. `nb-runjs` is optional for local snippet checks and is not a write gate.
+5. Write through `nb api flow-surfaces <action>`. If the response returns `errors[]`, repair the listed issues from [runjs-repair-playbook.md](./runjs-repair-playbook.md), keyed by `details.repairClass`, and retry.
 
 ## Scenario Card
 
@@ -21,9 +21,9 @@ Use this for every JS / RunJS write before code is produced.
 - `recordSemantic`: one of `none`, `host-record`, `popup-opener-record`, `parent-popup-record`, `inner-row-record`, or `selected-rows`.
 - `contextEvidence`: the live context readback, catalog target, or planned host position proving the selected ctx root.
 - `requiredCtxRoots`: exact `ctx.*` roots needed by the chosen snippet.
-- `modelUse`: one validator model from the snippet's `modelUses[surface]`.
+- `modelUse`: one model from the snippet's `modelUses[surface]`.
 - `uiLibraryPolicy`: `antd-built-in` by default for render-style JS model UI; use `external-library` only when Ant Design lacks the requested capability.
-- `forbiddenPatterns`: copied from the snippet contract and validator feedback.
+- `forbiddenPatterns`: copied from the snippet contract and returned errors.
 - `preferredSnippetIds`: one to three catalog IDs, with one final choice.
 
 ## Record Semantic Map
@@ -46,10 +46,9 @@ If both `popup.record` and `record` are available, do not guess from the word "c
 - `value`: top-level `return` is required; `ctx.render(...)` is forbidden.
 - `render`: `ctx.render(...)` is required for render models.
 
-## Backend Repair Contract
+## Repair Contract
 
-- Backend `flow-surfaces` is the authoritative JS / RunJS validation gate for writes.
-- RunJS validation failures are reported as aggregate `errors[]` with stable `path`, `ruleId`, `message`, and minimal `details`.
+- JS / RunJS write failures are reported as `errors[]` with stable `path`, `ruleId`, `message`, and minimal `details`.
 - Use `details.repairClass` to choose the repair playbook row.
 - Do not expect skill-only metadata such as `docsKey`, `retryable`, `surfaceStyle`, or `suggestedSnippetIds`.
 

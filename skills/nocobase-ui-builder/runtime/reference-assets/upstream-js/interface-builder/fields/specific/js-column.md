@@ -4,7 +4,7 @@
 
 JS Column is used for "custom columns" in tables, rendering the content of each row's cell via JavaScript. It is not bound to a specific field and is suitable for scenarios such as derived columns, combined displays across fields, status badges, action buttons, and remote data aggregation.
 
-> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
+> Local skill note: prepare final code with [js.md](../../../../../../references/js.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
 > Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values; direct `ctx.record` below is product runtime context documentation.
 
 

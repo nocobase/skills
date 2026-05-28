@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { maskJavaScriptSource } from '../src/source-mask.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const backendWritePattern = /nb api flow-surfaces/i;
@@ -123,6 +122,13 @@ function extractFences(markdown, language) {
 
 function extractCodeFences(markdown) {
   return [...markdown.matchAll(/^```(?:js|javascript|jsx|json)\n([\s\S]*?)\n```/gm)].map((match) => match[1]);
+}
+
+function maskJavaScriptSource(source) {
+  return String(source ?? '').replace(
+    /\/\/[^\n]*|\/\*[\s\S]*?\*\/|(["'`])(?:\\[\s\S]|(?!\1)[\s\S])*?\1/g,
+    (match) => match.replace(/[^\n]/g, ' '),
+  );
 }
 
 function assertRunjsSnippetShape(model, code, label) {
@@ -738,7 +744,6 @@ test('required docs and relative links stay valid', () => {
     'references/runjs-authoring-loop.md',
     'references/runjs-failure-taxonomy.md',
     'references/runjs-repair-playbook.md',
-    'references/runjs-runtime.md',
     'references/runtime-playbook.md',
     'references/settings.md',
     'references/template-decision-summary.md',
@@ -754,18 +759,6 @@ test('required docs and relative links stay valid', () => {
     assert.equal(existsSync(path.join(skillRoot, relativePath)), true, `${relativePath} should exist`);
     if (relativePath.endsWith('.md')) assertRelativeMarkdownLinksExist(relativePath);
   }
-});
-
-test('runjs docs keep the self-contained zero-install runtime contract', () => {
-  const runtimeDoc = read('references/runjs-runtime.md');
-  assert.match(runtimeDoc, /self-contained inside this skill/i);
-  assert.match(runtimeDoc, /no `npm install` step/i);
-  assert.match(runtimeDoc, /no `runtime\/node_modules` requirement/i);
-  assert.match(runtimeDoc, /must not require installing external npm packages first/i);
-
-  const jsDoc = read('references/js.md');
-  assert.match(jsDoc, /optional helper/i);
-  assert.match(jsDoc, /does not replace backend validation/i);
 });
 
 test('upstream js snapshot relative links stay valid', () => {
@@ -859,8 +852,8 @@ test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   assert.match(index, /\[js-surfaces\/index\.md\]/i, 'js-reference-index should keep the surface-first router visible');
   assert.match(index, /bundled product reference snapshot|bundled reference snapshot/i, 'js-reference-index should describe the snapshot layer');
   assert.match(index, /does \*\*not\*\* replace the skill write contract|does not replace the skill write contract/i);
-  assert.match(index, /\[js\.md\]/i, 'js-reference-index should route model/validator work back to js.md');
-  assert.match(index, /\[runjs-runtime\.md\]/i, 'js-reference-index should route runtime validation back to runjs-runtime.md');
+  assert.match(index, /\[js\.md\]/i, 'js-reference-index should route model work back to js.md');
+  assert.doesNotMatch(index, /runjs-runtime\.md/i, 'js-reference-index should not route to the removed local runtime helper');
   assert.match(index, /\[reaction\.md\]/i, 'js-reference-index should route linkage writes back to reaction.md');
   assert.match(index, /Execute JavaScript/i, 'js-reference-index should cover event-flow Execute JavaScript');
   assert.match(index, /ctx\.\*/i, 'js-reference-index should expose ctx API routing');
@@ -1037,7 +1030,7 @@ test('key upstream js snapshot pages route back to skill contracts', () => {
   assert.match(eventFlow, /get-event-flow-meta/i, 'event-flow snapshot should mention event-flow meta discovery');
   assert.match(eventFlow, /add-event-flow|set-event-flow|remove-event-flow/i, 'event-flow snapshot should mention fine-grained event-flow writes');
   assert.match(eventFlow, /set-event-flows/i, 'event-flow snapshot should mention set-event-flows');
-  assert.match(eventFlow, /js\.md/i, 'event-flow snapshot should keep JS validator boundary visible');
+  assert.match(eventFlow, /js\.md/i, 'event-flow snapshot should keep JS authoring boundary visible');
 
   for (const relativePath of [
     'runtime/reference-assets/upstream-js/interface-builder/linkage-rule.md',
@@ -1047,11 +1040,11 @@ test('key upstream js snapshot pages route back to skill contracts', () => {
   ]) {
     const text = read(relativePath);
     assert.match(text, /reaction\.md/i, `${relativePath} should route writes back to reaction.md`);
-    assert.match(text, /js\.md/i, `${relativePath} should keep JS validator boundary visible`);
+    assert.match(text, /js\.md/i, `${relativePath} should keep JS authoring boundary visible`);
   }
 
   const openView = read('runtime/reference-assets/upstream-js/runjs/context/open-view.md');
-  assert.match(openView, /skill-mode validator/i, 'open-view snapshot should mention skill-mode validator boundary');
+  assert.doesNotMatch(openView, /skill-mode validator/i, 'open-view snapshot should not mention the removed local validator');
   assert.match(openView, /do not|不要|不接受/i, 'open-view snapshot should explicitly warn against direct final output');
   assert.match(openView, /ctx\.openView\(\.\.\.\)|ctx\.openView/i, 'open-view snapshot should keep the warned API explicit');
   assert.match(openView, /js-reference-index\.md/i, 'open-view snapshot should route back to js-reference-index.md');
@@ -2091,12 +2084,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(templateQuick, /"hostOpenViewConfigRoute"/i);
 
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /optional local helpers[\s\S]{0,120}do not define the write path/i);
+  assert.match(helperContracts, /optional local helpers/i);
   assert.match(helperContracts, /common-case drafting|do not open runtime source files/i);
-  assert.match(helperContracts, /nb-runjs/i);
-  assert.match(helperContracts, /Backend-Owned Write Behavior/i);
-  assert.match(helperContracts, /optional local helpers|do not define the write path|does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
+  assert.doesNotMatch(helperContracts, /nb-runjs/i);
+  assert.match(helperContracts, /Write Behavior/i);
+  assert.match(helperContracts, /errors\[\][\s\S]{0,120}retry/i);
   assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-template-decision\.mjs/i);
   assert.doesNotMatch(helperContracts, /nb-flow-surfaces\.mjs/i);
   assert.doesNotMatch(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
@@ -2120,7 +2112,8 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(pageIntent, /nb api flow-surfaces apply-blueprint/i);
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /nb-runjs|nb-template-decision/i);
+  assert.match(normativeContract, /nb-template-decision/i);
+  assert.doesNotMatch(normativeContract, /nb-runjs/i);
 
   for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
     const text = read(relativePath);
@@ -2664,7 +2657,7 @@ test('localized write docs keep backend validation boundary', () => {
   assert.match(defaultPrompt, /raw payload only/i);
 });
 
-test('JS authoring docs keep backend validation authoritative', () => {
+test('JS authoring docs route writes through flow-surfaces errors repair', () => {
   for (const relativePath of [
     'references/js.md',
     'references/runjs-authoring-loop.md',
@@ -2677,13 +2670,13 @@ test('JS authoring docs keep backend validation authoritative', () => {
     const text = read(relativePath);
     assert.match(
       text,
-      /backend[\s\S]{0,180}(?:aggregate|validation|errors\[\]|flow-surfaces)/i,
-      `${relativePath} should route JS write validation to backend aggregate errors`,
+      /(?:nb api flow-surfaces|errors\[\])/i,
+      `${relativePath} should route JS writes to direct flow-surfaces writes or returned errors`,
     );
     assert.doesNotMatch(
       text,
-      /must run the local validator|local validator gate|validator failure is failure|write cannot continue|do not continue to the nb write|must first pass the validator gate/i,
-      `${relativePath} should not define a local JS validator write gate`,
+      /nb-runjs|must run the local validator|local validator gate|validator failure is failure|write cannot continue|do not continue to the nb write|must first pass the validator gate/i,
+      `${relativePath} should not mention the removed local RunJS helper or define a local validator write gate`,
     );
   }
 
@@ -2696,8 +2689,8 @@ test('JS authoring docs keep backend validation authoritative', () => {
   );
   assert.match(
     chartCore,
-    /backend validation rejects popup\/openView capabilities/i,
-    'chart events docs should route popup/openView behavior outside RunJS',
+    /configure popup\/openView behavior outside `events\.raw`/i,
+    'chart events docs should route popup/openView behavior outside events.raw',
   );
 });
 
@@ -2719,14 +2712,14 @@ test('RunJS repair playbook covers backend repair classes', () => {
     assert.match(playbook, new RegExp('\\| `' + repairClass + '` \\|'), `playbook should cover ${repairClass}`);
   }
   assert.match(playbook, /details\.repairClass/i);
-  assert.match(playbook, /Backend `?flow-surfaces`? errors are authoritative|backend `?flow-surfaces`? errors are authoritative/i);
+  assert.match(playbook, /nb api flow-surfaces <action>/i);
   assert.doesNotMatch(playbook, /auto-rewrite only|may auto-rewrite/i);
 });
 
 test('JS snippets are guidance, not a write gate', () => {
   const snippetIndex = read('references/js-snippets/index.md');
   assert.match(snippetIndex, /Use the snippet as guidance/i);
-  assert.match(snippetIndex, /not a write gate/i);
+  assert.match(snippetIndex, /errors\[\][\s\S]{0,80}retry/i);
   assert.doesNotMatch(snippetIndex, /Run the JS validator before writing|code-quality gate/i);
   for (const relativePath of walkMarkdownFiles('references/js-snippets')) {
     assert.doesNotMatch(

@@ -1,12 +1,12 @@
 # Helper Contracts
 
-Use this file only for optional local helpers that do not define the write path. Backend `nb api flow-surfaces <action>` writes are the authoring compiler and safety gate.
+Use this file only for optional local helpers and common write behavior.
 
 If the task only needs local blueprint artifacts or common-case drafting, stay in [whole-page-quick.md](./whole-page-quick.md) and do not open runtime source files.
 
-## Backend-Owned Write Behavior
+## Write Behavior
 
-The skill no longer maintains a local write-gate chain. Send one raw business payload to backend `flow-surfaces`; repair aggregate `errors[]` when the backend rejects it. Optional helpers are local/read-only aids: they do not execute `nb`, do not wrap the transport, and do not decide whether a write is allowed.
+Send one raw business payload through `nb api flow-surfaces <action>`. If the response returns `errors[]`, repair the listed issues and retry the raw payload. Optional helpers are local/read-only aids: they do not execute `nb`, do not wrap the transport, and do not prepare a required write payload.
 
 - agent-facing write path: `nb api flow-surfaces <action>`
 - input: one raw business payload, sent through `--body` / `--body-file`
@@ -30,25 +30,11 @@ The skill no longer maintains a local write-gate chain. Send one raw business pa
 - explicit local `popup.blocks` and `settings.quickCreatePopup` / `settings.eventPopup` / `settings.cardPopup` blocks still participate in defaults scope collection even when `popup.template` or `popup.tryTemplate` is present; template binding only changes popup content sourcing, not defaults scope registration
 - rejects: common high-risk write-shape mistakes before the remote write
 
-## `nb-runjs validate --skill-mode`
-
-Use this only when the task is JS / RunJS specific and a local snippet sanity check is useful. It is optional and does not define the write path.
-
-Before you run it, lock the authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), fill the loop in [runjs-authoring-loop.md](./runjs-authoring-loop.md), and choose a canonical snippet from [js-snippets/catalog.json](./js-snippets/catalog.json). The validator contract now differs between render-style JS models, action-style event/linkage code, and value-return RunJS.
-
-- CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode`
-- input: `{ model, code, context? }`
-- returns: validation result, policy issues, and execution summary
-- use it for: local JS block, JS field, JS action, and event-flow `Execute JavaScript` snippet checks
-- if it fails: repair with [runjs-repair-playbook.md](./runjs-repair-playbook.md) before the real backend write when practical
-- if it cannot run: continue with the direct backend write path unless the user explicitly requested local helper verification
-- authoritative write validation remains backend aggregate `errors[]`; repair backend RunJS errors from `details.repairClass`
-
 ## `nb-template-decision`
 
-Use this only when template reuse/copy/reference choice is unclear and a local planning summary is useful. It is optional and does not define the write path.
+Use this only when template reuse/copy/reference choice is unclear and a local planning summary is useful.
 
 - CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-template-decision.mjs plan-query --stdin-json`
 - input: template intent, repeat eligibility, current host context, and search terms
-- returns: planning guidance for template search/reuse; final writes still go through backend `flow-surfaces`
+- returns: planning guidance for template search/reuse; final writes still go through `nb api flow-surfaces <action>`
 - template binding details stay in [templates.md](./templates.md) and [template-decision-summary.md](./template-decision-summary.md)
