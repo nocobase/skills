@@ -17,6 +17,7 @@ Use this file when the user asks for a dashboard, overview page, summary tab, KP
 - Do not implement 4 KPI cards as `actionPanel` + 4 `js` actions.
 - Do not use `GridCardBlockModel` for aggregated dashboard numbers.
 - Do not treat "can render something" as enough. The block must match the section semantics.
+- Do not replace a requested chart / 图表 / trend / distribution / ranking section with `JSBlockModel`, `table`, `list`, `gridCard`, or `markdown`.
 
 ## Correct patterns
 
@@ -25,6 +26,17 @@ Use this file when the user asks for a dashboard, overview page, summary tab, KP
 - Latest records use `table` or `list`.
 - Operation entry areas use `actionPanel`.
 - Record card walls use `gridCard`.
+
+## Dashboard Coverage Gate
+
+Before the first write, make a short section checklist:
+
+- `metric_sections`: KPI / 指标卡 / 数字统计 sections that must become `jsBlock`.
+- `chart_sections`: 图表 / Charts / 趋势 / 分布 / 排行 / 占比 sections that must become `chart`.
+- `record_list_sections`: latest records, recent activity, top-N record lists that become `table` or `list`.
+- `action_sections`: shortcuts or user operations that become `actionPanel`.
+
+The draft is not writable until each `chart_sections` entry has a concrete chart block title and chart asset key. If the request says "4 charts", the payload must contain at least four `type: "chart"` blocks. `jsBlock` KPI panels and table/list summaries do not count toward chart coverage.
 
 ## Backend repair behavior
 
@@ -40,3 +52,14 @@ Use this file when the user asks for a dashboard, overview page, summary tab, KP
 - latest records / top-N records -> `table` or `list`
 - action shortcuts -> `actionPanel`
 - if a KPI area is implemented with `actionPanel`, regenerate before `applyBlueprint`
+- if any required chart section is implemented as `jsBlock`, `table`, or `list`, regenerate before `applyBlueprint`
+
+## Completion Evidence
+
+For dashboards with required charts, the final summary must list chart evidence in this shape:
+
+```text
+chart blocks: <visible title> -> <assets.charts key or live chart uid>
+```
+
+If you cannot list that evidence, say the dashboard is unfinished instead of saying charts are complete.

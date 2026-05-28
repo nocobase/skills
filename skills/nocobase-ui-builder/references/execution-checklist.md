@@ -20,6 +20,7 @@ Use this checklist after the matching quick route is already clear. For global r
 - Page identity for duplicate-page prevention is `(navigation.group.routeId, page.title)` after any unique group-title resolution. Same group + same page title may auto-upgrade `create` to `replace`; different group + same page title must not merge, reuse, or auto-replace another page.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
+- If a dashboard asks for chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行, record the required chart sections before drafting; KPI JSBlocks and tables/lists cannot satisfy those chart sections.
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
   - body-based `flow-surfaces` commands take the raw business object through `--body` / `--body-file`
@@ -59,6 +60,7 @@ Use this path when the user is describing one entire page.
    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout` and each non-template-backed data block has a `title`; template-backed blocks are exempt; a single non-filter block may omit its `title` unless the user explicitly asks for one
    - every chosen field has a non-empty live `interface`
    - any requested `table` / `list` / `gridCard` / `calendar` / `kanban` filtering/search action lands on the intended host instead of silently turning into `filterForm`
+   - any requested dashboard chart section has a matching `type: "chart"` block, and explicit chart counts are met before write
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
       - data-bound blocks are planned against current live metadata
@@ -69,7 +71,7 @@ Use this path when the user is describing one entire page.
 10. If you persist the payload to a file for the final nb write, persist the raw backend payload itself.
 11. If a whole-page `applyBlueprint` fails before first success, repair the blueprint from backend aggregate `errors[]` and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest payload / error evidence.
 12. Do not wrap that business object again.
-13. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nb api flow-surfaces get` and targeted readback from [verification.md](./verification.md).
+13. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. Chart-required dashboards are an explicit inspection case: read back the returned `pageSchemaUid` and confirm chart block evidence before claiming completion. After a successful `applyBlueprint`, localized low-level repair may address only an explicit local/live gap and should stay narrowly scoped. When follow-up work needs live structure, use the returned `target` / `pageSchemaUid` for `nb api flow-surfaces get` and targeted readback from [verification.md](./verification.md).
 
 ## 4. Localized Existing-surface Edit
 
@@ -109,3 +111,8 @@ Stop instead of guessing when:
 - the target is still ambiguous after readback
 - the task is really ACL, workflow, data-modeling, browser validation, or non-Modern-page navigation
 - the request is about editing template-owned content under an existing template reference but still does not clearly resolve to edit-template-source, edit-host-local-config, switch-template-reference, or detach-to-copy
+
+## 8. Final Evidence
+
+- For chart-required dashboards, the final summary must list `chart blocks: <title> -> <asset key or live chart uid>`.
+- If readback only proves `jsBlock`, `table`, or `list` content for a requested chart section, say the chart section is unfinished instead of claiming dashboard completion.

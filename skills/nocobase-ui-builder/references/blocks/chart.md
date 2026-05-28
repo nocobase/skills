@@ -187,6 +187,59 @@ Required mappings:
 4. 用户明确说 `SQL`，或 relation label 分组无法用 scalar 字段表达时，再生成 `sql + basic` 或 `sql + custom`。
 5. 用户明确要求自定义 ECharts option / events 时，才生成 `custom`。
 
+## Dashboard chart recipes
+
+If a dashboard asks for chart / 图表 / Charts, do not replace that section with JSBlock, table, list, gridCard, or markdown. KPI numbers can use JSBlock, but trend, distribution, ranking, and percentage sections require `type: "chart"` blocks.
+
+Use these whole-page recipes by replacing only collection, field, alias, title, and asset key:
+
+```json
+{
+  "assets": {
+    "charts": {
+      "trendChart": {
+        "query": {
+          "mode": "builder",
+          "resource": { "dataSourceKey": "main", "collectionName": "intelligenceItems" },
+          "measures": [{ "field": "id", "aggregation": "count", "alias": "count_items" }],
+          "dimensions": [{ "field": "occurDate" }]
+        },
+        "visual": { "mode": "basic", "type": "line", "mappings": { "x": "occurDate", "y": "count_items" } }
+      },
+      "categoryDistribution": {
+        "query": {
+          "mode": "builder",
+          "resource": { "dataSourceKey": "main", "collectionName": "intelligenceItems" },
+          "measures": [{ "field": "id", "aggregation": "count", "alias": "count_items" }],
+          "dimensions": [{ "field": "intelType" }]
+        },
+        "visual": { "mode": "basic", "type": "doughnut", "mappings": { "category": "intelType", "value": "count_items" } }
+      },
+      "importanceDistribution": {
+        "query": {
+          "mode": "builder",
+          "resource": { "dataSourceKey": "main", "collectionName": "intelligenceItems" },
+          "measures": [{ "field": "id", "aggregation": "count", "alias": "count_items" }],
+          "dimensions": [{ "field": "importance" }]
+        },
+        "visual": { "mode": "basic", "type": "bar", "mappings": { "x": "importance", "y": "count_items" } }
+      }
+    }
+  },
+  "tabs": [
+    {
+      "blocks": [
+        { "key": "trendChart", "type": "chart", "title": "近 30 天情报新增趋势", "chart": "trendChart" },
+        { "key": "categoryDistribution", "type": "chart", "title": "情报类型分布", "chart": "categoryDistribution" },
+        { "key": "importanceDistribution", "type": "chart", "title": "重要程度分布", "chart": "importanceDistribution" }
+      ]
+    }
+  ]
+}
+```
+
+For a ranking chart such as "产品活跃度排行", prefer `barHorizontal`. If the ranking needs relation labels, use a SQL chart with an explicit join; do not use a relation field directly in builder dimensions.
+
 ## Backend validation 关注点
 
 Backend aggregate `errors[]` 是写入边界。常见 rule id：

@@ -697,7 +697,7 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /report/i, 'openai prompt should report after exhausting retries');
   assert.match(
     text,
-    /after success (?:localized repair only for explicit local\/live gap|only explicit local\/live gap repair)/i,
+    /after success (?:localized repair only for explicit local\/live gap|only explicit local\/live gap repair)|success only explicit local\/live gap/i,
     'openai prompt should allow only narrow post-success repair',
   );
 }
@@ -1249,7 +1249,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1400, 'openai default_prompt should stay at or below 1400 chars');
+  assert.ok(defaultPrompt.length <= 1450, 'openai default_prompt should stay at or below 1450 chars');
 });
 
 test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
@@ -1513,6 +1513,56 @@ test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
   );
 });
 
+test('dashboard chart requests require chart blocks and cannot downgrade to JSBlock or tables', () => {
+  const skill = read('SKILL.md');
+  const dashboardRouting = read('references/dashboard-routing.md');
+  const wholePageQuick = read('references/whole-page-quick.md');
+  const chart = read('references/blocks/chart.md');
+  const chartCore = read('references/chart-core.md');
+  const pageBlueprint = read('references/page-blueprint.md');
+  const executionChecklist = read('references/execution-checklist.md');
+  const verification = read('references/verification.md');
+  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['dashboard-routing', dashboardRouting],
+    ['whole-page-quick', wholePageQuick],
+    ['chart', chart],
+    ['page-blueprint', pageBlueprint],
+    ['execution-checklist', executionChecklist],
+    ['verification', verification],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /chart[\s\S]{0,120}(?:required|require|must|必须)|(?:required|require|must|必须)[\s\S]{0,120}chart/i,
+      `${label} should make requested dashboard charts mandatory`,
+    );
+    assert.match(
+      text,
+      /JSBlock[\s\S]{0,140}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,140}chart|chart[\s\S]{0,140}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,140}JSBlock/i,
+      `${label} should forbid JSBlock as chart coverage`,
+    );
+    assert.match(
+      text,
+      /table[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}chart|chart[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}table/i,
+      `${label} should forbid table/list as chart coverage`,
+    );
+  }
+
+  assert.match(
+    dashboardRouting,
+    /chart blocks:[\s\S]{0,80}title[\s\S]{0,80}asset[\s\S]{0,20}key/i,
+    'dashboard-routing should require chart title-to-asset evidence in final summaries',
+  );
+  assert.match(
+    verification,
+    /charts\[\][\s\S]{0,120}title[\s\S]{0,120}(?:asset key|assetKey|uid)/i,
+    'verification should require structured chart evidence',
+  );
+});
+
 test('JSBlock docs and prompt expose only canonical public authoring shapes', () => {
   const jsBlock = read('references/js-models/js-block.md');
   const pageBlueprint = read('references/page-blueprint.md');
@@ -1647,7 +1697,10 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
   );
 
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
-  assert.match(defaultPrompt, /分析看板[\s\S]{0,36}trend\/chart/i);
+  assert.match(defaultPrompt, /分析看板[\s\S]{0,80}trend[\s\S]{0,40}chart/i);
+  assert.match(defaultPrompt, /chart[\s\S]{0,40}required/i);
+  assert.match(defaultPrompt, /table\/list!=chart/i);
+  assert.match(defaultPrompt, /assets\.charts[\s\S]{0,30}block\.chart/i);
   assert.match(defaultPrompt, /KPI[\s\S]{0,24}JSBlock/i);
   assert.match(defaultPrompt, /card[\s\S]{0,24}Grid/i);
   assert.match(defaultPrompt, /kanban\/pipeline\/status columns[\s\S]{0,24}Kanban/i);

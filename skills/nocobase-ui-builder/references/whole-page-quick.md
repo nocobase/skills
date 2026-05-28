@@ -25,6 +25,9 @@ Dashboard self-check before first write:
 - latest records / top-N records -> `table` or `list`
 - `actionPanel` only when the user asked for operations or shortcuts
 - if a KPI area is implemented with `actionPanel`, regenerate before `applyBlueprint`
+- if the request mentions 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行, open [blocks/chart.md](./blocks/chart.md) and keep a real chart block for each requested chart section
+- `jsBlock` and `table` / `list` summaries do not satisfy chart coverage; if a required chart section is missing or downgraded, regenerate before `applyBlueprint`
+- whole-page chart blocks use canonical `assets.charts + block.chart`, not inline `settings.query` / `settings.visual`
 
 Do not treat "can render something" as sufficient for dashboard metric sections. Block choice must match the section semantics.
 
@@ -98,12 +101,13 @@ Do not treat "can render something" as sufficient for dashboard metric sections.
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-15. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
+15. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. Chart-required dashboards are an explicit inspection case: read back the returned `pageSchemaUid` and confirm chart evidence before claiming completion. When that happens, normalize locators:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nb api flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
    - after one successful whole-page `applyBlueprint`, localized low-level repair is allowed only for an explicit local/live gap and should stay narrow
+   - if a chart-required dashboard readback has no `chart` block, repair the missing section as `chart` or state unfinished; do not report the dashboard as complete
 16. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
 17. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the blueprint/checklist directly from the request. Open it only when investigating optional helper behavior.
 18. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact nb body. For the first real whole-page write, send the raw business payload directly to `nb api flow-surfaces apply-blueprint`.

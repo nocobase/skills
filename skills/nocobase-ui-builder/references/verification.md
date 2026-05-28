@@ -42,7 +42,8 @@ A page-blueprint draft is good when:
 
 - Verify only the surfaces affected by the write, unless hierarchy changed.
 - For localized/low-level writes, and for any explicit inspection step, a successful write response is not enough; confirm via readback.
-- Whole-page `applyBlueprint` create / replace and whole-page `reaction.items[]` default to successful-response completion. Do not add an extra `get` unless follow-up localized work or explicit inspection needs it.
+- Whole-page `applyBlueprint` create / replace and whole-page `reaction.items[]` default to successful-response completion. Do not add an extra `get` unless follow-up localized work, explicit inspection, or chart-required dashboard evidence needs it.
+- For dashboards that explicitly require chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 blocks, run `flow-surfaces get` for the returned `pageSchemaUid` and confirm chart evidence before claiming completion.
 - Popup-specific claims require popup-specific readback.
 - Without an extra `get`, describe whole-page popup/template results only as submitted/created from the success response and sent blueprint, not as readback-verified persisted subtree facts.
 - If a popup write relied on `popup.tryTemplate=true` because no explicit `popup.template` was present, verify whether the final persisted popup stayed inline/default, bound a template, or silently missed. When local popup content was also present, confirm whether it became the miss fallback instead of assuming template reuse from the write request alone.
@@ -102,7 +103,18 @@ If you hand-write a readback bundle or a short persisted verification note, star
 - if root-level content matters, keep `root.blockTypes`, `root.collections`, `root.fields`, and `root.actionTitles` explicit even when the raw live root only says `type: "page"`
 - for popup same-row layouts, surface a stable `sameRow: true` style proof instead of leaving a free-form layout string as the only evidence
 - when a critical outcome depends on a helper, guard, or computed field, surface one stable boolean or scalar outcome near the summary instead of burying the only proof inside richer nested metadata
+- when chart blocks were required, include `charts.*.title` plus `charts.*.assetKey` or `charts.*.uid`; a summary that only proves `jsBlock`, `table`, or `list` content is not chart evidence
 - when raw live readback is still useful, nest it under an extra key after the public summary instead of making raw model names the only proof
+
+### Chart-required dashboard evidence
+
+For a chart-required dashboard, accepted evidence must include:
+
+- `page.pageSchemaUid` and `page.pageTitle`
+- `charts[]` entries with visible title and asset key or live chart uid
+- readback proof that the block type normalized to `chart` / `ChartBlockModel`
+
+Do not write "Dashboard with charts complete" unless that evidence exists. If only `jsBlock` KPI cards and data tables are present, report the chart capability as unfinished or partial.
 
 ## 4. Popup-specific Checks
 
