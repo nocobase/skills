@@ -4,7 +4,7 @@
 
 JS Item is used to render a custom action item in an action bar. You can write JavaScript / JSX directly to output any UI, such as buttons, button groups, dropdown menus, helper text, status tags, or small interactive components, and handle logic inside the component, including API calls, opening views, reading the current record, or refreshing block data.
 
-> Local skill note: prepare final code with [js.md](../../../../../../references/js.md). If a user wants to open a popup or drawer, prefer popup actions or event flows outside the JS snippet instead of direct `ctx.openView(...)` output.
+> Local skill note: prepare final code with [js.md](../../../../../../references/js.md). For popup/drawer/dialog intent, do not emit bare `ctx.openView(...)` against a transient, ChildPage, page, tab, or popup subtree uid. Resolve a template-first persisted popup-capable FlowModel first, then call `ctx.openView(triggerUid, ...)` from the chosen JS surface.
 
 It can be used in form toolbars, table toolbars (collection-level), table row actions (record-level), and similar locations. It is especially suitable for these scenarios:
 
@@ -29,7 +29,7 @@ The JS Item runtime injects common capabilities that you can use directly in the
 - `ctx.render(vnode)`: Renders a React element, HTML string, or DOM node into the current action item container.
 - `ctx.element`: The DOM container of the current action item (ElementProxy).
 - `ctx.request(options)` / `ctx.api.request(options)`: Sends an HTTP request. Under skill-mode, prefer full `http/https` URLs.
-- `ctx.openView(viewUid, options)`: Opens a configured view (drawer / dialog / page) in the product runtime, but this skill does not accept direct `ctx.openView(...)` as final output.
+- `ctx.openView(viewUid, options)`: Opens a configured view (drawer / dialog / page) in the product runtime. Under this skill, use it only with an existing popup-capable FlowModel trigger uid resolved through the template-first popup/openView path.
 - `ctx.message` / `ctx.notification`: Global messages and notifications.
 - `ctx.t()` / `ctx.i18n.t()`: Internationalization.
 - `ctx.resource`: The data resource for collection-level context, for example reading selected rows or refreshing a list.
@@ -114,15 +114,23 @@ function JsItem() {
 ctx.render(<JsItem />);
 ```
 
-### 3) Record Action: Popup Guidance Without Direct View Calls
+### 3) Record Action: Popup Opener Requires a Persisted FlowModel
 
 ```js
+const popupFlowModelUid = 'replace-with-persisted-popup-flowmodel-uid';
 const { Button } = ctx.libs.antd;
 
 function JsItem() {
   return (
     <Button
-      onClick={() => ctx.message.info(ctx.t('Configure a popup action or event flow outside this JS item.'))}
+      onClick={async () => {
+        await ctx.openView(popupFlowModelUid, {
+          navigation: false,
+          mode: 'drawer',
+          size: 'large',
+          title: ctx.t('Details'),
+        });
+      }}
     >
       {ctx.t('Open configured popup')}
     </Button>

@@ -27,6 +27,8 @@ First-hop safe snippets:
 - [action/resource-refresh](../js-snippets/safe/action/resource-refresh.md)
 - [action/form-submit-guard](../js-snippets/safe/action/form-submit-guard.md)
 
+For popup / drawer / dialog / drilldown intent, use the popup scene hint in the snippet manifest and [global/open-popup-flow-model](../js-snippets/safe/global/open-popup-flow-model.md). The JS action should only call `ctx.openView(triggerUid, ...)` after a template-first popup-capable FlowModel exists; prefer a popup host whose persisted `targetUid = popupSettings.openView.uid` points to a template target with `popupTemplateUid` / `popupTemplateMode`.
+
 Example:
 
 ```js

@@ -421,7 +421,8 @@ Rules:
 - the `chart` instance is exposed through a top-level alias; primarily use bare `chart.on(...)` / `chart.off(...)`
 - do not write `ctx.chart.on(...)` / `ctx.chart.off(...)`
 - `ctx.render(...)` is not required
-- do not write `ctx.openView(...)`; configure popup/openView behavior outside `events.raw`
+- popup / drilldown behavior is template-first: create or resolve a persisted popup-capable FlowModel outside `events.raw`, preferably one whose `targetUid = popupSettings.openView.uid` points to a template target with `popupTemplateUid` / `popupTemplateMode`
+- after that host exists, `events.raw` may call `ctx.openView(triggerUid, ...)`; do not use a `ChildPageModel`, page, tab, popup subtree, or transient uid as the trigger target
 
 ## Readback
 

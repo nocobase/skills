@@ -68,6 +68,18 @@ builder DSL 边界：
 - popup/openView 相关写入前先按 [../execution-checklist.md](../execution-checklist.md) 与 [../normative-contract.md](../normative-contract.md) 做自检
 - through / 中间表 popup 的 add/edit 动作，只有在用户明确要求打开浏览器或确认运行时动作可用性时，才需要一次最小 smoke；否则保持“模型树已落库，运行时未实测”
 
+## JS-triggered popup / 模板优先
+
+当 JSBlock、JS Action、event-flow JS、chart `events.raw` 要打开 drawer/dialog 时，先落库或复用一个 template-first popup-capable FlowModel，再写 JS：
+
+- `triggerUid` 是 JS 传给 `ctx.openView(triggerUid, ...)` 的 uid；默认用已落库 popup host/action uid
+- `targetUid` 是 host 上 `popupSettings.openView.uid`；模板命中时它通常指向 popup template 的 target FlowModel
+- 优先用 `popup.template` 或 `popup.tryTemplate=true` 让 host 保留 `popupTemplateUid` / `popupTemplateMode="reference"`；读回后再决定 JS 触发哪个 uid
+- 只有读回证明模板 target 本身是 popup-capable FlowModel 时，才允许直接把模板 `targetUid` 当 `triggerUid`
+- `ChildPageModel` is not a `triggerUid`; page、tab、popup subtree uid 也不是默认触发目标
+- JS 只传运行时参数，例如 `params.importance`；popup 内部 block 通过 `{{ctx.view.inputArgs.params.importance}}` 读取
+- 如果入口必须隐藏，先 `get-reaction-meta`，再对 host action/block 写 `actionLinkage` / `blockLinkage`
+
 ## 常见误区
 
 - 只有 action 按钮，没有完整 page/tab/grid 子树
@@ -80,6 +92,7 @@ builder DSL 边界：
 - 对关联客户这类深路径表达式不做说明，直接报成功
 - popup page 下业务 block 依赖 `ctx.view.inputArgs.filterByTk`，但 action 层没有显式传 `filterByTk`
 - 因为用户要“点关联标题打开弹窗”，就直接改成 JS 单元格，而不是先收口到原生关系列
+- JS 直接打开临时 uid、`ChildPageModel` uid、page/tab uid，绕过 popup host / `popupTemplateUid` 路由
 
 ## 完成标准
 

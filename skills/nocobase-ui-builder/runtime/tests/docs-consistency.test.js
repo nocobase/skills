@@ -932,8 +932,8 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
   assert.deepEqual(
     renderSurface?.recommendedBySceneHint?.popup,
-    ['scene/block/popup-record-summary'],
-    'js-model.render should recommend the popup record snippet for popup scenes',
+    ['render/open-popup-flow-model-button'],
+    'js-model.render should recommend the persisted FlowModel opener snippet for popup opener scenes',
   );
   for (const surface of manifest.surfaces) {
     assert.equal(surface.recommendedSnippetIds.length <= 3, true, `${surface.id} should recommend at most 3 snippets`);
@@ -2794,9 +2794,125 @@ test('JS authoring docs route writes through flow-surfaces errors repair', () =>
   );
   assert.match(
     chartCore,
-    /configure popup\/openView behavior outside `events\.raw`/i,
-    'chart events docs should route popup/openView behavior outside events.raw',
+    /persisted popup-capable FlowModel/i,
+    'chart events docs should require a persisted popup-capable FlowModel before events.raw opens a popup',
   );
+});
+
+test('JS popup intent defaults to persisted popup-capable FlowModel with template-first routing', () => {
+  const skill = read('SKILL.md');
+  const js = read('references/js.md');
+  const jsAction = read('references/js-surfaces/js-model-action.md');
+  const jsIndex = read('references/js-reference-index.md');
+  const chartCore = read('references/chart-core.md');
+  const popupOpenView = read('references/patterns/popup-openview.md');
+  const failureTaxonomy = read('references/runjs-failure-taxonomy.md');
+  const guardedWindowOpen = read('references/js-snippets/guarded/global/window-open.md');
+  const renderSurfaceDocs = [
+    'runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-column.md',
+    'runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-field.md',
+    'runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-item.md',
+    'runtime/reference-assets/upstream-js/interface-builder/actions/types/js-item.md',
+  ];
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+
+  for (const [label, text] of [
+    ['SKILL.md', skill],
+    ['references/js.md', js],
+    ['references/js-surfaces/js-model-action.md', jsAction],
+    ['references/js-reference-index.md', jsIndex],
+    ['references/chart-core.md', chartCore],
+    ['references/patterns/popup-openview.md', popupOpenView],
+    ['references/runjs-failure-taxonomy.md', failureTaxonomy],
+  ]) {
+    assert.match(text, /popup-capable FlowModel/i, `${label} should name the stable popup trigger target`);
+    assert.match(text, /popupTemplateUid|template-first|模板优先/i, `${label} should keep template-first popup routing visible`);
+  }
+
+  assert.match(popupOpenView, /triggerUid/i, 'popup-openview should distinguish the JS trigger uid');
+  assert.match(popupOpenView, /targetUid/i, 'popup-openview should distinguish the persisted openView target uid');
+  assert.match(
+    popupOpenView,
+    /ChildPageModel[\s\S]{0,180}(?:不是|not|must not)/i,
+    'popup-openview should warn against using ChildPage/page/tab/subtree uid as the default trigger target',
+  );
+
+  const popupSnippet = catalog.snippets.find((entry) => entry.id === 'global/open-popup-flow-model');
+  assert.ok(popupSnippet, 'catalog should include the popup FlowModel opener snippet');
+  assert.equal(popupSnippet?.tier, 'safe');
+  assert.equal(popupSnippet?.doc, 'js-snippets/safe/global/open-popup-flow-model.md');
+  assert.deepEqual(
+    popupSnippet?.preferredForIntents,
+    ['open-popup', 'open-view', 'drawer', 'dialog', 'drilldown'],
+    'popup snippet should be the preferred popup/openView intent entry',
+  );
+
+  assert.equal(
+    popupSnippet?.intentTags?.includes('drilldown'),
+    true,
+    'popup snippet should cover drilldown intent tags',
+  );
+  const renderPopupSnippet = catalog.snippets.find((entry) => entry.id === 'render/open-popup-flow-model-button');
+  assert.ok(renderPopupSnippet, 'catalog should include the rendered popup FlowModel opener snippet');
+  assert.equal(renderPopupSnippet?.tier, 'safe');
+  assert.equal(renderPopupSnippet?.doc, 'js-snippets/safe/render/open-popup-flow-model-button.md');
+  assert.equal(renderPopupSnippet?.surfaces?.includes('js-model.render'), true);
+  assert.equal(renderPopupSnippet?.preferredForIntents?.includes('drilldown'), true);
+
+  const actionSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.action');
+  assert.deepEqual(
+    actionSurface?.recommendedBySceneHint?.popup,
+    ['global/open-popup-flow-model'],
+    'js-model.action popup scene hint should point to the popup FlowModel snippet',
+  );
+  const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
+  assert.deepEqual(
+    renderSurface?.recommendedBySceneHint?.popup,
+    ['render/open-popup-flow-model-button'],
+    'js-model.render popup scene hint should point to the rendered popup FlowModel opener',
+  );
+  const eventFlowSurface = manifest.surfaces.find((surface) => surface.id === 'event-flow.execute-javascript');
+  assert.deepEqual(
+    eventFlowSurface?.recommendedBySceneHint?.popup,
+    ['global/open-popup-flow-model'],
+    'event-flow popup scene hint should point to the popup FlowModel snippet',
+  );
+
+  const openViewReference = read('runtime/reference-assets/upstream-js/runjs/context/open-view.md');
+  assert.match(
+    openViewReference,
+    /missing `uid` as invalid/i,
+    'openView reference should quarantine missing uid behavior in skill mode',
+  );
+  assert.doesNotMatch(
+    openViewReference,
+    /\$\{ctx\.model\.uid\}/,
+    'openView reference should not teach constructing popup uids from ctx.model.uid',
+  );
+  assert.doesNotMatch(
+    failureTaxonomy,
+    /ctx\.openView\(\.\.\.\)[^\n]*(?:intentionally disallowed|final skill output)/i,
+    'failure taxonomy should not keep the old blanket ctx.openView final-output ban',
+  );
+  assert.match(
+    guardedWindowOpen,
+    /popup, drawer, dialog, or drilldown[\s\S]{0,180}global\/open-popup-flow-model/i,
+    'guarded window.open snippet should reroute NocoBase popup intent to the template-first FlowModel opener',
+  );
+  for (const relativePath of renderSurfaceDocs) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /Popup Opener Requires a Persisted FlowModel[\s\S]{0,900}replace-with-persisted-popup-flowmodel-uid[\s\S]{0,900}ctx\.openView\(popupFlowModelUid/i,
+      `${relativePath} should show a real persisted-trigger popup opener example`,
+    );
+    assert.doesNotMatch(
+      text,
+      /Resolve a template-first popup FlowModel before calling ctx\.openView/i,
+      `${relativePath} should not keep the old non-functional message-only popup shell`,
+    );
+  }
 });
 
 test('RunJS repair playbook covers backend repair classes', () => {

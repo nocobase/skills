@@ -19,6 +19,8 @@ First-hop safe snippets:
 - [global/resource-list](../js-snippets/safe/global/resource-list.md)
 - [scene/table/selected-rows-count](../js-snippets/safe/scene/table/selected-rows-count.md)
 
+For popup / drawer / dialog / drilldown intent, choose [global/open-popup-flow-model](../js-snippets/safe/global/open-popup-flow-model.md) from the catalog only after [../patterns/popup-openview.md](../patterns/popup-openview.md) has resolved a template-first popup-capable FlowModel with persisted `popupTemplateUid` metadata.
+
 Example A:
 
 ```js

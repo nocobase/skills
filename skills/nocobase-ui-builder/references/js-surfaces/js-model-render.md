@@ -24,6 +24,8 @@ First-hop safe snippets:
 - [scene/detail/status-tag](../js-snippets/safe/scene/detail/status-tag.md)
 - [render/helper-from-form-value](../js-snippets/safe/render/helper-from-form-value.md)
 
+For popup / drawer / dialog / drilldown opener intent, use the popup scene hint in the snippet manifest and [render/open-popup-flow-model-button](../js-snippets/safe/render/open-popup-flow-model-button.md). The rendered control should only call `ctx.openView(triggerUid, ...)` after a template-first popup-capable FlowModel exists. For render blocks already inside an opened popup that display the opener record, keep using [scene/block/popup-record-summary](../js-snippets/safe/scene/block/popup-record-summary.md).
+
 Example:
 
 ```js
@@ -45,7 +47,7 @@ Prefer Ant Design components such as `Typography`, `Tag`, `Space`, `List`, `Card
 | `inner-row-record` | `await ctx.getVar('ctx.record...')` | JS code belongs to a nested table/list row inside the popup, not the popup opener. |
 | `parent-popup-record` | `await ctx.getVar('ctx.popup.parent.record...')` | Nested popup needs the outer popup record. |
 
-For popup-level render blocks, prefer [scene/block/popup-record-summary](../js-snippets/safe/scene/block/popup-record-summary.md) over host-record snippets.
+For popup-level render blocks that display the record that opened the popup, prefer [scene/block/popup-record-summary](../js-snippets/safe/scene/block/popup-record-summary.md) over host-record snippets. Do not use that render-helper snippet as a popup opener.
 
 ## What to open next
 

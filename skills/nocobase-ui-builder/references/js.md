@@ -38,6 +38,8 @@ Every JS request follows the same five-step loop:
 
 If target field, read source, surface, host model, or required form context is unknown, stop and inspect metadata before writing code.
 
+For popup / drawer / dialog / drilldown intent, do not start from code. First create or resolve a template-first popup-capable FlowModel through [patterns/popup-openview.md](./patterns/popup-openview.md). In the final code, `ctx.openView(triggerUid, ...)` is allowed only when `triggerUid` is an existing popup-capable FlowModel; prefer a popup host whose `targetUid = popupSettings.openView.uid` points to a template target and preserves `popupTemplateUid` / `popupTemplateMode`. Do not use a `ChildPageModel`, page, tab, popup subtree, or transient uid as the trigger target.
+
 For JS model render surfaces, default to Ant Design UI from `ctx.libs.antd` / `ctx.libs.antdIcons`. Do not make bare HTML strings, one-off inline-styled DOM, or custom widget markup the first choice when an Ant Design component fits. Use `ctx.importAsync()` / `ctx.requireAsync()` only when the requested capability is outside Ant Design's built-in component set, such as specialized charts, maps, calendars, Gantt views, or drag-and-drop engines.
 
 ## Public JS Capabilities

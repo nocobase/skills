@@ -44,7 +44,7 @@ When you already know the scenario and only need a specific runtime API:
 When reading the bundled reference docs, rewrite the following patterns before you treat them as final skill output:
 
 - strict render models must end in an explicit `ctx.render(...)`; do not ship examples that only mutate `ctx.element.innerHTML`, `replaceChildren(...)`, or DOM nodes without a final render call
-- do not emit `ctx.openView(...)` as final code under this skill. Prefer field popup / popup action / event-flow configuration outside JS
+- do not emit bare `ctx.openView(...)` against a transient uid or `ChildPageModel` / page / tab / popup subtree uid. For popup intent, resolve a template-first popup-capable FlowModel first, then use `ctx.openView(triggerUid, ...)`; the preferred opener keeps `popupTemplateUid` / `popupTemplateMode` on persisted `popupSettings.openView`
 - for `ctx.request()` / `ctx.api.request()`, use `http/https` URLs under skill-mode; for NocoBase resource access prefer `ctx.initResource(...) + ctx.resource` or `ctx.makeResource(...)`
 - prefer `ctx.initResource(...)` + `ctx.resource` over upstream examples that use `ctx.createResource(...)` or `ctx.useResource(...)`
 

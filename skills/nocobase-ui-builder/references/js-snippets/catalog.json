@@ -180,6 +180,66 @@
       ]
     },
     {
+      "id": "global/open-popup-flow-model",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action"
+      ],
+      "intentTags": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
+      ],
+      "ctxRoots": [
+        "openView",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/open-popup-flow-model.md",
+      "relatedIds": [
+        "render/open-popup-flow-model-button",
+        "global/message-success"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action",
+        "popup"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
+      ]
+    },
+    {
       "id": "global/http-request",
       "tier": "safe",
       "family": "global",
@@ -1595,6 +1655,64 @@
       "offlineSafe": true,
       "preferredForIntents": [
         "render-list"
+      ]
+    },
+    {
+      "id": "render/open-popup-flow-model-button",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block",
+        "popup"
+      ],
+      "intentTags": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
+      ],
+      "ctxRoots": [
+        "libs",
+        "openView",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/render/open-popup-flow-model-button.md",
+      "relatedIds": [
+        "global/open-popup-flow-model",
+        "scene/block/popup-record-summary"
+      ],
+      "sceneHints": [
+        "popup",
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel",
+          "JSColumnModel",
+          "JSFieldModel",
+          "JSItemModel",
+          "JSEditableFieldModel",
+          "FormJSFieldItemModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
       ]
     },
     {

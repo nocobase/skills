@@ -15,7 +15,7 @@ Use this after a JS / RunJS write returns `errors[]` with `details.repairClass`.
 | `render-top-level-function-wrapper` | Render code only defines a top-level function wrapper | Move the function body to the top level so `ctx.render(...)` runs immediately |
 | `render-unreachable-render-call` | Render code contains `ctx.render(...)` only outside the top-level execution path | Move `ctx.render(...)` into directly executed top-level render code |
 | `blocked-global-stop` | Code uses forbidden globals or unsafe browser APIs | Replace with allowed `ctx.*`, `window.*`, or `navigator.*` APIs |
-| `blocked-capability-reroute` | Code uses a capability that should be configured outside JS, such as `ctx.openView(...)` | Configure popup/action/field popup outside JS |
+| `blocked-capability-reroute` | Code opens a popup with a transient uid, `ChildPageModel`, page/tab, or popup subtree target | Resolve a template-first popup-capable FlowModel, preserving `popupTemplateUid` / `popupTemplateMode`, then call `ctx.openView(triggerUid, ...)` |
 | `ctx-root-mismatch-stop` | The chosen surface does not expose a required `ctx.*` root, or uses unresolved `ctx[...]` access | Switch surface/snippet or inspect live host context |
 
 ## Repair Method
