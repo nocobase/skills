@@ -7,7 +7,7 @@
       "editorScene": "eventFlow",
       "validationStyle": "action",
       "writePathHints": [
-        "flowRegistry.*.steps.*.params.code"
+        "flowRegistry.*.steps.*.defaultParams.code"
       ],
       "recommendedSnippetIds": [
         "global/message-success",
@@ -27,6 +27,9 @@
         "action": [
           "global/message-success",
           "global/resource-list"
+        ],
+        "popup": [
+          "global/open-popup-flow-model"
         ]
       }
     },
@@ -121,7 +124,7 @@
           "render/list-from-resource"
         ],
         "popup": [
-          "scene/block/popup-record-summary"
+          "render/open-popup-flow-model-button"
         ],
         "detail": [
           "scene/detail/status-tag",
@@ -165,6 +168,9 @@
           "action/resource-refresh",
           "scene/table/selected-rows-count",
           "scene/table/destroy-selected-rows"
+        ],
+        "popup": [
+          "global/open-popup-flow-model"
         ]
       }
     }

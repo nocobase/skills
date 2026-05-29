@@ -42,10 +42,8 @@ ctx.render(
 在表单里创建非字段绑定辅助项时，用 `flow-surfaces add-field --type jsItem`，不要传 `fieldPath`。当前 `settings` 支持 `label`、`tooltip`、`extra`、`showLabel`、`labelWidth`、`labelWrap`、`code`、`version`，不支持 `title`。
 
 ```bash
-node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs add-field -e <env> -j \
-  --target '{"uid":"<create-form-uid>"}' \
-  --type jsItem \
-  --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}'
+nb api flow-surfaces add-field -j \
+  --body '{"target":{"uid":"<create-form-uid>"},"type":"jsItem","settings":{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}}'
 ```
 
 如果它是“默认隐藏、选择后显示”的表单辅助区域，优先把显隐写进 JSItem 自身：`ctx.render(null)` 表示不显示内容；满足条件后再 `ctx.render(...)`。不要默认用 `setFieldState` 控制 JSItem，除非 `get-reaction-meta.targetFields` 明确列出了该 JSItem。

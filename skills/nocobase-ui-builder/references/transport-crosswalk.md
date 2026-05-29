@@ -1,17 +1,17 @@
 # nb API Surface Map
 
-This file is the compact naming map for the agent-facing `nb-flow-surfaces.mjs` wrapper surface.
+This file is the compact naming map for the agent-facing `nb api flow-surfaces` action surface.
 
-Use it when you already know the task family, but need the exact wrapper subcommand and the document that owns the payload/shape rules.
+Use it when you already know the task family, but need the exact backend action and the document that owns the payload/shape rules.
 
-- `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand>` is the agent-facing front door for flow-surfaces.
-- Backend transport remains internal to the wrapper; agents should call it through `nb-flow-surfaces.mjs`.
+- `nb api flow-surfaces <action>` is the agent-facing front door for flow-surfaces.
+- Send the raw business payload through `--body` / `--body-file`; do not create helper wrapper envelopes first.
 - Payload rules still belong to [tool-shapes.md](./tool-shapes.md); this file does not duplicate them.
 - If you find the family name here, jump to the listed shape-owner doc before writing; do not copy payloads from this file.
 
 ## Command Map
 
-| Task / intent | Wrapper subcommand | Shape owner doc |
+| Task / intent | Backend action | Shape owner doc |
 | --- | --- | --- |
 | inspect one page / popup / tab | `get` | [tool-shapes.md](./tool-shapes.md) |
 | richer structural readback | `describe-surface` | [tool-shapes.md](./tool-shapes.md) |
@@ -20,6 +20,8 @@ Use it when you already know the task family, but need the exact wrapper subcomm
 | localized content compose | `compose` | [tool-shapes.md](./tool-shapes.md) |
 | semantic small update | `configure` | [tool-shapes.md](./tool-shapes.md) + [settings.md](./settings.md) |
 | path-level fine-grained patch | `update-settings` | [settings.md](./settings.md) |
+| event-flow discovery | `get-event-flow-meta` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) |
+| localized event-flow write | `add-event-flow` / `set-event-flow` / `remove-event-flow` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) + [js.md](./js.md) |
 | event-flow replacement | `set-event-flows` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) + [js.md](./js.md) |
 | menu lifecycle | `create-menu` / `update-menu` | [tool-shapes.md](./tool-shapes.md) |
 | page lifecycle | `create-page` / `destroy-page` | [tool-shapes.md](./tool-shapes.md) |
@@ -32,6 +34,6 @@ Use it when you already know the task family, but need the exact wrapper subcomm
 ## Practical Use
 
 1. Start from [cli-command-surface.md](./cli-command-surface.md) when you only know the user task.
-2. Use this file when you need the exact wrapper subcommand for the same task.
+2. Use this file when you need the exact backend action for the same task.
 3. Use [tool-shapes.md](./tool-shapes.md) for nb body rules.
 4. Use [page-blueprint.md](./page-blueprint.md) or [reaction.md](./reaction.md) for the inner business object itself.

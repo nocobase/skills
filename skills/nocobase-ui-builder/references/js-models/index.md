@@ -24,13 +24,14 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 - `JSEditableFieldModel`
 - `JSItemModel`
 - `JSActionModel`
-- 任何 `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
+- 任何 `settings.code` / `assets.scripts` / internal readback `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
 
 ## 强规则
 
 - 对需要渲染的 JS model，默认使用 `ctx.render()`。
+- `JSBlockModel` 新建公开写入只用 `type: "jsBlock"` + `settings.code/settings.version`，或 whole-page `assets.scripts` + block `script`；配置已有 JSBlock 用 `changes.code/changes.version`；不要手写 block top-level `code/version` 或 internal `stepParams`。
 - 不要把 `ctx.element.innerHTML = ...` 当作默认推荐方案；skill 会先尝试自动改写，仍残留则直接 blocker。
-- 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSEditableFieldModel`、`JSItemModel` 的默认渲染范式。
+- 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSEditableFieldModel`、`JSItemModel`、`JSItemActionModel` 的默认渲染范式。
 - `JSActionModel` 主要负责点击逻辑，不属于“渲染型 JS model”。
 - 不要默认假设浏览器全局 `fetch`、`localStorage`、任意 `window.*` 在 RunJS 中可直接访问。
 - 当前登录用户优先使用 `ctx.user` 或 `ctx.auth?.user`，不要默认请求 `auth:check`。
@@ -60,6 +61,7 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 | `JSFieldModel` | 只读字段位置渲染 | `ctx.value` `ctx.record` `ctx.collection` | `ctx.render(...)` |
 | `JSEditableFieldModel` | 可编辑字段自定义输入 | `ctx.getValue()` `ctx.setValue()` `ctx.form` `ctx.formValues` | `ctx.render(...)` |
 | `JSItemModel` | 表单里无字段绑定的自定义项 | `ctx.formValues` `ctx.record` `ctx.resource` | `ctx.render(...)` |
+| `JSItemActionModel` | 自定义 action item 渲染 | `ctx.record` `ctx.formValues` `ctx.resource` | `ctx.render(...)` |
 | `JSActionModel` | 按钮点击逻辑 | `ctx.record` / `ctx.resource` / `ctx.form` | 执行逻辑，不以渲染为主 |
 
 补充：

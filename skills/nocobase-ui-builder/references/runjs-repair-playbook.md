@@ -1,6 +1,6 @@
 # RunJS Repair Playbook
 
-Use this after `runjs_guard`, `flow_payload_guard`, or `preflight_write_gate` reports a RunJS finding with `details.repairClass`.
+Use this after a JS / RunJS write returns `errors[]` with `details.repairClass`.
 
 ## Repair Classes
 
@@ -10,19 +10,21 @@ Use this after `runjs_guard`, `flow_payload_guard`, or `preflight_write_gate` re
 | `missing-top-level-return` | A value-return surface does not return a value | Go back to `value-return/*`; do not auto-wrap unknown code |
 | `value-surface-forbids-render` | A value-return surface calls `ctx.render(...)` | Remove render logic and return the value |
 | `unknown-surface-stop` | The payload path did not resolve to a known surface | Re-read [js-surfaces/index.md](./js-surfaces/index.md) and inspect write metadata |
-| `unknown-model-stop` | A render/action modelUse is unknown | Inspect live model metadata before choosing JS model validation |
+| `unknown-model-stop` | A render/action modelUse is unknown | Inspect live model metadata before choosing the JS model |
 | `replace-innerhtml-with-render` | Render code writes `innerHTML` or omits required `ctx.render(...)` | Replace with a render snippet that calls `ctx.render(...)` |
+| `render-top-level-function-wrapper` | Render code only defines a top-level function wrapper | Move the function body to the top level so `ctx.render(...)` runs immediately |
+| `render-unreachable-render-call` | Render code contains `ctx.render(...)` only outside the top-level execution path | Move `ctx.render(...)` into directly executed top-level render code |
 | `blocked-global-stop` | Code uses forbidden globals or unsafe browser APIs | Replace with allowed `ctx.*`, `window.*`, or `navigator.*` APIs |
-| `blocked-capability-reroute` | Code uses a skill-blocked capability such as `ctx.openView(...)` | Configure popup/action/field popup outside JS |
+| `blocked-capability-reroute` | Code opens a popup with a transient uid, `ChildPageModel`, page/tab, or popup subtree target | Resolve a template-first popup-capable FlowModel, preserving `popupTemplateUid` / `popupTemplateMode`, then call `ctx.openView(triggerUid, ...)` |
 | `ctx-root-mismatch-stop` | The chosen surface does not expose a required `ctx.*` root, or uses unresolved `ctx[...]` access | Switch surface/snippet or inspect live host context |
 
-## Deterministic Rewrites
+## Repair Method
 
-The guard may auto-rewrite only these safe patterns:
+Do not depend on automatic rewrites or canonicalization before writes. Repair the source or payload explicitly, then retry the direct `nb api flow-surfaces <action>` write.
 
-- `ctx.element.innerHTML = ...` to `ctx.render(...)` when no later DOM dependency remains.
-- `auth:check` request to `ctx.user ?? ctx.auth?.user`.
-- Static `ctx.request({ url: 'collection:list/get' })` to resource API.
-- Builder-style filter groups to query filters during resource rewrite.
+- Replace `ctx.element.innerHTML = ...` with explicit `ctx.render(...)` yourself.
+- Replace `auth:check` reads with `ctx.user ?? ctx.auth?.user` when the current-user context is enough.
+- Replace static `ctx.request({ url: 'collection:list/get' })` collection reads with resource APIs.
+- Rewrite builder-style filter groups to query filters manually when resource code needs them.
 
-The guard must not auto-invent missing returns, form-only API substitutes, or unknown expression wrappers.
+Never auto-invent missing returns, form-only API substitutes, unknown expression wrappers, or hidden capability reroutes.

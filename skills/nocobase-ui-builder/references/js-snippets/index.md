@@ -4,7 +4,7 @@ This directory is the canonical local snippet library for JS / RunJS authoring.
 
 ## Tiers
 
-- `safe`: first-hop examples. These are short, source-backed, and validator-compatible.
+- `safe`: first-hop examples. These are short, source-backed, and ready to adapt.
 - `guarded`: second-hop examples. Use only when the safe tier does not cover the intent and the risk is acceptable.
 - `advanced`: reserved for complex examples. Do not use as first-hop material.
 
@@ -13,13 +13,13 @@ This directory is the canonical local snippet library for JS / RunJS authoring.
 1. Lock the authoring surface in [../js-surfaces/index.md](../js-surfaces/index.md).
 2. Read [catalog.json](./catalog.json) for the matching `safe` snippet ID.
 3. Open exactly one snippet doc and edit only the documented slots.
-4. Run the validator / preflight gate before writing.
+4. Use the snippet as guidance and write through `nb api flow-surfaces <action>`. If the response returns `errors[]`, fix the payload and retry.
 
 `catalog.json` is the machine-readable index for snippet retrieval. Use these fields directly:
 
 - `sceneHints`: narrow block/detail/form/table/event-flow selection before reading the doc.
-- `modelUses`: validator-safe model profiles keyed by surface.
-- `offlineSafe`: prefer `true` snippets when local-only validation confidence matters.
+- `modelUses`: model profiles keyed by surface.
+- `offlineSafe`: prefer `true` snippets when the code should not depend on remote network calls.
 - `preferredForIntents`: the one to three intent tags this snippet should win for.
 
 ## Boundaries

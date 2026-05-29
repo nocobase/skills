@@ -22,7 +22,7 @@ RunJS 是 NocoBase 里给 JS 区块、JS 字段、JS 可编辑字段、JS 项、
 
 - 上游源码仍保留 `ctx.element` / `innerHTML` 兼容路径
 - `nocobase-ui-builder` skill 明确更严格：默认只生成 `ctx.render(...)`
-- 对简单的 `innerHTML = ...` 赋值，guard 会尝试自动改写；剩余复杂场景直接 blocker
+- 不依赖 skill 侧自动改写；`innerHTML = ...` 这类输出应由作者显式改为 `ctx.render(...)`，剩余复杂场景交给后端聚合错误阻断
 
 ## 常用能力
 

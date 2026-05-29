@@ -60,4 +60,4 @@ if (targetField) {
 - `ctx.*` lookup -> [../js-reference-index.md](../js-reference-index.md)
 - Final reaction write shape -> [../reaction.md](../reaction.md)
 - Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
-- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
+- Repair after backend `repairClass` failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)
