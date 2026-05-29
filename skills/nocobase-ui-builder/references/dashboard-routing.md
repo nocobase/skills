@@ -32,7 +32,7 @@ Use this file when the user asks for a dashboard, overview page, summary tab, KP
 Before the first write, make a short section checklist:
 
 - `metric_sections`: KPI / 指标卡 / 数字统计 sections that must become `jsBlock`.
-- `chart_sections`: 图表 / Charts / 趋势 / 分布 / 排行 / 占比 sections that must become `chart`.
+- `chart_sections`: 图表 / Charts / 趋势 / 分布 / 排行 / percentage / 占比 sections that must become `chart`.
 - `record_list_sections`: latest records, recent activity, top-N record lists that become `table` or `list`.
 - `action_sections`: shortcuts or user operations that become `actionPanel`.
 

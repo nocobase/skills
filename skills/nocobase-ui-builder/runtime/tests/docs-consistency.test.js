@@ -1249,7 +1249,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1470, 'openai default_prompt should stay at or below 1470 chars');
+  assert.ok(defaultPrompt.length <= 1500, 'openai default_prompt should stay at or below 1500 chars');
 });
 
 test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
@@ -1557,6 +1557,23 @@ test('dashboard chart requests require chart blocks and cannot downgrade to JSBl
     );
   }
 
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['dashboard-routing', dashboardRouting],
+    ['whole-page-quick', wholePageQuick],
+    ['chart', chart],
+    ['page-blueprint', pageBlueprint],
+    ['execution-checklist', executionChecklist],
+    ['verification', verification],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /percentage[\s\S]{0,80}占比|占比[\s\S]{0,80}percentage/i,
+      `${label} should keep percentage / 占比 aligned as chart-required cues`,
+    );
+  }
+
   assert.match(
     dashboardRouting,
     /chart blocks:[\s\S]{0,80}title[\s\S]{0,80}asset[\s\S]{0,20}key/i,
@@ -1567,6 +1584,34 @@ test('dashboard chart requests require chart blocks and cannot downgrade to JSBl
     /charts\[\][\s\S]{0,120}title[\s\S]{0,120}(?:asset key|assetKey|uid)/i,
     'verification should require structured chart evidence',
   );
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['whole-page-quick', wholePageQuick],
+    ['chart-core', chartCore],
+    ['execution-checklist', executionChecklist],
+    ['verification', verification],
+  ]) {
+    assert.match(
+      text,
+      /apply(?:-)?Blueprint/i,
+      `${label} should require pageSchemaUid readback and chart evidence for chart-required dashboards`,
+    );
+    assert.match(
+      text,
+      /pageSchemaUid[\s\S]{0,260}(?:chart block evidence|chart evidence|charts\[\])|(?:chart block evidence|chart evidence|charts\[\])[\s\S]{0,260}pageSchemaUid/i,
+      `${label} should require pageSchemaUid readback and chart evidence for chart-required dashboards`,
+    );
+    assert.match(
+      text,
+      /(?:read back|readback|flow-surfaces get)[\s\S]{0,260}pageSchemaUid[\s\S]{0,260}(?:chart block evidence|chart evidence|charts\[\])|(?:chart block evidence|chart evidence|charts\[\])[\s\S]{0,260}(?:read back|readback|flow-surfaces get)[\s\S]{0,260}pageSchemaUid/i,
+      `${label} should keep the explicit readback step for chart-required dashboards`,
+    );
+    assert.match(
+      text,
+      /(?:jsBlock|JSBlock)[\s\S]{0,160}(?:table|list)[\s\S]{0,260}(?:unfinished|not chart evidence|never count|do not report|do not summarize|do not satisfy|cannot satisfy)|(?:unfinished|not chart evidence|never count|do not report|do not summarize|do not satisfy|cannot satisfy)[\s\S]{0,260}(?:jsBlock|JSBlock)[\s\S]{0,160}(?:table|list)/i,
+      `${label} should treat JSBlock/table/list-only chart readback as unfinished`,
+    );
+  }
 });
 
 test('JSBlock docs and prompt expose only canonical public authoring shapes', () => {

@@ -189,7 +189,7 @@ Required mappings:
 
 ## Dashboard chart recipes
 
-If a dashboard asks for chart / 图表 / Charts, do not replace that section with JSBlock, table, list, gridCard, or markdown. KPI numbers can use JSBlock, but trend, distribution, ranking, and percentage sections require `type: "chart"` blocks.
+If a dashboard asks for chart / 图表 / Charts, do not replace that section with JSBlock, table, list, gridCard, or markdown. KPI numbers can use JSBlock, but trend, distribution, ranking, and percentage / 占比 sections require `type: "chart"` blocks.
 
 Use these whole-page recipes by replacing only collection, field, alias, title, and asset key:
 
@@ -256,6 +256,8 @@ Backend aggregate `errors[]` 是写入边界。常见 rule id：
 - `chart-visual-legacy-builder-keys-unsupported`
 - `chart-sql-query-text-missing`
 - `chart-custom-visual-raw-missing`
+
+When a required chart returns one of these authoring errors, repair the same chart payload and retry it as `chart`. For whole-page `applyBlueprint`, keep `type: "chart"`, define `assets.charts.<key>.query` and `assets.charts.<key>.visual`, then reference it with `block.chart`. For localized writes, keep the existing chart block and repair `settings.query/settings.visual` or `changes.query/changes.visual`. Do not switch a required chart to `table`, `list`, `jsBlock`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
 
 ## 继续读
 

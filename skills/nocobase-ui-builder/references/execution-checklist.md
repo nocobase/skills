@@ -20,7 +20,7 @@ Use this checklist after the matching quick route is already clear. For global r
 - Page identity for duplicate-page prevention is `(navigation.group.routeId, page.title)` after any unique group-title resolution. Same group + same page title may auto-upgrade `create` to `replace`; different group + same page title must not merge, reuse, or auto-replace another page.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
-- If a dashboard asks for chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行, record the required chart sections before drafting; KPI JSBlocks and tables/lists cannot satisfy those chart sections.
+- If a dashboard asks for chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 / percentage / 占比, record the required chart sections before drafting; KPI JSBlocks and tables/lists cannot satisfy those chart sections.
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
   - body-based `flow-surfaces` commands take the raw business object through `--body` / `--body-file`

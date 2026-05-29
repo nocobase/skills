@@ -21,11 +21,11 @@ Treat these as whole-page too: a whole page create / replace, one route-backed t
 Dashboard self-check before first write:
 
 - numeric metrics / KPI cards -> `jsBlock`
-- trends / distributions / rankings -> `chart`
+- trends / distributions / rankings / percentages / 占比 -> `chart`
 - latest records / top-N records -> `table` or `list`
 - `actionPanel` only when the user asked for operations or shortcuts
 - if a KPI area is implemented with `actionPanel`, regenerate before `applyBlueprint`
-- if the request mentions 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行, open [blocks/chart.md](./blocks/chart.md) and keep a real chart block for each requested chart section
+- if the request mentions 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 / percentage / 占比, open [blocks/chart.md](./blocks/chart.md) and keep a real chart block for each requested chart section
 - `jsBlock` and `table` / `list` summaries do not satisfy chart coverage; if a required chart section is missing or downgraded, regenerate before `applyBlueprint`
 - whole-page chart blocks use canonical `assets.charts + block.chart`, not inline `settings.query` / `settings.visual`
 

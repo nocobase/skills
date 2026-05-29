@@ -64,6 +64,7 @@ Whenever the current write involves JS `code`, submit the same raw `nb api flow-
 
 - Send JS writes through the same direct `nb api flow-surfaces <action>` path as other authoring payloads.
 - On failure, repair all returned `errors[]` in one pass. For RunJS errors, map `details.repairClass` to [runjs-repair-playbook.md](./runjs-repair-playbook.md).
+- If the required surface is `jsBlock`, repair the same `jsBlock` payload and retry it as `jsBlock`. Use inline `settings.code`, or for whole-page `applyBlueprint` use `assets.scripts.<key>.code` plus block `script`. Do not switch a required `jsBlock` to `table`, `list`, `chart`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
 - Error metadata is intentionally minimal: expect `ruleId`, `path`, `message`, and `details.repairClass` / `details.suggestedAction` when applicable. Do not depend on `docsKey`, `retryable`, `surfaceStyle`, or `suggestedSnippetIds`.
 
 ## Skill Mapping

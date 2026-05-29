@@ -43,7 +43,7 @@ A page-blueprint draft is good when:
 - Verify only the surfaces affected by the write, unless hierarchy changed.
 - For localized/low-level writes, and for any explicit inspection step, a successful write response is not enough; confirm via readback.
 - Whole-page `applyBlueprint` create / replace and whole-page `reaction.items[]` default to successful-response completion. Do not add an extra `get` unless follow-up localized work, explicit inspection, or chart-required dashboard evidence needs it.
-- For dashboards that explicitly require chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 blocks, run `flow-surfaces get` for the returned `pageSchemaUid` and confirm chart evidence before claiming completion.
+- For dashboards that explicitly require chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 / percentage / 占比 blocks, run `flow-surfaces get` for the returned `pageSchemaUid` and confirm chart evidence before claiming completion.
 - Popup-specific claims require popup-specific readback.
 - Without an extra `get`, describe whole-page popup/template results only as submitted/created from the success response and sent blueprint, not as readback-verified persisted subtree facts.
 - If a popup write relied on `popup.tryTemplate=true` because no explicit `popup.template` was present, verify whether the final persisted popup stayed inline/default, bound a template, or silently missed. When local popup content was also present, confirm whether it became the miss fallback instead of assuming template reuse from the write request alone.
