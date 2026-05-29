@@ -67,31 +67,59 @@ Typical plugin:
 
 Typical capability:
 
-- plugin-provided comment collection behavior and related UI blocks
+- plugin-provided comment collection template and related UI blocks
+- `collections apply` supports `template: "comment"` when the comments capability is enabled
 
 Modeling rule:
 
-- if the user wants real comment capability, do not hand-build a fake `comments` table first
+- if the user wants real comment capability or a comment plugin table, do not hand-build a fake `comments` table first
 - check whether the comments plugin is enabled
 - if disabled, enable it first
-- then inspect the resulting collection and use the plugin-provided capability
+- confirm the comment collection template is exposed
+- then create the table with `collections apply` and `template: "comment"`
 
 Configuration method:
 
-- treat comments as plugin-provided app capability first, not as a normal collection-template choice
-- after enablement, inspect whether the instance already exposes the plugin-provided comments collection or comment-related resource
+- treat comments as plugin-provided collection-template capability
+- after enablement, inspect whether the instance exposes the comment template or comment-related resource
+- use the compact comment-template create payload; let the server baseline create `content`
 - if the user needs comment behavior on another table, model the host business table correctly first, then attach the comment capability at the plugin or UI layer instead of inventing a substitute schema
+
+Preferred compact collection payload:
+
+```json
+{
+  "name": "ticket_comments",
+  "title": "Ticket Comments",
+  "template": "comment"
+}
+```
+
+Template baseline:
+
+- `content`: `interface = "vditor"`, `type = "text"`, `length = "long"`, `deletable = false`
+- preset fields: `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`
+
+Related plugin capability:
+
+- the template-owned `content` field uses the Vditor markdown interface
+- confirm `@nocobase/plugin-field-markdown-vditor` / runtime `field-markdown-vditor` if the current app requires field-interface plugin gating
 
 Modeling checklist:
 
 1. confirm comments plugin enabled
-2. inspect the actual comment capability exposed by the instance
-3. keep the host business table separate from the plugin comment data
-4. do not replace comment capability with a plain textarea field when the user asked for actual comments
+2. confirm the Vditor field capability when required by the runtime
+3. create the collection with `template: "comment"`
+4. read back and verify `template = "comment"`
+5. verify the baseline `content` field exists with `interface = "vditor"`, `type = "text"`, `length = "long"`, and `deletable = false`
+6. keep the host business table separate from the plugin comment data unless the user explicitly asks for relations
+7. do not replace comment capability with a plain textarea field when the user asked for actual comments
 
 Failure pattern:
 
 - replacing real comment capability with an ordinary text table called `comments`
+- creating `template: "comment"` but accepting a result where `content` is missing; treat that as an apply/baseline regression
+- manually adding an ad hoc `content` field in the initial compact create payload instead of relying on the comment template baseline
 
 ### China region
 

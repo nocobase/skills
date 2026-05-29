@@ -54,6 +54,7 @@ Hard requirements:
 - Store downloaded packages under `<CLI_HOME>\release\<SOURCE_ENV>\`.
 - Stop before package create, package download, migration rule create, or migration check until the user confirms the publish input.
 - Stop before `backup restore`, `backup restore-upload`, `backup remove`, `migration execute`, or `migration remove` until the user explicitly confirms.
+- Backup restore and restore-upload commands include `--force` directly.
 - Use `<SOURCE_ENV>=dev` and `<TARGET_ENV>=dev` in this test suite unless a case explicitly overrides them.
 
 ## Interaction Model
@@ -226,7 +227,7 @@ Runtime Command:
 
 ```bash
 cd <BASE_DIR>
-nb api backup restore-upload --file <BACKUP_FILE> -e <TARGET_ENV> --json-output
+nb api backup restore-upload --file <BACKUP_FILE> -e <TARGET_ENV> --json-output --force
 ```
 
 Expected:
@@ -255,7 +256,7 @@ Runtime Command:
 ```bash
 cd <BASE_DIR>
 nb api backup status --name <BACKUP_NAME> -e <TARGET_ENV> --json-output
-nb api backup restore --name <BACKUP_NAME> -e <TARGET_ENV> --json-output
+nb api backup restore --name <BACKUP_NAME> -e <TARGET_ENV> --json-output --force
 nb api backup restore-status --task <RESTORE_TASK_ID> -e <TARGET_ENV> --json-output
 ```
 
@@ -312,7 +313,7 @@ confirm
 Expected Restore Command:
 
 ```bash
-nb api backup restore-upload --file <DOWNLOADED_BACKUP_FILE> -e <TARGET_ENV> --json-output
+nb api backup restore-upload --file <DOWNLOADED_BACKUP_FILE> -e <TARGET_ENV> --json-output --force
 ```
 
 ### TC09 Local Migration File To Target (`PUB-MIGRATION-001`)

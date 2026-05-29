@@ -74,7 +74,7 @@ Only after this step should schema mutation proceed.
 
 ## Sequence 1: Create a new ordinary collection
 
-Use this when creating a new `general`, `tree`, `file`, or `calendar` collection.
+Use this when creating a new `general`, `tree`, `file`, `calendar`, or `comment` collection.
 
 ### Step 1: inspect
 
@@ -126,6 +126,9 @@ Focus:
 - correct primary key
 - correct preset fields
 - correct high-risk business fields
+
+Use the same sequence for `comment` collections once the comments plugin gate is satisfied.
+For comment collections, the read-back must confirm that `template = "comment"` and that the baseline `content` field exists with the expected markdown-capable interface.
 
 ## Sequence 2: Add or update fields on an existing collection
 
