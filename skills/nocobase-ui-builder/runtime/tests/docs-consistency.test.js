@@ -2915,6 +2915,65 @@ test('JS popup intent defaults to persisted popup-capable FlowModel with templat
   }
 });
 
+test('popup drilldown variables use defineProperties instead of nested inputArgs params', () => {
+  const files = [
+    'references/js-snippets/safe/global/open-popup-flow-model.md',
+    'references/js-snippets/safe/render/open-popup-flow-model-button.md',
+  ];
+
+  for (const relativePath of files) {
+    const text = read(relativePath);
+    assert.doesNotMatch(
+      text,
+      /params:\s*\{/i,
+      `${relativePath} should not use params as the drilldown variable carrier in examples`,
+    );
+  }
+
+  const popupOpenView = read('references/patterns/popup-openview.md');
+  const skillPrompt = read('SKILL.md');
+  const openViewReference = read('runtime/reference-assets/upstream-js/runjs/context/open-view.md');
+  assert.match(
+    popupOpenView,
+    /defineProperties[\s\S]{0,240}\{\{ctx\.[^}]+}}/i,
+    'popup-openview should teach defineProperties top-level variables for drilldown filters',
+  );
+  assert.match(
+    openViewReference,
+    /defineProperties[\s\S]{0,240}drilldownValue/i,
+    'openView runtime reference should show defineProperties variables for popup block settings',
+  );
+  assert.match(
+    openViewReference,
+    /\{\{\s*ctx\.drilldownValue\s*}}/i,
+    'openView runtime reference should show the top-level popup dataScope variable',
+  );
+  assert.match(
+    popupOpenView,
+    /禁止使用 `\{\{ctx\.view\.inputArgs\.params\.\*}}`|Do not generate `\{\{ctx\.view\.inputArgs\.params\.\*}}`/i,
+    'popup-openview should explicitly forbid nested params variables for popup dataScope',
+  );
+  assert.match(
+    skillPrompt,
+    /chart[\s\S]{0,240}actionLinkage[\s\S]{0,240}visible row action/i,
+    'main skill prompt should require hiding chart-only popup hosts instead of exposing broken row actions',
+  );
+  assert.match(
+    popupOpenView,
+    /图表 `ctx\.openView\(\)`[\s\S]{0,240}actionLinkage[\s\S]{0,240}可见行按钮/i,
+    'popup-openview should require actionLinkage for chart-only popup hosts',
+  );
+
+  for (const relativePath of [
+    'references/js-snippets/safe/global/open-popup-flow-model.md',
+    'references/js-snippets/safe/render/open-popup-flow-model-button.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(text, /defineProperties[\s\S]{0,240}drilldownValue/i, `${relativePath} should use defineProperties`);
+    assert.match(text, /\{\{ctx\.drilldownValue}}/i, `${relativePath} should document the popup dataScope variable`);
+  }
+});
+
 test('RunJS repair playbook covers backend repair classes', () => {
   const playbook = read('references/runjs-repair-playbook.md');
   for (const repairClass of [

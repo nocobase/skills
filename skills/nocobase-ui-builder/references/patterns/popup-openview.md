@@ -47,7 +47,8 @@ builder DSL 边界：
 | 场景 | 常见来源 |
 | --- | --- |
 | 主表行 -> 第一层详情弹窗 | 按目标 record context 的 `filterTargetKey` 展开；单键是 `{{ctx.record.<filterTargetKey>}}`，复合键是对象模板 |
-| popup page 内部 block | `{{ctx.view.inputArgs.filterByTk}}`；若是关联子表，只有在 parent->child relation resource 已验证时才升级成 `associationName + sourceId` |
+| popup page 内部 record block | `{{ctx.view.inputArgs.filterByTk}}`；若是关联子表，只有在 parent->child relation resource 已验证时才升级成 `associationName + sourceId` |
+| JS / chart drilldown -> popup table filter | `ctx.openView(..., { defineProperties: { drilldownValue: { value, meta } } })`，popup 内表格数据范围使用 `{{ctx.drilldownValue}}` 这类顶层变量 |
 | 二层 popup 继续编辑当前子表记录 | 先取当前弹窗表格行的 record key（按该行 collection 的 `filterTargetKey` 展开），再传给下一层 `filterByTk` |
 | 详情动作查看关联客户 | 只有在当前详情 record 结构明确时，才使用类似 `{{ctx.record.customer.id}}` 的表达式 |
 
@@ -64,7 +65,7 @@ builder DSL 边界：
 - 当用户用当前 admin URL 指认多层 popup 链路里的“这一层”时，起始 opener uid 默认取 URL 中最后一个 `view/<uid>`，不是外层 popup 的 opener；如果没有 `view/<uid>`，才回退到 `admin/<pageSchemaUid>` 并使用 page-level `get --page-schema-uid` 读取。
 - URL 解析只决定从哪一层开始展开，不推断最终 block / form；从这个起始 opener uid 开始，继续沿用现有 popup `inputArgs`、template、content 展开逻辑。
 - 例：外层 `view` 打开详情 popup，内层 `view` 是详情内的编辑动作；用户给完整深链 URL 时，从内层 `view` 开始继续展开，而不是先停在外层详情块。
-- popup page 下的 block 一律假设自己依赖 `ctx.view.inputArgs`，不要擅自跨层偷用外层上下文
+- popup page 下的 record/edit/details block 可依赖显式 `filterByTk` / `sourceId` 等 `ctx.view.inputArgs`；JS 或 chart click 传入给区块配置使用的动态筛选值，必须用 `defineProperties` 注入顶层变量，不要放进 `params`
 - popup/openView 相关写入前先按 [../execution-checklist.md](../execution-checklist.md) 与 [../normative-contract.md](../normative-contract.md) 做自检
 - through / 中间表 popup 的 add/edit 动作，只有在用户明确要求打开浏览器或确认运行时动作可用性时，才需要一次最小 smoke；否则保持“模型树已落库，运行时未实测”
 
@@ -77,8 +78,8 @@ builder DSL 边界：
 - 优先用 `popup.template` 或 `popup.tryTemplate=true` 让 host 保留 `popupTemplateUid` / `popupTemplateMode="reference"`；读回后再决定 JS 触发哪个 uid
 - 只有读回证明模板 target 本身是 popup-capable FlowModel 时，才允许直接把模板 `targetUid` 当 `triggerUid`
 - `ChildPageModel` is not a `triggerUid`; page、tab、popup subtree uid 也不是默认触发目标
-- JS 只传运行时参数，例如 `params.importance`；popup 内部 block 通过 `{{ctx.view.inputArgs.params.importance}}` 读取
-- 如果入口必须隐藏，先 `get-reaction-meta`，再对 host action/block 写 `actionLinkage` / `blockLinkage`
+- JS / chart 下钻要给弹窗内区块配置传变量时，用 `defineProperties` 注入带 `meta` 的顶层变量，例如 `importanceLevel` / `productName`；popup 内表格 `dataScope` 使用 `{{ctx.importanceLevel}}`，禁止使用 `{{ctx.view.inputArgs.params.*}}`
+- 如果入口只是给图表 `ctx.openView()` 复用的 popup host，必须隐藏这个 host：先 `get-reaction-meta`，再写 `actionLinkage` / `blockLinkage`。不要留下可见行按钮直接打开一个依赖 chart-only `defineProperties` 的弹窗。
 
 ## 常见误区
 
@@ -91,6 +92,7 @@ builder DSL 边界：
 - 把子表 `belongsTo(parent)` 的字段名直接当成 `associationName` 提交，却没有证明运行时资源真的存在
 - 对关联客户这类深路径表达式不做说明，直接报成功
 - popup page 下业务 block 依赖 `ctx.view.inputArgs.filterByTk`，但 action 层没有显式传 `filterByTk`
+- 图表下钻把点击值放进 `params`，再让表格数据范围读取 `ctx.view.inputArgs.params.*`
 - 因为用户要“点关联标题打开弹窗”，就直接改成 JS 单元格，而不是先收口到原生关系列
 - JS 直接打开临时 uid、`ChildPageModel` uid、page/tab uid，绕过 popup host / `popupTemplateUid` 路由
 

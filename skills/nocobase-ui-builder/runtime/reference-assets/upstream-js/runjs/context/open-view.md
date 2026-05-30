@@ -67,10 +67,7 @@ const record = (await ctx.getVar('ctx.record')) || {};
 await ctx.openView(triggerUid, {
   mode: 'dialog',
   title: ctx.t('Row Details'),
-  params: {
-    filterByTk: record?.[primaryKey],
-    record,
-  },
+  filterByTk: record?.[primaryKey],
 });
 ```
 
@@ -95,6 +92,13 @@ await ctx.openView(triggerUid, {
   mode: 'drawer',
   filterByTk: await ctx.getVar('ctx.record.id'),
   defineProperties: {
+    drilldownValue: {
+      value: 'High',
+      meta: {
+        title: ctx.t('Drilldown value'),
+        type: 'string',
+      },
+    },
     onSaved: {
       get: () => () => ctx.resource?.refresh?.(),
       cache: false,
@@ -117,7 +121,8 @@ await ctx.openView(triggerUid, {
 
 - Resolve the `uid` from an existing popup-capable FlowModel before writing final skill output; do not invent a uid from `ctx.model.uid`.
 - When `defineProperties` or `defineMethods` are passed, `navigation` is forced to `false` to prevent context loss after a refresh.
-- Inside the dialog, `ctx.view` refers to the current view instance, and `ctx.view.inputArgs` can be used to read the parameters passed during opening.
+- Inside the dialog, `ctx.view` refers to the current view instance, and `ctx.view.inputArgs` can be used in JavaScript to read the parameters passed during opening.
+- When the opened view's blocks or settings need variables, such as a table data scope inside a chart drill-down dialog, pass them through `defineProperties` with `meta` and reference them as top-level variables like `{{ ctx.drilldownValue }}`.
 
 ## Related
 
