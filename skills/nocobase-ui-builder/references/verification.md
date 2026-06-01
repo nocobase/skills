@@ -11,10 +11,11 @@ For template-mode semantics and localized existing-reference edit routing, keep 
 ### Core Rules
 
 - `inspect` and page-blueprint drafting are read-only.
-- For menu questions, default to the visible menu tree first.
+- For menu questions, default to the visible menu tree first: `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j`.
 - For initialized pages/popup trees, default to `nb api flow-surfaces get` first.
 - Use `nb api flow-surfaces describe-surface` only when its richer public tree is actually needed.
-- desktop-route `id` values from the menu tree are not flow-surface `uid` values. When the menu tree gives `{ id, schemaUid }`, carry `id` only as `routeId` context and use `schemaUid` as `pageSchemaUid` for page readback.
+- desktop-route `id` values from the menu tree are not flow-surface `uid` values. When the menu tree gives a `flowPage` with `{ id, schemaUid }`, carry `id` only as routeId context and use `schemaUid` as `pageSchemaUid` for page readback; `tabs` children are tab routes, not menu items.
+- If `desktopRoutes:listAccessible` is unavailable, use `nb api resource list --resource desktopRoutes --no-paginate -j --sort sort` only as a non-role-filtered fallback.
 - Do not describe a draft as if a write already succeeded.
 
 ### Draft Acceptance

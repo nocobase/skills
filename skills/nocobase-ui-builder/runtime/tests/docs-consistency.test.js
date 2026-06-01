@@ -491,6 +491,19 @@ function assertSharedMenuGroupMultiPageRunsAreSerialized(text, sourceLabel) {
   );
 }
 
+function assertMenuDiscoveryUsesCanonicalNbResourceRead(text, sourceLabel) {
+  assert.match(
+    text,
+    /nb api resource list --resource ['"]desktopRoutes:listAccessible['"] --no-paginate -j/i,
+    `${sourceLabel} should document the canonical visible desktop menu discovery command`,
+  );
+  assert.doesNotMatch(
+    text,
+    /nb api desktop-routes list-accessible/i,
+    `${sourceLabel} should not recommend the unavailable desktop-routes CLI family`,
+  );
+}
+
 function assertSameGroupSameTitlePageIdentityRule(text, sourceLabel) {
   assert.match(
     text,
@@ -1869,6 +1882,34 @@ test('multi-page shared menu-group docs require serialized routeId handoff', () 
   ]) {
     assertSharedMenuGroupMultiPageRunsAreSerialized(read(relativePath), relativePath);
   }
+});
+
+test('menu discovery docs use current nb resource read path and locator mapping', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/runtime-playbook.md',
+    'references/verification.md',
+    'references/normative-contract.md',
+  ]) {
+    assertMenuDiscoveryUsesCanonicalNbResourceRead(read(relativePath), relativePath);
+  }
+
+  const runtime = read('references/runtime-playbook.md');
+  assert.match(
+    runtime,
+    /group\.id[\s\S]{0,80}navigation\.group\.routeId|navigation\.group\.routeId[\s\S]{0,80}group\.id/i,
+    'runtime-playbook should map menu group id to navigation.group.routeId',
+  );
+  assert.match(
+    runtime,
+    /flowPage\.schemaUid[\s\S]{0,80}pageSchemaUid|pageSchemaUid[\s\S]{0,80}flowPage\.schemaUid/i,
+    'runtime-playbook should map flowPage.schemaUid to pageSchemaUid',
+  );
+  assert.match(
+    runtime,
+    /tabs[\s\S]{0,80}(?:not|not a|is not|are not)[\s\S]{0,80}menu item/i,
+    'runtime-playbook should clarify that tabs are not menu items',
+  );
 });
 
 test('same-group same-title page docs require replace and cross-group isolation', () => {

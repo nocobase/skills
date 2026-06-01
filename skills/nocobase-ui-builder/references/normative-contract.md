@@ -217,7 +217,7 @@ Those are low-level edit paths.
 
 The skill may use:
 
-- `desktop_routes_list_accessible(tree=true)` for visible menu discovery
+- `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j` for visible menu discovery; if unavailable, fall back to `nb api resource list --resource desktopRoutes --no-paginate -j --sort sort` and treat it as non-role-filtered
 - `flow-surfaces get` for normal structural inspection and post-write readback
 - `flow-surfaces describe_surface` when a richer public tree snapshot helps analyze an existing surface
 - `flow-surfaces catalog` when current-target capability is the question

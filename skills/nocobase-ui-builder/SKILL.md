@@ -34,6 +34,7 @@ description: >-
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)
 - Comments and record history route through public Flow Surfaces block types; read [comments.md](./references/blocks/comments.md) or [record-history.md](./references/blocks/record-history.md) when the request mentions comments, discussion threads, history, audit history, or change history
 - Calendar / schedule / event-view authoring uses `CalendarBlockModel`; read [calendar.md](./references/blocks/calendar.md) when the request mentions 日历, calendar, 排期, 日程, 事件视图, or 排班
+- Menu, page-entry, `routeId`, or `pageSchemaUid` discovery starts with the visible desktop tree: `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j`. Do not try unavailable desktop-routes CLI families, `menus`, `catalog`, or `describe-surface` just to find menu items.
 - localized existing-surface edits go through backend actions such as `compose`, `configure`, `update-settings`, `add-*`, `move-*`, and `remove-*`, plus [local-edit-quick.md](./references/local-edit-quick.md)
 - localized existing-surface reaction work starts with `get-reaction-meta`, writes through `set*Rules`, and [reaction-quick.md](./references/reaction-quick.md); first-pass whole-page reactions stay in `reaction.items[]` with no live `get-reaction-meta`; artifact-only localized reaction drafts record the planned `get-reaction-meta` probe
 - partial-match or boundary-only requests go through [boundary-quick.md](./references/boundary-quick.md) first

@@ -20,13 +20,15 @@ Agent-facing write path for flow-surfaces is `nb api flow-surfaces <action>` wit
 
 ## 2. Default Read Routing
 
-- menu question -> `nb api desktop-routes list-accessible`
+- menu question / page-entry lookup / routeId lookup / pageSchemaUid lookup -> `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j`
 - normal page/popup inspection -> `nb api flow-surfaces get`
 - richer public surface snapshot -> `nb api flow-surfaces describe-surface`
 - capability uncertainty -> `nb api flow-surfaces catalog`
 - reaction-capability uncertainty -> `nb api flow-surfaces get-reaction-meta`
 - event-flow capability uncertainty -> `nb api flow-surfaces get-event-flow-meta`
 - context-variable uncertainty -> `nb api flow-surfaces context` as lower-level supplement
+
+If `desktopRoutes:listAccessible` is unavailable in the current app, fall back to the all-routes admin read `nb api resource list --resource desktopRoutes --no-paginate -j --sort sort` and state that the fallback is not role-filtered.
 
 ## 3. Default Write Routing
 
@@ -52,6 +54,7 @@ For whole-page create / replace, author the draft blueprint and send it directly
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
 - desktop-route `id` and `navigation.group.routeId` are navigation locators, not flow-surface `uid` values.
+- In the menu tree, `group.id` maps to `navigation.group.routeId`; `flowPage.id` is the page menu item routeId; `flowPage.schemaUid` maps to `pageSchemaUid` for page-level `get`. `tabs` children are route-backed tabs, not menu items, and only matter for explicit tab targeting.
 - For precise localized edits from an admin URL, parse the URL into a start uid first. If the path contains any `view/<uid>` segments, the last `view/<uid>` wins; otherwise fallback to the `admin/<pageSchemaUid>` segment and read it with page-level `get --page-schema-uid`.
 - A URL-sourced start uid is not the final content uid. After selecting it, continue normal live expansion with `get`, popup subtree / template-reference checks, and the localized write-family decision.
 - Example: `/admin/<page>/view/<outerView>/filterbytk/1/view/<innerView>/filterbytk/1` starts from `<innerView>`, not `<outerView>`. The final editable content still comes from live tree and template routing.
