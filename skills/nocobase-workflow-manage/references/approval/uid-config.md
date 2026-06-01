@@ -29,3 +29,9 @@ For any UID-backed config value on an approval trigger or approval node:
 Generating a UID only reserves the identifier. The actual UI schema underneath is built through the approval UI authoring routes. See [ui-config/index.md](ui-config/index.md) for route selection (`applyApprovalBlueprint` for first-time setup vs. localized `flowSurfaces` operations for incremental edits).
 
 If you generate a UID but never wire schema beneath it, the corresponding surface will render empty at runtime.
+
+For complete approval workflow setup, UID-backed schema is not optional:
+
+- Trigger `approvalUid` should point to an initiator surface with an `approvalInitiator` / `ApplyFormModel` and the default submit action.
+- Approval-node `approvalUid` should point to an approver surface with both `approvalInformation` / `ApprovalDetailsModel` for read-only original data and `approvalApprover` / `ProcessFormModel` for handling actions and approver-editable fields.
+- `taskCardUid` improves "My Applications" / "My Approvals" card details, but it does not replace either `approvalUid` surface.

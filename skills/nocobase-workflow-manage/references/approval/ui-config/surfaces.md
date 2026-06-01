@@ -32,6 +32,17 @@ The four root `use` values are the ones recognized as approval-surface roots by 
 
 Other generic page block types (table, list, calendar, chart, iframe, dynamic-data blocks) are **not** valid here in this phase — do not bootstrap or compose them.
 
+### Minimum complete initiator surface
+
+For a usable applicant-facing approval entry, include:
+
+1. One `approvalInitiator` block initialized with the trigger collection's `dataSourceKey` and `collectionName`.
+2. Applicant-editable collection fields in that form, when the applicant must supply or revise approval data.
+3. The default `approvalSubmit` action. It is created automatically; do not delete it unless the user explicitly asks for a non-submittable legacy surface.
+4. Optional `approvalSaveDraft` and `approvalWithdraw` actions only when the workflow needs draft or withdrawal behavior.
+
+`markdown`, `jsBlock`, and task-card details can supplement the initiator experience, but they do not satisfy the required submission form. If `workflow.config.centralized=true`, this surface is the approval-center entry; if users also start approvals from application pages, bind the workflow to the relevant create/edit form submit button separately.
+
 ### Apply-form actions (`ApplyFormModel.subModels.actions`)
 
 All three are singleton: at most one of each per `ApplyFormModel`. The server rejects a duplicate `addAction` with `flowSurfaces addAction approval action '<use>' already exists in 'ApplyFormModel'`.
@@ -93,6 +104,17 @@ All five are singleton.
 | `approvalAddAssignee` (加签) | `ProcessFormAddAssigneeModel` | `ADDED` (`99`) | adds `99` to `node.config.actions`; rewrites `node.config.toAddReassignees` and `node.config.toAddReassigneesOptions` | `assigneesScope`, `linkageRules` |
 
 `node.config.actions` is always re-derived as the intersection of `[2, -1, 1, 8, 99]` with the action-uses currently present, in that fixed display order. **Do not write `actions` by hand.**
+
+### Minimum complete approver surface
+
+For a usable approval-node task page, include both approval-specific blocks:
+
+1. `approvalInformation` / `ApprovalDetailsModel` initialized with the workflow trigger collection. This is the read-only view of the applicant's original submitted data. Use it for review context even when the process form also contains some of the same fields.
+2. `approvalApprover` / `ProcessFormModel` initialized with the same collection. This is the handling form where the approver submits a decision action and where approver-editable approval data fields belong.
+3. At least one process action matching the node's allowed outcome, normally `approvalApprove` plus `approvalReject`, and optionally `approvalReturn`, `approvalDelegate`, or `approvalAddAssignee` as the business process requires.
+4. Any fields the approver is expected to modify before submitting the handling result. Put those fields in `approvalApprover`, not in `approvalInformation`.
+
+Do not build an approver surface with only `approvalInformation`: the approver can inspect data but cannot submit a handling result. Do not build it with only `approvalApprover`: the approver lacks a stable read-only view of the original submission and may confuse editable processing fields with source data.
 
 ### `configure.approvalReturn` (return-target schema)
 
@@ -212,8 +234,8 @@ Use this to translate user intent into the smallest set of `flowSurfaces` operat
 
 | User intent (CN / EN) | Surface | Operation | Payload essentials |
 |---|---|---|---|
-| 创建发起页 / build the apply page | `initiator` | `applyApprovalBlueprint` | `{ surface: "initiator", workflowId, blocks: [{ type: "approvalInitiator", resourceInit: { dataSourceKey, collectionName } , fields: [...] }], layout? }` |
-| 替换整个发起页 / rebuild the apply page | `initiator` | `applyApprovalBlueprint` | same as above (`mode: "replace"` is the only mode) |
+| 创建发起页 / build the apply page | `initiator` | `applyApprovalBlueprint` | `{ surface: "initiator", workflowId, blocks: [{ type: "approvalInitiator", resourceInit: { dataSourceKey, collectionName } , fields: [...] }], layout? }`; must keep the auto-created `approvalSubmit` |
+| 替换整个发起页 / rebuild the apply page | `initiator` | `applyApprovalBlueprint` | same as above (`mode: "replace"` is the only mode); do not replace it with helper-only blocks |
 | 添加 / 删除草稿按钮 | `initiator` | `addAction` (add) on `ApplyFormModel` uid; or remove via the legacy node delete on the action uid | `{ target: { uid: "<applyForm-uid>" }, type: "approvalSaveDraft" }` |
 | 添加撤回按钮 / 启用撤回 | `initiator` | `addAction` on `ApplyFormModel` uid | `{ target: { uid: "<applyForm-uid>" }, type: "approvalWithdraw" }` — server flips `workflow.config.withdrawable` to `true` |
 | 关闭撤回 / 不允许撤回 | `initiator` | remove the `ApplyFormWithdrawModel` action node | server flips `workflow.config.withdrawable` back to `false` |
@@ -227,7 +249,7 @@ Use this to translate user intent into the smallest set of `flowSurfaces` operat
 
 | User intent (CN / EN) | Surface | Operation | Payload essentials |
 |---|---|---|---|
-| 创建审批操作页 | `approver` | `applyApprovalBlueprint` | `{ surface: "approver", nodeId, blocks: [{ type: "approvalApprover", resourceInit: { dataSourceKey, collectionName }, fields: [...], actions: [...] }, { type: "approvalInformation", resourceInit: {…} }], layout? }` |
+| 创建审批操作页 | `approver` | `applyApprovalBlueprint` | `{ surface: "approver", nodeId, blocks: [{ type: "approvalInformation", resourceInit: { dataSourceKey, collectionName }, fields: [...] }, { type: "approvalApprover", resourceInit: { dataSourceKey, collectionName }, fields: [...editable-by-approver], actions: [...] }], layout? }` |
 | 加同意按钮 | `approver` | `addAction` on `ProcessFormModel` uid | `{ target: { uid }, type: "approvalApprove" }` |
 | 加拒绝按钮 | `approver` | `addAction` | `{ target: { uid }, type: "approvalReject" }` |
 | 加退回按钮（默认退回起点） | `approver` | `addAction`, then optional `configure` | `{ target: { uid }, type: "approvalReturn" }` then `{ changes: { approvalReturn: { type: "start" } } }` |

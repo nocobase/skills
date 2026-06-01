@@ -65,6 +65,68 @@ Use only the fields allowed by the selected `surface`.
 - Do not assume that other generic blocks are valid just because `markdown` and `jsBlock` are.
 - `blocks[].template` is still rejected on this route.
 
+## Minimum Complete Blueprints
+
+Use these as the baseline when the user asks to build a usable approval UI and does not explicitly request a partial surface.
+
+Initiator baseline:
+
+```json
+{
+  "version": "1",
+  "mode": "replace",
+  "surface": "initiator",
+  "workflowId": 1,
+  "blocks": [
+    {
+      "type": "approvalInitiator",
+      "resourceInit": {
+        "dataSourceKey": "main",
+        "collectionName": "expenses"
+      },
+      "fields": ["title", "amount", "reason"]
+    }
+  ]
+}
+```
+
+The `approvalInitiator` block auto-creates `approvalSubmit`. Do not add helper-only blocks as the whole initiator surface.
+
+Approver baseline:
+
+```json
+{
+  "version": "1",
+  "mode": "replace",
+  "surface": "approver",
+  "nodeId": 10,
+  "blocks": [
+    {
+      "type": "approvalInformation",
+      "resourceInit": {
+        "dataSourceKey": "main",
+        "collectionName": "expenses"
+      },
+      "fields": ["title", "amount", "reason"]
+    },
+    {
+      "type": "approvalApprover",
+      "resourceInit": {
+        "dataSourceKey": "main",
+        "collectionName": "expenses"
+      },
+      "fields": ["approvedAmount"],
+      "actions": [
+        { "type": "approvalApprove" },
+        { "type": "approvalReject" }
+      ]
+    }
+  ]
+}
+```
+
+Use `approvalInformation` for read-only original submission review. Use `approvalApprover` for approval decisions and fields the approver may modify before submitting the handling result.
+
 ## Side Effects To Expect
 
 - `initiator` blueprints auto-create the default submit action through `approvalInitiator`; do not model a second `approvalSubmit` just to obtain the default button.

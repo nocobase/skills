@@ -57,6 +57,9 @@ This folder is the canonical source for approval UI route selection. Keep transp
 - `compose` is never the bootstrap entry for a brand-new approval surface.
 - Incremental editing is allowed only after the approval root already exists. If you start from `workflowId` or `nodeId`, resolve `approvalUid` / `taskCardUid` from owner config first.
 - Do not require the caller to know `approvalUid` / `taskCardUid` before authoring starts.
+- A complete initiator surface must contain an `approvalInitiator` / `ApplyFormModel` block with the default `approvalSubmit` action. `markdown`, `jsBlock`, and task-card config are not substitutes for the applicant submission form.
+- A complete approver surface must contain both `approvalInformation` / `ApprovalDetailsModel` for read-only original submitted data and `approvalApprover` / `ProcessFormModel` for handling actions and approver-editable approval fields.
+- Do not treat `approvalInformation` as the approval handling form. Do not treat `approvalApprover` as the read-only source-of-truth view of the original submission.
 - Page-like approval grids are approval-specific containers, but they may expose the fixed generic blocks that the live approval runtime currently supports: `markdown` and `jsBlock`.
 - Task-card remains `fields + layout`; do not author blocks there.
 - Ordinary Modern page / tab / popup editing belongs to `nocobase-ui-builder`, not this topic.

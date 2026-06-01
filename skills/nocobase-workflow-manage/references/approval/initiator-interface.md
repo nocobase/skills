@@ -17,12 +17,13 @@ Approval triggers usually need both **workflow-side** configuration and **page-s
 Open the trigger dialog and configure the initiator interface (`approvalUid`):
 
 - For UID handling, follow [uid-config.md](uid-config.md). Do not invent placeholder UIDs.
-- Add at least one form block bound to the same collection. Without a form block, initiators cannot submit from the approval center or resubmit after withdrawal.
+- Add at least one `approvalInitiator` form block bound to the same collection. Without this form block, initiators cannot submit from the approval center, use centralized initiation, or resubmit after withdrawal/return.
+- Keep the default `approvalSubmit` action that is auto-created with the form. Add `approvalSaveDraft` and `approvalWithdraw` only when the business case needs them.
 - Add Markdown blocks only as helpers; they do not replace the form.
 - Configure action buttons inside that interface as needed, for example `Submit`, `Save draft`, and optionally `Withdraw`.
 - `withdrawable` (on the trigger config) is derived from whether the initiator interface exposes withdrawal capability. This should be synced with the actual interface configuration.
 
-This trigger-side initiator interface is used for approval-center initiation and re-submission after withdrawal. It does not replace binding a collection form button when approvals should start from a page data block.
+This trigger-side initiator interface is used for approval-center initiation and re-submission after withdrawal/return. It does not replace binding a collection form button when approvals should start from a page data block.
 
 For the structural authoring (which blocks / actions / fields are allowed, what `applyApprovalBlueprint` produces, how to do localized edits), read [ui-config/index.md](ui-config/index.md) and [ui-config/surfaces.md](ui-config/surfaces.md).
 

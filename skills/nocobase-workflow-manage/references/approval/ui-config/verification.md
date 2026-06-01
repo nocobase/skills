@@ -10,11 +10,15 @@ After any approval UI write, verify both the FlowModel tree and the bound workfl
 ## FlowModel Readback
 
 - `initiator` should read back a trigger approval page tree under `TriggerChildPageModel`.
+- Complete initiator surfaces should include an `ApplyFormModel` created from `approvalInitiator`; helper blocks alone are incomplete.
 - `approver` should read back an approval page tree under `ApprovalChildPageModel`.
+- Complete approver surfaces should include both `ApprovalDetailsModel` (`approvalInformation`) and `ProcessFormModel` (`approvalApprover`).
 - `taskCard` should read back an approval task-card details tree under the correct task-card root model.
 - Page-like approval grids may now include `markdown` or `jsBlock` nodes when the write intentionally added them.
 - Existing task-card/details layout edits should keep the same root binding and update only the details-grid layout.
 - `approvalInitiator` should still own one `ApplyFormSubmitModel` unless the user explicitly removed or replaced that legacy subtree.
+- `approvalInformation` should expose the original submitted collection data as read-only review context for the approver.
+- `approvalApprover` should own the process actions and any fields the approver is expected to edit before submitting the handling result.
 - Approval forms should preserve `PatternFormFieldModel` inner nodes.
 - Approval association field switches should update `stepParams.fieldBinding.use` to the selected live-supported component.
 - Approval details wrappers should stay in their approval details item model family.

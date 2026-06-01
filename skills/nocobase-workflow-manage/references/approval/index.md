@@ -1,9 +1,9 @@
 ---
-title: "Approval Subsystem"
-description: "Cross-cutting reference for the approval workflow subsystem — trigger, node, notifications, UID-backed surfaces, and UI authoring."
+title: "Approval workflow"
+description: "Cross-cutting reference for the approval workflow — trigger, node, notifications, UID-backed surfaces, and UI authoring."
 ---
 
-# Approval Subsystem
+# Approval workflow
 
 The approval feature spans several pieces that are normally documented separately under `triggers/`, `nodes/`, and `ui-config/`. Because they only make sense together, this folder is the single home for cross-cutting approval rules. The per-type docs ([triggers/approval.md](../triggers/approval.md), [nodes/approval.md](../nodes/approval.md)) keep their own schema tables and minimal examples, and link here for shared rules.
 
@@ -14,6 +14,19 @@ The approval feature spans several pieces that are normally documented separatel
 - You need to understand how the trigger-side initiator interface relates to data-block submit buttons.
 
 If you only need the type-specific schema (config fields, branch indices, output variables), stay in [triggers/approval.md](../triggers/approval.md) or [nodes/approval.md](../nodes/approval.md) and follow the cross-links from there.
+
+## Non-Optional UI Coverage
+
+When an agent is asked to build a usable approval workflow, do not stop after creating the trigger and approval node config. The human-facing approval experience has required surfaces:
+
+- **Initiator side:** configure the trigger-bound initiator surface (`workflow.config.approvalUid`) with an `approvalInitiator` / `ApplyFormModel` block bound to the trigger collection. It must expose the default submit action (`approvalSubmit`) so the applicant can submit from the approval center, resubmit after withdrawal/return, or use centralized initiation when enabled.
+- **Page data-block entry:** when the approval should start from an application page, also bind the workflow to the create/edit form submit button on that page. This is separate from the trigger-bound initiator surface.
+- **Approver side:** configure every approval node's approver surface (`node.config.approvalUid`) with both:
+  - `approvalInformation` / `ApprovalDetailsModel` so the approver can read the original submitted data in a read-only block.
+  - `approvalApprover` / `ProcessFormModel` so the approver can submit the handling result through approval actions and, when required, edit approval data fields before approving/rejecting/returning.
+- **Task cards:** configure `taskCardUid` surfaces when the workflow needs meaningful "My Applications" or "My Approvals" cards. Task cards improve list/card detail display but do not replace the initiator or approver surfaces above.
+
+Missing any required surface usually produces a workflow that exists technically but cannot be completed by the intended user role. Treat these surfaces as part of the approval workflow deliverable unless the user explicitly requests config-only work.
 
 ## Contents
 
