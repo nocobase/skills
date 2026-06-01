@@ -165,4 +165,4 @@ Example references:
 - `{{$jobsMapByNodeKey.llm_summary.structuredContent}}`
 - `{{$jobsMapByNodeKey.llm_summary.additionalKwargs}}`
 
-The stored job result may also include `id`, `responseMetadata`, and `toolCalls`, but the workflow variable selector exposes only the fields above. Use `json-query` or `json-variable-mapping` downstream if you need to reshape nested structured content.
+Use `json-query` or `json-variable-mapping` downstream if you need to reshape nested structured content.
