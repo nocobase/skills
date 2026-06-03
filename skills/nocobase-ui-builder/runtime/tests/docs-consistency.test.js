@@ -731,6 +731,7 @@ test('required docs and relative links stay valid', () => {
     'references/chart-core.md',
     'references/cli-command-surface.md',
     'references/cli-transport.md',
+    'references/dynamic-capabilities.md',
     'references/execution-checklist.md',
     'references/helper-contracts.md',
     'references/index.md',
@@ -772,6 +773,32 @@ test('required docs and relative links stay valid', () => {
     assert.equal(existsSync(path.join(skillRoot, relativePath)), true, `${relativePath} should exist`);
     if (relativePath.endsWith('.md')) assertRelativeMarkdownLinksExist(relativePath);
   }
+});
+
+test('dynamic capability docs keep discovery separate from write authorization', () => {
+  const skill = read('SKILL.md');
+  const dynamic = read('references/dynamic-capabilities.md');
+  const capabilities = read('references/capabilities.md');
+  const shapes = read('references/tool-shapes.md');
+  const blocksIndex = read('references/blocks/index.md');
+
+  for (const [label, text] of [
+    ['SKILL.md', skill],
+    ['dynamic-capabilities.md', dynamic],
+    ['capabilities.md', capabilities],
+    ['tool-shapes.md', shapes],
+    ['blocks/index.md', blocksIndex],
+  ]) {
+    assert.match(text, /built-in|内置/i, `${label} should prefer built-in routes first`);
+    assert.match(text, /target-scoped `?catalog`?|target-scoped/i, `${label} should require target-scoped catalog`);
+    assert.match(text, /publicType|public `?type`?/i, `${label} should name publicType/type as the write token`);
+    assert.match(text, /debugImplementation/i, `${label} should forbid debugImplementation`);
+    assert.match(text, /capabilityId/i, `${label} should keep capabilityId diagnostic-only`);
+  }
+
+  assert.match(dynamic, /not write authorization|does not authorize writing/i, 'dynamic docs should say capabilities are discovery-only');
+  assert.match(dynamic, /semantic\.examples\.publicPayloadSnippet/i, 'dynamic docs should guard semantic examples');
+  assert.match(shapes, /### `capabilities`/i, 'tool-shapes should contain a capabilities section');
 });
 
 test('upstream js snapshot relative links stay valid', () => {

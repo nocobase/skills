@@ -18,7 +18,7 @@ When the user gives a NocoBase admin URL for a precise edit on an existing page,
 
 1. Resolve the start target first from an admin URL or explicit uid, then read that surface with the backend `get` action.
 2. Use `describe-surface` only when the richer public tree really helps.
-3. Use `catalog` only when capability uncertainty is the blocker.
+3. Use `capabilities` only for custom/plugin/vendor/unknown discovery, then use target-scoped `catalog` when current-target capability uncertainty is the blocker.
    For localized `comments` and `recordHistory` adds, `catalog` is mandatory because availability depends on the target surface, popup scene, associations, plugin state, and collection metadata. If the block or resource binding is absent, do not guess a payload.
 4. Choose the smallest write family that matches the intent: `compose`, `add-*`, `configure`, `update-settings`, `move-*`, or `remove-*`.
 5. Keep common public keys inline when possible: `title`, `label`, `required`, simple button `type`, and similar semantic `settings` do not need a deep settings pass first. Use `displayTitle` only on block families whose runtime configureOptions expose it; known unsupported cases include `chart` and `tree`.

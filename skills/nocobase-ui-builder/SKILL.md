@@ -36,6 +36,7 @@ description: >-
 - Calendar / schedule / event-view authoring uses `CalendarBlockModel`; read [calendar.md](./references/blocks/calendar.md) when the request mentions 日历, calendar, 排期, 日程, 事件视图, or 排班
 - Menu, page-entry, `routeId`, or `pageSchemaUid` discovery starts with the visible desktop tree: `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j`. Do not try unavailable desktop-routes CLI families, `menus`, `catalog`, or `describe-surface` just to find menu items.
 - localized existing-surface edits go through backend actions such as `compose`, `configure`, `update-settings`, `add-*`, `move-*`, and `remove-*`, plus [local-edit-quick.md](./references/local-edit-quick.md)
+- custom/plugin/vendor/unknown capabilities use [dynamic-capabilities.md](./references/dynamic-capabilities.md) after the built-in route fails or does not cover the request
 - localized existing-surface reaction work starts with `get-reaction-meta`, writes through `set*Rules`, and [reaction-quick.md](./references/reaction-quick.md); first-pass whole-page reactions stay in `reaction.items[]` with no live `get-reaction-meta`; artifact-only localized reaction drafts record the planned `get-reaction-meta` probe
 - partial-match or boundary-only requests go through [boundary-quick.md](./references/boundary-quick.md) first
 - After that route is clear, if template / reference / `copy` routing is truly in scope, read [template-quick.md](./references/template-quick.md) first and then [templates.md](./references/templates.md) for the full decision matrix.
@@ -102,6 +103,7 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 27. For those complex whole-page requests, first-pass blueprint generation should include the structural blocks, inline popups, and top-level `reaction.items[]` together. Do not split the page into root-shell / popup / reaction phases just because the page is large.
 28. Use low-level `get-reaction-meta` + `set*Rules` or `add*` repair only for localized edits on an existing live page, or after a successful whole-page `applyBlueprint` when an explicit local/live gap still needs narrowly scoped repair. Before one whole-page `applyBlueprint` succeeds, do not use `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`. If a whole-page `applyBlueprint` fails before first success, repair the blueprint from the backend aggregate errors and retry blueprint-only up to 5 rounds. Do not switch to low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / error evidence.
 29. Stay env-neutral in the general skill contract. Use the current configured CLI env or explicit runtime flags instead of hard-coding local aliases or fixed URLs.
+30. For custom/plugin/vendor/unknown blocks, actions, or field components, use dynamic capabilities only as discovery. Prefer built-in documented routes first. Before any localized write, target-scoped `catalog` must confirm the exact public `type`/`publicType` for the target and slot. Never request `debugImplementation`, and never put `capabilityId`, `modelUse`, `props`, `decoratorProps`, `stepParams`, `flowRegistry`, `createModelOptions`, `defaultNode`, or `lens` into write payloads.
 
 # Read Paths
 
@@ -110,6 +112,7 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)
 - Localized existing-surface edit: [local-edit-quick.md](./references/local-edit-quick.md)
 - AI employee action placement or task edits: [ai-employee-actions.md](./references/ai-employee-actions.md)
+- Custom/plugin/vendor/unknown capability discovery: [dynamic-capabilities.md](./references/dynamic-capabilities.md)
 - Calendar / schedule / event-view blocks: [calendar.md](./references/blocks/calendar.md)
 - Comments or record history blocks: [comments.md](./references/blocks/comments.md), [record-history.md](./references/blocks/record-history.md)
 - Whole-page or localized reaction change: [reaction-quick.md](./references/reaction-quick.md)

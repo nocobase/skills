@@ -6,6 +6,7 @@ Read this file when you already know you need to add something into a content ar
 
 - If the request is still a **whole-page** request, go back to [page-intent.md](./page-intent.md) first and stay in the public page blueprint / `applyBlueprint` path.
 - If the request is a **localized edit**, stay in low-level APIs and use this file.
+- If the requested capability is custom/plugin/vendor/unknown, read [dynamic-capabilities.md](./dynamic-capabilities.md). Built-in documented blocks/actions still use the built-in route first.
 
 ## 2. Block vs Field vs Action
 
@@ -31,6 +32,15 @@ Read this file when you already know you need to add something into a content ar
 
 - Data-bound blocks must be backed by real schema facts.
 - Non-data blocks such as `markdown`, `iframe`, `actionPanel`, and many `jsBlock` scenarios may stay unbound.
+
+## 3.5 Dynamic Capability Discovery
+
+- `flow-surfaces capabilities` is global discovery, not write authorization.
+- For localized add/configure, target-scoped `catalog` must confirm the exact `publicType` for the target and slot before writing.
+- Use only public `type`/`settings` fields in writes.
+- Never request `debugImplementation`.
+- Never put `capabilityId`, `modelUse`, `props`, `decoratorProps`, `stepParams`, `flowRegistry`, `createModelOptions`, `defaultNode`, or `lens` into authoring payloads.
+- Treat `semantic.examples.publicPayloadSnippet` as advisory. Strip forbidden internal keys and validate against live schema/catalog first.
 
 ## 4. Field Rules
 

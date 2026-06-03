@@ -104,6 +104,35 @@ nb request body:
 }
 ```
 
+### `capabilities`
+
+Use `capabilities` for custom/plugin/vendor/unknown discovery only. Built-in documented routes come first, and localized writes still require target-scoped `catalog` confirmation before writing.
+
+nb request body:
+
+```json
+{
+  "kinds": ["block", "action", "fieldComponent"],
+  "query": "gantt",
+  "includeWarnings": true
+}
+```
+
+Optional target hint for discovery/ranking:
+
+```json
+{
+  "kinds": ["block"],
+  "target": {
+    "targetUid": "live-target-uid",
+    "slot": "blocks"
+  },
+  "query": "gantt"
+}
+```
+
+Use the discovered `publicType` only as the public `type` token after target-scoped `catalog` confirms it. Never request `debugImplementation`. Never copy `capabilityId` or internal fields into write payloads.
+
 ### `catalog`
 
 Use `catalog` when current-target capability is the question.

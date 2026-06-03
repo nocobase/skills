@@ -24,7 +24,8 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 | --- | --- |
 | inspect one page/tab/popup | `nb api flow-surfaces get` |
 | richer structural readback | `nb api flow-surfaces describe-surface` |
-| capability discovery | `nb api flow-surfaces catalog` |
+| global/custom capability discovery | `nb api flow-surfaces capabilities` |
+| target-scoped writable capability confirmation | `nb api flow-surfaces catalog` |
 | whole-page create / replace | `nb api flow-surfaces apply-blueprint` |
 | localized content edit | `nb api flow-surfaces compose` / `configure` / `update-settings` / `add-*` / `move-*` / `remove-*` |
 | menu lifecycle | `nb api flow-surfaces create-menu` / `update-menu` / `create-page` / `destroy-page` |

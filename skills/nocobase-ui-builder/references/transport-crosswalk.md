@@ -15,7 +15,8 @@ Use it when you already know the task family, but need the exact backend action 
 | --- | --- | --- |
 | inspect one page / popup / tab | `get` | [tool-shapes.md](./tool-shapes.md) |
 | richer structural readback | `describe-surface` | [tool-shapes.md](./tool-shapes.md) |
-| capability discovery | `catalog` | [tool-shapes.md](./tool-shapes.md) |
+| global/custom capability discovery | `capabilities` | [dynamic-capabilities.md](./dynamic-capabilities.md) + [tool-shapes.md](./tool-shapes.md) |
+| target-scoped writable capability confirmation | `catalog` | [tool-shapes.md](./tool-shapes.md) |
 | whole-page create / replace | `apply-blueprint` | [page-blueprint.md](./page-blueprint.md) + [tool-shapes.md](./tool-shapes.md) |
 | localized content compose | `compose` | [tool-shapes.md](./tool-shapes.md) |
 | semantic small update | `configure` | [tool-shapes.md](./tool-shapes.md) + [settings.md](./settings.md) |
