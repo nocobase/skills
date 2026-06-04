@@ -132,6 +132,35 @@ Optional target hint for discovery/ranking:
 ```
 
 Use the discovered `publicType` only as the public `type` token after target-scoped `catalog` confirms it. Never request `debugImplementation`. Never copy `capabilityId` or internal fields into write payloads.
+Do not infer write support from `capabilities` alone. `supportLevel` does not authorize writes.
+
+### `validateCapabilityCreate`
+
+Use `validateCapabilityCreate` as an optional dry-run for custom/plugin/provider creates after target-scoped `catalog` confirms the exact public type is create-supported and after `describeCapability` supplies public settings/schema.
+
+nb request body:
+
+```json
+{
+  "kind": "block",
+  "publicType": "gantt",
+  "ownerPlugin": "@nocobase/plugin-gantt",
+  "target": {
+    "targetUid": "target-grid-uid",
+    "slot": "blocks"
+  },
+  "initParams": {
+    "collectionName": "tasks"
+  },
+  "settings": {
+    "titleField": "title",
+    "startField": "startAt",
+    "endField": "endAt"
+  }
+}
+```
+
+Treat errors as public authoring errors only. Repair public paths such as `initParams.collectionName` or `settings.startField`. Never request `debugImplementation`, never use `dryRunNode.use`, and never copy `capabilityId`, `modelUse`, implementation `use`, `props`, `decoratorProps`, `stepParams`, `flowRegistry`, `createModelOptions`, `defaultNode`, or `lens` into any write body.
 
 ### `catalog`
 

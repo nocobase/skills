@@ -37,9 +37,14 @@ Read this file when you already know you need to add something into a content ar
 
 - `flow-surfaces capabilities` is global discovery, not write authorization.
 - For localized add/configure, target-scoped `catalog` must confirm the exact `publicType` for the target and slot before writing.
+- If `catalog` returns `availability.create.supported=false`, do not attempt the write even when `capabilities` found a candidate.
+- `supportLevel` is display/maturity metadata only; it is not an allow condition.
+- For custom/plugin/provider creates, read `describeCapability` for public settings/schema and optionally run `validateCapabilityCreate` before the write.
+- Treat `validateCapabilityCreate` errors as public authoring errors only. Repair public paths such as `initParams.*` or `settings.*`; do not infer internal payload shape.
 - Use only public `type`/`settings` fields in writes.
 - Never request `debugImplementation`.
-- Never put `capabilityId`, `modelUse`, `props`, `decoratorProps`, `stepParams`, `flowRegistry`, `createModelOptions`, `defaultNode`, or `lens` into authoring payloads.
+- Never put `capabilityId`, `modelUse`, implementation `use`, `props`, `decoratorProps`, `stepParams`, `flowRegistry`, `createModelOptions`, `defaultNode`, or `lens` into authoring payloads.
+- Never use `dryRunNode.use` as an authoring hint.
 - Treat `semantic.examples.publicPayloadSnippet` as advisory. Strip forbidden internal keys and validate against live schema/catalog first.
 
 ## 4. Field Rules

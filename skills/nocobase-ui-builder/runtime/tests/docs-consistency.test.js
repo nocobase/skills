@@ -116,6 +116,16 @@ function extractH2Section(markdown, heading) {
   return nextHeading ? remaining.slice(0, nextHeading.index) : remaining;
 }
 
+function extractH3Section(markdown, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const headingMatch = markdown.match(new RegExp(`^###\\s+${escaped}\\s*$`, 'm'));
+  assert.ok(headingMatch, `should find h3 section "${heading}"`);
+  const bodyStart = headingMatch.index + headingMatch[0].length;
+  const remaining = markdown.slice(bodyStart);
+  const nextHeading = remaining.match(/^###\s+/m);
+  return nextHeading ? remaining.slice(0, nextHeading.index) : remaining;
+}
+
 function extractFences(markdown, language) {
   return [...markdown.matchAll(new RegExp(`^\\\`\\\`\\\`${language}\\n([\\s\\S]*?)\\n\\\`\\\`\\\``, 'gm'))].map((match) => match[1]);
 }
@@ -794,11 +804,38 @@ test('dynamic capability docs keep discovery separate from write authorization',
     assert.match(text, /publicType|public `?type`?/i, `${label} should name publicType/type as the write token`);
     assert.match(text, /debugImplementation/i, `${label} should forbid debugImplementation`);
     assert.match(text, /capabilityId/i, `${label} should keep capabilityId diagnostic-only`);
+    assert.match(text, /validateCapabilityCreate/i, `${label} should include the optional validate step`);
+    assert.match(text, /dryRunNode\.use/i, `${label} should forbid dryRunNode.use as an authoring hint`);
+    assert.match(
+      text,
+      /supportLevel[\s\S]{0,180}(?:not|never|不能|不是)[\s\S]{0,80}(?:allow|authorize|授权|条件)/i,
+      `${label} should not use supportLevel as write authorization`,
+    );
   }
 
   assert.match(dynamic, /not write authorization|does not authorize writing/i, 'dynamic docs should say capabilities are discovery-only');
   assert.match(dynamic, /semantic\.examples\.publicPayloadSnippet/i, 'dynamic docs should guard semantic examples');
+  assert.match(
+    dynamic,
+    /capabilities\(query\)[\s\S]{0,120}catalog\(target, slot\)[\s\S]{0,160}describeCapability[\s\S]{0,180}validateCapabilityCreate/i,
+    'dynamic docs should describe the discovery -> catalog -> describe -> validate route',
+  );
+  assert.match(
+    dynamic,
+    /validateCapabilityCreate[\s\S]{0,220}(?:public path|public authoring|public paths)/i,
+    'dynamic docs should treat validate errors as public authoring errors',
+  );
   assert.match(shapes, /### `capabilities`/i, 'tool-shapes should contain a capabilities section');
+  assert.match(shapes, /### `validateCapabilityCreate`/i, 'tool-shapes should contain a validateCapabilityCreate section');
+
+  const validateShape = extractH3Section(shapes, '`validateCapabilityCreate`');
+  for (const body of extractCodeFences(validateShape)) {
+    assert.doesNotMatch(
+      body,
+      /debugImplementation|dryRunNode|capabilityId|modelUse|stepParams|flowRegistry|createModelOptions|defaultNode|lens|decoratorProps|props/i,
+      'validateCapabilityCreate examples should not include debug/internal payload fields',
+    );
+  }
 });
 
 test('upstream js snapshot relative links stay valid', () => {
