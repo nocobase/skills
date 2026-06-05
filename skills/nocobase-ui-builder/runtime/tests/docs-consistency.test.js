@@ -134,6 +134,16 @@ function extractCodeFences(markdown) {
   return [...markdown.matchAll(/^```(?:js|javascript|jsx|json)\n([\s\S]*?)\n```/gm)].map((match) => match[1]);
 }
 
+function assertNoDynamicInternalWritePayloadFields(markdown, sourceLabel) {
+  for (const body of extractCodeFences(markdown)) {
+    assert.doesNotMatch(
+      body,
+      /debugImplementation|dryRunNode|capabilityId|modelUse|stepParams|flowRegistry|createModelOptions|defaultNode|lens|decoratorProps|props/i,
+      `${sourceLabel} examples should not include debug/internal dynamic write payload fields`,
+    );
+  }
+}
+
 function maskJavaScriptSource(source) {
   return String(source ?? '').replace(
     /\/\/[^\n]*|\/\*[\s\S]*?\*\/|(["'`])(?:\\[\s\S]|(?!\1)[\s\S])*?\1/g,
@@ -791,6 +801,13 @@ test('dynamic capability docs keep discovery separate from write authorization',
   const capabilities = read('references/capabilities.md');
   const shapes = read('references/tool-shapes.md');
   const blocksIndex = read('references/blocks/index.md');
+  const dynamicRoute = extractH2Section(dynamic, 'Route');
+  const dynamicSemanticExamples = extractH2Section(dynamic, 'Semantic Examples');
+  const dynamicValidateDryRun = extractH2Section(dynamic, 'Validate Dry-run');
+  const dynamicNotWritable = extractH2Section(dynamic, 'Not Writable Yet');
+  const capabilitiesDynamicSection = extractH2Section(capabilities, '3.5 Dynamic Capability Discovery');
+  const toolCapabilitiesShape = extractH3Section(shapes, '`capabilities`');
+  const validateShape = extractH3Section(shapes, '`validateCapabilityCreate`');
 
   for (const [label, text] of [
     ['SKILL.md', skill],
@@ -813,8 +830,22 @@ test('dynamic capability docs keep discovery separate from write authorization',
     );
   }
 
+  assert.match(
+    dynamicRoute,
+    /built-in documented block\/action[\s\S]{0,120}(?:built-in route first|follow the built-in route first)/i,
+    'dynamic route should send documented built-ins through the built-in route first',
+  );
+  assert.match(
+    dynamicRoute,
+    /custom\/plugin\/vendor\/unknown|custom\/plugin\/vendor|plugin-provided|vendor-provided/i,
+    'dynamic route should be scoped to custom/plugin/vendor/unknown capabilities',
+  );
   assert.match(dynamic, /not write authorization|does not authorize writing/i, 'dynamic docs should say capabilities are discovery-only');
-  assert.match(dynamic, /semantic\.examples\.publicPayloadSnippet/i, 'dynamic docs should guard semantic examples');
+  assert.match(
+    dynamicSemanticExamples,
+    /semantic\.examples\.publicPayloadSnippet[\s\S]{0,120}advisory/i,
+    'dynamic docs should describe semantic examples as advisory',
+  );
   assert.match(
     dynamic,
     /capabilities\(query\)[\s\S]{0,120}catalog\(target, slot\)[\s\S]{0,160}describeCapability[\s\S]{0,180}validateCapabilityCreate/i,
@@ -822,20 +853,44 @@ test('dynamic capability docs keep discovery separate from write authorization',
   );
   assert.match(
     dynamic,
+    /add-block \/ compose \/ apply-blueprint[\s\S]{0,80}public payload only/i,
+    'dynamic docs should end the write route with public payload only',
+  );
+  assert.match(
+    dynamic,
     /validateCapabilityCreate[\s\S]{0,220}(?:public path|public authoring|public paths)/i,
     'dynamic docs should treat validate errors as public authoring errors',
   );
+  assert.match(
+    dynamicValidateDryRun,
+    /repair only public paths[\s\S]{0,180}settings\.titleField|settings\.titleField[\s\S]{0,180}repair only public paths/i,
+    'dynamic validate failures should be repaired only through public paths',
+  );
+  assert.match(
+    dynamicNotWritable,
+    /availability\.create\.supported=false[\s\S]{0,220}discovery\/readback only/i,
+    'dynamic docs should block writes when catalog marks create unsupported',
+  );
+  assert.match(
+    capabilitiesDynamicSection,
+    /availability\.create\.supported=false[\s\S]{0,180}do not attempt the write/i,
+    'capabilities docs should block writes when catalog marks create unsupported',
+  );
+  assert.match(
+    toolCapabilitiesShape,
+    /Do not infer write support from `?capabilities`? alone/i,
+    'tool-shapes capabilities docs should forbid write support inference from capabilities alone',
+  );
+  assert.match(
+    validateShape,
+    /target-scoped `?catalog`?[\s\S]{0,120}create-supported[\s\S]{0,160}describeCapability/i,
+    'validateCapabilityCreate docs should require catalog create support and describeCapability first',
+  );
+  assertNoDynamicInternalWritePayloadFields(dynamic, 'dynamic-capabilities.md');
+  assertNoDynamicInternalWritePayloadFields(toolCapabilitiesShape, 'tool-shapes capabilities section');
+  assertNoDynamicInternalWritePayloadFields(validateShape, 'tool-shapes validateCapabilityCreate section');
   assert.match(shapes, /### `capabilities`/i, 'tool-shapes should contain a capabilities section');
   assert.match(shapes, /### `validateCapabilityCreate`/i, 'tool-shapes should contain a validateCapabilityCreate section');
-
-  const validateShape = extractH3Section(shapes, '`validateCapabilityCreate`');
-  for (const body of extractCodeFences(validateShape)) {
-    assert.doesNotMatch(
-      body,
-      /debugImplementation|dryRunNode|capabilityId|modelUse|stepParams|flowRegistry|createModelOptions|defaultNode|lens|decoratorProps|props/i,
-      'validateCapabilityCreate examples should not include debug/internal payload fields',
-    );
-  }
 });
 
 test('upstream js snapshot relative links stay valid', () => {
