@@ -27,19 +27,23 @@ This folder is the canonical source for approval UI route selection. Keep transp
 
 ## Decision Flow
 
-1. Determine the surface:
+1. If the task is to build a full approval workflow, expand it into required UI work before choosing a route:
+   - one trigger-bound `initiator` surface for the approval workflow
+   - one node-bound `approver` surface for every approval node
+   - optional `taskCard` surfaces only after the required popup surfaces are covered
+2. Determine the surface:
    - `initiator`
    - `approver`
    - `taskCard`
-2. Determine the owner input:
+3. Determine the owner input:
    - `workflowId`
    - `nodeId`
    - existing root `uid`
-3. Resolve `approvalUid` / `taskCardUid` from owner config whenever the task is inspect or localized edit.
-4. Choose the route:
+4. Resolve `approvalUid` / `taskCardUid` from owner config whenever the task is inspect or localized edit.
+5. Choose the route:
    - missing binding, first-time setup, or replace -> `applyApprovalBlueprint`
    - existing binding plus localized change -> incremental route
-5. Only after the route is fixed should you choose CLI, MCP, or direct HTTP.
+6. Only after the route is fixed should you choose CLI, MCP, or direct HTTP.
 
 ## Route Matrix
 
@@ -57,13 +61,18 @@ This folder is the canonical source for approval UI route selection. Keep transp
 - `compose` is never the bootstrap entry for a brand-new approval surface.
 - Incremental editing is allowed only after the approval root already exists. If you start from `workflowId` or `nodeId`, resolve `approvalUid` / `taskCardUid` from owner config first.
 - Do not require the caller to know `approvalUid` / `taskCardUid` before authoring starts.
+- Use v2 bindings only: trigger initiator UI must bind through `workflow.config.approvalUid`, and approval-node approver UI must bind through `node.config.approvalUid`. Do not create legacy `applyForm` / `applyDetail` bindings.
+- Approval workflow creation must include UI authoring by default: build the trigger initiator surface and every approval-node approver surface unless the user explicitly says config-only.
 - A complete initiator surface must contain an `approvalInitiator` / `ApplyFormModel` block with the default `approvalSubmit` action. `markdown`, `jsBlock`, and task-card config are not substitutes for the applicant submission form.
 - A complete approver surface must contain both `approvalInformation` / `ApprovalDetailsModel` for read-only original submitted data and `approvalApprover` / `ProcessFormModel` for handling actions and approver-editable approval fields.
+- Required blocks must also contain useful fields. Do not create empty applicant forms, empty read-only details, or empty approver forms; include fields that match the approval's business intent and that users need to submit, review, or process the approval.
 - Do not treat `approvalInformation` as the approval handling form. Do not treat `approvalApprover` as the read-only source-of-truth view of the original submission.
+- `approvalUid` / `taskCardUid` values are not enough. The bound FlowModel tree must be read back and must contain the expected models; an empty popup is failed verification.
+- After each approval UI write, immediately run readback verification before moving on to the next trigger/node/surface.
 - Page-like approval grids are approval-specific containers, but they may expose the fixed generic blocks that the live approval runtime currently supports: `markdown` and `jsBlock`.
 - Task-card remains `fields + layout`; do not author blocks there.
 - Ordinary Modern page / tab / popup editing belongs to `nocobase-ui-builder`, not this topic.
-- v1 approval UI authoring does not cover schema wiring.
+- v1 approval UI authoring and legacy schema bindings (`applyForm`, `applyDetail`) are out of scope and do not count as a completed approval UI.
 
 ## Surface Summary
 

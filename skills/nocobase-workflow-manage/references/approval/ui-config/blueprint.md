@@ -27,7 +27,7 @@ Read [primitives.md](primitives.md) first before building the payload, then [sur
 2. Build one approval blueprint payload.
 3. Call `flowSurfaces:applyApprovalBlueprint`.
 4. Read back the created surface through `flowSurfaces:get`.
-5. Verify the binding field on workflow/node config and any approval runtime config that should have changed.
+5. Verify the binding field on workflow/node config and any approval runtime config that should have changed. For `surface="initiator"`, `workflow.config.approvalUid` must exist and point to the returned root. For `surface="approver"`, `node.config.approvalUid` must exist and point to the returned root.
 
 ## What This Route Does
 
@@ -35,6 +35,8 @@ Read [primitives.md](primitives.md) first before building the payload, then [sur
 - Persists `approvalUid` or `taskCardUid` back to workflow/node config.
 - Replaces the target approval surface subtree in one write.
 - Reconciles approval runtime config derived from approval actions.
+
+If the root FlowModel exists but the owning workflow/node config does not contain the matching `approvalUid`, the surface is detached and the approval popup will not use it. Do not report success until the owner config readback proves the binding was saved.
 
 ## What This Route Does Not Do
 
@@ -67,7 +69,7 @@ Use only the fields allowed by the selected `surface`.
 
 ## Minimum Complete Blueprints
 
-Use these as the baseline when the user asks to build a usable approval UI and does not explicitly request a partial surface.
+Use these as the baseline when the user asks to build a usable approval UI and does not explicitly request a partial surface. Replace the example field names with fields from the real trigger collection that are necessary for the workflow's business intent. Do not submit `fields: []` or a form/detail block with only irrelevant/system fields.
 
 Initiator baseline:
 
@@ -90,7 +92,7 @@ Initiator baseline:
 }
 ```
 
-The `approvalInitiator` block auto-creates `approvalSubmit`. Do not add helper-only blocks as the whole initiator surface.
+The `approvalInitiator` block auto-creates `approvalSubmit`. Do not add helper-only blocks as the whole initiator surface, and do not create an empty applicant form. The form fields should be enough for the applicant to provide the data the approval is about.
 
 Approver baseline:
 
@@ -125,7 +127,7 @@ Approver baseline:
 }
 ```
 
-Use `approvalInformation` for read-only original submission review. Use `approvalApprover` for approval decisions and fields the approver may modify before submitting the handling result.
+Use `approvalInformation` for read-only original submission review. Its fields should show the business data the approver needs to make a decision. Use `approvalApprover` for approval decisions and fields the approver may modify before submitting the handling result. If the process requires no approver-editable data fields, keep the process actions, but do not omit the read-only original-data fields.
 
 ## Side Effects To Expect
 

@@ -7,6 +7,8 @@ description: "Dedicated flow triggered by approval initiation, used for managing
 
 Approval is a multi-surface subsystem (trigger + node + initiator/approver UI + notifications + UID-anchored schema). This page only covers the `approval` trigger schema. Cross-cutting topics live under [../approval/](../approval/index.md).
 
+Important: configuring this trigger is not enough to produce a usable approval workflow. After saving an `approval` trigger, build the trigger-bound initiator surface with `flowSurfaces:applyApprovalBlueprint(surface="initiator", workflowId=...)`, then read it back and verify the surface contains `ApplyFormModel` and the default `ApplyFormSubmitModel`. Bind this v2 surface through `workflow.config.approvalUid`; do not use the legacy v1 `applyForm` field. A non-empty `approvalUid` without a FlowModel tree still renders as an empty initiator popup.
+
 ## Trigger Type
 
 `approval`

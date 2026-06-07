@@ -170,4 +170,4 @@ Use `compose` only after the approval root already exists.
 - `blocks[]` may contain approval public block keys plus the fixed page-like generic blocks currently exposed by the live approval catalog: `markdown`, `jsBlock`
 - nested `fields[]` and `actions[]` follow the same block/action rules above
 - always read `catalog` on the resolved approval grid first; treat that live result as the source of truth for block availability and `fieldComponent` switching
-- for initiator blocks, do not add `approvalSubmit` only to recreate the default unless a legacy tree actually lost it
+- for initiator blocks, do not add `approvalSubmit` only to recreate the default unless the existing surface tree actually lost it
