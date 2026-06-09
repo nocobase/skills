@@ -42,7 +42,7 @@ ctx.render(
 ctx.element.innerHTML = `<a>查看详情</a>`;
 ```
 
-如果需要点击交互，也优先通过 `ctx.render()` 渲染 JSX / HTML，再在必要场景下补事件逻辑。简单的 `innerHTML` 赋值可能会被 guard 自动改写，复杂场景则会直接 blocker。
+如果需要点击交互，也优先通过 `ctx.render()` 渲染 JSX / HTML，再在必要场景下补事件逻辑。不要依赖本地 `innerHTML` 自动改写；复杂场景交给后端聚合验证阻断。
 
 如果用户明确要求用 JS field 处理“关联标题列点击弹窗”，写前审计时必须显式传：
 

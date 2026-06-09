@@ -1,5 +1,4 @@
-import { MAX_ISSUE_MESSAGE_CHARS } from './constants.js';
-
+const MAX_ISSUE_MESSAGE_CHARS = 1200;
 const MAX_SERIALIZE_DEPTH = 6;
 const MAX_SERIALIZE_KEYS = 50;
 const MAX_SERIALIZE_ITEMS = 50;

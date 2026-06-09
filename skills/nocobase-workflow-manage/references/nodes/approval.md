@@ -13,8 +13,16 @@ This page only covers the `approval` node schema. Cross-cutting topics (notifica
 
 Approval node type can only be used in approval workflows, which trigger type is `approval`.
 
+Important: configuring this node is not enough to produce a usable approval task. After saving each `approval` node, build that node's approver surface with `flowSurfaces:applyApprovalBlueprint(surface="approver", nodeId=...)`, then read it back and verify it contains both `ApprovalDetailsModel` for the original submitted data and `ProcessFormModel` with process actions for the handling result. Bind this v2 surface through `node.config.approvalUid`; do not use the legacy v1 `applyDetail` field. A non-empty `approvalUid` without a FlowModel tree still renders as an empty approver popup.
+
 ## Node Description
 Initiates an approval task, waits for the approval result to continue the workflow, and can branch based on the approval outcome.
+
+## Default Authoring Guidance
+
+When creating an approval node and the user has not specified otherwise, prefer `branchMode=true`. Branch mode exposes explicit approved / rejected / returned branches, which makes downstream status updates, notifications, and cleanup logic easier to place and verify.
+
+Use the approval branches for strongly related follow-up work only, such as updating the approved record status or sending branch-specific notifications. Avoid putting another `approval` node inside an approval branch unless the user explicitly requires that structure. For multi-step approvals, prefer approval nodes one after another in the main downstream chain rather than nested inside approve/reject/return branches.
 
 ## Business Scenario Examples
 An expense report goes through an approval process after submission. The branching mode is similar to if/else.
@@ -22,7 +30,7 @@ An expense report goes through an approval process after submission. The branchi
 ## Configuration Items
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| branchMode | boolean | false | Yes | Passing mode: `false` for direct (termination upon rejection/return), `true` for branching mode. |
+| branchMode | boolean | false | Yes | Passing mode: `false` for direct (termination upon rejection/return), `true` for branching mode. When creating a node without special requirements, prefer `true`. |
 | assignees | array | [] | Yes | List of approvers, specified as an array of user IDs or user queries. User IDs could be found by query `users:list` API, or use variables of user IDs form upstream. The query object will contains a `filter` object to describe the query condition of users collection.  See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | negotiation | number | 0 | No | Multi-person negotiation mode: `0` means any one pass/reject takes effect; `1` means all must pass to pass; `0<value<1` is a voting threshold (e.g., 0.6 means pass rate >60% is required to pass). |
 | order | boolean | false | No | Whether to approve in sequence (when sequential, subsequent approvers are initially set to `Assigned`). |
@@ -44,7 +52,7 @@ Branching is enabled when `branchMode=true`:
 - `branchIndex=-1`: Rejected
 - `branchIndex=1`: Returned
 
-No branches are generated when `branchMode=false`.
+No branches are generated when `branchMode=false`. Use direct mode only when the workflow intentionally does not need separate approve/reject/return paths.
 
 Only add strong related nodes in branches, for example, to update approving record status or send notifications. Other process nodes could be add after the approval node. In most case, should not use nested approval nodes (in branches), better to add approval nodes one after another (as direct downstream).
 

@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "Route Modern page work by intent: whole-page blueprint, localized flow-surfaces edit, or reaction authoring"
-  default_prompt: "Front door: `nb-flow-surfaces.mjs`. Intent-first:wholePage=1 tab|complex multi-block|nested popup|multi-reaction=>apply-blueprint;localized edits wrapper;get-reaction-meta;first write=applyBlueprint;reads/metadata/prepare-write ok;no createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rules;fail->repair+prepare-write+retry<=5;report;after success only explicit local/live gap repair.Repeat-eligible must contextual list-templates;keyword-only search=discovery-only;template source;local customization;page wording≠local-only intentbackend orderask, not copy.same-title routeId+pageSchemaUid;same-group same-title replacedifferent-group same-title no mergenavigation.group+navigation.item AntDesign iconmulti-non-filter explicit keyed layout/titles except templatessingle non-filter title optional unless askedsetLayout string[][] number[] [[a],[b]]=2col [[a,b]]=stack uid not key. hostBound搜索/filter sameHost filterAction optionalsearchPage≠filter;filter/search block=>filterForm;filter row 1;filterForm 4+ fields collapse. table/list/gridCard/calendar/kanban defaultFilter must;local preflight;cliBody only;分析看板=chart/grid-card;kanban/pipeline/status columns=Kanban;associatedRecords+associationField;1 editForm;popup.tryTemplate;popup.saveAsTemplate;openView.tryTemplate"
+  default_prompt: "Front door: `nb api flow-surfaces`Intent-firstwholePage1 tabcomplex multi-blocknested popupmulti-reactionreads/metadata okapply-blueprintlocalized editsbackend actionsget-reaction-metafirst writeapplyBlueprintno createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rulesfail->repair aggregate errors+retry<=5success only explicit local/live gap reportRepeat-eligible contextual list-templates;keyword-only search discovery-only;local customization;template sourcefirst result;page wording≠local-only intentask, not copysame-titlerouteIdpageSchemaUidsame-groupsame-titlereplacedifferent-groupsame-titlenomergesemantic AntDesign iconmulti-non-filter keyed layout/titlestemplates exemptsingle non-filteroptionalunless askedhostBound搜索/filtersameHostfilterActionoptionalsetLayoutstring[][]number[][[a],[b]]2col[[a,b]]stackuid not keysearchPage≠filterfilter/search block filterForm4+ fieldscollapserow1defaultFilteromitbackend4explicitemptyinvalid<4errorsraw payload onlytreeTableomitrecordActionsdefaultaddChildEFmoveNoInjectfirstlivedirectnon-assoc titleField>name>code>title分析看板:KPIJSBlock;trend/distribution/ranking/percentage/占比 chart(required);table/list!=chart;chart assets.charts+block.chart;cardGridsettings.codeconfigurechanges.code/versionban(top-level code/version,changes.settings,stepParams禁,props/decoratorProps/flowRegistry)typejsBlockonlykanban/pipeline/status columnsKanbanassociatedRecords+associationField1 editFormtryTemplatesaveAsTemplate"
 
 # Long-form guardrails kept here for docs-consistency checks and human review:
 # rebuild defaults.collections from scratch via live metadata
@@ -10,12 +10,13 @@ interface:
 # fixed view/addNew/edit
 # table addNew threshold
 # associations popups{name,description} first-segment
+# described generated add/edit fields => structured formBehavior or formBehaviorDescriptionReview.fields.<field>{decision,reasonCode}; no legacy review/empty-object fallback
 
 dependencies:
   tools:
     - type: "cli"
       value: "nb"
-      description: "Use nb-flow-surfaces wrapper for Modern-page UI operations"
+      description: "Use nb api flow-surfaces for Modern-page UI operations"
 
 policy:
   allow_implicit_invocation: true

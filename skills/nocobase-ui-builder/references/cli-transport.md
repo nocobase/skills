@@ -4,16 +4,16 @@ This file defines the transport policy for `nocobase-ui-builder`.
 
 ## Canonical Front Door
 
-- Use `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs` as the agent-facing front door for `flow-surfaces` work.
-- The wrapper routes to backend flow-surfaces transport; treat the retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the backend contract and payload reference, not as a separate user-facing transport.
-- Keep `nb-runjs`, `nb-template-decision`, and `nb-localized-write-preflight` as local helper CLIs only. Invoke them through `node skills/nocobase-ui-builder/runtime/bin/<helper>.mjs` from the repo root, or through the equivalent absolute path; do not probe bare PATH commands first.
-- `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs apply-blueprint` runs internal prepare-write before backend execution and sends only the prepared `result.cliBody` to the backend.
+- Use `nb api flow-surfaces <action>` as the agent-facing front door for `flow-surfaces` work.
+- Treat `applyBlueprint`, `flowSurfaces:*`, and backend API docs as the payload reference.
+- Keep `nb-template-decision` as the only local helper CLI. It is a planning aid.
+- Do not require skill-local helper output, wrapper envelopes, or `cliBody` before writes.
 
 ## Selection Rule
 
 1. Check whether `nb` is available in the current environment.
-2. If it is available, use the wrapper `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`.
-3. If `nb` is available but its runtime/auth is not ready, stop and report the blocked wrapper command state.
+2. If it is available, use `nb api flow-surfaces <action>`.
+3. If `nb` is available but its runtime/auth is not ready, stop and report the blocked command state.
 4. If `nb` itself is unavailable, report that the task is blocked on a usable `nb` command.
 
 ## Required CLI Preparation
@@ -21,17 +21,17 @@ This file defines the transport policy for `nocobase-ui-builder`.
 Before the first runtime command in a task:
 
 1. `nb --help`
-2. Before first use of a specific subcommand, run `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs <subcommand> --help`
+2. Before first use of a specific action, run `nb api flow-surfaces <action> --help` when the installed CLI supports action-level help.
 
 ## Stop Conditions
 
-Stop and report the blocked wrapper command state when:
+Stop and report the blocked command state when:
 
 - `nb` exists but cannot authenticate to the target app
-- the required `flow-surfaces` family or generated subcommand is missing
-- the chosen wrapper command returns auth failures such as `401`, `403`, or equivalent token errors
+- the required `flow-surfaces` family or action is missing
+- the chosen `nb api flow-surfaces` command returns auth failures such as `401`, `403`, or equivalent token errors
 
-When blocked, report the exact `nb-flow-surfaces.mjs <subcommand>` wrapper command/output that failed. Do not switch transports inside this skill.
+When blocked, report the exact `nb api flow-surfaces <action>` command/output that failed. Do not switch transports inside this skill.
 
 ## Why the Docs Stay
 

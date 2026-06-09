@@ -4,7 +4,7 @@
 
 Event flow allows you to trigger custom actions when certain events occur, such as form changes. Beyond forms, pages, blocks, buttons, and fields can all use event flows to configure custom operations.
 
-> Local skill note: this page explains product behavior and available step types. For actual skill writes, return to [settings.md](../../../../references/settings.md) for the `set-event-flows` write contract, [cli-command-surface.md](../../../../references/cli-command-surface.md) and [runtime-playbook.md](../../../../references/runtime-playbook.md) for routing, [transport-crosswalk.md](../../../../references/transport-crosswalk.md) for MCP fallback naming, and [js.md](../../../../references/js.md) plus [runjs-runtime.md](../../../../references/runjs-runtime.md) before validating any `Execute JavaScript` step code.
+> Local skill note: this page explains product behavior and available step types. For actual skill writes, return to [settings.md](../../../../references/settings.md) for `get-event-flow-meta` plus `add-event-flow` / `set-event-flow` / `remove-event-flow`, with `set-event-flows` reserved for full replacement. Use [cli-command-surface.md](../../../../references/cli-command-surface.md) and [runtime-playbook.md](../../../../references/runtime-playbook.md) for routing, [transport-crosswalk.md](../../../../references/transport-crosswalk.md) for command naming, and [js.md](../../../../references/js.md) before writing any `Execute JavaScript` step code.
 
 ## How to use
 
@@ -203,7 +203,7 @@ Display notification alerts in the four corners of the system. Commonly used for
 
 Execute JavaScript code.
 
-When you use this step through the skill, treat the code as RunJS input that must pass the local validator before writeback. The actual persisted payload is written through `set-event-flows`, not by patching arbitrary raw UI tree props.
+When you use this step through the skill, prepare the code through [js.md](../../../../references/js.md) before writeback. Localized persisted payloads are written through `set-event-flow` or `add-event-flow`; full registry replacement uses `set-event-flows`. Do not patch arbitrary raw UI tree props.
 
 ### Custom request
 

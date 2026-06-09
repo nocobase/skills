@@ -25,20 +25,22 @@ Use when the user says things like:
 
 1. Read the workflow to confirm it is an approval workflow trigger.
 2. Decide whether this is first-time setup or whole-surface replace.
-3. Call `flowSurfaces:applyApprovalBlueprint` with:
+3. Include an `approvalInitiator` block bound to the trigger collection; helper blocks are optional and cannot replace the form.
+4. Call `flowSurfaces:applyApprovalBlueprint` with:
    - `surface: "initiator"`
    - `workflowId`
-   - `blocks`
+   - `blocks` containing `approvalInitiator`
    - optional `layout`
-4. Read back the created root with `flowSurfaces:get`.
-5. Verify `workflow.config.approvalUid` now points to the returned root `uid`.
-6. Verify the initiator form still owns the default submit action.
+5. Read back the created root with `flowSurfaces:get`.
+6. Verify `workflow.config.approvalUid` now points to the returned root `uid`.
+7. Verify the initiator form still owns the default submit action (`ApplyFormSubmitModel`).
 
 ### Do not do
 
 - Do not wait for the caller to provide `approvalUid`.
 - Do not bootstrap this surface with `compose`.
 - Do not add a second `approvalSubmit` just to recreate the default submit button.
+- Do not deliver an initiator surface that only has Markdown, JS, or task-card details.
 
 ## Recipe 2: Build an approver surface from `nodeId`
 
@@ -56,20 +58,24 @@ Use when the user says things like:
 
 1. Read the node to confirm it is an approval node.
 2. Decide whether this is first-time setup or whole-surface replace.
-3. Call `flowSurfaces:applyApprovalBlueprint` with:
+3. Include both required approver blocks:
+   - `approvalInformation` for read-only original submitted data.
+   - `approvalApprover` for decision actions and approver-editable fields.
+4. Call `flowSurfaces:applyApprovalBlueprint` with:
    - `surface: "approver"`
    - `nodeId`
-   - `blocks`
+   - `blocks` containing both `approvalInformation` and `approvalApprover`
    - optional `layout`
-4. Read back the created root with `flowSurfaces:get`.
-5. Verify `node.config.approvalUid` now points to the returned root `uid`.
-6. Verify any approval runtime config implied by process actions is synchronized.
+5. Read back the created root with `flowSurfaces:get`.
+6. Verify `node.config.approvalUid` now points to the returned root `uid`.
+7. Verify the surface contains at least one process action and any approval runtime config implied by process actions is synchronized.
 
 ### Do not do
 
 - Do not hand this off to ordinary page authoring.
 - Do not assume the full generic page block catalog is supported under the approval grid; in this phase only `markdown` and `jsBlock` are in scope beyond approval-specific blocks.
 - Do not assume existing action singletons will still appear in catalog reads.
+- Do not build only the read-only details block or only the process form unless the user explicitly requested a partial repair.
 
 ## Recipe 3: Edit an existing approver surface from `nodeId`
 

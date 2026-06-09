@@ -1,0 +1,4 @@
+interface:
+  display_name: "NocoBase AI Employee"
+  short_description: "Configure AI employees for NocoBase blocks"
+  default_prompt: "Use $nocobase-ai-employee to decide whether a block business requirement should become an AI employee action and configure it."

@@ -48,7 +48,7 @@ description: 表格中的关联标题字段如何稳定展示、点击打开 pop
 }
 ```
 
-没有这个 intent tag，guard 会把“关联标题列点击 popup 的 JS workaround”视为高风险误判。
+没有这个 intent tag，后端聚合验证会把“关联标题列点击 popup 的 JS workaround”视为高风险误判。
 
 ## 常见误区
 

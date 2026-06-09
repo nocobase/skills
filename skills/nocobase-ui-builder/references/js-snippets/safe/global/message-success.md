@@ -31,4 +31,4 @@ ctx.message.success(ctx.t('Operation succeeded'));
 - Replace `Operation succeeded` with the final message key/text.
 
 ## Skill-mode notes
-Run this through the RunJS validator before writing it into event-flow, linkage, or action payloads.
+Write through `nb api flow-surfaces <action>`. If the response returns `errors[]`, fix the payload and retry.

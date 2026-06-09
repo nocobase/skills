@@ -1,6 +1,6 @@
 # Field Linkage Rules
 
-> Local skill note: for final skill writes, use [reaction.md](../../../../../../references/reaction.md). If a rule contains JavaScript, validate it with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md) before writing.
+> Local skill note: for final skill writes, use [reaction.md](../../../../../../references/reaction.md). If a rule contains JavaScript, prepare it with [js.md](../../../../../../references/js.md) before writing.
 
 ## Introduction
 

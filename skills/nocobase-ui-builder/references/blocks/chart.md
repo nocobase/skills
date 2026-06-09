@@ -17,13 +17,13 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
 - `报表` / `dashboard`
 - `分析看板`（不是 kanban/pipeline/泳道 类看板）
 
-如果请求只是几个 KPI 数字摘要，没有明显图形语义，优先看 [grid-card.md](grid-card.md)。
+如果请求只是几个 KPI 数字摘要，没有明显图形语义，优先看 [../js-models/js-block.md](../js-models/js-block.md) 的 JSBlock 统计面板。
 
 如果请求带 `kanban / pipeline / 状态列 / 拖拽 / 泳道 / backlog / 看板区块` 这类明确 kanban cue，不要继续走 chart，改看 [kanban.md](kanban.md)。
 
 ## Whole-page public blueprint 写法
 
-在 `applyBlueprint` 里，chart block 不接受 `stepParams`。必须把图表配置放进 `assets.charts`，然后在 block 上用 `chart` 引用资产 key：
+在 `applyBlueprint` 里，chart block 不接受 `stepParams`。首选和 canonical 写法是把图表配置放进 `assets.charts`，然后在 block 上用 `block.chart` 引用资产 key：
 
 ```json
 {
@@ -66,6 +66,15 @@ description: Chart 区块的 public blueprint 配置、basic visual mappings、q
 }
 ```
 
+Whole-page `applyBlueprint` 现在不提供 inline chart 自动提升。旧草稿如果把 `settings.query` / `settings.visual` / `settings.events` 写在 chart block 上，写入前先手动迁移到 `assets.charts.<key>`，并让 block 写 `chart: "<key>"`；`settings.title`、`settings.height`、`settings.heightMode` 等 display-only 设置仍留在 block 上。
+
+Backend authoring 的边界：
+
+- chart block 缺少 `chart` 引用时，返回 aggregate error `chart-block-asset-reference-required`。
+- `chart` 指向不存在的 asset 时，返回 `chart-block-asset-reference-missing`。
+- public chart block 上写 `stepParams` 时，返回 `chart-block-step-params-unsupported`。
+- 不要混写 `block.chart` 和 inline `settings.query` / `settings.visual` / `settings.events`；asset 是 whole-page 图表配置的唯一来源。
+
 For localized `compose` / `add-block` / `configure`, put the same public groups under `settings` or `changes`:
 
 ```json
@@ -107,10 +116,9 @@ For localized `compose` / `add-block` / `configure`, put the same public groups 
 ### builder field contract
 
 - scalar 字段继续用字符串，例如 `"amount"`、`"status"`。
-- builder chart query 默认只使用宿主 collection 的 scalar 字段，例如 `"amount"`、`"status"`、`"employerGroupId"`。
-- 不要在 builder chart query 的 `measures[]` / `dimensions[]` / `sorting[]` / `orders[]` 里写 relation path：数组路径如 `["customer", "name"]` 或 dotted string 如 `"customer.name"` 都会被本地 helper 拦截。
-- 本地错误码是 `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED` / `chart-builder-relation-field-runtime-unsupported`。
-- 如果图表必须按 relation 的显示名称分组，改用 SQL chart 显式 join 并设置稳定 alias；只接受显示 ID 时，才用 scalar foreign key 作为 fallback。
+- builder chart query 默认优先使用宿主 collection 的 scalar 字段，例如 `"amount"`、`"status"`、`"employerGroupId"`。
+- 不要直接把 association 字段本身写进 `measures[]` / `dimensions[]`，例如 `"customer"`。backend aggregate validation 会用 `chart-builder-query-association-field-requires-subfield` 拒绝，并在 `details.suggestedFieldPath` 里提示类似 `"customer.name"` 的 scalar subfield。
+- 如果 relation label 分组可以用 backend 建议的 scalar subfield 表达，可以改写为该 subfield；如果需要更复杂 join、聚合或 label 逻辑，改用 SQL chart 显式 join 并设置稳定 alias。只接受显示 ID 时，才用 scalar foreign key 作为 fallback。
 - `visual.mappings.*` 写 query 输出字段或 alias，例如 `"status"`、`"count_orders"`。
 
 例子：
@@ -179,21 +187,77 @@ Required mappings:
 4. 用户明确说 `SQL`，或 relation label 分组无法用 scalar 字段表达时，再生成 `sql + basic` 或 `sql + custom`。
 5. 用户明确要求自定义 ECharts option / events 时，才生成 `custom`。
 
-## guard 关注点
+## Dashboard chart recipes
 
-payload guard 应至少检查：
+If a dashboard asks for chart / 图表 / Charts, do not replace that section with JSBlock, table, list, gridCard, or markdown. KPI numbers can use JSBlock, but trend, distribution, ranking, and percentage / 占比 sections require `type: "chart"` blocks.
 
-- `CHART_QUERY_MODE_MISSING`
-- `CHART_BUILDER_RESOURCE_MISSING` / `CHART_BUILDER_COLLECTION_PATH_MISSING`
-- `CHART_BUILDER_MEASURES_MISSING`
-- `CHART_VISUAL_TYPE_MISSING`
-- `CHART_VISUAL_MAPPINGS_MISSING`
-- `CHART_VISUAL_LEGACY_BUILDER_KEYS_UNSUPPORTED`
-- `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED`
-- `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED`
-- `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED`
-- `CHART_SQL_TEXT_MISSING`
-- `CHART_CUSTOM_OPTION_RAW_MISSING`
+Use these whole-page recipes by replacing only collection, field, alias, title, and asset key:
+
+```json
+{
+  "assets": {
+    "charts": {
+      "trendChart": {
+        "query": {
+          "mode": "builder",
+          "resource": { "dataSourceKey": "main", "collectionName": "intelligenceItems" },
+          "measures": [{ "field": "id", "aggregation": "count", "alias": "count_items" }],
+          "dimensions": [{ "field": "occurDate" }]
+        },
+        "visual": { "mode": "basic", "type": "line", "mappings": { "x": "occurDate", "y": "count_items" } }
+      },
+      "categoryDistribution": {
+        "query": {
+          "mode": "builder",
+          "resource": { "dataSourceKey": "main", "collectionName": "intelligenceItems" },
+          "measures": [{ "field": "id", "aggregation": "count", "alias": "count_items" }],
+          "dimensions": [{ "field": "intelType" }]
+        },
+        "visual": { "mode": "basic", "type": "doughnut", "mappings": { "category": "intelType", "value": "count_items" } }
+      },
+      "importanceDistribution": {
+        "query": {
+          "mode": "builder",
+          "resource": { "dataSourceKey": "main", "collectionName": "intelligenceItems" },
+          "measures": [{ "field": "id", "aggregation": "count", "alias": "count_items" }],
+          "dimensions": [{ "field": "importance" }]
+        },
+        "visual": { "mode": "basic", "type": "bar", "mappings": { "x": "importance", "y": "count_items" } }
+      }
+    }
+  },
+  "tabs": [
+    {
+      "blocks": [
+        { "key": "trendChart", "type": "chart", "title": "近 30 天情报新增趋势", "chart": "trendChart" },
+        { "key": "categoryDistribution", "type": "chart", "title": "情报类型分布", "chart": "categoryDistribution" },
+        { "key": "importanceDistribution", "type": "chart", "title": "重要程度分布", "chart": "importanceDistribution" }
+      ]
+    }
+  ]
+}
+```
+
+For a ranking chart such as "产品活跃度排行", prefer `barHorizontal`. If the ranking needs relation labels, use a SQL chart with an explicit join; do not use a relation field directly in builder dimensions.
+
+## Backend validation 关注点
+
+Backend aggregate `errors[]` 是写入边界。常见 rule id：
+
+- `chart-block-asset-reference-required`
+- `chart-block-asset-reference-missing`
+- `chart-block-step-params-unsupported`
+- `chart-query-missing`
+- `chart-builder-query-resource-missing`
+- `chart-builder-query-measures-missing`
+- `chart-builder-query-association-field-requires-subfield`
+- `chart-visual-missing`
+- `chart-visual-required-mappings-missing`
+- `chart-visual-legacy-builder-keys-unsupported`
+- `chart-sql-query-text-missing`
+- `chart-custom-visual-raw-missing`
+
+When a required chart returns one of these authoring errors, repair the same chart payload and retry it as `chart`. For whole-page `applyBlueprint`, keep `type: "chart"`, define `assets.charts.<key>.query` and `assets.charts.<key>.visual`, then reference it with `block.chart`. For localized writes, keep the existing chart block and repair `settings.query/settings.visual` or `changes.query/changes.visual`. Do not switch a required chart to `table`, `list`, `jsBlock`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
 
 ## 继续读
 

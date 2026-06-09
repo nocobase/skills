@@ -8,7 +8,7 @@ Use this to decide whether to add a new snippet, repair mapping, or surface rule
 - `ctx root mismatch`: selected snippet requires a `ctx.*` root not available on the chosen surface.
 - `wrong effect style`: value code used side effects, render code returned values, or action code rendered UI.
 - `resource access mismatch`: NocoBase resource reads used `ctx.request(...)` instead of resource APIs.
-- `blocked capability`: code used APIs intentionally disallowed as final skill output, especially `ctx.openView(...)`.
+- `blocked capability`: code used a capability target that is invalid for the chosen surface, especially popup opening with an unresolved host, transient uid, `ChildPageModel`, page/tab, or popup subtree. For valid popup intent, resolve a template-first popup-capable FlowModel first, then use `global/open-popup-flow-model` / `ctx.openView(triggerUid, ...)`.
 - `missing metadata`: target field, source field, modelUse, or form/table context was not known before code generation.
 
 ## Decision Rule

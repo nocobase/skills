@@ -16,7 +16,7 @@ description: 渲染型 JS model 的统一约束：默认用 ctx.render()，ctx.e
 ## 强规则
 
 - 对需要渲染的 JS model，默认使用 `ctx.render()`。
-- 不要把 `ctx.element.innerHTML = ...` 当作默认模板；skill 会先尝试自动改写，不能安全改写时直接 blocker。
+- 不要把 `ctx.element.innerHTML = ...` 当作默认模板；作者应显式改成 `ctx.render(...)`，不能明确改写时让后端聚合验证阻断。
 - 不要把 `return value` 当作渲染结果。
 
 ## 为什么
@@ -68,7 +68,7 @@ return value;
 ctx.element.innerHTML = '<div>...</div>';
 ```
 
-问题：这不是 skill 允许的默认范式；guard 会优先尝试自动改写，剩余复杂场景直接阻断。
+问题：这不是 skill 允许的默认范式；不要依赖本地自动改写，应显式改成 `ctx.render(...)`，剩余复杂场景让后端聚合验证阻断。
 
 ## 正确示例
 

@@ -1,8 +1,8 @@
 # ctx.openView()
 
-Programmatically open a specified view (drawer, dialog, embedded page, etc.). Provided by `FlowModelContext`, it is used to open configured `ChildPage` or `PopupAction` views in scenarios such as `JSBlock`, table cells, and workflows.
+Programmatically open a specified view (drawer, dialog, embedded page, etc.). Provided by `FlowModelContext`, it is used to open configured popup-capable FlowModel views in scenarios such as `JSBlock`, table cells, and workflows; the rendered target may contain a `ChildPage`.
 
-> Local skill note: this page documents product/runtime capability only. The skill-mode validator does **not** accept direct `ctx.openView(...)` as final output. Do not emit `ctx.openView(...)` as the final answer for this skill. Use this page as reference, then return to [js-reference-index.md](../../../../../references/js-reference-index.md) and [js.md](../../../../../references/js.md). For final user-facing solutions, prefer popup actions, field popups, or event flows outside the JS snippet. Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values.
+> Local skill note: this page documents product/runtime capability only. Do not emit bare `ctx.openView(...)` with a transient uid, `ChildPageModel`, page, tab, or popup subtree uid as the final answer for this skill. Use this page as reference, then return to [js-reference-index.md](../../../../../references/js-reference-index.md) and [js.md](../../../../../references/js.md). Final skill output should first resolve a template-first popup-capable FlowModel, preferably preserving `popupTemplateUid` / `popupTemplateMode`, and should prefer `await ctx.getVar('ctx.record...')` for record variable values.
 
 ## Use Cases
 
@@ -13,7 +13,7 @@ Programmatically open a specified view (drawer, dialog, embedded page, etc.). Pr
 | **Workflow / JSAction** | Open the next view or a dialog after a successful operation. |
 | **Association Field** | Open a selection/edit dialog via `ctx.runAction('openView', params)`. |
 
-> Note: `ctx.openView` is available in a RunJS environment where a `FlowModel` context exists. If the model corresponding to the `uid` does not exist, a `PopupActionModel` will be automatically created and persisted.
+> Skill-mode note: `ctx.openView` is available in a RunJS environment where a `FlowModel` context exists, but final skill output must treat a missing `uid` as invalid. Resolve the opener with readback first and pass only an existing popup-capable FlowModel `triggerUid`.
 
 ## Signature
 
@@ -25,7 +25,7 @@ openView(uid: string, options?: OpenViewOptions): Promise<void>
 
 ### uid
 
-The unique identifier of the view model. If it does not exist, it will be automatically created and saved. It is recommended to use a stable UID, such as `${ctx.model.uid}-detail`, so that the configuration can be reused when opening the same dialog multiple times.
+The unique identifier of an existing popup-capable FlowModel to open. Under this skill, use a `triggerUid` from readback, usually a persisted popup host/action whose `popupSettings.openView.uid` points at the intended target. Do not construct ad-hoc uids in JS.
 
 ### Common options Fields
 
@@ -50,8 +50,8 @@ The unique identifier of the view model. If it does not exist, it will be automa
 ### Basic Usage: Open a Drawer
 
 ```ts
-const popupUid = `${ctx.model.uid}-detail`;
-await ctx.openView(popupUid, {
+const triggerUid = 'replace-with-persisted-popup-flowmodel-uid';
+await ctx.openView(triggerUid, {
   mode: 'drawer',
   size: 'medium',
   title: ctx.t('Details'),
@@ -61,15 +61,13 @@ await ctx.openView(popupUid, {
 ### Passing Current Row Context
 
 ```ts
+const triggerUid = 'replace-with-persisted-popup-flowmodel-uid';
 const primaryKey = ctx.collection?.primaryKey || 'id';
 const record = (await ctx.getVar('ctx.record')) || {};
-await ctx.openView(`${ctx.model.uid}-1`, {
+await ctx.openView(triggerUid, {
   mode: 'dialog',
   title: ctx.t('Row Details'),
-  params: {
-    filterByTk: record?.[primaryKey],
-    record,
-  },
+  filterByTk: record?.[primaryKey],
 });
 ```
 
@@ -89,10 +87,18 @@ await ctx.runAction('openView', {
 ### Injecting Custom Context
 
 ```ts
-await ctx.openView(`${ctx.model.uid}-edit`, {
+const triggerUid = 'replace-with-persisted-popup-flowmodel-uid';
+await ctx.openView(triggerUid, {
   mode: 'drawer',
   filterByTk: await ctx.getVar('ctx.record.id'),
   defineProperties: {
+    drilldownValue: {
+      value: 'High',
+      meta: {
+        title: ctx.t('Drilldown value'),
+        type: 'string',
+      },
+    },
     onSaved: {
       get: () => () => ctx.resource?.refresh?.(),
       cache: false,
@@ -109,15 +115,16 @@ await ctx.openView(`${ctx.model.uid}-edit`, {
 | **Open custom content (no flow)** | `ctx.viewer.dialog()` / `ctx.viewer.drawer()` |
 | **Operate on the currently open view** | `ctx.view.close()`, `ctx.view.inputArgs` |
 
-`ctx.openView` opens a `FlowPage` (`ChildPageModel`), which renders a complete flow page internally; `ctx.viewer` opens arbitrary React content.
+`ctx.openView` opens the configured flow view for the resolved popup-capable FlowModel; the content behind that opener may render a `ChildPageModel`. In skill-mode final output, `ChildPageModel` is rendered content, not the `triggerUid`. `ctx.viewer` opens arbitrary React content.
 
 ## Notes
 
-- It is recommended to associate the `uid` with `ctx.model.uid` (e.g., `${ctx.model.uid}-xxx`) to avoid conflicts between multiple blocks.
+- Resolve the `uid` from an existing popup-capable FlowModel before writing final skill output; do not invent a uid from `ctx.model.uid`.
 - When `defineProperties` or `defineMethods` are passed, `navigation` is forced to `false` to prevent context loss after a refresh.
-- Inside the dialog, `ctx.view` refers to the current view instance, and `ctx.view.inputArgs` can be used to read the parameters passed during opening.
+- Inside the dialog, `ctx.view` refers to the current view instance, and `ctx.view.inputArgs` can be used in JavaScript to read the parameters passed during opening.
+- When the opened view's blocks or settings need variables, such as a table data scope inside a chart drill-down dialog, pass them through `defineProperties` with `meta` and reference them as top-level variables like `{{ ctx.drilldownValue }}`.
 
 ## Related
 
 - [ctx.view](./view.md): The currently open view instance.
-- [ctx.model](./model.md): The current model, used to construct a stable `popupUid`.
+- [ctx.model](./model.md): The current model context; do not use it to invent popup trigger uids in final skill output.

@@ -4,7 +4,7 @@
 
 The JS Block is a highly flexible "custom rendering block" that allows you to write JavaScript directly to generate interfaces, bind events, call data APIs, or integrate third-party libraries. It is suitable for personalized visualizations, temporary experiments, and lightweight extension scenarios that are difficult to cover with built-in blocks.
 
-> Local skill note: treat this page as a product/runtime reference. Validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer popup actions, field popups, or event flows outside the JS snippet.
+> Local skill note: treat this page as a product/runtime reference. Prepare final code with [js.md](../../../../../../references/js.md). For popup/drawer/dialog intent, do not emit bare `ctx.openView(...)` against a transient, ChildPage, page, tab, or popup subtree uid. Resolve a template-first persisted popup-capable FlowModel first, then call `ctx.openView(triggerUid, ...)`.
 
 ## Runtime Context API
 
@@ -14,7 +14,7 @@ The JS Block's runtime context has common capabilities injected and can be used 
 - `ctx.request(options)` / `ctx.api.request(options)`: Send HTTP requests. Under skill-mode, prefer full `http/https` URLs.
 - `ctx.requireAsync(url)`: Asynchronously loads an AMD/UMD library by URL.
 - `ctx.importAsync(url)`: Dynamically imports an ESM module by URL.
-- `ctx.openView`: Opens a configured view (popup/drawer/page) in the product runtime, but this skill does not accept direct `ctx.openView(...)` as final output.
+- `ctx.openView`: Opens a configured view (popup/drawer/page) in the product runtime. Under this skill, use it only with an existing popup-capable FlowModel trigger uid resolved through the template-first popup/openView path.
 - `ctx.initResource(...)` + `ctx.resource` or `ctx.makeResource(...)`: Access data as a resource.
 - `ctx.i18n.t()` / `ctx.t()`: Built-in internationalization capability.
 - `ctx.onRefReady(ctx.ref, cb)`: Renders after the container is ready to avoid timing issues.

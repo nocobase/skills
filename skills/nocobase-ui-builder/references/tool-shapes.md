@@ -2,42 +2,46 @@
 
 This file summarizes the request shapes most often needed by this skill.
 
-Do not open this file until you are preparing the real nb body. For the common local helper surface first, use [helper-contracts.md](./helper-contracts.md).
+Do not open this file until you are preparing the real nb body.
 
 Use it with:
 
-- [cli-command-surface.md](./cli-command-surface.md) for canonical wrapper families
-- [transport-crosswalk.md](./transport-crosswalk.md) for the wrapper family
+- [cli-command-surface.md](./cli-command-surface.md) for canonical backend action families
 - [page-blueprint.md](./page-blueprint.md), [reaction.md](./reaction.md), and [templates.md](./templates.md) for business-object rules and template planning
 
-Canonical front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. Use this file for the raw business object / locator shape passed through the wrapper.
+Canonical write path is `nb api flow-surfaces <action>`. Use this file for the raw business object / locator shape passed to the backend action.
 
 ## 0. Global Rule
 
-- wrapper `get` is the common exception: it uses top-level locator flags and no JSON body.
+- read commands such as `get` may use top-level locator flags and no JSON body.
 - Most other body-based `flow-surfaces` commands take the raw business object through CLI `--body` / `--body-file`.
 - Never stringify the business object.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
-- For `applyBlueprint`, the nb request body is one page blueprint business object. On a first whole-page write that already ran `prepare-write`, that means `result.cliBody`, not the original draft blueprint. The helper stays local/read-only; the later transport step must send only that prepared object. Do not wrap it again.
-- For whole-page `applyBlueprint`, recompute the involved target collections from live metadata and rebuild top-level `defaults.collections` from scratch on each draft. Every involved direct collection keeps fixed `popups.view` / `addNew` / `edit` `{ name, description }` descriptors there, `defaults.collections.<collection>.fieldGroups` stays only on the target collection when a fixed generated popup scene should still have more than 10 effective fields, `table` blocks always pull their collection into the `addNew` threshold evaluation, and relation popup naming stays under `popups.associations` keyed only by the first relation segment; do not send `defaults.blocks` or popup-default content/layout. After generating defaults fieldGroups, run one compact self-review with a short structured verdict (`approve` or `regenerate`), using the lowest practical reasoning effort / no-think mode and no chain-of-thought; if needed, regenerate once and stop.
+- For `applyBlueprint`, the nb request body is one page blueprint business object. Send the raw business payload directly; do not create skill-local helper output, helper envelopes, or `cliBody` first.
+- For whole-page `applyBlueprint`, recompute the involved target collections from live metadata and rebuild top-level `defaults.collections` from scratch on each draft. Every involved direct collection keeps fixed `popups.view` / `addNew` / `edit` `{ name, description }` descriptors there, `defaults.collections.<collection>.fieldGroups` stays only on the target collection when a fixed generated popup scene should still have more than 10 effective fields, and relation popup naming stays under `popups.associations` keyed only by the first relation segment. Description-derived generated add/edit behavior stays field-granular: use `defaults.collections.<collection>.formBehavior.addNew/edit` for safely structured behavior, and use sibling `formBehaviorDescriptionReview.fields.<field> = { decision, reasonCode? }` for each reviewed described generated add/edit field. `implemented` requires real coverage; `noUiBehavior` / `unsupported` require a valid `reasonCode`; old `fields[]` / `hasTried`, `formBehavior: {}`, and no-op `null` are rejected. `table` blocks always pull their collection into the `addNew` threshold evaluation; do not send `defaults.blocks` or popup-default content/layout. After generating defaults fieldGroups, run one compact self-review with a short structured verdict (`approve` or `regenerate`), using the lowest practical reasoning effort / no-think mode and no chain-of-thought; if needed, regenerate once and stop.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs or placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
+- Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, field-specific `type`, or clear form behavior inferred from live field `description` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit keyed layout is required, and when multiple non-filter blocks share the scope each non-template-backed data block needs a `title`; template-backed blocks are exempt; a single non-filter block may omit its title unless the user explicitly asks for one.
 - Public page/popup/fields layout `{ rows: [[{ key, span }]] }` is different from low-level `set-layout` runtime `rows` / `sizes`. Do not mix those grammars.
-- When authoring direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, always include a non-empty block-level `defaultFilter` on that block/create envelope. Prefer 3 to 4 common business fields when metadata supports them; if fewer than 3 suitable candidates exist, cover every available candidate instead. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional.
+- When authoring direct non-template public `table` / `list` / `gridCard` / `calendar` / `kanban` creations through `applyBlueprint`, `compose`, `add-block`, or `add-blocks`, `defaultFilter` may be omitted; backend authoring materializes one from live metadata with up to 4 scalar/filterable fields. Explicit `defaultFilter` overrides must be concrete, metadata-valid, and backed by at least the smaller of 3 and the collection's eligible direct interface-field count; empty groups, invalid operators, relation fields used directly, and unknown paths are rejected through aggregate `errors[]`. Use scalar fields or relation child paths such as `department.title`, not `department` itself. Keep the same host's block-level `filter` action routing for filter/search intent, but the action itself is optional. For every direct public data surface, partial `actions` complete to that host's defaults (`filter` / `refresh` / `addNew`, plus table `bulkDelete`). Ordinary table partial `recordActions` complete to `view` / `edit` / `delete`; tree table partial `recordActions` do not complete those defaults and should usually be omitted so the backend injects only `addChild`.
+- Direct non-template `applyBlueprint` `kanban` main blocks have a 2-field cap on explicit card `fields[]`; omitted `fields[]` is prepared from live metadata with at most 2 suitable display fields. `compose`, `add-block`, and `add-blocks` keep their existing Kanban field behavior and are not capped by this rule.
+- Direct non-template `applyBlueprint` `kanban` defaults to `settings.dragEnabled=true`. Send `settings.dragSortBy` only when live metadata has a sort field compatible with the current/effective `groupField`; otherwise omit it so the backend can create a hidden sort field on writable main datasource collections. Explicit `settings.dragEnabled=false` opts out, and explicit incompatible `settings.dragSortBy` fails validation.
+- `comments` and `recordHistory` are public block types. For localized adds, inspect `catalog.blocks` first. `comments` page blocks require a comment-template collection; popup comments use `resource.binding: "associatedRecords"` and a legal comment association. `recordHistory` requires a collection with a real `filterTargetKey`; current-record history only uses `resource.binding: "currentRecord"` in one-record popup/details scenes. Do not write raw model names or handwritten `stepParams`.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
-- When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, whole-page `applyBlueprint` inline popup specs, and calendar/kanban hidden popup specs. In whole-page `create`, prepare-write also auto-adds missing direct non-template calendar/kanban hidden popup specs with `tryTemplate=true`; local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth, and keep helper-only popup/defaults rules in [helper-contracts.md](./helper-contracts.md).
+- When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, whole-page `applyBlueprint` inline popup specs, and calendar/kanban hidden popup specs. In whole-page `create`, the backend can auto-add missing direct non-template calendar/kanban hidden popup specs with `tryTemplate=true`; local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
+- `popup.tryTemplate=false` is a hard backend no-reuse switch. Emit it only when the user explicitly asks for no template / no reuse / local-only / current-only / copy / detach behavior, not merely because inline `popup.blocks` are present.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - For localized create/append writes, do not assume the request body is the final action list; read back the persisted surface before adding more actions or popup wiring.
 - When the intended UX is "click the shown title/name to open details", prefer field popup / `clickToOpen` / `openView` semantics and avoid adding a redundant `view` record action unless the user explicitly asked for a button/action column.
+- AI employee shortcuts are public actions: use `type: "aiEmployee"` and public `settings.username`, `settings.auto`, `settings.workContext`, `settings.tasks`, and `settings.style`. In whole-page `applyBlueprint` and same-run `compose`, work-context items may use `target: "self"` or a same-run block key; localized edits may use `self` for the owning block/form or a live Flow Model `uid`. Never author raw AI `props`, `stepParams`, `flowModels`, or DB writes.
 
 Safe mental model:
 
 1. author the inner business object
-2. send that same prepared object through `nb-flow-surfaces.mjs --body` / `--body-file`, or use locator flags when the command is bodyless
+2. send that same object through `nb api flow-surfaces <action> --body` / `--body-file`, or use locator flags when the command is bodyless
 3. do not wrap that object again
 4. never transform the business object into a stringified nested wrapper
 
@@ -54,7 +58,7 @@ Wrong wrapper body:
 }
 ```
 
-Correct body for wrapper `configure`:
+Correct body for `nb api flow-surfaces configure`:
 
 ```json
 {
@@ -142,6 +146,93 @@ Notes:
 - Reuse the returned capability `fingerprint` in the matching `set-*` write.
 - Use `flow-surfaces context` only when you still need lower-level ctx paths beyond the returned metadata.
 
+### `get-event-flow-meta`
+
+Use `get-event-flow-meta` before localized Event Flow authoring. It returns the current `flowRegistry`, supported events/phases, step actions, ctx variable metadata, and a `fingerprint`.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" }
+}
+```
+
+### `add-event-flow`
+
+Use `add-event-flow` to add one Event Flow without replacing neighboring flows. MVP creation supports `beforeAllFlows`; omit `phase` to use that default.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "eventName": "submit",
+  "steps": {
+    "runGuard": {
+      "use": "runjs",
+      "defaultParams": {
+        "code": "ctx.message.success(ctx.t('Saved'));"
+      }
+    }
+  },
+  "condition": {
+    "logic": "$and",
+    "items": []
+  },
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
+Notes:
+
+- `condition` is persisted as `on.defaultParams.condition`.
+- For `Execute JavaScript`, validate first and write code to `defaultParams.code`.
+
+### `set-event-flow`
+
+Use `set-event-flow` to replace one existing or intentionally keyed Event Flow without replacing neighboring flows.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "flow": {
+    "key": "submitGuard",
+    "on": {
+      "eventName": "submit",
+      "phase": "beforeAllFlows"
+    },
+    "steps": {
+      "runGuard": {
+        "use": "runjs",
+        "defaultParams": {
+          "code": "ctx.message.success(ctx.t('Updated'));"
+        }
+      }
+    }
+  },
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
+### `remove-event-flow`
+
+Use `remove-event-flow` to delete one Event Flow by key without replacing neighboring flows.
+
+nb request body:
+
+```json
+{
+  "target": { "uid": "employee-form-uid" },
+  "key": "submitGuard",
+  "expectedFingerprint": "fingerprint-from-get-event-flow-meta"
+}
+```
+
 ### `set-event-flows`
 
 Use `set-event-flows` only for full replacement of a target node's instance-level `flowRegistry`.
@@ -157,7 +248,8 @@ nb request body:
       "on": "click",
       "steps": {
         "runJsStep": {
-          "params": {
+          "use": "runjs",
+          "defaultParams": {
             "code": "ctx.message.success(ctx.t('Saved'));"
           }
         }
@@ -190,8 +282,10 @@ Alternative `on` shape when the flow is inserted relative to a built-in flow/ste
 Notes:
 
 - Prefer `flowRegistry` over `flows`.
+- Prefer `get-event-flow-meta` plus `add-event-flow` / `set-event-flow` / `remove-event-flow` for localized edits.
 - `submitFlow`, `submitHook`, and `runJsStep` are placeholders for live keys copied from readback.
-- For `Execute JavaScript`, keep the existing step shape and update only `params.code` after local RunJS validation.
+- For `Execute JavaScript`, keep the existing step shape and update only `defaultParams.code` after local RunJS validation. Frontend-created steps use `use: "runjs"` with `defaultParams`, not `name` with `params`.
+- If an event condition is configured, it belongs under object-form `on.defaultParams.condition`.
 - Do not guess unsupported `eventName`, `phase`, `flowKey`, or `stepKey`; keep the live contract from readback.
 
 Wrong wrapped body:
@@ -206,7 +300,8 @@ Wrong wrapped body:
         "on": "click",
         "steps": {
           "runJsStep": {
-            "params": {
+            "use": "runjs",
+            "defaultParams": {
               "code": "ctx.message.success(ctx.t('Saved'));"
             }
           }
@@ -608,13 +703,44 @@ nb request body:
 
 Notes:
 
-- `fieldsLayout` is available on `compose` only for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block.
+- `fieldsLayout` is available on `compose` and single-block `addBlock` writes for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block. Omit it by default for `createForm`, `editForm`, and `details`; backend authoring generates the default two-per-row grid and full-width live `richText` / `vditor` and `divider` rows. Keep explicit `fieldsLayout` for exact placement requests or compact `filterForm` layouts.
 - Each `fieldsLayout` row must be non-empty, every keyed field must be placed exactly once, and object-cell `span` must be numeric.
-- `addBlock` does not accept `fieldsLayout`; when the first write must shape a field grid directly, prefer `compose` over `addBlock`.
+- `addBlock` accepts `fieldsLayout` only together with inline `fields` for the new block; when the first write must shape multiple blocks or coordinate with page/popup layout, prefer `compose` over `addBlock`.
 - For `table` / `list` / `gridCard` / `calendar` / `kanban`, keep filtering/search as a normal block-level `filter` action unless the user explicitly asked for `filterForm`.
-- Calendar and kanban hidden popup hosts follow [page-blueprint.md](./page-blueprint.md): configure calendar `settings.quickCreatePopup` / `settings.eventPopup` and kanban `settings.quickCreatePopup` / `settings.cardPopup`; put template choices there, not as a main-block `popup.template`. For helper-only validation/default completion behavior, refer to [helper-contracts.md](./helper-contracts.md).
-- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
+- Direct non-template `table` / `list` / `gridCard` / `calendar` / `kanban` blocks may omit `defaultFilter`; backend authoring materializes generated default filters with up to 4 scalar/filterable fields.
+- Calendar and kanban hidden popup hosts follow [page-blueprint.md](./page-blueprint.md): configure calendar `settings.quickCreatePopup` / `settings.eventPopup` and kanban `settings.quickCreatePopup` / `settings.cardPopup`; put template choices there, not as a main-block `popup.template`. Backend authoring validates and materializes compatible defaults for these hidden popup settings. For direct non-template `applyBlueprint` kanban, keep main-card `fields[]` at 2 or fewer and let missing drag sort settings materialize as described in [blocks/kanban.md](./blocks/kanban.md). [helper-contracts.md](./helper-contracts.md) only records optional local-helper behavior and backend-owned write rules.
+- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` exists or the user explicitly asked for the hard no-reuse path (`popup.tryTemplate=false`).
 - After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
+
+Comments and record history examples:
+
+```json
+{
+  "target": { "uid": "record-popup-uid" },
+  "blocks": [
+    {
+      "key": "popupComments",
+      "type": "comments",
+      "resource": {
+        "binding": "associatedRecords",
+        "associationField": "comments"
+      },
+      "settings": { "title": "Comments", "pageSize": 10 }
+    },
+    {
+      "key": "popupHistory",
+      "type": "recordHistory",
+      "resource": { "binding": "currentRecord" },
+      "settings": {
+        "title": "History",
+        "sortOrder": { "order": "desc" },
+        "expand": { "expand": true },
+        "template": { "apply": "current" }
+      }
+    }
+  ]
+}
+```
 
 ### `configure`
 
@@ -623,6 +749,83 @@ Notes:
   "target": { "uid": "table-block-uid" },
   "changes": {
     "pageSize": 20
+  }
+}
+```
+
+Comments and record history configure examples:
+
+```json
+{
+  "target": { "uid": "comments-block-uid" },
+  "changes": {
+    "title": "Verification comments",
+    "pageSize": 5,
+    "dataScope": { "logic": "$and", "items": [] }
+  }
+}
+```
+
+```json
+{
+  "target": { "uid": "record-history-block-uid" },
+  "changes": {
+    "title": "Verification history",
+    "sortOrder": { "order": "asc" },
+    "expand": { "expand": true },
+    "template": { "apply": "current" }
+  }
+}
+```
+
+AI employee action reconfiguration uses the same public settings keys:
+
+```json
+{
+  "target": { "uid": "ai-employee-action-uid" },
+  "changes": {
+    "tasks": [
+      {
+        "title": "Generate table insights",
+        "message": {
+          "user": "Summarize risks and recommended next steps.",
+          "workContext": [{ "type": "flow-model", "target": "self" }]
+        },
+        "autoSend": true,
+        "webSearch": false
+      }
+    ]
+  }
+}
+```
+
+### `add-action` / `add-record-action` for AI employee
+
+Use `add-action` for block/form action slots and `add-record-action` for table/details/list/gridCard record slots.
+
+```json
+{
+  "target": { "uid": "table-block-uid" },
+  "type": "aiEmployee",
+  "settings": {
+    "username": "dex",
+    "auto": false,
+    "workContext": [{ "type": "flow-model", "target": "self" }],
+    "tasks": [
+      {
+        "title": "Analyze current record",
+        "message": {
+          "system": "Use the current UI context.",
+          "user": "Analyze this record and suggest next steps.",
+          "workContext": [{ "type": "flow-model", "target": "self" }]
+        },
+        "autoSend": false,
+        "skillSettings": null,
+        "model": null,
+        "webSearch": false
+      }
+    ],
+    "style": { "size": 40, "mask": false }
   }
 }
 ```

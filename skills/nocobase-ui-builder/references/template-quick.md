@@ -26,6 +26,7 @@ In those cases, stay on the primary route and do not open [templates.md](./templ
 - unresolved scope means clarify, not `copy`
 - repeat-eligible scenes require contextual `list-templates` when you are actually deciding whether to bind / reuse / standardize a template-backed scene
 - keyword-only search is discovery-only
+- "Fresh whole-page create may stay inline" is a pre-write routing shortcut only. It is not a reason to reject a successful backend `popup.template` hit, remove `popup.tryTemplate`, or rerun the page as local-only after `applyBlueprint` succeeds.
 
 For artifact-only existing-reference decisions, make both branches visible instead of collapsing the route to one generic boundary note:
 

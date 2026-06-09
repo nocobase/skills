@@ -3,13 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Skill-local bundled RunJS compatibility validator CLI for trusted skill workflows.",
+  "description": "Skill-local helper runtime for NocoBase UI Builder planning workflows.",
   "engines": {
     "node": ">=18"
   },
   "bin": {
-    "nb-runjs": "./bin/nb-runjs.mjs",
-    "nb-localized-write-preflight": "./bin/nb-localized-write-preflight.mjs",
     "nb-template-decision": "./bin/nb-template-decision.mjs"
   },
   "scripts": {

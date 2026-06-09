@@ -51,7 +51,6 @@
         ],
         "js-model.action": [
           "JSRecordActionModel",
-          "JSItemActionModel",
           "JSFormActionModel"
         ]
       },
@@ -110,7 +109,6 @@
         ],
         "js-model.action": [
           "JSRecordActionModel",
-          "JSItemActionModel",
           "JSFormActionModel"
         ]
       },
@@ -172,7 +170,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -180,6 +177,66 @@
       "offlineSafe": true,
       "preferredForIntents": [
         "notify"
+      ]
+    },
+    {
+      "id": "global/open-popup-flow-model",
+      "tier": "safe",
+      "family": "global",
+      "surfaces": [
+        "event-flow.execute-javascript",
+        "js-model.action"
+      ],
+      "hostScenes": [
+        "eventFlow",
+        "action"
+      ],
+      "intentTags": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
+      ],
+      "ctxRoots": [
+        "openView",
+        "t"
+      ],
+      "effectStyle": "action",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": true,
+      "forbiddenApis": [
+        "ctx.render"
+      ],
+      "doc": "js-snippets/safe/global/open-popup-flow-model.md",
+      "relatedIds": [
+        "render/open-popup-flow-model-button",
+        "global/message-success"
+      ],
+      "sceneHints": [
+        "eventFlow",
+        "action",
+        "popup"
+      ],
+      "modelUses": {
+        "event-flow.execute-javascript": [
+          "JSActionModel"
+        ],
+        "js-model.action": [
+          "JSActionModel",
+          "JSRecordActionModel",
+          "JSCollectionActionModel",
+          "JSFormActionModel",
+          "FilterFormJSActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
       ]
     },
     {
@@ -225,7 +282,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -281,7 +337,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -336,7 +391,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "JSRecordActionModel"
         ]
       },
@@ -388,7 +442,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -441,7 +494,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -502,7 +554,6 @@
         ],
         "js-model.action": [
           "JSRecordActionModel",
-          "JSItemActionModel",
           "JSFormActionModel"
         ]
       },
@@ -554,7 +605,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -605,7 +655,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -658,7 +707,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -710,7 +758,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -762,7 +809,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -814,7 +860,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -866,7 +911,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -918,7 +962,6 @@
         ],
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -969,8 +1012,7 @@
           "JSItemActionModel"
         ],
         "js-model.action": [
-          "JSFormActionModel",
-          "JSItemActionModel"
+          "JSFormActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1020,8 +1062,7 @@
         "js-model.action": [
           "JSActionModel",
           "JSRecordActionModel",
-          "JSCollectionActionModel",
-          "JSItemActionModel"
+          "JSCollectionActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1072,8 +1113,7 @@
         "js-model.action": [
           "JSActionModel",
           "JSRecordActionModel",
-          "JSCollectionActionModel",
-          "JSItemActionModel"
+          "JSCollectionActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1125,8 +1165,7 @@
         "js-model.action": [
           "JSActionModel",
           "JSRecordActionModel",
-          "JSCollectionActionModel",
-          "JSItemActionModel"
+          "JSCollectionActionModel"
         ]
       },
       "offlineSafe": false,
@@ -1178,8 +1217,7 @@
         "js-model.action": [
           "JSActionModel",
           "JSRecordActionModel",
-          "JSCollectionActionModel",
-          "JSItemActionModel"
+          "JSCollectionActionModel"
         ]
       },
       "offlineSafe": false,
@@ -1230,8 +1268,7 @@
         "js-model.action": [
           "JSActionModel",
           "JSRecordActionModel",
-          "JSCollectionActionModel",
-          "JSItemActionModel"
+          "JSCollectionActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1428,7 +1465,8 @@
         "js-model.render": [
           "JSBlockModel",
           "JSFieldModel",
-          "JSColumnModel"
+          "JSColumnModel",
+          "JSItemActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1472,7 +1510,8 @@
       "modelUses": {
         "js-model.render": [
           "JSFieldModel",
-          "JSColumnModel"
+          "JSColumnModel",
+          "JSItemActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1563,7 +1602,8 @@
       "modelUses": {
         "js-model.render": [
           "JSItemModel",
-          "JSEditableFieldModel"
+          "JSEditableFieldModel",
+          "JSItemActionModel"
         ]
       },
       "offlineSafe": true,
@@ -1618,6 +1658,64 @@
       ]
     },
     {
+      "id": "render/open-popup-flow-model-button",
+      "tier": "safe",
+      "family": "render",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block",
+        "popup"
+      ],
+      "intentTags": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
+      ],
+      "ctxRoots": [
+        "libs",
+        "openView",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/render/open-popup-flow-model-button.md",
+      "relatedIds": [
+        "global/open-popup-flow-model",
+        "scene/block/popup-record-summary"
+      ],
+      "sceneHints": [
+        "popup",
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel",
+          "JSColumnModel",
+          "JSFieldModel",
+          "JSItemModel",
+          "JSEditableFieldModel",
+          "FormJSFieldItemModel",
+          "JSItemActionModel"
+        ]
+      },
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "open-popup",
+        "open-view",
+        "drawer",
+        "dialog",
+        "drilldown"
+      ]
+    },
+    {
       "id": "action/message-success",
       "tier": "safe",
       "family": "action",
@@ -1654,7 +1752,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -1704,7 +1801,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -1753,7 +1849,6 @@
       "modelUses": {
         "js-model.action": [
           "JSFormActionModel",
-          "JSItemActionModel",
           "FilterFormJSActionModel"
         ]
       },
@@ -1835,7 +1930,6 @@
           "JSActionModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
           "JSFormActionModel",
           "FilterFormJSActionModel"
         ]
@@ -1974,6 +2068,54 @@
       "relatedIds": [
         "scene/block/text-summary",
         "render/list-from-resource"
+      ]
+    },
+    {
+      "id": "scene/block/metric-cards",
+      "tier": "safe",
+      "family": "scene/block",
+      "surfaces": [
+        "js-model.render"
+      ],
+      "hostScenes": [
+        "jsModel",
+        "block"
+      ],
+      "intentTags": [
+        "metric-cards",
+        "kpi",
+        "metrics",
+        "numeric-summary",
+        "request-data"
+      ],
+      "sceneHints": [
+        "block"
+      ],
+      "modelUses": {
+        "js-model.render": [
+          "JSBlockModel"
+        ]
+      },
+      "ctxRoots": [
+        "libs",
+        "makeResource",
+        "render",
+        "t"
+      ],
+      "effectStyle": "render",
+      "requiresTopLevelReturn": false,
+      "forbidsCtxRender": false,
+      "offlineSafe": true,
+      "preferredForIntents": [
+        "kpi",
+        "metrics",
+        "numeric-summary"
+      ],
+      "forbiddenApis": [],
+      "doc": "js-snippets/safe/scene/block/metric-cards.md",
+      "relatedIds": [
+        "scene/block/list-summary",
+        "scene/block/text-summary"
       ]
     },
     {

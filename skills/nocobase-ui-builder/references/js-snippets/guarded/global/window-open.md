@@ -4,7 +4,7 @@
 An action-style script must open an external URL.
 
 ## Do not use when
-The user wants a NocoBase popup or drawer; configure popup/action/field popup outside JS instead.
+The user wants a NocoBase popup, drawer, dialog, or drilldown; resolve the template-first popup FlowModel path and use `global/open-popup-flow-model` instead.
 
 ## Surfaces
 - `event-flow.execute-javascript`

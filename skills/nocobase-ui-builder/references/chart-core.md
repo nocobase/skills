@@ -4,7 +4,7 @@ Read [chart.md](./chart.md) first for chart tasks. Read this file only after you
 
 If you need to verify complex contracts, negative cases, or regression matrices, continue with [chart-validation.md](./chart-validation.md). This file only keeps the runtime main path.
 
-Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-surfaces.mjs`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to wrapper commands over flow-surfaces families and the same raw business objects; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
+Agent-facing front door is `nb api flow-surfaces <action>`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to backend flow-surfaces actions with raw business objects; use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for body details.
 
 ## Contents
 
@@ -25,7 +25,7 @@ Agent-facing front door is `node skills/nocobase-ui-builder/runtime/bin/nb-flow-
 
 ## Public Blueprint
 
-For chart, wrapper `configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
+For chart, `nb api flow-surfaces configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
 
 ```json
 {
@@ -43,7 +43,9 @@ The priority is to stabilize both "card displays" and "chart renders". Do not ex
 
 Chart is also an example of the general public-settings pattern: when creating or reconfiguring, prefer public semantics such as `query / visual / events / title / height / heightMode`. Do not reverse internal `props / decoratorProps / stepParams` from readback into the next input template.
 
-For whole-page `applyBlueprint`, put chart configs under `assets.charts` and reference them from block `chart`. Do not put `stepParams` on the block. Public `visual` uses `mode / type / mappings`; do not write internal option-builder keys such as `xField`, `yField`, `pieCategory`, or `pieValue` as public input.
+For whole-page `applyBlueprint`, the canonical shape is `assets.charts + block.chart`: put chart configs under `assets.charts` and reference them from block `chart`. Do not put `stepParams` on the block. Public `visual` uses `mode / type / mappings`; do not write internal option-builder keys such as `xField`, `yField`, `pieCategory`, or `pieValue` as public input.
+
+Whole-page `applyBlueprint` does not auto-lift inline chart settings. If a legacy draft has `settings.query` / `settings.visual` / `settings.events` on the chart block, move them into `assets.charts.<key>` before writing and set `block.chart = "<key>"`. Do not mix `block.chart` with inline `settings.query` / `settings.visual` / `settings.events`. Missing or bad chart references return backend aggregate errors such as `chart-block-asset-reference-required` and `chart-block-asset-reference-missing`; handwritten `stepParams` returns `chart-block-step-params-unsupported`.
 
 Use canonical `query.resource.collectionName` in public chart input; do not use the deprecated alias `query.resource.collection`.
 
@@ -51,7 +53,7 @@ Use canonical `query.resource.collectionName` in public chart input; do not use 
 
 1. Default to `query.mode = "builder"` first.
 2. Default to `visual.mode = "basic"` first.
-3. When reconfiguring an existing chart, default to the `safeDefaults` returned by wrapper `context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
+3. When reconfiguring an existing chart, default to the `safeDefaults` returned by `nb api flow-surfaces context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
 4. If you hit `riskyPatterns`, do not forbid the path outright. You may continue, but you must mark the result as risky and add `readback`.
 5. If you hit `unsupportedPatterns`, do not invent a payload. Rewrite it into a safe subset or tell the user clearly that the current contract does not support it.
 6. Only upgrade under the following conditions:
@@ -68,7 +70,7 @@ The most stable execution order for a chart block is not a one-shot blind write.
 3. Run `configure(changes={ query, title?, height?, heightMode? })` first
 4. Then read `context(path="chart")`
 5. Based on `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns`, run `configure(changes={ visual, events? })`
-6. Use wrapper `get --uid <chart-uid>` for canonical readback
+6. Use `nb api flow-surfaces get --uid <chart-uid>` for canonical readback
 7. If a risky pattern is hit, state clearly in the result that this is a risky path, and confirm persistence through readback
 
 When reconfiguring an existing chart, you may skip the initial block-creation step and continue directly from "read `path="chart"` / clear stale query state / reconfigure visual". If you want to clear old builder state, especially residue such as `sorting` / `filter`, do not rely on omission and hope the server clears it. Pass explicit empties instead, for example:
@@ -77,6 +79,8 @@ When reconfiguring an existing chart, you may skip the initial block-creation st
 - `filter: { "logic": "$and", "items": [] }`
 
 This prevents old query residue from contaminating the new configuration and affecting runtime behavior later.
+
+For whole-page dashboards that explicitly require chart blocks, a successful `applyBlueprint` response is not the final evidence. Read back the returned `pageSchemaUid` with `flow-surfaces get` and confirm the page contains `chart` / `ChartBlockModel` nodes with titles and a bound chart asset/config. `JSBlock`, `table`, and `list` evidence is not chart evidence. If readback only shows `jsBlock`, `table`, or `list`, the chart requirement is still missing and must be repaired as chart or reported unfinished.
 
 Only use `changes.configure` when you are explicitly preserving compatibility with old configuration. Once you use `configure`:
 
@@ -100,7 +104,7 @@ Notes:
 - For compatibility with old skills / historical payloads, the server still accepts `fixed` and automatically normalizes it to `specifyValue`
 - `title` only accepts a non-empty string
 - `height` only accepts numbers; it must be paired with `heightMode = "specifyValue"` for the frontend to use the fixed value
-- The local prepare-write and localized preflight helpers auto-add `heightMode = "specifyValue"` when `height` is present and `heightMode` is omitted
+- Backend authoring auto-adds `heightMode = "specifyValue"` when `height` is present and `heightMode` is omitted
 - If `heightMode = "specifyValue"`, it is recommended to also pass `height`
 - If `heightMode = "defaultHeight" | "fullHeight"`, you usually should not pass `height`
 - The primary success criterion in the current public contract is `stepParams.cardSettings`, for example `titleDescription` / `blockHeight`
@@ -176,8 +180,8 @@ Valid:
 - `measures[].field` is required
 - `aggregation` only supports `sum | count | avg | max | min`
 - `dimensions` is optional
-- builder chart `measures[]`, `dimensions[]`, `sorting[]`, and `orders[]` should only use scalar fields on the host collection
-- relation field paths are blocked locally with `CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED` / `chart-builder-relation-field-runtime-unsupported`; use SQL chart with an explicit join for relation-label grouping, or a scalar foreign-key field only when ID display is acceptable
+- builder chart `measures[]` and `dimensions[]` should default to scalar fields on the host collection
+- direct association fields are blocked by backend aggregate validation with `chart-builder-query-association-field-requires-subfield`; use the suggested scalar subfield from `details.suggestedFieldPath` when it matches the user intent, use SQL chart with an explicit join for complex relation-label grouping, or use a scalar foreign-key field only when ID display is acceptable
 - `filter` is optional and should be a FilterGroup structure
 - `sorting` is optional; to maximize first-try success, the skill should not proactively generate sorting unless the user explicitly asks for it
 - If existing sorting needs to be cleared, pass `sorting: []` explicitly. Do not rely on omission
@@ -198,7 +202,7 @@ Invalid:
 - writing both `resource` and `collectionPath`
 - empty `measures`
 - empty-string `field`
-- relation field paths such as `["department", "title"]` or `"department.title"` in builder `measures[]`, `dimensions[]`, `sorting[]`, or `orders[]`
+- direct association fields such as `"department"` in builder `measures[]` or `dimensions[]`; rewrite to the backend-suggested scalar subfield such as `"department.title"` when appropriate
 - aggregate sorting that references an unselected field
 - aggregate sorting that still uses the original field name after introducing a custom alias, for example `sum(amount) as totalAmount` while still writing `sorting.field = "amount"`
 - empty-string `filter.items[].path`
@@ -317,7 +321,7 @@ Typical uses:
 
 - click / dblclick
 - dataZoom
-- open popup / openView
+- lightweight selection or state synchronization
 - lightweight interactions
 
 ## How to use `context`
@@ -370,7 +374,7 @@ Key points:
 Two different context types must be distinguished here:
 
 1. **FlowSurfaces stable context**
-   - fields stably exposed to the skill by wrapper `context`
+   - fields stably exposed to the skill by `nb api flow-surfaces context`
    - for chart, the currently stable fields are:
      - `collection`
      - `chart.queryOutputs`
@@ -383,11 +387,11 @@ Two different context types must be distinguished here:
 2. **frontend runtime assumptions**
    - variables typically available at runtime to `ChartBlockModel` / `ChartOptionModel` / `ChartEventsModel`
    - they are appropriate for writing `visual.raw` / `events.raw`
-   - do not mistake them for fields that wrapper `context` is guaranteed to return
+   - do not mistake them for fields that `nb api flow-surfaces context` is guaranteed to return
 
 ### `visual.raw`
 
-Any `visual.raw` write must first pass the validator gate described in [js.md](./js.md), using `ChartOptionModel`. For CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
+Any `visual.raw` write must use the JS rules in [js.md](./js.md), using `ChartOptionModel` as the modelUse. If the response returns `errors[]`, fix the raw chart code and retry.
 
 At frontend runtime, you should assume these are available first:
 
@@ -404,12 +408,11 @@ Rules:
 
 ### `events.raw`
 
-Any `events.raw` write must first pass the validator gate described in [js.md](./js.md), using `ChartEventsModel`. For CLI and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
+Any `events.raw` write must use the JS rules in [js.md](./js.md), using `ChartEventsModel` as the modelUse. If the response returns `errors[]`, fix the raw chart code and retry.
 
 At frontend runtime, you should assume these are available first:
 
 - `chart`
-- `ctx.openView`
 - `ctx.record`
 - `ctx.popup.record`
 
@@ -418,7 +421,8 @@ Rules:
 - the `chart` instance is exposed through a top-level alias; primarily use bare `chart.on(...)` / `chart.off(...)`
 - do not write `ctx.chart.on(...)` / `ctx.chart.off(...)`
 - `ctx.render(...)` is not required
-- runtime treats `ctx.openView(...)` as a simulated call rather than actually opening a popup
+- popup / drilldown behavior is template-first: create or resolve a persisted popup-capable FlowModel outside `events.raw`, preferably one whose `targetUid = popupSettings.openView.uid` points to a template target with `popupTemplateUid` / `popupTemplateMode`
+- after that host exists, `events.raw` may call `ctx.openView(triggerUid, ...)`; do not use a `ChildPageModel`, page, tab, popup subtree, or transient uid as the trigger target
 
 ## Readback
 

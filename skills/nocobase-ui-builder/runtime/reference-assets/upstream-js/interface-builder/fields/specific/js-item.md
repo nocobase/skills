@@ -4,7 +4,7 @@
 
 JS Item is used for "custom items" (not bound to a field) in a form. You can use JavaScript/JSX to render any content (such as tips, statistics, previews, buttons, etc.) and interact with the form and record context. It is suitable for scenarios like real-time previews, instructional tips, and small interactive components.
 
-> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). If a user wants to open a popup or drawer, prefer a configured popup action or event flow outside the JS snippet instead of direct `ctx.openView(...)`.
+> Local skill note: prepare final code with [js.md](../../../../../../references/js.md). For popup/drawer/dialog intent, do not emit bare `ctx.openView(...)` against a transient, ChildPage, page, tab, or popup subtree uid. Resolve a template-first persisted popup-capable FlowModel first, then call `ctx.openView(triggerUid, ...)` from the chosen JS surface.
 
 
 ![jsitem-add-20251929](https://static-docs.nocobase.com/jsitem-add-20251929.png)
@@ -19,7 +19,7 @@ JS Item is used for "custom items" (not bound to a field) in a form. You can use
 - `ctx.request(options)` / `ctx.api.request(options)`: Send an HTTP request. Under skill-mode, prefer full `http/https` URLs.
 - `ctx.requireAsync(url)`: Asynchronously load an AMD/UMD library by URL.
 - `ctx.importAsync(url)`: Dynamically import an ESM module by URL.
-- `ctx.openView(viewUid, options)`: Open a configured view (drawer/dialog/page) in the product runtime, but this skill does not accept direct `ctx.openView(...)` as final output.
+- `ctx.openView(viewUid, options)`: Open a configured view (drawer/dialog/page) in the product runtime. Under this skill, use it only with an existing popup-capable FlowModel trigger uid resolved through the template-first popup/openView path.
 - `ctx.message` / `ctx.notification`: Global message and notification.
 - `ctx.t()` / `ctx.i18n.t()`: Internationalization.
 - `ctx.onRefReady(ctx.ref, cb)`: Render after the container is ready.
@@ -56,15 +56,23 @@ render();
 ctx.blockModel?.on?.('formValuesChange', () => render());
 ```
 
-### 2) Popup Guidance Instead of Direct View Opening
+### 2) Popup Opener Requires a Persisted FlowModel
 
 ```js
+const popupFlowModelUid = 'replace-with-persisted-popup-flowmodel-uid';
 const { Button } = ctx.libs.antd;
 
 ctx.render(
   <Button
     type="link"
-    onClick={() => ctx.message.info(ctx.t('Configure a popup action or event flow outside this JS item.'))}
+    onClick={async () => {
+      await ctx.openView(popupFlowModelUid, {
+        navigation: false,
+        mode: 'drawer',
+        size: 'large',
+        title: ctx.t('Details'),
+      });
+    }}
   >
     {ctx.t('Open configured popup')}
   </Button>

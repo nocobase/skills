@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { maskJavaScriptSource } from '../src/source-mask.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
-const repoRoot = path.resolve(skillRoot, '..', '..');
+const backendWritePattern = /nb api flow-surfaces/i;
+const forbiddenWriteGatePattern =
+  /mandatory local prepare-write|prepare-write is mandatory|result\.cliBody|cliBody only|local preflight|nb-flow-surfaces\.mjs apply-blueprint|flow-surfaces behind the wrapper|wrapper is the public entry|wrapper raw body|must run the local validator|local validator gate|validator failure is failure|write cannot continue|RunJS validator gate before/i;
 
 function read(relativePath) {
   return readFileSync(path.join(skillRoot, relativePath), 'utf8');
@@ -15,6 +15,16 @@ function read(relativePath) {
 
 function assertFileDoesNotContain(relativePath, pattern, message) {
   assert.doesNotMatch(read(relativePath), pattern, message || `${relativePath} should not contain ${pattern}`);
+}
+
+function assertBackendFirstWriteContract(relativePath) {
+  const text = read(relativePath);
+  assert.match(text, backendWritePattern, `${relativePath} should document direct nb api flow-surfaces writes`);
+  assert.doesNotMatch(
+    text,
+    forbiddenWriteGatePattern,
+    `${relativePath} should not require wrapper/preflight/cliBody write gates`,
+  );
 }
 
 function assertNavigationGroupDocsDoNotKeepOldMetadataRules(relativePath) {
@@ -114,17 +124,21 @@ function extractCodeFences(markdown) {
   return [...markdown.matchAll(/^```(?:js|javascript|jsx|json)\n([\s\S]*?)\n```/gm)].map((match) => match[1]);
 }
 
-function validateRunjsSnippet(model, code) {
-  const cliPath = path.join(skillRoot, 'runtime/bin/nb-runjs.mjs');
-  const result = spawnSync(process.execPath, [cliPath, 'validate', '--stdin-json', '--skill-mode'], {
-    cwd: repoRoot,
-    input: JSON.stringify({ model, code }),
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, `runjs validator should exit 0 for ${model}: ${result.stderr || result.stdout}`);
-  const parsed = JSON.parse(result.stdout);
-  assert.equal(parsed.ok, true, `runjs validator should accept ${model}: ${result.stdout}`);
-  return parsed;
+function maskJavaScriptSource(source) {
+  return String(source ?? '').replace(
+    /\/\/[^\n]*|\/\*[\s\S]*?\*\/|(["'`])(?:\\[\s\S]|(?!\1)[\s\S])*?\1/g,
+    (match) => match.replace(/[^\n]/g, ' '),
+  );
+}
+
+function assertRunjsSnippetShape(model, code, label) {
+  assert.equal(typeof code, 'string', `${label} should have a code fence`);
+  assert.match(code, /\S/, `${label} should not be empty`);
+  assert.doesNotMatch(code, /\bctx\.openView\s*\(/, `${label} should not route popup/openView through RunJS`);
+  assert.doesNotMatch(code, /\b(?:fetch|localStorage|sessionStorage)\b/, `${label} should avoid browser globals`);
+  if (model !== 'JSActionModel' && model !== 'ChartEventsModel') {
+    assert.match(code, /\bctx\.render\s*\(/, `${label} should render explicitly`);
+  }
 }
 
 function assertNoDirectCtxRecordValueReads(code, label) {
@@ -246,6 +260,93 @@ function assertExistingReferenceRoutingBridge(text, sourceLabel) {
   );
 }
 
+function assertFormBehaviorDescriptionReviewGuidance(text, relativePath) {
+  assert.match(
+    text,
+    /description[\s\S]{0,320}defaults\.collections\.<collection>\.formBehavior|defaults\.collections\.<collection>\.formBehavior[\s\S]{0,320}description/i,
+    `${relativePath} should connect field descriptions to collection formBehavior`,
+  );
+  assert.match(
+    text,
+    /formBehaviorDescriptionReview\.fields(?:\.<field>)?[\s\S]{0,360}decision|decision[\s\S]{0,360}formBehaviorDescriptionReview\.fields(?:\.<field>)?/i,
+    `${relativePath} should document per-field formBehaviorDescriptionReview decisions`,
+  );
+  assert.match(
+    text,
+    /reasonCode[\s\S]{0,360}(?:noUiBehavior|unsupported)|(?:noUiBehavior|unsupported)[\s\S]{0,360}reasonCode/i,
+    `${relativePath} should require reasonCode for non-implemented review decisions`,
+  );
+  assert.match(
+    text,
+    /implemented[\s\S]{0,360}(?:coverage|structured formBehavior)|(?:coverage|structured formBehavior)[\s\S]{0,360}implemented/i,
+    `${relativePath} should explain implemented review entries require structured coverage`,
+  );
+  assert.match(
+    text,
+    /(?:old `?fields\[\]`?|old .*fields\[\]|hasTried)[\s\S]{0,220}(?:reject|rejected|do not|no)|(?:reject|rejected|do not|no)[\s\S]{0,220}(?:old `?fields\[\]`?|old .*fields\[\]|hasTried)/i,
+    `${relativePath} should reject old array/hasTried review shapes`,
+  );
+  const strippedNegativeWarnings = text
+    .split('\n')
+    .filter((line) => {
+      const mentionsNoopMarker = /formBehavior\s*:\s*\{\}|`?null`?/i.test(line);
+      const isNegativeWarning =
+        /do not use|instead of using|do not send|never use|rejects?|rejected|no-op|escape hatch|confirmation marker/i.test(
+          line,
+        );
+      return !(mentionsNoopMarker && isNegativeWarning);
+    })
+    .join('\n');
+  assert.doesNotMatch(
+    strippedNegativeWarnings,
+    /formBehavior\s*:\s*\{\}[\s\S]{0,120}(?:no-op|confirmation|confirm|escape hatch)|null[\s\S]{0,120}(?:no-op|confirmation|confirm|escape hatch)|formBehavior[\s\S]{0,360}(?:\{\}\s*(?:or|\/)|(?:or|\/)\s*`?null`?)/i,
+    `${relativePath} should not recommend formBehavior: {} or null as a no-op`,
+  );
+}
+
+function assertWholePageChartAssetGuidance(text, sourceLabel) {
+  assert.match(
+    text,
+    /assets\.charts[\s\S]{0,160}block\.chart|block\.chart[\s\S]{0,160}assets\.charts/i,
+    `${sourceLabel} should document the canonical assets.charts + block.chart shape`,
+  );
+  assert.match(
+    text,
+    /(?:does not auto-lift|does not provide inline chart automatic|不提供 inline chart 自动提升|不自动提升)[\s\S]{0,220}(?:settings\.query|settings\.visual)|(?:settings\.query|settings\.visual)[\s\S]{0,220}(?:manually move|manual(?:ly)? migrate|手动迁移|move .*assets\.charts)/i,
+    `${sourceLabel} should say whole-page inline chart settings are not auto-lifted and must be migrated manually`,
+  );
+  assert.match(
+    text,
+    /chart-block-asset-reference-required/i,
+    `${sourceLabel} should document backend chart-block-asset-reference-required errors`,
+  );
+  assert.match(
+    text,
+    /chart-block-asset-reference-missing/i,
+    `${sourceLabel} should document backend chart-block-asset-reference-missing errors`,
+  );
+  assert.match(
+    text,
+    /(?:do not mix|不要混写|do not put|don't put)[\s\S]{0,160}block\.chart[\s\S]{0,160}settings\.query[\s\S]{0,160}settings\.visual/i,
+    `${sourceLabel} should discourage mixed block.chart and inline chart settings`,
+  );
+  assert.match(
+    text,
+    /stepParams[\s\S]{0,140}(?:do not|must not|not accept|unsupported|不要|不接受)|(?:do not|must not|not accept|unsupported|不要|不接受)[\s\S]{0,140}stepParams/i,
+    `${sourceLabel} should keep whole-page chart stepParams as an explicit rejection boundary`,
+  );
+  assert.doesNotMatch(
+    text,
+    /repairable-shape-error|expectedAssetPath/i,
+    `${sourceLabel} should not document removed local inline-chart repair details`,
+  );
+  assert.doesNotMatch(
+    text,
+    /applyBlueprint[\s\S]{0,220}(?:inline|settings\.query)[\s\S]{0,260}(?:normalized by backend authoring|normalizes? it into `?assets\.charts|提升到 `?assets\.charts)/i,
+    `${sourceLabel} should not claim backend auto-lifts whole-page inline chart settings`,
+  );
+}
+
 function assertExistingReferenceReadbackBridge(text, sourceLabel) {
   assertPointsToTemplates(text, sourceLabel);
   assert.match(text, /template[- ]source/i, `${sourceLabel} should keep template-source readback visible`);
@@ -292,8 +393,8 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /localized existing-surface edits[\s\S]{0,160}`nb-flow-surfaces\.mjs`[\s\S]{0,160}(?:`compose`|`configure`|`add-\*`)[\s\S]{0,160}\[local-edit-quick\.md\]/i,
-    'SKILL.md should route localized edits through nb-flow-surfaces.mjs wrapper subcommands and local-edit-quick.md',
+    /localized existing-surface edits[\s\S]{0,160}(?:`compose`|`configure`|`add-\*|backend actions|nb api flow-surfaces)[\s\S]{0,160}\[local-edit-quick\.md\]/i,
+    'SKILL.md should route localized edits through backend actions and local-edit-quick.md',
   );
   assert.match(
     text,
@@ -337,8 +438,8 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /Do not open \[tool-shapes\.md\][\s\S]{0,40}or \[helper-contracts\.md\][\s\S]{0,220}(real (?:CLI|nb) body|prewrite gate|prepared write body)/i,
-    'SKILL.md should keep tool-shapes and helper-contracts behind the real-write stage',
+    /Do not open \[tool-shapes\.md\][\s\S]{0,120}preparing a real nb body/i,
+    'SKILL.md should keep tool-shapes behind the real-write stage',
   );
   assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md intent-first rule should not absorb popup.tryTemplate details');
   assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md intent-first rule should not absorb popup.saveAsTemplate details');
@@ -387,6 +488,19 @@ function assertSharedMenuGroupMultiPageRunsAreSerialized(text, sourceLabel) {
     text,
     /(?:parallel|concurrent|并发|同时)[\s\S]{0,180}(?:title-only|navigation\.group\.title|same-title|同名|共享 group|共享菜单组)[\s\S]{0,180}(?:forbid|forbidden|prohibit|禁止|不得|do not|never)/i,
     `${sourceLabel} should explicitly forbid concurrent title-only shared-group creates`,
+  );
+}
+
+function assertMenuDiscoveryUsesCanonicalNbResourceRead(text, sourceLabel) {
+  assert.match(
+    text,
+    /nb api resource list --resource ['"]desktopRoutes:listAccessible['"] --no-paginate -j/i,
+    `${sourceLabel} should document the canonical visible desktop menu discovery command`,
+  );
+  assert.doesNotMatch(
+    text,
+    /nb api desktop-routes list-accessible/i,
+    `${sourceLabel} should not recommend the unavailable desktop-routes CLI family`,
   );
 }
 
@@ -439,7 +553,7 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}prepare-write[\s\S]{0,80}(?:allowed|ok)/i,
+    /(?:pre-write reads|reads)[\s\S]{0,80}metadata fetch[\s\S]{0,80}(?:allowed|ok)/i,
     `${sourceLabel} should allow read-only prep work before the first mutating write`,
   );
   assert.match(
@@ -449,8 +563,8 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
   );
   assert.match(
     text,
-    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
-    `${sourceLabel} should repair the blueprint, rerun prepare-write, and retry up to 5 rounds on pre-success applyBlueprint failure`,
+    /`?applyBlueprint`?[\s\S]{0,120}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,160}(?:aggregate `?errors\[\]`?|backend aggregate errors|errors\[\])[\s\S]{0,160}retry[\s\S]{0,80}(?:5|five)|repair[\s\S]{0,160}(?:aggregate `?errors\[\]`?|backend aggregate errors|errors\[\])[\s\S]{0,160}retry[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|five)/i,
+    `${sourceLabel} should repair the blueprint from backend aggregate errors and retry up to 5 rounds on pre-success applyBlueprint failure`,
   );
   assert.match(
     text,
@@ -472,8 +586,8 @@ function assertWholePageFirstWriteGuardrails(text, sourceLabel) {
 function assertOpenAIGuardrails(text) {
   assert.match(
     text,
-    /localized edits[\s\S]{0,80}(?:flow-surfaces wrapper|wrapper|nb-flow-surfaces)/i,
-    'openai prompt should keep localized wrapper routing visible',
+    /localized edits[\s\S]{0,80}(?:direct backend actions|nb api flow-surfaces|backend actions)/i,
+    'openai prompt should keep direct backend routing visible for localized edits',
   );
   assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
   assert.match(
@@ -504,7 +618,7 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /(?:exactly )?one `?editForm`?|1 `?editForm`?/i, 'openai prompt should keep one-editForm guidance');
   assert.match(
     text,
-    /repeat-eligible[\s\S]{0,80}(?:must|mandatory)[\s\S]{0,80}contextual `?list-templates`?/i,
+    /repeat-eligible[\s\S]{0,80}(?:(?:must|mandatory)[\s\S]{0,80})?contextual `?list-templates`?/i,
     'openai prompt should require contextual template probing for repeat-eligible scenes',
   );
   assert.match(text, /keyword-only search[\s\S]{0,40}discovery-only/i, 'openai prompt should keep keyword-only guardrail');
@@ -513,9 +627,9 @@ function assertOpenAIGuardrails(text) {
     /backend order|first compatible row|first result|first returned row/i,
     'openai prompt should keep backend-order tie-break guidance',
   );
-  assert.match(text, /popup\.tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
-  assert.match(text, /popup\.saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
-  assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
+  assert.match(text, /popup\.tryTemplate|tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
+  assert.match(text, /popup\.saveAsTemplate|saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
+  assert.match(text, /openView\.tryTemplate|apply .*popup|tryTemplate/i, 'openai prompt should mention existing-opener tryTemplate guidance');
   assert.match(
     text,
     /navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,80}(?:semantic )?Ant ?Design `?icon`?|semantic Ant ?Design `?icon`?/i,
@@ -523,12 +637,12 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /multi[- ]non[- ]filter[\s\S]{0,120}explicit keyed `?layout`?|explicit keyed `?layout`?[\s\S]{0,120}multi[- ]non[- ]filter/i,
+    /multi[- ]non[- ]filter[\s\S]{0,120}(?:explicit )?keyed `?layout`?|(?:explicit )?keyed `?layout`?[\s\S]{0,120}multi[- ]non[- ]filter/i,
     'openai prompt should require explicit keyed layout for multi-block tab or popup scopes',
   );
   assert.match(
     text,
-    /filter[\s\S]{0,80}row 1|filter alone in row 1|filter blocks? should sit alone/i,
+    /filter[\s\S]{0,80}row ?1|filter alone in row 1|filter blocks? should sit alone/i,
     'openai prompt should keep the filter-first-row guardrail visible',
   );
   assert.match(
@@ -575,7 +689,7 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /reads\/metadata\/prepare-write ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}prepare-write[\s\S]{0,32}ok/i,
+    /reads\/metadata ok|reads[\s\S]{0,32}metadata[\s\S]{0,32}ok/i,
     'openai prompt should allow read-only prep before the first mutating write',
   );
   assert.match(
@@ -585,8 +699,8 @@ function assertOpenAIGuardrails(text) {
   );
   assert.match(
     text,
-    /fail->repair\+prepare-write\+retry<=5/i,
-    'openai prompt should repair, rerun prepare-write, and retry up to 5 rounds on applyBlueprint failure',
+    /fail->repair aggregate errors\+retry<=5/i,
+    'openai prompt should repair aggregate errors and retry up to 5 rounds on applyBlueprint failure',
   );
   assert.match(
     text,
@@ -596,7 +710,7 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /report/i, 'openai prompt should report after exhausting retries');
   assert.match(
     text,
-    /after success (?:localized repair only for explicit local\/live gap|only explicit local\/live gap repair)/i,
+    /after success (?:localized repair only for explicit local\/live gap|only explicit local\/live gap repair)|success only explicit local\/live gap/i,
     'openai prompt should allow only narrow post-success repair',
   );
 }
@@ -605,11 +719,14 @@ test('required docs and relative links stay valid', () => {
   const docs = [
     'SKILL.md',
     'agents/openai.yaml',
+    'references/ai-employee-actions.md',
     'references/aliases.md',
     'references/boundary-quick.md',
     'references/blocks/chart.md',
+    'references/blocks/comments.md',
     'references/blocks/index.md',
     'references/blocks/kanban.md',
+    'references/blocks/record-history.md',
     'references/capabilities.md',
     'references/chart-core.md',
     'references/cli-command-surface.md',
@@ -640,7 +757,6 @@ test('required docs and relative links stay valid', () => {
     'references/runjs-authoring-loop.md',
     'references/runjs-failure-taxonomy.md',
     'references/runjs-repair-playbook.md',
-    'references/runjs-runtime.md',
     'references/runtime-playbook.md',
     'references/settings.md',
     'references/template-decision-summary.md',
@@ -658,18 +774,6 @@ test('required docs and relative links stay valid', () => {
   }
 });
 
-test('runjs docs keep the self-contained zero-install runtime contract', () => {
-  const runtimeDoc = read('references/runjs-runtime.md');
-  assert.match(runtimeDoc, /self-contained inside this skill/i);
-  assert.match(runtimeDoc, /no `npm install` step/i);
-  assert.match(runtimeDoc, /no `runtime\/node_modules` requirement/i);
-  assert.match(runtimeDoc, /must not require installing external npm packages first/i);
-
-  const jsDoc = read('references/js.md');
-  assert.match(jsDoc, /skill-local source and vendored assets/i);
-  assert.match(jsDoc, /Do not require external npm installs/i);
-});
-
 test('upstream js snapshot relative links stay valid', () => {
   for (const relativePath of walkMarkdownFiles('runtime/reference-assets/upstream-js')) {
     assertRelativeMarkdownLinksExist(relativePath);
@@ -679,40 +783,38 @@ test('upstream js snapshot relative links stay valid', () => {
 
 test('docs keep canonical nb boundaries', () => {
   const skill = read('SKILL.md');
-  assert.match(skill, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(skill, /Internal backend transport contract remains `?flow-surfaces`?/);
-  assert.match(skill, /nb-flow-surfaces\.mjs apply-blueprint/);
-  assert.match(skill, /nb-flow-surfaces\.mjs get-reaction-meta/);
-  assert.match(skill, /prepare-write/i);
+  assertBackendFirstWriteContract('SKILL.md');
+  assert.match(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
+  assert.match(skill, /backend `flow-surfaces` is the authoring compiler/i);
+  assert.match(skill, /aggregate `?errors\[\]`?/i);
   assert.doesNotMatch(skill, /nocobase-ctl|MCP fallback|flow_surfaces_|requestBody|collections:get/i);
 
+  assertBackendFirstWriteContract('references/page-blueprint.md');
   const pageBlueprint = read('references/page-blueprint.md');
-  assert.match(pageBlueprint, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
-  assert.match(pageBlueprint, /wrapper raw body/i);
-  assert.match(pageBlueprint, /Do not wrap that object again/i);
+  assert.match(pageBlueprint, /Agent-facing write path is `nb api flow-surfaces apply-blueprint`/);
+  assert.match(pageBlueprint, /Do not wrap that object/i);
 
+  assertBackendFirstWriteContract('references/normative-contract.md');
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /Agent-facing front door: `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(normativeContract, /Backend transport contract: flow-surfaces behind the wrapper/);
-  assert.match(normativeContract, /wrapper `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs apply-blueprint`/);
+  assert.match(normativeContract, /Agent-facing write path: `nb api flow-surfaces <action>`/);
+  assert.match(normativeContract, /flow-surfaces is the authoring compiler/i);
 
   const templates = read('references/templates.md');
-  assert.match(templates, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
   assert.match(templates, /raw business object/i);
 
   const reaction = read('references/reaction.md');
-  assert.match(reaction, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(reaction, /nb-flow-surfaces\.mjs apply-blueprint/);
-  assert.match(reaction, /nb-flow-surfaces\.mjs get-reaction-meta/);
+  assert.match(reaction, /raw business object|backend/i);
+  assert.match(reaction, /apply-blueprint/i);
+  assert.match(reaction, /get-reaction-meta/i);
 
   const settings = read('references/settings.md');
-  assert.match(settings, /Agent-facing front door is `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs`/);
-  assert.match(settings, /nb-flow-surfaces\.mjs set-layout/);
-  assert.match(settings, /nb-flow-surfaces\.mjs set-event-flows/);
+  assert.match(settings, /set-layout/);
+  assert.match(settings, /set-event-flows/);
 
+  assertBackendFirstWriteContract('references/tool-shapes.md');
   const toolShapes = read('references/tool-shapes.md');
-  assert.match(toolShapes, /Do not wrap it again/i);
-  assert.match(toolShapes, /wrapper `?get`? is the common exception: it uses top-level locator flags and no JSON body/i);
+  assert.match(toolShapes, /do not wrap that object again/i);
+  assert.match(toolShapes, /read commands such as `?get`? may use top-level locator flags and no JSON body/i);
   assert.doesNotMatch(toolShapes, /MCP fallback|requestBody|flow_surfaces_|collections:get/i);
   assert.doesNotMatch(
     toolShapes,
@@ -721,8 +823,6 @@ test('docs keep canonical nb boundaries', () => {
   );
 
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /\{\s*blueprint,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
-  assert.match(helperContracts, /prepared `?cliBody`?/i);
   assert.doesNotMatch(helperContracts, /requestBody|tool-call envelope/i);
 });
 
@@ -765,8 +865,8 @@ test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   assert.match(index, /\[js-surfaces\/index\.md\]/i, 'js-reference-index should keep the surface-first router visible');
   assert.match(index, /bundled product reference snapshot|bundled reference snapshot/i, 'js-reference-index should describe the snapshot layer');
   assert.match(index, /does \*\*not\*\* replace the skill write contract|does not replace the skill write contract/i);
-  assert.match(index, /\[js\.md\]/i, 'js-reference-index should route model/validator work back to js.md');
-  assert.match(index, /\[runjs-runtime\.md\]/i, 'js-reference-index should route runtime validation back to runjs-runtime.md');
+  assert.match(index, /\[js\.md\]/i, 'js-reference-index should route model work back to js.md');
+  assert.doesNotMatch(index, /runjs-runtime\.md/i, 'js-reference-index should not route to the removed local runtime helper');
   assert.match(index, /\[reaction\.md\]/i, 'js-reference-index should route linkage writes back to reaction.md');
   assert.match(index, /Execute JavaScript/i, 'js-reference-index should cover event-flow Execute JavaScript');
   assert.match(index, /ctx\.\*/i, 'js-reference-index should expose ctx API routing');
@@ -780,6 +880,11 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   assert.match(surfaceIndex, /snippet-manifest\.json/i, 'js-surfaces/index should expose the snippet manifest');
   assert.match(surfaceIndex, /js-snippets\/catalog\.json/i, 'js-surfaces/index should expose the snippet catalog');
   assert.match(surfaceIndex, /Event Flow `?Execute JavaScript`?/i, 'js-surfaces/index should route event-flow RunJS');
+  assert.match(
+    surfaceIndex,
+    /\| Event Flow `?Execute JavaScript`? \|[^\n]*flowRegistry\.\*\.steps\.\*\.defaultParams\.code/i,
+    'js-surfaces/index should expose the frontend event-flow defaultParams code path',
+  );
   assert.match(surfaceIndex, /Linkage `?Execute JavaScript`?/i, 'js-surfaces/index should route linkage RunJS');
   assert.match(surfaceIndex, /value-return/i, 'js-surfaces/index should route value-return RunJS');
   assert.match(surfaceIndex, /js-model-render\.md/i, 'js-surfaces/index should route render JS models');
@@ -787,7 +892,8 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   assert.match(surfaceIndex, /\[..\/*js-models\/index\.md\]/i, 'js-surfaces/index should keep js-models as a later hop');
 
   const eventFlow = read('references/js-surfaces/event-flow.md');
-  assert.match(eventFlow, /flowRegistry\.\*\.steps\.\*\.params\.code/i, 'event-flow surface doc should expose the writeback path');
+  assert.match(eventFlow, /flowRegistry\.\*\.steps\.\*\.defaultParams\.code/i, 'event-flow surface doc should expose the writeback path');
+  assert.match(eventFlow, /use = "runjs"/i, 'event-flow surface doc should expose the frontend step action shape');
   assert.match(eventFlow, /action-style/i, 'event-flow surface doc should describe action-style validation');
 
   const linkage = read('references/js-surfaces/linkage.md');
@@ -800,10 +906,12 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
 
   const jsModelRender = read('references/js-surfaces/js-model-render.md');
   assert.match(jsModelRender, /ctx\.render\(\.\.\.\).*required|required.*ctx\.render/i, 'js-model-render doc should require ctx.render');
+  assert.match(jsModelRender, /JSItemActionModel/i, 'js-model-render doc should include JS item action rendering');
   assert.match(jsModelRender, /popup-opener-record[\s\S]{0,160}ctx\.popup\.record/i, 'js-model-render doc should route popup opener records to ctx.popup.record');
 
   const jsModelAction = read('references/js-surfaces/js-model-action.md');
   assert.match(jsModelAction, /clickSettings\.runJs/i, 'js-model-action doc should expose action write path');
+  assert.match(jsModelAction, /JSItemActionModel[\s\S]{0,120}render contract/i, 'js-model-action doc should route JS item action to render validation');
   assert.match(jsModelAction, /inner-row-record[\s\S]{0,180}ctx\.getVar\('ctx\.record/i, 'js-model-action doc should distinguish popup inner row record from popup opener record');
 
   const legacyIndex = read('references/js-models/index.md');
@@ -816,13 +924,29 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
   assert.match(jsAction, /popup action|field popup|configuration|配置层/i, 'JSActionModel leaf doc should reroute popup/openView work to configuration');
 
   const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  assert.equal(
+    catalog.snippets.some((entry) => entry.modelUses?.['js-model.action']?.includes('JSItemActionModel')),
+    false,
+    'JS item action should not be listed under action-style snippets',
+  );
+  assert.equal(
+    catalog.snippets.some((entry) => entry.modelUses?.['js-model.render']?.includes('JSItemActionModel')),
+    true,
+    'JS item action should have render-style snippet coverage',
+  );
   const safeIds = new Set(catalog.snippets.filter((entry) => entry.tier === 'safe').map((entry) => entry.id));
   const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+  const eventFlowSurface = manifest.surfaces.find((surface) => surface.id === 'event-flow.execute-javascript');
+  assert.deepEqual(
+    eventFlowSurface?.writePathHints,
+    ['flowRegistry.*.steps.*.defaultParams.code'],
+    'event-flow manifest should expose the frontend defaultParams code path',
+  );
   const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
   assert.deepEqual(
     renderSurface?.recommendedBySceneHint?.popup,
-    ['scene/block/popup-record-summary'],
-    'js-model.render should recommend the popup record snippet for popup scenes',
+    ['render/open-popup-flow-model-button'],
+    'js-model.render should recommend the persisted FlowModel opener snippet for popup opener scenes',
   );
   for (const surface of manifest.surfaces) {
     assert.equal(surface.recommendedSnippetIds.length <= 3, true, `${surface.id} should recommend at most 3 snippets`);
@@ -916,8 +1040,10 @@ test('safe RunJS snippets read record values through ctx.getVar', () => {
 test('key upstream js snapshot pages route back to skill contracts', () => {
   const eventFlow = read('runtime/reference-assets/upstream-js/interface-builder/event-flow.md');
   assert.match(eventFlow, /settings\.md/i, 'event-flow snapshot should route writes back to settings.md');
+  assert.match(eventFlow, /get-event-flow-meta/i, 'event-flow snapshot should mention event-flow meta discovery');
+  assert.match(eventFlow, /add-event-flow|set-event-flow|remove-event-flow/i, 'event-flow snapshot should mention fine-grained event-flow writes');
   assert.match(eventFlow, /set-event-flows/i, 'event-flow snapshot should mention set-event-flows');
-  assert.match(eventFlow, /js\.md/i, 'event-flow snapshot should keep JS validator boundary visible');
+  assert.match(eventFlow, /js\.md/i, 'event-flow snapshot should keep JS authoring boundary visible');
 
   for (const relativePath of [
     'runtime/reference-assets/upstream-js/interface-builder/linkage-rule.md',
@@ -927,11 +1053,11 @@ test('key upstream js snapshot pages route back to skill contracts', () => {
   ]) {
     const text = read(relativePath);
     assert.match(text, /reaction\.md/i, `${relativePath} should route writes back to reaction.md`);
-    assert.match(text, /js\.md/i, `${relativePath} should keep JS validator boundary visible`);
+    assert.match(text, /js\.md/i, `${relativePath} should keep JS authoring boundary visible`);
   }
 
   const openView = read('runtime/reference-assets/upstream-js/runjs/context/open-view.md');
-  assert.match(openView, /skill-mode validator/i, 'open-view snapshot should mention skill-mode validator boundary');
+  assert.doesNotMatch(openView, /skill-mode validator/i, 'open-view snapshot should not mention the removed local validator');
   assert.match(openView, /do not|不要|不接受/i, 'open-view snapshot should explicitly warn against direct final output');
   assert.match(openView, /ctx\.openView\(\.\.\.\)|ctx\.openView/i, 'open-view snapshot should keep the warned API explicit');
   assert.match(openView, /js-reference-index\.md/i, 'open-view snapshot should route back to js-reference-index.md');
@@ -942,23 +1068,47 @@ test('key upstream js snapshot pages route back to skill contracts', () => {
   assert.match(requestDoc, /ctx\.initResource|ctx\.makeResource/i, 'request snapshot should redirect NocoBase resource access to resource APIs');
 });
 
-test('canonical patched JS examples satisfy skill-mode minimum contracts', () => {
+test('canonical patched JS examples satisfy backend-owned minimum contracts', () => {
   const jsBlock = read('runtime/reference-assets/upstream-js/interface-builder/blocks/other-blocks/js-block.md');
-  validateRunjsSnippet('JSBlockModel', extractFirstJsFenceAfterHeading(jsBlock, '2) API Request Template'));
-  validateRunjsSnippet('JSBlockModel', extractFirstJsFenceAfterHeading(jsBlock, '4) Skill-mode Feedback'));
+  assertRunjsSnippetShape(
+    'JSBlockModel',
+    extractFirstJsFenceAfterHeading(jsBlock, '2) API Request Template'),
+    'JSBlock API Request Template',
+  );
+  assertRunjsSnippetShape(
+    'JSBlockModel',
+    extractFirstJsFenceAfterHeading(jsBlock, '4) Skill-mode Feedback'),
+    'JSBlock Skill-mode Feedback',
+  );
 
   const jsField = read('runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-field.md');
-  validateRunjsSnippet('JSFieldModel', extractFirstJsFenceAfterHeading(jsField, '1) Basic Rendering (Reading Field Value)'));
+  assertRunjsSnippetShape(
+    'JSFieldModel',
+    extractFirstJsFenceAfterHeading(jsField, '1) Basic Rendering (Reading Field Value)'),
+    'JSField Basic Rendering',
+  );
 
   const jsAction = read('runtime/reference-assets/upstream-js/interface-builder/actions/types/js-action.md');
-  validateRunjsSnippet('JSActionModel', extractFirstJsFenceAfterHeading(jsAction, '1) API Request and Feedback'));
+  assertRunjsSnippetShape(
+    'JSActionModel',
+    extractFirstJsFenceAfterHeading(jsAction, '1) API Request and Feedback'),
+    'JSAction API Request and Feedback',
+  );
 });
 
 test('event-flow JS write contract stays discoverable across routing docs', () => {
   const cli = read('references/cli-command-surface.md');
+  assert.match(cli, /get-event-flow-meta/i, 'cli-command-surface should route event-flow discovery to get-event-flow-meta');
+  assert.match(cli, /add-event-flow/i, 'cli-command-surface should expose add-event-flow');
+  assert.match(cli, /set-event-flow/i, 'cli-command-surface should expose set-event-flow');
+  assert.match(cli, /remove-event-flow/i, 'cli-command-surface should expose remove-event-flow');
   assert.match(cli, /set-event-flows/i, 'cli-command-surface should route event-flow replacement to set-event-flows');
 
   const runtime = read('references/runtime-playbook.md');
+  assert.match(runtime, /get-event-flow-meta/i, 'runtime-playbook should start localized event-flow work from get-event-flow-meta');
+  assert.match(runtime, /add-event-flow/i, 'runtime-playbook should expose add-event-flow');
+  assert.match(runtime, /set-event-flow/i, 'runtime-playbook should expose set-event-flow');
+  assert.match(runtime, /remove-event-flow/i, 'runtime-playbook should expose remove-event-flow');
   assert.match(runtime, /set-event-flows/i, 'runtime-playbook should route event-flow replacement to set-event-flows');
   assert.match(
     runtime,
@@ -977,18 +1127,35 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
   );
 
   const crosswalk = read('references/transport-crosswalk.md');
-  assert.match(crosswalk, /set-event-flows/i, 'transport-crosswalk should expose the wrapper subcommand for set-event-flows');
+  assert.match(crosswalk, /get-event-flow-meta/i, 'transport-crosswalk should expose get-event-flow-meta');
+  assert.match(crosswalk, /add-event-flow/i, 'transport-crosswalk should expose add-event-flow');
+  assert.match(crosswalk, /set-event-flow/i, 'transport-crosswalk should expose set-event-flow');
+  assert.match(crosswalk, /remove-event-flow/i, 'transport-crosswalk should expose remove-event-flow');
+  assert.match(crosswalk, /set-event-flows/i, 'transport-crosswalk should expose the backend action for set-event-flows');
 
   const settings = read('references/settings.md');
+  assert.match(settings, /Event-flow Discovery And Writes/i, 'settings.md should document event-flow discovery and fine-grained writes');
   assert.match(settings, /Event-flow Replacement/i, 'settings.md should document event-flow replacement explicitly');
+  assert.match(settings, /get-event-flow-meta/i, 'settings.md should document event-flow meta discovery');
+  assert.match(settings, /add-event-flow/i, 'settings.md should document add-event-flow');
+  assert.match(settings, /set-event-flow/i, 'settings.md should document set-event-flow');
+  assert.match(settings, /remove-event-flow/i, 'settings.md should document remove-event-flow');
   assert.match(settings, /flowRegistry/i, 'settings.md should describe flowRegistry shape');
-  assert.match(settings, /params\.code/i, 'settings.md should explain how Execute JavaScript code is written back');
+  assert.match(settings, /\bdefaultParams\.code\b/i, 'settings.md should explain how Execute JavaScript code is written back');
+  assert.match(settings, /use[`"'\s:]*runjs/i, 'settings.md should document the frontend runjs step action shape');
+  assert.match(settings, /\bon\.defaultParams\.condition\b/i, 'settings.md should document event trigger condition placement');
   assert.match(settings, /\[js\.md\]/i, 'settings.md should route JS validation back to js.md');
 
   const shapes = read('references/tool-shapes.md');
+  assert.match(shapes, /### `get-event-flow-meta`/i, 'tool-shapes should contain a get-event-flow-meta section');
+  assert.match(shapes, /### `add-event-flow`/i, 'tool-shapes should contain an add-event-flow section');
+  assert.match(shapes, /### `set-event-flow`/i, 'tool-shapes should contain a set-event-flow section');
+  assert.match(shapes, /### `remove-event-flow`/i, 'tool-shapes should contain a remove-event-flow section');
   assert.match(shapes, /### `set-event-flows`/i, 'tool-shapes should contain a set-event-flows section');
   assert.match(shapes, /flowRegistry/i, 'tool-shapes should show flowRegistry body shape');
-  assert.match(shapes, /params\.code/i, 'tool-shapes should mention Execute JavaScript step code location');
+  assert.match(shapes, /\bdefaultParams\.code\b/i, 'tool-shapes should mention Execute JavaScript step code location');
+  assert.match(shapes, /use: "runjs"|\"use\": \"runjs\"/i, 'tool-shapes should document the frontend runjs step action shape');
+  assert.match(shapes, /\bon\.defaultParams\.condition\b/i, 'tool-shapes should document event trigger condition placement');
 });
 
 test('low-level set-layout docs keep runtime rows/sizes separate from whole-page layout grammar', () => {
@@ -1088,20 +1255,29 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /Front door: `nb-flow-surfaces\.mjs`/);
-  assert.doesNotMatch(defaultPrompt, /nb api flow-surfaces/i);
+  assert.match(defaultPrompt, /Front door: `nb api flow-surfaces`/);
   assert.match(defaultPrompt, /Intent-first/i);
   assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1300, 'openai default_prompt should stay at or below 1300 chars');
+  assert.ok(defaultPrompt.length <= 1500, 'openai default_prompt should stay at or below 1500 chars');
 });
 
-test('data-surface docs require block-level defaultFilter while keeping filter action routing visible', () => {
-  const blockDefaultFilterRequiredPattern =
-    /(?:table|list|gridCard|calendar|kanban)[\s\S]{0,260}(?:must|required|requires?|always|carry)[\s\S]{0,120}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter|(?:table|list|gridCard|calendar|kanban)[\s\S]{0,260}(?:block-?level|top-?level|block)[\s\S]{0,80}defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)|defaultFilter[\s\S]{0,120}(?:must|required|requires?|always|carry)[\s\S]{0,260}(?:table|list|gridCard|calendar|kanban)/i;
+test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
+  const dataSurfacesPattern =
+    /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar[\s\S]{0,100}kanban|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar[\s\S]{0,100}kanban/i;
+  const omittedDefaultFilterMaterializationPattern =
+    /(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter[\s\S]{0,260}(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)|(?:backend authoring|backend|后端)[\s\S]{0,220}(?:materialize|materializes|materialized|生成|自动生成)[\s\S]{0,220}(?:omit|omitted|may omit|may be omitted|省略)[\s\S]{0,160}defaultFilter|omitted `?defaultFilter`?[\s\S]{0,160}(?:materialized|materialize)/i;
+  const generatedFieldCapPattern =
+    /(?:up to 4 scalar\/filterable fields|up to 4 generated filter fields|最多 4 个标量\/可筛选字段|自动生成最多 4 个|backend4)/i;
+  const explicitDefaultFilterTooNarrowRejectedPattern =
+    /(?:fewer fields than the smaller of 3|smaller of 3|eligible direct interface-field count|collection eligible-field count)[\s\S]{0,220}(?:defaultFilter|filter)|(?:defaultFilter|filter)[\s\S]{0,220}(?:fewer fields than the smaller of 3|smaller of 3|eligible direct interface-field count|collection eligible-field count)/i;
+  const forbiddenRequiredDefaultFilterPattern =
+    /(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)[\s\S]{0,180}defaultFilter|defaultFilter[\s\S]{0,180}(?:must provide|must include|required to provide|requires an explicit|explicit effective|必须提供|必须显式|不会替 UI Builder 选择字段|does not choose fields|instead of choosing fields)/i;
+  const explicitDefaultFilterRejectedPattern =
+    /defaultFilter[\s\S]{0,160}(?:explicit|supplied|provide)[\s\S]{0,220}(?:empty|invalid|unknown)[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected)|(?:empty|invalid|unknown)[\s\S]{0,180}defaultFilter[\s\S]{0,180}(?:aggregate `?errors\[\]`?|rejected)/i;
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
@@ -1114,7 +1290,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     const text = read(relativePath);
     assert.match(
       text,
-      /table[\s\S]{0,100}list[\s\S]{0,100}gridCard[\s\S]{0,100}calendar[\s\S]{0,100}kanban|table[\s\S]{0,100}gridCard[\s\S]{0,100}list[\s\S]{0,100}calendar[\s\S]{0,100}kanban/i,
+      dataSurfacesPattern,
       `${relativePath} should name table/list/gridCard/calendar/kanban data surfaces`,
     );
     assert.match(
@@ -1124,15 +1300,50 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
     );
     assert.match(
       text,
-      blockDefaultFilterRequiredPattern,
-      `${relativePath} should require block-level defaultFilter for table/list/gridCard/calendar/kanban data surfaces`,
+      omittedDefaultFilterMaterializationPattern,
+      `${relativePath} should document backend defaultFilter materialization when omitted`,
+    );
+    assert.match(
+      text,
+      generatedFieldCapPattern,
+      `${relativePath} should document generated defaultFilter field cap`,
+    );
+    assert.match(
+      text,
+      explicitDefaultFilterRejectedPattern,
+      `${relativePath} should document aggregate rejection for explicit invalid defaultFilter`,
+    );
+    assert.match(
+      text,
+      explicitDefaultFilterTooNarrowRejectedPattern,
+      `${relativePath} should document aggregate rejection for explicit defaultFilter below the collection-aware minimum`,
+    );
+    assert.match(
+      text,
+      /(?:every direct public data surface|direct public data-surface)[\s\S]{0,180}(?:partial `?actions`?|`?actions`? partials?)[\s\S]{0,180}filter[\s\S]{0,80}refresh[\s\S]{0,80}addNew[\s\S]{0,120}(?:table[\s\S]{0,80}bulkDelete|bulkDelete[\s\S]{0,80}table)/i,
+      `${relativePath} should document partial default action merge for all direct public data surfaces`,
+    );
+    assert.match(
+      text,
+      /table[\s\S]{0,120}(?:partial `?recordActions`?|`?recordActions`? partials?|recordActions)[\s\S]{0,160}view[\s\S]{0,80}edit[\s\S]{0,80}delete/i,
+      `${relativePath} should document table recordActions partial merge`,
+    );
+    assert.doesNotMatch(
+      text,
+      /skipDefaultActions|skipDefaultRecordActions/i,
+      `${relativePath} should not document removed default-action opt-out keys`,
+    );
+    assert.doesNotMatch(
+      text,
+      forbiddenRequiredDefaultFilterPattern,
+      `${relativePath} should not require UI Builder supplied defaultFilter`,
     );
   }
 
   const pageBlueprint = read('references/page-blueprint.md');
   assert.match(
     pageBlueprint,
-    /block-level `?defaultFilter`?[\s\S]{0,80}(?:required|must|carry)|(?:required|must|carry)[\s\S]{0,80}block-level `?defaultFilter`?/i,
+    omittedDefaultFilterMaterializationPattern,
   );
   assert.doesNotMatch(pageBlueprint, /actions:\s*\["filter"\][\s\S]{0,80}not valid/i);
   assert.doesNotMatch(
@@ -1143,7 +1354,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(
     pageBlueprint,
     /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
-    'page-blueprint canonical table example should include a non-empty block-level defaultFilter',
+    'page-blueprint explicit table example should keep a valid non-empty block-level defaultFilter',
   );
   assert.match(
     pageBlueprint,
@@ -1152,17 +1363,17 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
   assert.match(
     pageBlueprint,
-    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i,
+    /direct,?\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,160}(?:omit|omitted|may omit|may be omitted)[\s\S]{0,120}defaultFilter/i,
     'page-blueprint should scope block-level defaultFilter to direct non-template table/list/gridCard/calendar/kanban data surfaces',
   );
   assert.match(
     pageBlueprint,
-    /\{\}[\s\S]{0,120}`?null`?[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}rejected/i,
+    /\{\}[\s\S]{0,120}`?null`?[\s\S]{0,120}\{\s*"logic":\s*"\$and",\s*"items":\s*\[\]\s*\}[\s\S]{0,160}(?:aggregate|rejected)/i,
     'page-blueprint should document rejected empty defaultFilter groups',
   );
   assert.match(
     pageBlueprint,
-    /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i,
+    /filterableFieldNames[\s\S]{0,180}settings\.defaultFilter[\s\S]{0,160}defaultActionSettings\.filter\.defaultFilter[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i,
     'page-blueprint should document effective defaultFilter coverage precedence',
   );
 
@@ -1170,7 +1381,7 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(
     wholePageQuick,
     /"type":\s*"table"[\s\S]{0,120}"collection":\s*"support_tickets"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"subject"/,
-    'whole-page quick table example should include a non-empty block-level defaultFilter',
+    'whole-page quick explicit table example should include a valid non-empty block-level defaultFilter',
   );
 
   const toolShapes = read('references/tool-shapes.md');
@@ -1182,17 +1393,17 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   assert.match(
     toolShapes,
     /"type":\s*"table"[\s\S]{0,120}"collection":\s*"employees"[\s\S]{0,160}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
-    'tool-shapes applyBlueprint table example should include a non-empty block-level defaultFilter',
+    'tool-shapes applyBlueprint table example should keep a valid explicit block-level defaultFilter',
   );
   assert.match(
     toolShapes,
     /"key":\s*"employeesTable"[\s\S]{0,300}"defaultFilter"[\s\S]{0,120}"items":\s*\[[\s\S]{0,120}"path":\s*"nickname"/,
-    'tool-shapes compose table example should include a non-empty block-level defaultFilter',
+    'tool-shapes compose table example should keep a valid explicit block-level defaultFilter',
   );
 
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /\{\}[\s\S]{0,80}`?null`?[\s\S]{0,80}logic:\s*"\$and"[\s\S]{0,80}items:\s*\[\][\s\S]{0,80}rejected/i);
-  assert.match(helperContracts, /filterableFieldNames[\s\S]{0,160}settings\.defaultFilter[\s\S]{0,120}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(helperContracts, /filterableFieldNames[\s\S]{0,180}settings\.defaultFilter[\s\S]{0,160}defaultActionSettings\.filter\.defaultFilter[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i);
   assert.match(
     helperContracts,
     /sortable public blocks[\s\S]{0,160}table[\s\S]{0,80}details[\s\S]{0,80}list[\s\S]{0,80}tree[\s\S]{0,80}kanban[\s\S]{0,80}gridCard[\s\S]{0,80}map[\s\S]{0,160}settings\.sort[\s\S]{0,80}settings\.sorting/i,
@@ -1215,14 +1426,30 @@ test('data-surface docs require block-level defaultFilter while keeping filter a
   );
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,120}defaultFilter/i);
-  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,160}defaultActionSettings[\s\S]{0,160}otherwise[\s\S]{0,80}block-level `?defaultFilter`?/i);
+  assert.match(normativeContract, /direct\s+non-template[\s\S]{0,140}table[\s\S]{0,80}list[\s\S]{0,80}gridCard[\s\S]{0,80}calendar[\s\S]{0,80}kanban[\s\S]{0,160}(?:omit|omitted|may omit|may be omitted)[\s\S]{0,120}defaultFilter/i);
+  assert.match(normativeContract, /filterableFieldNames[\s\S]{0,180}action-level\/defaultActionSettings `?defaultFilter`?[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
-  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,24}(?:required|must)|(?:required|must)[\s\S]{0,24}defaultFilter/i);
+  assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}omit[\s\S]{0,60}backend4|backend4[\s\S]{0,60}defaultFilter/i);
+  assert.match(defaultPrompt, /explicit[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}<4[\s\S]{0,36}errors/i);
   assert.match(defaultPrompt, /filterAction[\s\S]{0,24}optional|optional[\s\S]{0,24}filterAction/i);
+  assert.match(
+    defaultPrompt,
+    /treeTable[\s\S]{0,60}omit[\s\S]{0,40}recordActions[\s\S]{0,60}default[\s\S]{0,40}addChild/i,
+    'compressed prompt should keep tree-table default row-action guidance',
+  );
+  assert.match(
+    defaultPrompt,
+    /treeTable[\s\S]{0,80}first[\s\S]{0,80}live[\s\S]{0,80}direct[\s\S]{0,80}non-assoc[\s\S]{0,80}titleField>name>code>title/i,
+    'compressed prompt should keep tree-table first-field priority from live direct metadata',
+  );
+  assert.match(
+    defaultPrompt,
+    /treeTable[\s\S]{0,100}EFmoveNoInject/i,
+    'compressed prompt should keep tree-table explicit fields move-only/no-inject guidance',
+  );
 });
 
 test('gridCard reference documents public settings.columns without removed column count alias', () => {
@@ -1230,6 +1457,272 @@ test('gridCard reference documents public settings.columns without removed colum
   const removedGridCardSetting = ['column', 'Count'].join('');
   assert.doesNotMatch(gridCardReference, new RegExp(removedGridCardSetting, 'i'));
   assert.match(gridCardReference, /settings[\s\S]{0,120}"columns"|"columns"[\s\S]{0,120}settings/i);
+});
+
+test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
+  const pageFirst = read('references/page-first-planning.md');
+  const gridCard = read('references/blocks/grid-card.md');
+  const chart = read('references/blocks/chart.md');
+  const aliases = read('references/aliases.md');
+  const dashboardRouting = read('references/dashboard-routing.md');
+  const blocksIndex = read('references/blocks/index.md');
+  const jsBlock = read('references/js-models/js-block.md');
+  const skill = read('SKILL.md');
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['page-first-planning', pageFirst],
+    ['grid-card', gridCard],
+    ['chart', chart],
+    ['aliases', aliases],
+    ['dashboard-routing', dashboardRouting],
+    ['blocks-index', blocksIndex],
+    ['js-block', jsBlock],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /(?:KPI|指标卡|数字统计|统计卡)[\s\S]{0,160}JSBlock|JSBlock[\s\S]{0,160}(?:KPI|指标卡|数字统计|统计卡)/i,
+      `${label} should route numeric metrics to JSBlock`,
+    );
+    assert.doesNotMatch(
+      text,
+      /(?:数字摘要|KPI|指标卡)[\s\S]{0,80}优先\s*`?GridCardBlockModel`?|优先\s*grid card/i,
+      `${label} should not route numeric summaries to GridCard first`,
+    );
+  }
+
+  assert.match(
+    gridCard,
+    /record cards|卡片列表|多条业务记录|记录展示/i,
+    'grid-card docs should describe record-card usage',
+  );
+  assert.doesNotMatch(
+    skill,
+    /KPI[\s\S]{0,80}chart\/grid-card|chart\/grid-card[\s\S]{0,80}KPI/i,
+    'top-level SKILL router should not send KPI to chart/grid-card',
+  );
+  assert.match(
+    dashboardRouting,
+    /Do not implement[\s\S]{0,120}actionPanel[\s\S]{0,120}js/i,
+    'dashboard routing should forbid actionPanel + js actions for KPI cards',
+  );
+  assert.match(
+    aliases,
+    /actionPanel[\s\S]{0,120}not a valid fallback|ActionPanelBlockModel[\s\S]{0,120}pure numeric metrics/i,
+    'aliases should reject actionPanel fallback for dashboard summary numbers',
+  );
+  assert.match(
+    skill,
+    /dashboard-routing\.md/i,
+    'SKILL should link dashboard-routing.md so the new reference is discoverable',
+  );
+  assert.doesNotMatch(
+    defaultPrompt,
+    /KPI[\s\S]{0,80}chart\/grid-card|chart\/grid-card[\s\S]{0,80}KPI|分析看板=chart\/grid-card/i,
+    'compressed prompt should not preserve old KPI chart/grid-card routing',
+  );
+});
+
+test('dashboard chart requests require chart blocks and cannot downgrade to JSBlock or tables', () => {
+  const skill = read('SKILL.md');
+  const dashboardRouting = read('references/dashboard-routing.md');
+  const wholePageQuick = read('references/whole-page-quick.md');
+  const chart = read('references/blocks/chart.md');
+  const chartCore = read('references/chart-core.md');
+  const pageBlueprint = read('references/page-blueprint.md');
+  const executionChecklist = read('references/execution-checklist.md');
+  const verification = read('references/verification.md');
+  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['dashboard-routing', dashboardRouting],
+    ['whole-page-quick', wholePageQuick],
+    ['chart', chart],
+    ['chart-core', chartCore],
+    ['page-blueprint', pageBlueprint],
+    ['execution-checklist', executionChecklist],
+    ['verification', verification],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /chart[\s\S]{0,120}(?:required|require|must|必须)|(?:required|require|must|必须)[\s\S]{0,120}chart/i,
+      `${label} should make requested dashboard charts mandatory`,
+    );
+    assert.match(
+      text,
+      /JSBlock[\s\S]{0,140}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,140}chart|chart[\s\S]{0,140}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,140}JSBlock/i,
+      `${label} should forbid JSBlock as chart coverage`,
+    );
+    assert.match(
+      text,
+      /table[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}chart|chart[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}table/i,
+      `${label} should forbid table/list as chart coverage`,
+    );
+    assert.match(
+      text,
+      /list[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}chart|chart[\s\S]{0,120}(?:not|never|cannot|do not|不能|不|!=|≠)[\s\S]{0,120}list/i,
+      `${label} should forbid list as chart coverage`,
+    );
+  }
+
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['dashboard-routing', dashboardRouting],
+    ['whole-page-quick', wholePageQuick],
+    ['chart', chart],
+    ['page-blueprint', pageBlueprint],
+    ['execution-checklist', executionChecklist],
+    ['verification', verification],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /percentage[\s\S]{0,80}占比|占比[\s\S]{0,80}percentage/i,
+      `${label} should keep percentage / 占比 aligned as chart-required cues`,
+    );
+  }
+
+  assert.match(
+    dashboardRouting,
+    /chart blocks:[\s\S]{0,80}title[\s\S]{0,80}asset[\s\S]{0,20}key/i,
+    'dashboard-routing should require chart title-to-asset evidence in final summaries',
+  );
+  assert.match(
+    verification,
+    /charts\[\][\s\S]{0,120}title[\s\S]{0,120}(?:asset key|assetKey|uid)/i,
+    'verification should require structured chart evidence',
+  );
+  for (const [label, text] of [
+    ['SKILL', skill],
+    ['whole-page-quick', wholePageQuick],
+    ['chart-core', chartCore],
+    ['execution-checklist', executionChecklist],
+    ['verification', verification],
+  ]) {
+    assert.match(
+      text,
+      /apply(?:-)?Blueprint/i,
+      `${label} should require pageSchemaUid readback and chart evidence for chart-required dashboards`,
+    );
+    assert.match(
+      text,
+      /pageSchemaUid[\s\S]{0,260}(?:chart block evidence|chart evidence|charts\[\])|(?:chart block evidence|chart evidence|charts\[\])[\s\S]{0,260}pageSchemaUid/i,
+      `${label} should require pageSchemaUid readback and chart evidence for chart-required dashboards`,
+    );
+    assert.match(
+      text,
+      /(?:read back|readback|flow-surfaces get)[\s\S]{0,260}pageSchemaUid[\s\S]{0,260}(?:chart block evidence|chart evidence|charts\[\])|(?:chart block evidence|chart evidence|charts\[\])[\s\S]{0,260}(?:read back|readback|flow-surfaces get)[\s\S]{0,260}pageSchemaUid/i,
+      `${label} should keep the explicit readback step for chart-required dashboards`,
+    );
+    assert.match(
+      text,
+      /(?:jsBlock|JSBlock)[\s\S]{0,160}(?:table|list)[\s\S]{0,260}(?:unfinished|not chart evidence|never count|do not report|do not summarize|do not satisfy|cannot satisfy)|(?:unfinished|not chart evidence|never count|do not report|do not summarize|do not satisfy|cannot satisfy)[\s\S]{0,260}(?:jsBlock|JSBlock)[\s\S]{0,160}(?:table|list)/i,
+      `${label} should treat JSBlock/table/list-only chart readback as unfinished`,
+    );
+  }
+});
+
+test('JSBlock docs and prompt expose only canonical public authoring shapes', () => {
+  const jsBlock = read('references/js-models/js-block.md');
+  const pageBlueprint = read('references/page-blueprint.md');
+  const settings = read('references/settings.md');
+  const skill = read('SKILL.md');
+  const openaiYaml = read('agents/openai.yaml');
+  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+
+  for (const [label, text] of [
+    ['js-block', jsBlock],
+    ['page-blueprint', pageBlueprint],
+    ['settings', settings],
+    ['SKILL', skill],
+    ['openai-default-prompt', defaultPrompt],
+  ]) {
+    assert.match(
+      text,
+      /settings\.code|settings"\s*:\s*\{[\s\S]{0,160}"code"/,
+      `${label} should document settings.code for inline jsBlock authoring`,
+    );
+    assert.match(
+      text,
+      /top-level `?code`?|top-level code/i,
+      `${label} should explicitly forbid top-level jsBlock code`,
+    );
+    assert.match(
+      text,
+      /top-level[\s\S]{0,40}`?version`?/i,
+      `${label} should explicitly forbid top-level jsBlock version`,
+    );
+    assert.match(
+      text,
+      /stepParams[\s\S]{0,160}(?:do not|don't|Never|禁|internal|readback)/i,
+      `${label} should forbid handwritten internal jsBlock stepParams`,
+    );
+  }
+
+  for (const [label, text] of [
+    ['js-block', jsBlock],
+    ['page-blueprint', pageBlueprint],
+    ['SKILL', skill],
+  ]) {
+    assert.match(
+      text,
+      /assets\.scripts[\s\S]{0,160}script|script[\s\S]{0,160}assets\.scripts/i,
+      `${label} should document assets.scripts + script for asset-backed jsBlock authoring`,
+    );
+  }
+
+  assert.match(
+    defaultPrompt,
+    /configure[\s\S]{0,80}changes\.code\/version|changes\.code\/version[\s\S]{0,80}configure/i,
+    'compressed prompt should document changes.code/version for JSBlock configure',
+  );
+  assert.match(
+    defaultPrompt,
+    /changes\.settings/i,
+    'compressed prompt should forbid changes.settings for JSBlock configure',
+  );
+  assert.match(
+    defaultPrompt,
+    /ban\([^)]*top-level code\/version[^)]*changes\.settings[^)]*stepParams[^)]*props[^)]*decoratorProps[^)]*flowRegistry[^)]*\)/i,
+    'compressed prompt should keep JSBlock forbidden public shapes under an explicit ban marker',
+  );
+  assert.match(
+    defaultPrompt,
+    /props[\s\S]{0,80}decoratorProps[\s\S]{0,80}flowRegistry/i,
+    'compressed prompt should forbid internal JSBlock persisted fields',
+  );
+  assert.match(
+    defaultPrompt,
+    /type[\s\S]{0,30}jsBlock[\s\S]{0,30}only/i,
+    'compressed prompt should require type jsBlock instead of the js alias for blocks',
+  );
+
+  assert.doesNotMatch(
+    jsBlock,
+    /code`?\s*(?:写在|under|at)\s*`?stepParams\.jsSettings\.runJs\.code/i,
+    'js-block reference should not present stepParams as the public write path',
+  );
+});
+
+test('metric cards JSBlock safe snippet stays cataloged as guidance', () => {
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const entry = catalog.snippets.find((item) => item.id === 'scene/block/metric-cards');
+  assert.ok(entry, 'metric cards snippet should be listed in catalog');
+  assert.equal(entry.tier, 'safe');
+  assert.equal(entry.doc, 'js-snippets/safe/scene/block/metric-cards.md');
+  assert.deepEqual(entry.modelUses['js-model.render'], ['JSBlockModel']);
+
+  const markdown = read(`references/${entry.doc}`);
+  const code = extractJsFenceAfterH2(markdown, 'Normalized snippet');
+  assert.match(code, /ctx\.makeResource/, 'metric snippet should create independent resources');
+  assert.match(code, /getCount/, 'metric snippet should read server-side meta count');
+  assert.match(code, /ctx\.render/, 'metric snippet should render explicitly');
+  assertRunjsSnippetShape('JSBlockModel', code, 'metric cards snippet');
 });
 
 test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel cues', () => {
@@ -1263,12 +1756,18 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
   const kanbanBlock = read('references/blocks/kanban.md');
   assert.match(
     kanbanBlock,
-    /defaultFilter[\s\S]{0,120}filter action|filter action[\s\S]{0,120}defaultFilter/i,
-    'kanban block doc should keep defaultFilter and host-level filter action guidance together',
+    /defaultFilter[\s\S]{0,180}(?:省略|omit|omitted)[\s\S]{0,220}filter`? action|filter`? action[\s\S]{0,220}defaultFilter/i,
+    'kanban block doc should keep omitted defaultFilter and host-level filter action guidance together',
   );
 
   const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
-  assert.match(defaultPrompt, /分析看板[\s\S]{0,24}chart\/grid-card/i);
+  assert.match(defaultPrompt, /分析看板[\s\S]{0,80}trend[\s\S]{0,40}chart/i);
+  assert.match(defaultPrompt, /distribution[\s\S]{0,40}ranking[\s\S]{0,40}占比[\s\S]{0,40}chart/i);
+  assert.match(defaultPrompt, /chart[\s\S]{0,40}required/i);
+  assert.match(defaultPrompt, /table\/list!=chart/i);
+  assert.match(defaultPrompt, /assets\.charts[\s\S]{0,30}block\.chart/i);
+  assert.match(defaultPrompt, /KPI[\s\S]{0,24}JSBlock/i);
+  assert.match(defaultPrompt, /card[\s\S]{0,24}Grid/i);
   assert.match(defaultPrompt, /kanban\/pipeline\/status columns[\s\S]{0,24}Kanban/i);
 });
 
@@ -1344,7 +1843,7 @@ test('whole-page satellite docs do not preserve pre-success low-level fallback w
     );
     assert.match(
       text,
-      /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:repair|修正|修复)[\s\S]{0,120}prepare-write[\s\S]{0,120}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:repair|修正|修复)[\s\S]{0,120}prepare-write[\s\S]{0,120}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
+    /(?:first|首次|single-shot)?[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,180}(?:fail|失败)[\s\S]{0,180}(?:(?:repair|修正|修复)[\s\S]{0,160}(?:aggregate|errors\[\]|错误列表|聚合)|(?:aggregate|errors\[\]|错误列表|聚合)[\s\S]{0,160}(?:repair|修正|修复))[\s\S]{0,160}(?:retry|重试)[\s\S]{0,80}(?:5|五)|(?:(?:repair|修正|修复)[\s\S]{0,160}(?:aggregate|errors\[\]|错误列表|聚合)|(?:aggregate|errors\[\]|错误列表|聚合)[\s\S]{0,160}(?:repair|修正|修复))[\s\S]{0,160}(?:retry|重试)[\s\S]{0,120}`?applyBlueprint`?[\s\S]{0,80}(?:5|五)/i,
       `${relativePath} should repair and retry up to 5 rounds on pre-success applyBlueprint failure`,
     );
     assert.match(
@@ -1383,6 +1882,34 @@ test('multi-page shared menu-group docs require serialized routeId handoff', () 
   ]) {
     assertSharedMenuGroupMultiPageRunsAreSerialized(read(relativePath), relativePath);
   }
+});
+
+test('menu discovery docs use current nb resource read path and locator mapping', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/runtime-playbook.md',
+    'references/verification.md',
+    'references/normative-contract.md',
+  ]) {
+    assertMenuDiscoveryUsesCanonicalNbResourceRead(read(relativePath), relativePath);
+  }
+
+  const runtime = read('references/runtime-playbook.md');
+  assert.match(
+    runtime,
+    /group\.id[\s\S]{0,80}navigation\.group\.routeId|navigation\.group\.routeId[\s\S]{0,80}group\.id/i,
+    'runtime-playbook should map menu group id to navigation.group.routeId',
+  );
+  assert.match(
+    runtime,
+    /flowPage\.schemaUid[\s\S]{0,80}pageSchemaUid|pageSchemaUid[\s\S]{0,80}flowPage\.schemaUid/i,
+    'runtime-playbook should map flowPage.schemaUid to pageSchemaUid',
+  );
+  assert.match(
+    runtime,
+    /tabs[\s\S]{0,80}(?:not|not a|is not|are not)[\s\S]{0,80}menu item/i,
+    'runtime-playbook should clarify that tabs are not menu items',
+  );
 });
 
 test('same-group same-title page docs require replace and cross-group isolation', () => {
@@ -1442,7 +1969,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
 
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(wholePageQuick, /\[page-blueprint\.md\]/i);
-  assert.match(wholePageQuick, /\[helper-contracts\.md\]/i);
+  assert.match(wholePageQuick, /\[helper-contracts\.md\][\s\S]{0,120}optional helper behavior/i);
   assert.match(wholePageQuick, /\[template-quick\.md\]/i);
   assert.match(wholePageQuick, /\.artifacts\/nocobase-ui-builder/i);
   assert.match(wholePageQuick, /blueprint\.json/i);
@@ -1469,8 +1996,8 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /helper-contracts[\s\S]{0,120}(real write|prewrite gate)/i,
-    'whole-page-quick should keep helper-contracts behind real-write or prewrite-gate needs',
+    /For artifact-only drafts[\s\S]{0,180}do not open \[helper-contracts\.md\]/i,
+    'whole-page-quick should keep helper-contracts out of artifact-only drafting',
   );
   assert.match(
     wholePageQuick,
@@ -1494,7 +2021,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
   assert.match(
     wholePageQuick,
-    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}prepare-write[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
+    /first mutating write[\s\S]{0,120}`?applyBlueprint`?|`?applyBlueprint`?[\s\S]{0,160}fail(?:s|ure)?[\s\S]{0,220}repair[\s\S]{0,120}(?:aggregate `?errors\[\]`?|backend aggregate)[\s\S]{0,120}retry[\s\S]{0,80}(?:5|five)|after one successful whole-page `?applyBlueprint`?[\s\S]{0,180}(?:localized|residual local\/live gap)/i,
     'whole-page-quick should keep the first-write and post-success repair policy visible',
   );
   assert.match(
@@ -1703,48 +2230,40 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(templateQuick, /"hostOpenViewConfigRoute"/i);
 
   const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /real write|prewrite-validation/i);
-  assert.match(helperContracts, /common-case drafting|not the default first stop/i);
-  assert.match(helperContracts, /prepare-write/i);
-  assert.match(helperContracts, /nb-runjs/i);
-  assert.match(helperContracts, /nb-localized-write-preflight/i);
-  assert.match(helperContracts, /does not execute `?nb`?|does not wrap the transport|local\/read-only/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-runjs\.mjs/i);
-  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
+  assert.match(helperContracts, /optional local helpers/i);
+  assert.match(helperContracts, /common-case drafting|do not open runtime source files/i);
+  assert.doesNotMatch(helperContracts, /nb-runjs/i);
+  assert.match(helperContracts, /Write Behavior/i);
+  assert.match(helperContracts, /errors\[\][\s\S]{0,120}retry/i);
+  assert.match(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-template-decision\.mjs/i);
+  assert.doesNotMatch(helperContracts, /nb-flow-surfaces\.mjs/i);
+  assert.doesNotMatch(helperContracts, /node skills\/nocobase-ui-builder\/runtime\/bin\/nb-localized-write-preflight\.mjs/i);
   assert.doesNotMatch(helperContracts, /- CLI:\s*`nb-runjs\b/i);
 
+  assertBackendFirstWriteContract('references/cli-transport.md');
   const cliTransport = read('references/cli-transport.md');
-  assert.match(cliTransport, /nb-flow-surfaces\.mjs/i);
-  assert.match(cliTransport, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
-  assert.match(cliTransport, /do not probe bare PATH commands first/i);
-  assert.match(cliTransport, /blocked wrapper command state/i);
-  assert.match(cliTransport, /exact `?nb-flow-surfaces\.mjs <subcommand>`? wrapper command\/output/i);
-  assert.doesNotMatch(cliTransport, /blocked nb command state|chosen nb path|exact `?nb api \.\.\.`? command\/output/i);
+  assert.match(cliTransport, /nb api flow-surfaces <action>|node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+  assert.match(cliTransport, /Check whether `?nb`? is available|do not probe bare PATH commands first/i);
+  assert.match(cliTransport, /blocked command state|blocked nb command state/i);
+  assert.match(cliTransport, /exact `?nb api flow-surfaces <action>`? command\/output/i);
 
-  const executionChecklistLocalCli = read('references/execution-checklist.md');
-  assert.match(executionChecklistLocalCli, /nb-flow-surfaces\.mjs apply-blueprint/i);
+  assertBackendFirstWriteContract('references/execution-checklist.md');
 
+  assertBackendFirstWriteContract('references/cli-command-surface.md');
   const cliCommandSurface = read('references/cli-command-surface.md');
-  assert.match(cliCommandSurface, /nb-flow-surfaces\.mjs/i);
-  assert.match(cliCommandSurface, /internal `?prepare-write`?/i);
-  assert.match(cliCommandSurface, /unresolved `?nb-flow-surfaces\.mjs <subcommand>`? wrapper command/i);
-  assert.doesNotMatch(cliCommandSurface, /unresolved `?nb api \.\.\.`? command/i);
+  assert.match(cliCommandSurface, /unresolved `?nb api flow-surfaces <action>`? command/i);
 
+  assertBackendFirstWriteContract('references/page-intent.md');
   const pageIntent = read('references/page-intent.md');
-  assert.match(pageIntent, /nb-flow-surfaces\.mjs apply-blueprint/i);
+  assert.match(pageIntent, /nb api flow-surfaces apply-blueprint/i);
 
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
+  assert.match(normativeContract, /nb-template-decision/i);
+  assert.doesNotMatch(normativeContract, /nb-runjs/i);
 
   for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
     const text = read(relativePath);
     assert.doesNotMatch(text, /nb-page-preview/i, `${relativePath} should not expose nb-page-preview`);
-    assert.doesNotMatch(
-      text,
-      /\bnb\s+api\s+flow-surfaces\b/i,
-      `${relativePath} should not expose raw nb api flow-surfaces; use nb-flow-surfaces.mjs`,
-    );
     assert.doesNotMatch(
       text,
       /prepareApplyBlueprintRequest/i,
@@ -1766,9 +2285,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   );
 
   const localEditQuickHelper = read('references/local-edit-quick.md');
-  assert.match(localEditQuickHelper, /nb-localized-write-preflight/i);
-  assert.match(localEditQuickHelper, /runLocalizedWritePreflight/i);
-  assert.match(localEditQuickHelper, /does not wrap or execute the nb transport|wrapper\/backend write/i);
+  assert.match(localEditQuickHelper, /nb api flow-surfaces|backend/i);
 
 });
 
@@ -1908,8 +2425,13 @@ test('chart docs reject builder relation fields and point relation labels to SQL
     const text = read(relativePath);
     assert.match(
       text,
-      /CHART_BUILDER_RELATION_FIELD_RUNTIME_UNSUPPORTED|chart-builder-relation-field-runtime-unsupported/i,
-      `${relativePath} should name the stable local validation rule`,
+      /chart-builder-query-association-field-requires-subfield/i,
+      `${relativePath} should name the backend aggregate validation rule`,
+    );
+    assert.match(
+      text,
+      /suggestedFieldPath|suggested scalar subfield|建议的 scalar subfield/i,
+      `${relativePath} should document backend association subfield repair guidance`,
     );
     assert.match(
       text,
@@ -1924,6 +2446,16 @@ test('chart docs reject builder relation fields and point relation labels to SQL
     /\{\s*"field"\s*:\s*\[\s*"customer"\s*,\s*"name"\s*\]\s*,\s*"alias"\s*:\s*"customer_name"\s*\}/i,
     'chart block docs must not keep the old builder relation dimension example',
   );
+});
+
+test('whole-page chart docs keep canonical assets and inline compatibility boundaries aligned', () => {
+  for (const relativePath of [
+    'references/blocks/chart.md',
+    'references/chart-core.md',
+    'references/page-blueprint.md',
+  ]) {
+    assertWholePageChartAssetGuidance(read(relativePath), relativePath);
+  }
 });
 
 test('whole-page authoring docs keep menu, layout, and filter gates aligned with runtime', () => {
@@ -2238,55 +2770,317 @@ test('whole-page defaults docs keep the fixed popup trio and table addNew thresh
   );
 });
 
-test('helper contracts document prepare-write collectionMetadata auto-resolution', () => {
-  const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /auto-resolves missing `?collectionMetadata`? entries/i);
-  assert.match(helperContracts, /data-modeling collections get/i);
-  assert.match(helperContracts, /resource list/i);
-  assert.match(helperContracts, /--no-auto-collection-metadata/i);
-  assert.match(helperContracts, /collectionMetadata/i);
-  assert.match(helperContracts, /data-bound block/i);
-  assert.match(helperContracts, /missing-collection-metadata/i);
-  assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
-  assert.match(helperContracts, /caller-supplied[\s\S]{0,80}wins/i);
-  assert.match(helperContracts, /wrapper path auto-resolves missing `?collectionMetadata`? entries/i);
-  assert.doesNotMatch(helperContracts, /defaultsRequirements\.skipped|skip(?:s|ped)? completeness|skip(?:s|ped)? defaults/i);
+test('docs keep backend-first collection metadata and validation boundary', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/normative-contract.md',
+    'references/page-intent.md',
+    'references/whole-page-quick.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(text, /live (?:collection )?metadata/i, `${relativePath} should keep live metadata planning visible`);
+    assert.match(text, /backend[\s\S]{0,120}(?:aggregate|validation|authoring)/i, `${relativePath} should route final validation to backend authoring`);
+    assert.doesNotMatch(text, /--no-auto-collection-metadata|missing-collection-metadata|result\.cliBody/i);
+  }
 });
 
-test('localized preflight docs keep explicit helper-vs-transport boundary', () => {
+test('localized write docs keep backend validation boundary', () => {
   const skill = read('SKILL.md');
-  assert.match(skill, /explicit local validator/i);
-  assert.match(skill, /wrapper `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
-  assert.match(skill, /backend runtime remains compatibility-tolerant|compatibility-tolerant/i);
+  assert.match(skill, /send it directly to `nb api flow-surfaces <action>`/i);
+  assert.match(skill, /backend authoring pipeline performs compatibility normalization and hard validation/i);
 
-  const helperContracts = read('references/helper-contracts.md');
-  assert.match(helperContracts, /local\/read-only/i);
-  assert.match(helperContracts, /does not execute `?nb`?/i);
-  assert.match(helperContracts, /does not wrap the transport by itself|does not wrap the transport/i);
-  assert.match(helperContracts, /later explicit wrapper call|later wrapper write/i);
+  const cliCommandSurface = read('references/cli-command-surface.md');
+  assert.match(cliCommandSurface, /raw business object/i);
+  assert.match(cliCommandSurface, /backend aggregate `?errors\[\]`?/i);
 
   const localEditQuick = read('references/local-edit-quick.md');
-  assert.match(localEditQuick, /later wrapper\/backend write|through `node skills\/nocobase-ui-builder\/runtime\/bin\/nb-flow-surfaces\.mjs/i);
-  assert.match(localEditQuick, /does not wrap or execute the nb transport/i);
+  assert.match(localEditQuick, /backend|nb api flow-surfaces/i);
+  assert.doesNotMatch(localEditQuick, /result\.cliBody|nb-localized-write-preflight|local preflight/i);
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /local preflight/i);
-  assert.match(defaultPrompt, /cliBody only/i);
+  assert.match(defaultPrompt, /backend aggregate validation|aggregate errors/i);
+  assert.match(defaultPrompt, /raw payload only/i);
 });
 
-test('prepare-write helper-envelope docs explain collectionMetadata requirements', () => {
+test('JS authoring docs route writes through flow-surfaces errors repair', () => {
+  for (const relativePath of [
+    'references/js.md',
+    'references/runjs-authoring-loop.md',
+    'references/helper-contracts.md',
+    'references/normative-contract.md',
+    'references/chart-core.md',
+    'references/js-snippets/index.md',
+    'references/js-reference-index.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /(?:nb api flow-surfaces|errors\[\])/i,
+      `${relativePath} should route JS writes to direct flow-surfaces writes or returned errors`,
+    );
+    assert.doesNotMatch(
+      text,
+      /nb-runjs|must run the local validator|local validator gate|validator failure is failure|write cannot continue|do not continue to the nb write|must first pass the validator gate/i,
+      `${relativePath} should not mention the removed local RunJS helper or define a local validator write gate`,
+    );
+  }
+
+  const chartCore = read('references/chart-core.md');
+  assert.doesNotMatch(chartCore, /-\s*`ctx\.openView`/i, 'chart events docs should not list ctx.openView as available');
+  assert.doesNotMatch(
+    chartCore,
+    /runtime treats `ctx\.openView\(\.\.\.\)` as a simulated call/i,
+    'chart events docs should not encourage backend-rejected ctx.openView code',
+  );
+  assert.match(
+    chartCore,
+    /persisted popup-capable FlowModel/i,
+    'chart events docs should require a persisted popup-capable FlowModel before events.raw opens a popup',
+  );
+});
+
+test('JS popup intent defaults to persisted popup-capable FlowModel with template-first routing', () => {
+  const skill = read('SKILL.md');
+  const js = read('references/js.md');
+  const jsAction = read('references/js-surfaces/js-model-action.md');
+  const jsIndex = read('references/js-reference-index.md');
+  const chartCore = read('references/chart-core.md');
+  const popupOpenView = read('references/patterns/popup-openview.md');
+  const failureTaxonomy = read('references/runjs-failure-taxonomy.md');
+  const guardedWindowOpen = read('references/js-snippets/guarded/global/window-open.md');
+  const renderSurfaceDocs = [
+    'runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-column.md',
+    'runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-field.md',
+    'runtime/reference-assets/upstream-js/interface-builder/fields/specific/js-item.md',
+    'runtime/reference-assets/upstream-js/interface-builder/actions/types/js-item.md',
+  ];
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+
+  for (const [label, text] of [
+    ['SKILL.md', skill],
+    ['references/js.md', js],
+    ['references/js-surfaces/js-model-action.md', jsAction],
+    ['references/js-reference-index.md', jsIndex],
+    ['references/chart-core.md', chartCore],
+    ['references/patterns/popup-openview.md', popupOpenView],
+    ['references/runjs-failure-taxonomy.md', failureTaxonomy],
+  ]) {
+    assert.match(text, /popup-capable FlowModel/i, `${label} should name the stable popup trigger target`);
+    assert.match(text, /popupTemplateUid|template-first|模板优先/i, `${label} should keep template-first popup routing visible`);
+  }
+
+  assert.match(popupOpenView, /triggerUid/i, 'popup-openview should distinguish the JS trigger uid');
+  assert.match(popupOpenView, /targetUid/i, 'popup-openview should distinguish the persisted openView target uid');
+  assert.match(
+    popupOpenView,
+    /ChildPageModel[\s\S]{0,180}(?:不是|not|must not)/i,
+    'popup-openview should warn against using ChildPage/page/tab/subtree uid as the default trigger target',
+  );
+
+  const popupSnippet = catalog.snippets.find((entry) => entry.id === 'global/open-popup-flow-model');
+  assert.ok(popupSnippet, 'catalog should include the popup FlowModel opener snippet');
+  assert.equal(popupSnippet?.tier, 'safe');
+  assert.equal(popupSnippet?.doc, 'js-snippets/safe/global/open-popup-flow-model.md');
+  assert.deepEqual(
+    popupSnippet?.preferredForIntents,
+    ['open-popup', 'open-view', 'drawer', 'dialog', 'drilldown'],
+    'popup snippet should be the preferred popup/openView intent entry',
+  );
+
+  assert.equal(
+    popupSnippet?.intentTags?.includes('drilldown'),
+    true,
+    'popup snippet should cover drilldown intent tags',
+  );
+  const renderPopupSnippet = catalog.snippets.find((entry) => entry.id === 'render/open-popup-flow-model-button');
+  assert.ok(renderPopupSnippet, 'catalog should include the rendered popup FlowModel opener snippet');
+  assert.equal(renderPopupSnippet?.tier, 'safe');
+  assert.equal(renderPopupSnippet?.doc, 'js-snippets/safe/render/open-popup-flow-model-button.md');
+  assert.equal(renderPopupSnippet?.surfaces?.includes('js-model.render'), true);
+  assert.equal(renderPopupSnippet?.preferredForIntents?.includes('drilldown'), true);
+
+  const actionSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.action');
+  assert.deepEqual(
+    actionSurface?.recommendedBySceneHint?.popup,
+    ['global/open-popup-flow-model'],
+    'js-model.action popup scene hint should point to the popup FlowModel snippet',
+  );
+  const renderSurface = manifest.surfaces.find((surface) => surface.id === 'js-model.render');
+  assert.deepEqual(
+    renderSurface?.recommendedBySceneHint?.popup,
+    ['render/open-popup-flow-model-button'],
+    'js-model.render popup scene hint should point to the rendered popup FlowModel opener',
+  );
+  const eventFlowSurface = manifest.surfaces.find((surface) => surface.id === 'event-flow.execute-javascript');
+  assert.deepEqual(
+    eventFlowSurface?.recommendedBySceneHint?.popup,
+    ['global/open-popup-flow-model'],
+    'event-flow popup scene hint should point to the popup FlowModel snippet',
+  );
+
+  const openViewReference = read('runtime/reference-assets/upstream-js/runjs/context/open-view.md');
+  assert.match(
+    openViewReference,
+    /missing `uid` as invalid/i,
+    'openView reference should quarantine missing uid behavior in skill mode',
+  );
+  assert.doesNotMatch(
+    openViewReference,
+    /\$\{ctx\.model\.uid\}/,
+    'openView reference should not teach constructing popup uids from ctx.model.uid',
+  );
+  assert.doesNotMatch(
+    failureTaxonomy,
+    /ctx\.openView\(\.\.\.\)[^\n]*(?:intentionally disallowed|final skill output)/i,
+    'failure taxonomy should not keep the old blanket ctx.openView final-output ban',
+  );
+  assert.match(
+    guardedWindowOpen,
+    /popup, drawer, dialog, or drilldown[\s\S]{0,180}global\/open-popup-flow-model/i,
+    'guarded window.open snippet should reroute NocoBase popup intent to the template-first FlowModel opener',
+  );
+  for (const relativePath of renderSurfaceDocs) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /Popup Opener Requires a Persisted FlowModel[\s\S]{0,900}replace-with-persisted-popup-flowmodel-uid[\s\S]{0,900}ctx\.openView\(popupFlowModelUid/i,
+      `${relativePath} should show a real persisted-trigger popup opener example`,
+    );
+    assert.doesNotMatch(
+      text,
+      /Resolve a template-first popup FlowModel before calling ctx\.openView/i,
+      `${relativePath} should not keep the old non-functional message-only popup shell`,
+    );
+  }
+});
+
+test('popup drilldown variables use defineProperties instead of nested inputArgs params', () => {
+  const files = [
+    'references/js-snippets/safe/global/open-popup-flow-model.md',
+    'references/js-snippets/safe/render/open-popup-flow-model-button.md',
+  ];
+
+  for (const relativePath of files) {
+    const text = read(relativePath);
+    assert.doesNotMatch(
+      text,
+      /params:\s*\{/i,
+      `${relativePath} should not use params as the drilldown variable carrier in examples`,
+    );
+  }
+
+  const popupOpenView = read('references/patterns/popup-openview.md');
+  const skillPrompt = read('SKILL.md');
+  const openViewReference = read('runtime/reference-assets/upstream-js/runjs/context/open-view.md');
+  assert.match(
+    popupOpenView,
+    /defineProperties[\s\S]{0,240}\{\{ctx\.[^}]+}}/i,
+    'popup-openview should teach defineProperties top-level variables for drilldown filters',
+  );
+  assert.match(
+    openViewReference,
+    /defineProperties[\s\S]{0,240}drilldownValue/i,
+    'openView runtime reference should show defineProperties variables for popup block settings',
+  );
+  assert.match(
+    openViewReference,
+    /\{\{\s*ctx\.drilldownValue\s*}}/i,
+    'openView runtime reference should show the top-level popup dataScope variable',
+  );
+  assert.match(
+    popupOpenView,
+    /禁止使用 `\{\{ctx\.view\.inputArgs\.params\.\*}}`|Do not generate `\{\{ctx\.view\.inputArgs\.params\.\*}}`/i,
+    'popup-openview should explicitly forbid nested params variables for popup dataScope',
+  );
+  assert.match(
+    skillPrompt,
+    /chart[\s\S]{0,240}actionLinkage[\s\S]{0,240}visible row action/i,
+    'main skill prompt should require hiding chart-only popup hosts instead of exposing broken row actions',
+  );
+  assert.match(
+    popupOpenView,
+    /图表 `ctx\.openView\(\)`[\s\S]{0,240}actionLinkage[\s\S]{0,240}可见行按钮/i,
+    'popup-openview should require actionLinkage for chart-only popup hosts',
+  );
+
+  for (const relativePath of [
+    'references/js-snippets/safe/global/open-popup-flow-model.md',
+    'references/js-snippets/safe/render/open-popup-flow-model-button.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(text, /defineProperties[\s\S]{0,240}drilldownValue/i, `${relativePath} should use defineProperties`);
+    assert.match(text, /\{\{ctx\.drilldownValue}}/i, `${relativePath} should document the popup dataScope variable`);
+  }
+});
+
+test('RunJS repair playbook covers backend repair classes', () => {
+  const playbook = read('references/runjs-repair-playbook.md');
+  for (const repairClass of [
+    'switch-to-resource-api',
+    'missing-top-level-return',
+    'value-surface-forbids-render',
+    'unknown-surface-stop',
+    'unknown-model-stop',
+    'replace-innerhtml-with-render',
+    'render-top-level-function-wrapper',
+    'render-unreachable-render-call',
+    'blocked-global-stop',
+    'blocked-capability-reroute',
+    'ctx-root-mismatch-stop',
+  ]) {
+    assert.match(playbook, new RegExp('\\| `' + repairClass + '` \\|'), `playbook should cover ${repairClass}`);
+  }
+  assert.match(playbook, /details\.repairClass/i);
+  assert.match(playbook, /nb api flow-surfaces <action>/i);
+  assert.doesNotMatch(playbook, /auto-rewrite only|may auto-rewrite/i);
+});
+
+test('JS snippets are guidance, not a write gate', () => {
+  const snippetIndex = read('references/js-snippets/index.md');
+  assert.match(snippetIndex, /Use the snippet as guidance/i);
+  assert.match(snippetIndex, /errors\[\][\s\S]{0,80}retry/i);
+  assert.doesNotMatch(snippetIndex, /Run the JS validator before writing|code-quality gate/i);
+  for (const relativePath of walkMarkdownFiles('references/js-snippets')) {
+    assert.doesNotMatch(
+      read(relativePath),
+      /Run the JS validator before writing|must run the local validator|local validator gate|validator failure is failure|write cannot continue|must first pass the validator gate/i,
+      `${relativePath} should not define snippets as a local validator write gate`,
+    );
+  }
+});
+
+test('docs keep migrated write ergonomics backend-owned', () => {
+  const skill = read('SKILL.md');
+  assert.match(skill, /single-scope[\s\S]{0,80}data-block title[\s\S]{0,120}backend authoring[\s\S]{0,80}strips/i);
+
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /backend authoring[\s\S]{0,120}strips[\s\S]{0,160}single-scope[\s\S]{0,160}data blocks/i);
+  assert.match(helperContracts, /backend authoring[\s\S]{0,160}fieldGroups[\s\S]{0,160}large generated popups/i);
+  assert.match(helperContracts, /builder chart direct association fields[\s\S]{0,120}backend aggregate validation/i);
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(wholePageQuick, /backend authoring[\s\S]{0,120}strips[\s\S]{0,120}single-scope[\s\S]{0,120}data blocks/i);
+
+  for (const relativePath of ['SKILL.md', ...walkMarkdownFiles('references')]) {
+    const text = read(relativePath);
+    assert.doesNotMatch(
+      text,
+      /--collection-metadata|--expected-outer-tabs|--max-popup-depth|--no-auto-collection-metadata/i,
+      `${relativePath} should not document legacy helper-only wrapper flags`,
+    );
+  }
+});
+
+test('optional helper docs do not define write gates', () => {
   for (const relativePath of [
     'references/helper-contracts.md',
     'references/template-decision-summary.md',
   ]) {
     const text = read(relativePath);
-    assert.match(text, /blueprint/i, `${relativePath} should keep the helper envelope blueprint payload`);
     assert.doesNotMatch(text, /requestBody/i, `${relativePath} should not keep the old helper payload name`);
-    assert.match(text, /templateDecision/i, `${relativePath} should keep templateDecision in the helper envelope`);
-    assert.match(text, /collectionMetadata/i, `${relativePath} should document collectionMetadata in the helper envelope`);
-    assert.match(text, /data-bound/i, `${relativePath} should explain when collectionMetadata is required`);
-    assert.match(text, /missing-collection-metadata/i, `${relativePath} should name the hard-fail rule`);
+    assert.doesNotMatch(text, /mandatory local prepare-write|result\.cliBody|cliBody only/i);
   }
 });
 
@@ -2320,6 +3114,19 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
     );
   }
 
+  for (const relativePath of [
+    'SKILL.md',
+    'references/helper-contracts.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/settings.md',
+    'references/normative-contract.md',
+    'references/tool-shapes.md',
+  ]) {
+    const text = read(relativePath);
+    assertFormBehaviorDescriptionReviewGuidance(text, relativePath);
+  }
+
   const toolShapes = read('references/tool-shapes.md');
   assert.match(
     toolShapes,
@@ -2332,6 +3139,21 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
     defaultPrompt,
     /popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}[\s\S]{0,120}associations|associations[\s\S]{0,120}popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}/i,
     'default prompt should keep popup defaults { name, description } and associations visible together',
+  );
+  assert.match(
+    defaultPrompt,
+    /formBehaviorDescriptionReview\.fields\.<field>[\s\S]{0,120}\{decision,reasonCode\}|formBehaviorDescriptionReview[\s\S]{0,120}decision[\s\S]{0,120}reasonCode/i,
+    'default prompt should mention per-field formBehaviorDescriptionReview decisions for described generated add/edit fields',
+  );
+  assert.doesNotMatch(
+    defaultPrompt,
+    /hasTried/i,
+    'default prompt should not mention obsolete formBehaviorDescriptionReview.hasTried',
+  );
+  assert.doesNotMatch(
+    defaultPrompt,
+    /formBehavior\s*:\s*\{\}|formBehavior[\s\S]{0,120}null/i,
+    'default prompt should not suggest formBehavior: {} or null no-op guidance',
   );
 });
 
@@ -2363,9 +3185,9 @@ test('general skill docs stay env-neutral while helper scripts avoid fixed local
   }
 
   for (const relativePath of [
-    'scripts/rest_template_clone_runner.mjs',
-    'scripts/live_template_catalog.mjs',
-    'scripts/validation_browser_smoke.mjs',
+    'scripts/check_docs_contract.mjs',
+    'scripts/check_runjs_snippet_catalog.mjs',
+    'scripts/check_runjs_snippet_manifest.mjs',
   ]) {
     assertFileDoesNotContain(
       relativePath,

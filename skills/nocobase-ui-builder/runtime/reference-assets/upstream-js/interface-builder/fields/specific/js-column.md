@@ -4,7 +4,7 @@
 
 JS Column is used for "custom columns" in tables, rendering the content of each row's cell via JavaScript. It is not bound to a specific field and is suitable for scenarios such as derived columns, combined displays across fields, status badges, action buttons, and remote data aggregation.
 
-> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
+> Local skill note: prepare final code with [js.md](../../../../../../references/js.md). For popup/drawer/dialog intent, do not emit bare `ctx.openView(...)` against a transient, ChildPage, page, tab, or popup subtree uid. Resolve a template-first persisted popup-capable FlowModel first, then call `ctx.openView(triggerUid, ...)` from the chosen JS surface.
 > Final skill output should prefer `await ctx.getVar('ctx.record...')` for record variable values; direct `ctx.record` below is product runtime context documentation.
 
 
@@ -22,7 +22,7 @@ When rendering each cell, JS Column provides the following context APIs:
 - `ctx.request(options)` / `ctx.api.request(options)`: Send an HTTP request. Under skill-mode, prefer full `http/https` URLs.
 - `ctx.requireAsync(url)`: Asynchronously loads an AMD/UMD library by URL.
 - `ctx.importAsync(url)`: Dynamically imports an ESM module by URL.
-- `ctx.openView(viewUid, options)`: Opens a configured view (modal/drawer/page) in the product runtime, but this skill does not accept direct `ctx.openView(...)` as final output.
+- `ctx.openView(viewUid, options)`: Opens a configured view (modal/drawer/page) in the product runtime. Under this skill, use it only with an existing popup-capable FlowModel trigger uid resolved through the template-first popup/openView path.
 - `ctx.i18n.t()` / `ctx.t()`: Internationalization.
 - `ctx.onRefReady(ctx.ref, cb)`: Renders after the container is ready.
 - `ctx.libs.React` / `ctx.libs.ReactDOM` / `ctx.libs.antd` / `ctx.libs.antdIcons` / `ctx.libs.dayjs` / `ctx.libs.lodash` / `ctx.libs.math` / `ctx.libs.formula`: Built-in React, ReactDOM, Ant Design, Ant Design icons, dayjs, lodash, math.js, and formula.js libraries for JSX rendering, date-time utilities, data manipulation, and mathematical operations. (`ctx.React` / `ctx.ReactDOM` / `ctx.antd` are kept for compatibility.)
@@ -63,15 +63,23 @@ ctx.render(
 );
 ```
 
-### 3) Click Feedback Instead of Direct View Opening
+### 3) Popup Opener Requires a Persisted FlowModel
 
 ```js
+const popupFlowModelUid = 'replace-with-persisted-popup-flowmodel-uid';
 const { Button } = ctx.libs.antd;
 
 ctx.render(
   <Button
     type="link"
-    onClick={() => ctx.message.info(ctx.t('Configure a clickable-field popup or popup action outside this JS column.'))}
+    onClick={async () => {
+      await ctx.openView(popupFlowModelUid, {
+        navigation: false,
+        mode: 'drawer',
+        size: 'large',
+        title: ctx.t('Details'),
+      });
+    }}
   >
     {ctx.t('Open configured popup')}
   </Button>
