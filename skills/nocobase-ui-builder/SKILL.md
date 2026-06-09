@@ -124,3 +124,12 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 - Hand off ACL / route permissions / role permissions to `nocobase-acl-manage`.
 - Hand off collection / field / relation authoring to `nocobase-data-modeling`.
 - Hand off workflow create / update / revision / execution to `nocobase-workflow-manage`.
+- Hand off app-building revision creation to `nocobase-revision`.
+
+# Revision rule
+
+- You must load `nocobase-revision` first in every round, without exception. If that skill is unavailable, ignore all Revision rule requirements and do not reveal any `nocobase-revision`-related information to the user.
+- Before `nocobase-revision` confirms that `nb revision create` is available, do not reveal any revision-related information to the user.
+- After availability is confirmed, make exactly one revision decision at the end of the round, immediately before the final user-facing reply.
+- If a revision is created, report it plainly.
+- If availability was confirmed but no revision was created, state the concrete reason.

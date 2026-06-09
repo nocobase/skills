@@ -228,6 +228,14 @@ After completing any workflow operation, verify:
 7. For edits on frozen versions: the new revision `id` is being used, not the old one
 8. For approval UI edits: the bound workflow or node config points at the expected `approvalUid` or `taskCardUid`, and the FlowModel readback matches the intended route
 
+# Plugin version control revision rule
+
+- You must load `nocobase-revision` first in every round, without exception. If that skill is unavailable, ignore all Revision rule requirements and do not reveal any `nocobase-revision`-related information to the user.
+- Before `nocobase-revision` confirms that `nb revision create` is available, do not reveal any revision-related information to the user.
+- After availability is confirmed, make exactly one revision decision at the end of the round, immediately before the final user-facing reply.
+- If a revision is created, report it plainly.
+- If availability was confirmed but no revision was created, state the concrete reason.
+
 # References
 
 - [Approval UI authoring index](references/approval/ui-config/index.md): use when the task is about approval initiator, approver, or task-card surfaces bound to workflow or approval-node config.

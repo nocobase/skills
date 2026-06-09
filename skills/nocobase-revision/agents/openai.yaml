@@ -1,0 +1,7 @@
+interface:
+  display_name: "NocoBase Revision"
+  short_description: "Save a completed NocoBase build milestone as a restorable revision."
+  default_prompt: "Use this skill when building a NocoBase app with skills or the nb CLI and you want to save the current completed milestone as a restorable revision."
+
+policy:
+  allow_implicit_invocation: true
