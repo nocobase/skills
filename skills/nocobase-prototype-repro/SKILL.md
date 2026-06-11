@@ -1,17 +1,19 @@
 ---
 name: nocobase-prototype-repro
 description: >-
-  ONLY for reproducing a specific HTML/image prototype in NocoBase — i.e. the
-  user hands over an actual prototype (an HTML file, a screenshot, or a link to
-  one) and wants it matched faithfully, OR points at a built page and says it
-  "doesn't match the prototype / looks monotone / is ugly". There must be a
-  concrete visual target and a fidelity gap. Do NOT select this skill for the
-  normal build flow: "build me a CRM / inventory / app" with no prototype →
-  nocobase-app-discipline; add a field, rename an action, tweak one page →
-  nocobase-ui-builder directly. No prototype handed over = not this skill. It is
-  a heavyweight orchestration layer that only earns its overhead when matching a
-  prototype's exact look/behavior; on a generic page-build it would just get in
-  the way of nocobase-ui-builder.
+  Use this whenever the task hands over a prototype to match — an HTML file, an
+  image/screenshot, or a link — INCLUDING the published form "Build a NocoBase
+  app — X … Match the layout and signature visuals of this reference prototype:
+  <url>", OR when someone points at a built page and says it "doesn't match the
+  prototype / looks monotone / is ugly". A prototype/URL being present is what
+  triggers this skill, EVEN WHEN the same sentence also says "build an app" — the
+  verb "build" does not cancel the prototype; a prompt can be both, and then it
+  is this skill (the signature pages must be reproduced, not dropped as generic
+  tables). Skip it ONLY when there is no prototype at all: a bare "build me a CRM
+  / inventory app" with nothing to match → nocobase-app-discipline; a single
+  field edit / rename / reaction tweak → nocobase-ui-builder. It is a heavyweight
+  layer that earns its overhead only when there is a concrete visual target;
+  without one it would just get in the way of nocobase-ui-builder.
 
   When it does apply: a staged, user-confirmed workflow that turns "here is the
   prototype, build it" into 80%+ fidelity in one pass — analyze prototype →
@@ -85,6 +87,14 @@ Do it in order. **Stop at each ▣ CONFIRM gate and get the user's go-ahead befo
 **Phase 4 — Visual convergence loop  ▣ CONFIRM + report.** Render → screenshot → **compare against the prototype with a vision-capable pass** → concrete gap list → fix → re-shoot, until it matches. Reviewer may be the same agent self-checking or a separate vision model — let the model choose by situation. Full procedure in [visual-loop.md](references/visual-loop.md). Deliver the report (uids touched, what changed, gaps/tradeoffs, screenshots) and confirm.
 
 # Region → native block (the anti-monotone table)
+
+**The native-first ladder — climb only as far as the prototype forces you. Pick the lowest rung that matches.**
+
+1. **Native block + native fields.** Try this first for every region. If a native Table / List / GridCard / Details / Kanban / Calendar / Chart with plain **native fields** already looks **basically like the prototype** (right data, right shape, layout close enough) — **ship it and move on.** Do **not** bolt JS onto a region that's already close: native fields give you binding / sort / filter / format for free and have none of the JS data-binding bugs that sink fidelity. "Good enough native" beats "ambitious JS that renders empty".
+2. **Native block + JS item** — the **encouraged default the moment native fields fall short.** When fields can't reproduce the look (a styled card, status pill, progress bar, KPI number, sparkline, ring/gauge, rich first column), **keep the native container** (it still owns resource binding / CRUD / filter / pagination / ACL) and render the custom look as a **JS item / JS field / JS column / JS action *inside* it**. Reach for this — not a freestanding block.
+3. **Freestanding JS block** — last resort, **only** when the region has no data container at all (glowing map, kiosk scanner, standalone gauge). Never collapse a data-backed region — or the whole page — into one JS block.
+
+The table maps each prototype region to its rung; the "JS kernel?" column is the *content* rendered inside the native container, never a replacement for it.
 
 | Prototype region looks like… | Use | JS kernel? |
 |---|---|---|
