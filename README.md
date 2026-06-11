@@ -16,6 +16,7 @@ NocoBase CLI automatically installs Skills during initialization (`nb init`), so
 | `nocobase-env-manage`      | Bootstrap and manage NocoBase application lifecycle — install, start, stop, upgrade, and environment management via `nb` CLI.              |
 | `nocobase-data-modeling`   | Create and manage data models — collections, fields, relations, and view-backed schemas.                                                   |
 | `nocobase-ui-builder`      | **Default entry point for UI authoring** — create and edit pages, blocks, popups, menu items, and linkage rules on a running NocoBase app. |
+| `nocobase-prototype-repro` | **Opt-in** reproduce a given HTML/image prototype as a faithful NocoBase app — region→native-block map + a screenshot-vs-prototype loop.   |
 | `nocobase-workflow-manage` | Create, edit, enable, diagnose, and manage NocoBase workflows — triggers, node chains, versions, and execution troubleshooting.            |
 | `nocobase-acl-manage`      | Manage roles, permission policies, user-role membership, global role mode, and risk assessment.                                            |
 | `nocobase-dsl-reconciler`  | **Opt-in** YAML-DSL path for building whole NocoBase applications from spec files committed to git. Use only when explicitly requested.    |
