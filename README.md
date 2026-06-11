@@ -42,7 +42,7 @@ NocoBase CLI automatically installs Skills during initialization (`nb init`), so
 ### 1. Install NocoBase CLI
 
 ```bash
-npm install -g @nocobase/cli@beta
+npm install -g @nocobase/cli
 ```
 
 ### 2. Initialize
