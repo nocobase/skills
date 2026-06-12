@@ -106,8 +106,11 @@ The table maps each prototype region to its rung; the "JS kernel?" column is the
 | **Responsive card grid that fills the width** | **List + JS card + CSS auto-fill** (`repeat(auto-fill, minmax(280px,1fr))`). `block-recipes.md §3` | yes — the card body |
 | Plain fixed-breakpoint card grid (no facets, no fill) | **GridCard + JS card** — `add-field --renderer js` on GridCardItemModel, remove sibling DetailsItemModel nodes, `showLabel:false`. `block-recipes.md §3` | yes — the card body |
 | Photo / avatar **gallery**, people directory (native fields only) | **GridCard** (native fields, no JS) | optional |
-| **Board** with status columns, pipeline | **Kanban**, `groupField=<status>`; card field limit 2 → add a **JS card field** | yes — the card |
-| **Calendar** / schedule / room booking by day | **Calendar** (`startField/endField/titleField`) | rarely |
+| **Board** with status columns, pipeline | **Kanban**, `groupField=<status>`; card field limit 2 → add a **JS card field** rendering priority/title/assignee (`block-recipes.md §11`). ⚠️ verify cards show content, not blank "Untitled" | yes — the card |
+| **Calendar** — day/month grid of dated events (content / editorial calendar) | **Calendar** (`startField/endField/titleField`) | rarely |
+| **Availability / schedule / timeline board** — rooms × hours, gantt-style bars (room booking, resource scheduling) | native **`GanttBlockModel`** for plain date-range bars; else **List(row-axis) + JSField time-lane** (`block-recipes.md §11`). ⚠️ **never a plain CRUD table** | yes — the lanes |
+| **Occupancy / bin / seat grid** — color-coded cells (warehouse rack map, seat map, status wall) | **JSBlock CSS-grid**, cell color by per-cell count/status (`block-recipes.md §11`). ⚠️ confirm per-cell aggregation returns rows or every cell shows 0 | yes — the grid |
+| **Stage journey / multi-step checklist** — onboarding, pipeline stages with nested items | **List + JSField** stage cards (segment bar + nested checklist) (`block-recipes.md §11`). ⚠️ seed a parent **with** children or it shows "No records" | yes — the stage card |
 | **Charts**, KPIs, analytics dashboard | **Chart** (builder for single-table aggregates; custom raw ECharts for gauge/heatmap). Big-number KPI → small JS block | KPI only |
 | **Tree** / org chart / nested categories | **Tree** block | no |
 | **Filter bar** that drives another region | **FilterForm** + cross-block filter | sometimes |
