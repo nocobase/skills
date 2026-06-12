@@ -1,29 +1,18 @@
 ---
 name: nocobase-prototype-repro
 description: >-
-  Use this whenever the task hands over a prototype to match — an HTML file, an
-  image/screenshot, or a link — INCLUDING the published form "Build a NocoBase
-  app — X … Match the layout and signature visuals of this reference prototype:
-  <url>", OR when someone points at a built page and says it "doesn't match the
-  prototype / looks monotone / is ugly". A prototype/URL being present is what
-  triggers this skill, EVEN WHEN the same sentence also says "build an app" — the
-  verb "build" does not cancel the prototype; a prompt can be both, and then it
-  is this skill (the signature pages must be reproduced, not dropped as generic
-  tables). Skip it ONLY when there is no prototype at all: a bare "build me a CRM
-  / inventory app" with nothing to match → nocobase-app-discipline; a single
-  field edit / rename / reaction tweak → nocobase-ui-builder. It is a heavyweight
-  layer that earns its overhead only when there is a concrete visual target;
-  without one it would just get in the way of nocobase-ui-builder.
-
-  When it does apply: a staged, user-confirmed workflow that turns "here is the
-  prototype, build it" into 80%+ fidelity in one pass — analyze prototype →
-  model + native CRUD → pick the right native block per visual region (table+JS
-  column, list+JS item, grid card, kanban+JS card, calendar, chart) → close the
-  gap with a screenshot-vs-prototype visual loop. Native-first; JS only for the
-  kernel a native block can't express; never a full-page JS block. The actual
-  flow-surfaces / RunJS mechanics live in nocobase-ui-builder; data modeling in
-  nocobase-data-modeling; build discipline in nocobase-app-discipline. This skill
-  orchestrates them for the prototype-reproduction case and owns the visual loop.
+  Use when the task hands over a prototype to reproduce in NocoBase — an HTML file, an
+  image, or a link, INCLUDING the published form "Build a NocoBase app — X … Match the
+  layout and signature visuals of this reference prototype: <url>" — or when someone
+  says a built page "doesn't match the prototype / looks monotone / is ugly". A
+  prototype/URL being present is what triggers this skill, EVEN WHEN the same prompt
+  also says "build an app" — the verb "build" does not cancel the prototype. Skip it
+  only when there is NO prototype at all: a bare "build me a CRM/app" → nocobase-app-
+  discipline; a one-field edit / rename → nocobase-ui-builder. It turns "here is the
+  prototype, build it" into a faithful app — analyze prototype, native CRUD, the right
+  native block per region, then a screenshot-vs-prototype visual loop. Native-first; JS
+  only inside a native container; never a full-page JS block. Mechanics live in
+  nocobase-ui-builder, nocobase-data-modeling, nocobase-app-discipline.
 argument-hint: "[prototype: link|file|image] [target: new-app | existing page uid]"
 allowed-tools: "shell, Read"
 ---
