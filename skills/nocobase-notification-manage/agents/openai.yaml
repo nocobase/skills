@@ -1,0 +1,13 @@
+interface:
+  display_name: "NocoBase Notification Manage"
+  short_description: "Configure and diagnose NocoBase notification channels and workflow sends"
+  default_prompt: >
+    Use $nocobase-notification-manage when working with NocoBase notification management.
+    Inspect `notificationChannels` and `notificationSendLogs` first, then configure or test
+    in-app message (`in-app-message`) and email (`email`) channels with readback verification.
+    Redact SMTP secrets, require explicit recipients before real send tests, and hand off
+    plugin enablement to $nocobase-plugin-manage and workflow structure changes to
+    $nocobase-workflow-manage.
+
+policy:
+  allow_implicit_invocation: true
