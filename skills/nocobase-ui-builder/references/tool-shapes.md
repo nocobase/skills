@@ -8,6 +8,7 @@ Use it with:
 
 - [cli-command-surface.md](./cli-command-surface.md) for canonical backend action families
 - [page-blueprint.md](./page-blueprint.md), [reaction.md](./reaction.md), and [templates.md](./templates.md) for business-object rules and template planning
+- [settings.md](./settings.md) for public action / recordAction settings keys
 
 Canonical write path is `nb api flow-surfaces <action>`. Use this file for the raw business object / locator shape passed to the backend action.
 

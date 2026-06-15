@@ -488,6 +488,7 @@ Common action settings suitable for direct inline use:
 - `title`
 - `tooltip`
 - `icon`
+- `iconOnly`
 - `type`
 - `color`
 - `danger`
@@ -503,6 +504,7 @@ Common action settings suitable for direct inline use:
 Notes:
 
 - `popup`, `popup.template`, `popup.tryTemplate`, and `popup.saveAsTemplate` are sibling write fields, not `settings` keys.
+- If the user asks for a `图标按钮` / `icon button` / `仅图标` action and does not specify visible button text, set `settings.icon` and `settings.iconOnly: true`, and omit `settings.title` instead of inferring a title from the action purpose. If the user explicitly gives button text / label / title, keep it as `settings.title`.
 - For popup-capable localized writes without an explicit `popup.template`, default to `popup.tryTemplate=true`, including cases that also carry `popup.saveAsTemplate`.
 - If the first local popup should immediately become reusable, use `popup.saveAsTemplate={ name, description }` together with explicit local `popup.blocks`; it cannot be combined with `popup.template`, and with `popup.tryTemplate=true` it acts on the local miss fallback rather than blocking template reuse.
 
@@ -533,6 +535,19 @@ If the goal is a standard details popup on a shown title/name field, prefer fiel
   },
   "popup": {
     "tryTemplate": true
+  }
+}
+```
+
+Icon-only record actions omit `title` when no button text was requested:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "edit",
+  "settings": {
+    "icon": "EditOutlined",
+    "iconOnly": true
   }
 }
 ```
