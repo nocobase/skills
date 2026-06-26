@@ -10,6 +10,7 @@ NocoBase uses a unified filter condition format across all features: block query
 ## Critical Rules
 
 - **Top-level MUST be a logical wrapper** — every filter object must have `$and` or `$or` as its only root key. Never put field conditions directly at the root.
+- **Every field condition MUST use an explicit comparison operator object.** Do not use shorthand equality such as `{ "fieldA": 123 }`. Even though the server may accept it, the frontend cannot display it correctly. Use `{ "fieldA": { "$eq": 123 } }` instead.
 - **Never invent operator names.** Only use operators from the tables below.
 - **Operator names are exact strings** with `$` prefix (e.g., `$eq`, `$includes`). Case-sensitive.
 
@@ -52,6 +53,16 @@ Each condition entry is an object with one or more field conditions:
 
 ```
 { "<fieldPath>": { "<operator>": <value> } }
+```
+
+The value of a field path must always be an operator object. Equality is not a special shorthand; it must be written with `$eq`.
+
+```json
+// ❌ Wrong — shorthand equality is not frontend-compatible
+{ "fieldA": 123 }
+
+// ✅ Correct — equality uses an explicit operator
+{ "fieldA": { "$eq": 123 } }
 ```
 
 ### Direct Fields
