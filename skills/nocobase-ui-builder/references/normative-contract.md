@@ -1,6 +1,6 @@
 # Normative Contract
 
-This page defines the global contract for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page. Template-selection semantics are defined normatively in [templates.md](./templates.md); this file sets the global precedence, transport, and public write contract around them.
+This page defines the global contract for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page. Navigation layout/group/page identity semantics are defined in [navigation-targets.md](./navigation-targets.md). Template-selection semantics are defined normatively in [templates.md](./templates.md); this file sets the global precedence, transport, and public write contract around them.
 
 ## 0. Canonical Transport
 
@@ -51,6 +51,7 @@ The public `applyBlueprint` payload is:
 - one page at a time
 - structure-first, with optional top-level `reaction.items[]` for whole-page interaction logic
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
+- may set `navigation.layoutUid` in `create` to target a non-default UI layout. Omit it for desktop/admin `admin-layout-model`; use `"mobile-layout-model"` for mobile page intent, keep the visible entry in `navigation.item`, and omit `navigation.group`. See [navigation-targets.md](./navigation-targets.md) for group resolution and duplicate-page identity.
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
 - may include top-level `defaults.collections` for collection-level generated-popup defaults: fixed `{ name, description }` `popups.view/addNew/edit` for every involved direct collection, fixed `{ name, description }` `popups.associations.<associationField>.view/addNew/edit` for every involved association scope keyed only by the first relation segment, optional `defaults.collections.<collection>.fieldGroups` only when one of those generated popup scenes still has more than 10 effective fields, target-scoped `defaults.collections.<collection>.formBehavior.addNew/edit` for description-derived settings / field linkage rules on backend-generated add/edit forms, and sibling `defaults.collections.<collection>.formBehaviorDescriptionReview.fields.<field> = { decision, reasonCode? }` for each described generated add/edit candidate field. `implemented` must match real structured coverage; `noUiBehavior` / `unsupported` require a valid `reasonCode`; old `fields[]`, `hasTried`, `formBehavior: {}`, and no-op `null` are rejected. `table` blocks always pull their collection into the `addNew` threshold evaluation
@@ -192,10 +193,8 @@ For `replace` runs:
 - `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 - skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write
-- in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, applyBlueprint reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
-- at the skill-authoring layer, if visible same-title menu groups already exist and title lookup would hit multiple groups, do **not** create another same-title group for disambiguation and do **not** choose one locally; require explicit `routeId` before write
-- page identity for duplicate-page prevention is `(navigation.group.routeId, page.title)`, after resolving unique group title to routeId. In `create`, same group + same page title may be prepared as `replace` with `target.pageSchemaUid`; different group + same page title does not merge, reuse, or auto-replace another page.
-- `navigation.group.routeId` has highest priority and ignores `title`, `icon`, `tooltip`, and `hideInMenu`; title-based reuse also ignores `icon`, `tooltip`, and `hideInMenu` when an existing group is reused; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
+- non-mobile `create` should prefer `navigation.group.routeId` when the group is known; duplicate same-title group titles require explicit `routeId`; mobile creates omit `navigation.group` and create root tab pages.
+- page identity, target layout inheritance, same-title replacement, cross-group/cross-layout isolation, and group metadata precedence are governed by [navigation-targets.md](./navigation-targets.md).
 
 Use the resolved page `target` from the public response as the carry-forward locator. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 
@@ -217,7 +216,7 @@ Those are low-level edit paths.
 
 The skill may use:
 
-- `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j` for visible menu discovery; if unavailable, fall back to `nb api resource list --resource desktopRoutes --no-paginate -j --sort sort` and treat it as non-role-filtered
+- `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j` for default desktop/admin visible menu discovery; for mobile page work, follow the layout-scoped route read rules in [navigation-targets.md](./navigation-targets.md). If unavailable, fall back to `nb api resource list --resource desktopRoutes --no-paginate -j --sort sort` and treat it as non-role-filtered
 - `flow-surfaces get` for normal structural inspection and post-write readback
 - `flow-surfaces describe_surface` when a richer public tree snapshot helps analyze an existing surface
 - `flow-surfaces catalog` when current-target capability is the question

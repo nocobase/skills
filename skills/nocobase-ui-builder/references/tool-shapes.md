@@ -471,7 +471,7 @@ nb request body:
 }
 ```
 
-When the target group is not already known, `navigation.group.title` is also valid; applyBlueprint will reuse a unique same-title group or create a new one when no match exists, but multi-match same-title cases must stop and require explicit `routeId` before write. `navigation.group.routeId` has highest priority; if it is present, `title`, `icon`, `tooltip`, and `hideInMenu` are ignored. For title-based reuse, `icon`, `tooltip`, and `hideInMenu` are also ignored when an existing group is reused. If an existing group's metadata must change, use low-level `update-menu` instead.
+For mobile creates, set `navigation.layoutUid: "mobile-layout-model"`, put the visible entry title/icon in `navigation.item`, and omit `navigation.group`. Omitted `layoutUid` keeps the desktop/admin layout behavior. For non-mobile creates, duplicate same-title group handling, `navigation.group.routeId` precedence, and duplicate-page identity follow [navigation-targets.md](./navigation-targets.md). If an existing group's metadata must change, use low-level `update-menu` instead.
 
 When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
 
