@@ -32,7 +32,8 @@ Dashboard self-check before first write:
 Do not treat "can render something" as sufficient for dashboard metric sections. Block choice must match the section semantics.
 
 2. Default a normal request to exactly one real tab.
-3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
+3. Determine the target UI layout before drafting navigation; use [navigation-targets.md](./navigation-targets.md) for the full layout/group/page-identity matrix. Default creates target desktop/admin `admin-layout-model`; mobile intent uses `navigation.layoutUid: "mobile-layout-model"`, `navigation.item`, and no `navigation.group`.
+4. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
   - You do not need to hand-build a helper envelope; backend authoring validation uses live metadata and returns aggregate errors for hard failures.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
    - Under `defaults.collections`, every involved direct collection always carries fixed `popups.view` / `addNew` / `edit` `{ name, description }` objects, and any `table` block always pulls its collection into the `addNew` threshold evaluation even when the draft omitted an explicit `addNew` opener.
@@ -41,19 +42,16 @@ Do not treat "can render something" as sufficient for dashboard metric sections.
    - After generating defaults fieldGroups, run one fast self-review with a short structured verdict (`approve` or `regenerate`) covering semantic grouping, required-field coverage, group balance, and group title specificity. Use the lowest practical reasoning effort / no-think mode, do not request chain-of-thought, and if the verdict is `regenerate`, rebuild those groups once from live metadata and stop after that single retry.
    - Keep `fieldGroups` collection-only on the target collection; do not create per-association `fieldGroups`. Keep relation-field popup descriptors under `popups.associations.<associationField>.<action>` with the same fixed `view` / `addNew` / `edit` `{ name, description }` contract, keyed only by the first relation segment.
    - Keep defaults collection-level only: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
-4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Pre-write reads and metadata fetch are allowed, but the first mutating write must be backend `applyBlueprint`.
+5. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Pre-write reads and metadata fetch are allowed, but the first mutating write must be backend `applyBlueprint`.
    - Before one whole-page `applyBlueprint` succeeds, do not call `createMenu`, `createPage`, `compose`, `configure`, `update-settings`, `add*`, `move*`, `remove*`, or `set*Rules`.
    - If a whole-page `applyBlueprint` fails before first success, repair the blueprint from backend aggregate `errors[]` and retry blueprint-only up to 5 rounds. Do not continue with low-level writes during those pre-success retries. After 5 failed rounds, report the latest blueprint / error evidence.
-   - Agent orchestration rule: if one request spans multiple pages and they share the same menu group title, serialize the page runs yourself. On the first page, use `navigation.group.title` to create or resolve the shared group and capture the returned `routeId`; for subsequent pages, set `navigation.group` to `{ routeId }` and do not use title-only creation. Do not start concurrent title-only group creates for the same shared group. Concurrent title-only shared-group creates are forbidden.
+   - Agent orchestration rule: if one request spans multiple non-mobile pages that share the same menu group title in the same target layout, serialize the page runs and carry the first page's resolved `routeId`; concurrent title-only shared-group creates are forbidden. Mobile page runs do not use shared menu groups.
    - If the user asks for an AI employee, AI assistant, AI analysis button, or AI helper task, include `type: "aiEmployee"` actions in this first `applyBlueprint` wherever the catalog permits them: table/list/grid/card block `actions`, record-capable `recordActions`, form `actions`, or inline popup form actions. Read [ai-employee-actions.md](./ai-employee-actions.md) and use public `settings`; do not create the page first and patch raw AI `props`.
    - If the page asks for comments or record history, use public block types `comments` and `recordHistory` in the first `applyBlueprint`; read [blocks/comments.md](./blocks/comments.md) or [blocks/record-history.md](./blocks/record-history.md). Do not author raw model names or internal `stepParams`.
-5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default.
-6. If visible same-title menu groups already exist, do not pick one locally and do not create another same-title group just to disambiguate. Require explicit `navigation.group.routeId` before the write whenever title lookup would hit multiple groups.
-   - Backend authoring resolves `navigation.group.title` against live `desktopRoutes` when possible. If exactly one same-title group exists, it can normalize to `navigation.group.routeId`; if more than one exists, repair from the backend aggregate error and provide the explicit routeId.
-7. Page identity for duplicate-page prevention is `(navigation.group.routeId, page.title)`, after resolving a unique group title to routeId.
-   - In `applyBlueprint create`, if the same group already has the same page title, the backend may upgrade the compatible body to `replace` with `target.pageSchemaUid`.
-   - If a different group has the same page title, do not merge, reuse, or auto-replace that page; the same title under another menu group is a distinct page.
-8. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
+6. For non-mobile `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. For mobile creates, `navigation.item.icon` is the page entry icon and no group icon is needed.
+7. If visible duplicate same-title menu groups already exist in the target layout for a non-mobile page, require explicit `navigation.group.routeId` before the write; do not pick one locally or create another same-title group. For mobile pages, omit `navigation.group`.
+8. Page identity follows [navigation-targets.md](./navigation-targets.md): same layout + same group/root + same `page.title` may replace; different group or different layout with the same title is distinct and must not merge, reuse, or auto-replace.
+9. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
@@ -161,7 +159,7 @@ For artifact-only locator boundary handoffs, use `locator-map.json` with direct 
 
 Keep `liveTargets[].uid` as a non-empty placeholder when live readback has not happened yet, not `null`; it records the source class and still blocks downstream writes until real readback.
 
-The checklist can stay short. It only needs to confirm create vs replace, one real tab by default, non-empty `tabs[]`, and field truth from live `interface` facts when relevant.
+The checklist can stay short. It only needs to confirm create vs replace, target layout (`admin-layout-model` by default, `mobile-layout-model` for mobile), navigation decisions from [navigation-targets.md](./navigation-targets.md), one real tab by default, non-empty `tabs[]`, and field truth from live `interface` facts when relevant.
 
 ## Minimal common-case blueprint
 
@@ -218,6 +216,17 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
   ]
 }
 ```
+
+For a mobile page, omit `navigation.group` and use:
+
+```json
+"navigation": {
+  "layoutUid": "mobile-layout-model",
+  "item": { "title": "Support tickets", "icon": "InboxOutlined" }
+}
+```
+
+Final user-facing links should point at the mobile base route such as `/mobile/<pageSchemaUid>` rather than `/admin/<pageSchemaUid>`.
 
 ## Open next only if needed
 

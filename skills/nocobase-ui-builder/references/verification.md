@@ -4,14 +4,14 @@ Use this file to verify inspect/prewrite output and post-write persistence.
 
 Agent-facing flow-surfaces front door is `nb api flow-surfaces <action>`. Treat the readback routes below as backend actions.
 
-For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
+For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
 
 ## 1. Inspect / Prewrite Verification
 
 ### Core Rules
 
 - `inspect` and page-blueprint drafting are read-only.
-- For menu questions, default to the visible menu tree first: `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j`.
+- For menu questions, default to the visible menu tree for the target layout first: desktop/admin uses `nb api resource list --resource 'desktopRoutes:listAccessible' --no-paginate -j`; mobile page work follows [navigation-targets.md](./navigation-targets.md).
 - For initialized pages/popup trees, default to `nb api flow-surfaces get` first.
 - Use `nb api flow-surfaces describe-surface` only when its richer public tree is actually needed.
 - desktop-route `id` values from the menu tree are not flow-surface `uid` values. When the menu tree gives a `flowPage` with `{ id, schemaUid }`, carry `id` only as routeId context and use `schemaUid` as `pageSchemaUid` for page readback; `tabs` children are tab routes, not menu items.
@@ -23,10 +23,11 @@ For template-mode semantics and localized existing-reference edit routing, keep 
 A page-blueprint draft is good when:
 
 - create vs replace is clear
-- page identity uses menu group routeId plus page title: same group + same page title may mean `replace`, while different group + same page title should not merge, reuse, or auto-replace another page
+- page identity follows [navigation-targets.md](./navigation-targets.md): same layout + same group/root + same page title may mean `replace`, while a different group or different layout must not merge, reuse, or auto-replace another page
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
 - if duplicate same-title menu groups existed, the summary/readback states that explicit `routeId` was required before write and no extra same-title group was created unless the user explicitly asked for one
+- if the request was for a mobile page, the summary/readback states `navigation.layoutUid: "mobile-layout-model"` and reports the route under the mobile base path such as `/mobile/<pageSchemaUid>`, not `/admin/<pageSchemaUid>`
 - canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
 - low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
 - destructive blast radius is explicit for replace/delete scenarios
