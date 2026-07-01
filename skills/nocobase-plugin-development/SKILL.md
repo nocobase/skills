@@ -109,6 +109,17 @@ Rules:
 2. For CLI-managed apps, verify `nb` CLI is available. For plain source repos, verify `yarn` is available.
 3. For CLI-managed apps with Git source (`source/packages/core/` exists), AI can read source code for troubleshooting. For npm source, rely on documentation and online references.
 
+**Command execution directories for CLI-managed source apps:**
+
+| Command | Run from |
+|---|---|
+| `nb scaffold plugin` | `<app-path>` or `<app-path>/source/` |
+| `nb source dev` | `<app-path>/source/` |
+| `nb source build` | `<app-path>/source/` |
+| `nb plugin enable/disable` | Any directory (env-level command) |
+| `nb app upgrade/restart` | Any directory (env-level command) |
+| `nb scaffold migration` | `<app-path>/source/` |
+
 ## Step 1: Requirement Analysis
 
 Analyze the user's requirement and determine which extension points are needed:

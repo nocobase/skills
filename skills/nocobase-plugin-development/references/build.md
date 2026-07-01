@@ -4,9 +4,12 @@ Read this when the user wants to build or distribute the plugin.
 
 ## Build
 
+**Important:** `nb source build` must be run from the source directory (`<app-path>/source/`).
+
 For CLI-managed source apps:
 
 ```bash
+cd <app-path>/source
 nb source build @my-project/plugin-hello
 ```
 
@@ -20,13 +23,16 @@ Compiles `src/` to JavaScript — client-v2 code via Rsbuild, server code via ts
 
 ## Package
 
+**Important:** Same as build — run from `<app-path>/source/`.
+
 For CLI-managed source apps, use `--tar` to build and package in one step:
 
 ```bash
+cd <app-path>/source
 nb source build @my-project/plugin-hello --tar
 ```
 
-Creates a `.tgz` file under `storage/tar/`. The command prints the tarball path after completion.
+Creates a `.tgz` file under `source/storage/tar/`. The command prints the tarball path after completion.
 
 For plain source repos:
 
