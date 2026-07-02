@@ -25,10 +25,11 @@ description: >-
 - When the task is a partial-match or handoff-only request, answer from this skill's scope boundary directly. Do not inspect runtime, scripts, or helper docs just to justify the handoff.
 - Treat one user request that spans several pages as ordered single-page runs.
 - Whole-page navigation target rules live in [navigation-targets.md](./references/navigation-targets.md): default desktop/admin `admin-layout-model`; mobile intent uses `navigation.layoutUid: "mobile-layout-model"`, `navigation.item`, and no `navigation.group`; duplicate same-title non-mobile groups require explicit `routeId`; shared title-only group creates must be serialized.
+- Before choosing a block family for whole-page work, prototype/screenshot/HTML reproduction, or any explicit layout/style requirement, run the capability coverage gate in [capability-selection.md](./references/capability-selection.md): native-only only when every required function and hard visual constraint is covered; otherwise keep the native container and add the smallest legal JS slot, with `jsBlock` reserved for regions with no suitable native container or pure custom/aggregate visuals.
 
 # Router
 
-- whole-page authoring goes through backend `applyBlueprint`, `nb api flow-surfaces apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
+- whole-page authoring goes through the selection gate in [capability-selection.md](./references/capability-selection.md), then backend `applyBlueprint`, `nb api flow-surfaces apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
 - AI employee / AI assistant action authoring stays inside whole-page or localized `flow-surfaces` writes; read [ai-employee-actions.md](./references/ai-employee-actions.md) when the request mentions AI employee placement, AI analysis buttons, AI assistants, or AI task reconfiguration. Use `nocobase-ai-employee` first only when the request needs employee discovery, matching, creation, prompt/model/skill/tool configuration, or a lifecycle decision beyond binding an existing visible username.
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)
 - Comments and record history route through public Flow Surfaces block types; read [comments.md](./references/blocks/comments.md) or [record-history.md](./references/blocks/record-history.md) when the request mentions comments, discussion threads, history, audit history, or change history
@@ -105,6 +106,7 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 # Read Paths
 
 - Route unclear: [references/index.md](./references/index.md)
+- Native vs JS block / field / action selection: [capability-selection.md](./references/capability-selection.md)
 - Whole-page draft/create/replace from business intent: [whole-page-quick.md](./references/whole-page-quick.md)
 - Whole-page navigation layout, group, route, and duplicate-page identity rules: [navigation-targets.md](./references/navigation-targets.md)
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)

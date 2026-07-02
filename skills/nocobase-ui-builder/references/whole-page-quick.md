@@ -1,6 +1,6 @@
 # Whole-page Quick Route
 
-Use this file as the default first stop for whole-page `create` / `replace` work.
+Use this file as the default first stop for whole-page `create` / `replace` work after the [capability-selection.md](capability-selection.md) gate has chosen native vs JS coverage.
 
 Stay on this route when the user is asking for a full page or one route-backed tab, not a small patch on an existing live surface.
 

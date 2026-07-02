@@ -11,7 +11,8 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 
 | 任务形状 | 先读 | 按需再读 |
 | --- | --- | --- |
-| 从业务意图起草或整页创建/替换 | [whole-page-quick.md](whole-page-quick.md) | [blocks/filter-form.md](blocks/filter-form.md), [whole-page-recipes.md](whole-page-recipes.md), [page-archetypes.md](page-archetypes.md), [page-blueprint.md](page-blueprint.md), [helper-contracts.md](helper-contracts.md) |
+| 从业务意图起草或整页创建/替换 | [capability-selection.md](capability-selection.md), then [whole-page-quick.md](whole-page-quick.md) | [blocks/filter-form.md](blocks/filter-form.md), [whole-page-recipes.md](whole-page-recipes.md), [page-archetypes.md](page-archetypes.md), [page-blueprint.md](page-blueprint.md), [helper-contracts.md](helper-contracts.md) |
+| 截图 / HTML 原型 / 明确视觉布局要求下的区块选型 | [capability-selection.md](capability-selection.md) | [blocks/index.md](blocks/index.md), [js.md](js.md), [js-surfaces/index.md](js-surfaces/index.md) |
 | 现有页面上的局部编辑 | [local-edit-quick.md](local-edit-quick.md) | [runtime-playbook.md](runtime-playbook.md), [capabilities.md](capabilities.md), [settings.md](settings.md) |
 | AI 员工 / AI assistant / AI 分析动作 | [ai-employee-actions.md](ai-employee-actions.md) | [whole-page-quick.md](whole-page-quick.md), [local-edit-quick.md](local-edit-quick.md), [tool-shapes.md](tool-shapes.md) |
 | 评论区块 / 历史记录 / 审计历史 | [blocks/comments.md](blocks/comments.md) or [blocks/record-history.md](blocks/record-history.md) | [whole-page-quick.md](whole-page-quick.md), [local-edit-quick.md](local-edit-quick.md), [tool-shapes.md](tool-shapes.md) |
@@ -29,7 +30,7 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 
 - 可选 helper / 验收: [helper-contracts.md](helper-contracts.md), [execution-checklist.md](execution-checklist.md), [verification.md](verification.md)
 - nb 命令边界: [cli-transport.md](cli-transport.md), [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md), [tool-shapes.md](tool-shapes.md)
-- 规则与能力边界: [normative-contract.md](normative-contract.md), [settings.md](settings.md), [runtime-playbook.md](runtime-playbook.md)
+- 规则与能力边界: [capability-selection.md](capability-selection.md), [normative-contract.md](normative-contract.md), [settings.md](settings.md), [runtime-playbook.md](runtime-playbook.md)
 
 ## Topic Deep Dives
 
