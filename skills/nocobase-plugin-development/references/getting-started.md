@@ -29,25 +29,27 @@ The scaffold creates both `src/client-v2/` and `src/client/` directories. **Only
 # Plain source repo: packages/plugins/@my-project/plugin-hello/
 plugin-hello/
 ├── package.json
-├── client-v2.d.ts
-├── client-v2.js
-├── server.d.ts
-├── server.js
+├── README.md
+├── .npmignore
+├── client-v2.d.ts               # Frontend type declaration (v2)
+├── client-v2.js                 # Frontend build entry (v2)
+├── client.d.ts                  # Frontend type declaration (v1 legacy)
+├── client.js                    # Frontend build entry (v1 legacy)
+├── server.d.ts                  # Server type declaration
+├── server.js                    # Server build entry
 └── src/
     ├── index.ts                  # Default export: server plugin
     ├── client-v2/                # Client code — ALL client code goes here
     │   ├── index.tsx             # Default export: client plugin class
     │   ├── plugin.tsx            # Plugin entry (extends @nocobase/client-v2 Plugin)
-    │   ├── locale.ts             # Auto-generated: tExpr() and useT() with plugin namespace
-    │   └── models/               # FlowModel classes (blocks, fields, actions)
-    │       └── index.ts
+    │   └── locale.ts             # Auto-generated: tExpr() and useT() with plugin namespace
     ├── client/                   # LEGACY v1 — do NOT write code here
     ├── server/                   # Server code
     │   ├── index.ts              # Default export: server plugin class
     │   ├── plugin.ts             # Plugin entry (extends @nocobase/server Plugin)
     │   ├── collections/          # defineCollection files
     │   └── migrations/           # Migration scripts
-    └── locale/                   # i18n files
+    └── locale/                   # i18n files (shared by client and server)
         ├── zh-CN.json
         └── en-US.json
 ```
@@ -76,7 +78,7 @@ For plain source repos:
 yarn pm enable @my-project/plugin-hello
 ```
 
-After enabling, the plugin appears in the Plugin Manager (typically at `http://localhost:13000/v2/admin/settings/plugin-manager` — adjust the port and base URL to match your environment).
+After enabling, the plugin appears in the Plugin Manager (typically at `http://localhost:13000/v/admin/settings/plugin-manager` — adjust the port and base URL to match your environment).
 
 ## Deep Reference
 
