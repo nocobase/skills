@@ -1,6 +1,6 @@
 ---
 title: "HTTP Request"
-description: "Explains the method, parameters, request body format, and examples for the HTTP Request node."
+description: "Use when a workflow must call an external HTTP service, send JSON or form data, and use the response in downstream logic."
 ---
 
 # HTTP Request

@@ -1,6 +1,6 @@
 ---
 title: "Scheduled Task"
-description: "Trigger flows based on time rules, supporting both custom time and data table time field modes."
+description: "Use when time should start the workflow, either on a cron-like schedule or from a collection datetime field."
 ---
 
 # Scheduled Task

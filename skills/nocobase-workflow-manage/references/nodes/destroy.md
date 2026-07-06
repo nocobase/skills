@@ -1,6 +1,6 @@
 ---
 title: "Delete Data"
-description: "Introduces the filtering conditions and configuration points of the delete data node."
+description: "Use when a workflow must delete records matching a filter, including cleanup jobs or removing invalid or expired business data."
 ---
 
 # Delete Data

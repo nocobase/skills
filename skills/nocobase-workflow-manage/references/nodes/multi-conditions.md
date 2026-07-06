@@ -1,6 +1,6 @@
 ---
 title: "Multi-condition Branch"
-description: "Explains the condition list, 'otherwise' branch, and continuation rules for the Multi-condition Branch node."
+description: "Use like switch/case or if/else-if when exactly one of multiple ordered, mutually exclusive condition branches should run, with an otherwise fallback."
 ---
 
 # Multi-condition Branch

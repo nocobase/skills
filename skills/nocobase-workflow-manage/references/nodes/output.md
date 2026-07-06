@@ -1,6 +1,6 @@
 ---
 title: "Workflow Output"
-description: "Explains the output value configuration and usage scenarios for the Workflow Output node."
+description: "Use inside a called workflow to define the value returned to the parent workflow's Call Workflow node."
 ---
 
 # Workflow Output

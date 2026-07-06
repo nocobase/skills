@@ -1,6 +1,6 @@
 ---
 title: "Update Record"
-description: "Explains the filter conditions, update modes, and configuration examples for the Update Record node."
+description: "Use when a workflow must update existing collection records selected by a filter, often with values from trigger or upstream node variables."
 ---
 
 # Update Record

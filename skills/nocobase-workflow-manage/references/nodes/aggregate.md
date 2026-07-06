@@ -1,6 +1,6 @@
 ---
 title: "Aggregate"
-description: "Introduces the purpose, key configuration fields, and examples of the aggregate query node."
+description: "Use for aggregate statistics over collection records, such as counts, sums, averages, or report metrics needed by later nodes."
 ---
 
 # Aggregate

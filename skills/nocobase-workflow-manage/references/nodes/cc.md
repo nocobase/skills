@@ -1,6 +1,6 @@
 ---
 title: "CC"
-description: "Explains recipient configuration and notification usage for the CC (Carbon Copy) node."
+description: "Use in approval or task workflows to copy process information to users and show it in the To-Do Center's CC list."
 ---
 
 # CC

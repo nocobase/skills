@@ -1,6 +1,6 @@
 ---
 title: "Approval Events"
-description: "Dedicated flow triggered by approval initiation, used for managing approval processes."
+description: "Use when users need to initiate an approval application and drive later automation from approval submission, approval, rejection, or withdrawal events."
 ---
 
 # Approval Events

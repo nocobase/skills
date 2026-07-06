@@ -1,6 +1,6 @@
 ---
 title: "Pre-action Event"
-description: "Intercepts before data operation requests are executed, suitable for data validation and logic judgment. Requests can be rejected via the 'End Process' node, with error messages output through the 'Response Message' node."
+description: "Use when a workflow must run before a create, update, or delete request to validate, block, or adjust the operation synchronously."
 ---
 
 # Pre-action Event

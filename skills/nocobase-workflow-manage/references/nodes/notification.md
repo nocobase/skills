@@ -1,6 +1,6 @@
 ---
 title: "Notification"
-description: "Explains the message configuration and failure handling options for the Notification node."
+description: "Use when sending channel-based system notifications such as in-app messages or emails to dynamic recipients during a workflow."
 ---
 
 # Notification

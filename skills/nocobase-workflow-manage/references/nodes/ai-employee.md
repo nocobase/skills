@@ -1,6 +1,6 @@
 ---
 title: "AI Employee"
-description: "Assign an AI employee to complete a workflow task, return structured output, and optionally require human approval."
+description: "Use when an AI employee should complete a business task inside an async workflow, return structured output, and optionally wait for human approval."
 ---
 
 # AI Employee

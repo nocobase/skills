@@ -1,6 +1,6 @@
 ---
 title: Workflow Triggers
-description: Detailed description of workflow trigger types, configuration items, and variable outputs.
+description: "Use this directory when selecting the workflow entry point: collection changes, schedules, UI or API actions, approvals, request interception, or webhooks."
 ---
 
 # Workflow Triggers

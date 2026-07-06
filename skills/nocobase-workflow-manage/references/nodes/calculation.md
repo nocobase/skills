@@ -1,6 +1,6 @@
 ---
 title: "Calculation"
-description: "Introduces the expression engine, configuration fields, and result output for the calculation node."
+description: "Use for expression-style value calculation or transformation, like assigning a computed value from Formula.js, Math.js, or a string template for later nodes."
 ---
 
 # Calculation

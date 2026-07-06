@@ -1,6 +1,6 @@
 ---
 title: "Query Data"
-description: "Explains the filtering, sorting, pagination, and return modes of the Query Data node."
+description: "Use when later nodes need one or many records from a collection as variables, filtered, sorted, paginated, or preloaded as needed."
 ---
 
 # Query Data

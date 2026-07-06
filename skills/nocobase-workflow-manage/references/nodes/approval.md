@@ -1,6 +1,6 @@
 ---
 title: "Approval"
-description: "Explains the configuration items, negotiation/sequential approval rules, and the meaning of branch indices for the approval node."
+description: "Use only inside approval-trigger workflows when human approvers must approve, reject, return, delegate, or add assignees before downstream steps continue."
 ---
 
 # Approval

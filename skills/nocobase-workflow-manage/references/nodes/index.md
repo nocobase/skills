@@ -1,6 +1,6 @@
 ---
 title: Workflow Nodes
-description: Directory of workflow node types, explanation of chain structure, and variable production rules.
+description: "Use this directory when choosing workflow node types, branch-capable nodes, and the variable expressions nodes expose downstream."
 ---
 
 # Workflow Nodes

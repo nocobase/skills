@@ -1,6 +1,6 @@
 ---
 title: "Webhook Response"
-description: "Explains the status code, response headers, and body configuration for the Webhook response node, which terminates the workflow on execution."
+description: "Use in synchronous Webhook workflows to return a custom HTTP status, headers, or JSON body to the caller and then stop execution."
 ---
 
 # Webhook Response

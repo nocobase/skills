@@ -1,6 +1,6 @@
 ---
 title: "Webhook Trigger"
-description: "Trigger flows via external HTTP POST calls, supporting request parsing and custom responses."
+description: "Use when an external system should start a workflow by calling an HTTP endpoint, such as payment callbacks, message pushes, or integrations."
 ---
 
 # Webhook Trigger

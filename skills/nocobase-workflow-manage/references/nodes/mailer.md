@@ -1,6 +1,6 @@
 ---
 title: "Send Email"
-description: "Introduces the SMTP configuration, sender, recipient, and content fields of the email sending node."
+description: "Use when the workflow only needs to send an email through SMTP with text or HTML content; use Notification for channel-based system notifications."
 ---
 
 # Send Email

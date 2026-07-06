@@ -1,6 +1,6 @@
 ---
 title: "Response"
-description: "Explains the status code, response headers, and return body configuration for the Webhook response node."
+description: "Use in synchronous Webhook workflows to return a custom HTTP response and end the request-handling flow."
 ---
 
 # Response

@@ -1,6 +1,6 @@
 ---
 title: "Custom Action Event"
-description: "Manually trigger flows via a 'Trigger Workflow' button, supporting three context types: global custom data, single record, and multiple records."
+description: "Use when end users should manually start a workflow from a Trigger Workflow button, for global, single-record, or selected-record batch actions."
 ---
 
 # Custom Action Event

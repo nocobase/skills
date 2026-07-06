@@ -1,6 +1,6 @@
 ---
 title: "JSON Variable Mapping"
-description: "Explains the path parsing and variable output methods of the JSON variable mapping node."
+description: "Use when complex JSON from SQL, HTTP, LLM, or other nodes needs stable mapped variables for downstream configuration."
 ---
 
 # JSON Variable Mapping

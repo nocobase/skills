@@ -1,6 +1,6 @@
 ---
 title: "Response Message"
-description: "Explains the return prompt configuration of the response message node in synchronous intercept flows."
+description: "Use in synchronous pre-action or custom-action flows to return a user-facing message to the client after validation or processing."
 ---
 
 # Response Message
