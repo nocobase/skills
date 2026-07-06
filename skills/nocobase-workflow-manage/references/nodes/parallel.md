@@ -1,6 +1,6 @@
 ---
 title: "Parallel Branch"
-description: "Introduces the aggregation mode and branching rules of the Parallel Branch node."
+description: "Use when multiple independent branches should run side by side before the workflow joins or evaluates branch completion behavior."
 ---
 
 # Parallel Branch

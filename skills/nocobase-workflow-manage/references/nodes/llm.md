@@ -1,6 +1,6 @@
 ---
 title: "LLM"
-description: "Invoke a configured LLM service from an asynchronous workflow, including text, multimodal messages, model options, and structured output."
+description: "Use when a workflow should call a configured LLM directly to summarize, classify, extract, analyze text or images, or produce structured output."
 ---
 
 # LLM

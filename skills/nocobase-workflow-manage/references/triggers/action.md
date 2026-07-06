@@ -1,6 +1,6 @@
 ---
 title: "Post-action Events"
-description: "Trigger flows after user actions (creation/update) are completed, suitable for handling data operations with user context."
+description: "Use when a workflow should run after a user or API action finishes, such as post-submit data processing, notifications, or synchronization with user context."
 ---
 
 # Post-action Events

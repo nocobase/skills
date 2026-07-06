@@ -1,6 +1,6 @@
 ---
 title: "Delay"
-description: "Explains the time unit, duration, and end status configuration of the delay node."
+description: "Use when a workflow needs to wait for a configured time before continuing or terminating, such as timeout handling with parallel branches."
 ---
 
 # Delay

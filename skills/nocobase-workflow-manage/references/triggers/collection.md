@@ -1,6 +1,6 @@
 ---
 title: "Data Table Events"
-description: "Monitor additions/updates/deletions of specified data tables and trigger flows, with trigger data written to $context.data."
+description: "Use when collection data changes themselves should trigger automation, independent of a specific UI action; prefer post-action when request context matters."
 ---
 
 # Data Table Events

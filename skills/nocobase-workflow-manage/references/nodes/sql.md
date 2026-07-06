@@ -1,6 +1,6 @@
 ---
 title: "SQL Operation"
-description: "Introduces the data source, statement execution, and return structure of the SQL node."
+description: "Use when collection operation nodes are insufficient and the workflow must run a parameterized SQL statement against a data source."
 ---
 
 # SQL Operation

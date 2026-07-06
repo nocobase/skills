@@ -1,6 +1,6 @@
 ---
 title: "Call Workflow"
-description: "Explains how the sub-workflow call node handles the called workflow and context parameter passing."
+description: "Use when a workflow should reuse another workflow as a subroutine, pass it inputs, and consume its Workflow Output result."
 ---
 
 # Call Workflow

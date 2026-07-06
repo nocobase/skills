@@ -1,6 +1,6 @@
 ---
 title: "End Workflow"
-description: "Explains the termination status configuration of the end workflow node."
+description: "Use like a return statement to immediately terminate the workflow with success or failure, especially after guard conditions or request interception."
 ---
 
 # End Workflow

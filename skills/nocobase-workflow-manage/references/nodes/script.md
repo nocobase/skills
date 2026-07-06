@@ -1,6 +1,6 @@
 ---
 title: "JavaScript"
-description: "Run custom JavaScript code in a workflow node, could use arguments and return results, suitable for complex logic that built-in nodes cannot handle."
+description: "Use when built-in nodes cannot express the logic and a server-side JavaScript snippet should compute or transform data for later nodes."
 ---
 
 # JavaScript

@@ -1,6 +1,6 @@
 ---
 title: "Loop"
-description: "Explains the loop target, condition control, and branch entry rules of the loop node."
+description: "Use like for/while/forEach when repeating a branch for each item, count, or condition-controlled iteration."
 ---
 
 # Loop

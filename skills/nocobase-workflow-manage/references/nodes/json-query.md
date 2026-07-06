@@ -1,6 +1,6 @@
 ---
 title: "JSON Calculation"
-description: "Explains the engine selection, expressions, and result mapping configuration of the JSON query node."
+description: "Use when complex JSON from another node must be calculated, queried, or reshaped before downstream nodes consume it."
 ---
 
 # JSON Calculation

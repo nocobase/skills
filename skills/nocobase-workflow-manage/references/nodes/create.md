@@ -1,6 +1,6 @@
 ---
 title: "Create Record"
-description: "Explains the target collection and field assignment method of the create record node."
+description: "Use when a workflow must insert a new record into a collection, including values derived from trigger or upstream node variables."
 ---
 
 # Create Record

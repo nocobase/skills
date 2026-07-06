@@ -1,6 +1,6 @@
 ---
 title: "Condition"
-description: "Explains the engine selection, calculation structure, and branch rules for the condition node."
+description: "Use like an if statement when one boolean condition should either stop/continue the flow or split into yes/no branches."
 ---
 
 # Condition

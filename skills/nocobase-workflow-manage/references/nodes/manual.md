@@ -1,6 +1,6 @@
 ---
 title: "Manual Process"
-description: "Explains the to-do generation, processing mode, and form configuration for the Manual Process node."
+description: "Use when the workflow must pause for a user todo and let a person review, fill a form, continue, or terminate the process."
 ---
 
 # Manual Process
