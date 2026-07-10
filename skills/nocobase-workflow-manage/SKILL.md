@@ -43,7 +43,7 @@ CLI usage rules:
 2. Before using an `nb api workflow` command you have not used yet in the current task, run `nb api workflow workflows -h`, `nb api workflow flow-nodes -h`, or the matching `nb api workflow <topic> <subcommand> -h` once and follow the generated help text.
 3. When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](../nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../nocobase-utils/references/evaluators/mathjs.md).
 4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`.
-   - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](./convertions/index.md#the-collection-field-in-trigger-and-node-configuration) whenever a workflow trigger or node configuration depends on `collection`.
+   - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](./references/conventions/index.md#the-collection-field-in-trigger-and-node-configuration) whenever a workflow trigger or node configuration depends on `collection`.
 
 ## Clarification and Mutation Preconditions
 
@@ -143,11 +143,12 @@ Consult [Workflow HTTP API index](references/http-api/index.md) only when you ne
 5. **Never create nodes concurrently** — node creation calls must be executed one at a time, sequentially. Wait for the previous node to be fully created before creating the next one, because the server adjusts internal link relationships during each creation. Batch/parallel node creation is not supported.
 6. **Always wrap filter in `$and` or `$or`** — the root of any filter object must be a condition group. Full operator reference: [nocobase-utils / Filter Condition Format](../nocobase-utils/references/filter/index.md).
 7. **Always reference node results by `key`, not `id`** — use `{{$jobsMapByNodeKey.<nodeKey>.<path>}}` where `nodeKey` is the node's `key` property (a short random string). Never use the numeric `id`, never invent a key — always read the actual `key` from the node record after creating it. See [Common Conventions - Variable Expressions](references/conventions/index.md#variable-expressions).
-8. **Always verify after mutation** — after creating, updating, or deleting a workflow or node, read back the result to confirm the change took effect.
-9. **Do not auto-enable without user confirmation** — always ask the user before setting `enabled: true`.
-10. **Resolve collection names by inspection, not guesswork** — follow the [Collection Resolution Gate](#collection-resolution-gate) for any collection-bound trigger or node config that requires `collection`.
-11. **Use `applyApprovalBlueprint` for first-time or whole-surface approval setup** — do not bootstrap a brand-new approval surface with `compose`.
-12. **Do not invent `approvalUid` or `taskCardUid`** — for localized approval edits, resolve the bound root from workflow or node config first.
+8. **Always model raw JSON before using its child fields** — when a trigger or node exposes an object/array only as a raw root without a child variable tree, insert `json-variable-mapping` or `json-query` immediately after the source and define the fields in `variables` or `model`. Only that JSON node may consume the raw root; all later nodes must use the modeled JSON node output. This applies especially to global custom-action context data, object/array values extracted by Webhook triggers, SQL results, and HTTP response bodies. A server-side path that happens to resolve is not sufficient because the frontend variable picker cannot display or preserve an unmodeled path. See [Common Conventions - Modeling Raw JSON](references/conventions/index.md#modeling-raw-json-before-downstream-use).
+9. **Always verify after mutation** — after creating, updating, or deleting a workflow or node, read back the result to confirm the change took effect.
+10. **Do not auto-enable without user confirmation** — always ask the user before setting `enabled: true`.
+11. **Resolve collection names by inspection, not guesswork** — follow the [Collection Resolution Gate](#collection-resolution-gate) for any collection-bound trigger or node config that requires `collection`.
+12. **Use `applyApprovalBlueprint` for first-time or whole-surface approval setup** — do not bootstrap a brand-new approval surface with `compose`.
+13. **Do not invent `approvalUid` or `taskCardUid`** — for localized approval edits, resolve the bound root from workflow or node config first.
 
 # Orchestration Process
 
@@ -157,7 +158,7 @@ Before making any CLI calls, clarify with the user:
 1. **Trigger type** — what event starts the workflow? → see [Trigger Reference](references/triggers/index.md)
 2. **Node chain** — what processing steps are needed? → see [Node Reference](references/nodes/index.md)
 3. **Execution mode** — synchronous or async? See [workflow execution mode](references/modeling/workflows.md#execution-mode)
-4. **Key parameters** — collection names, filter conditions, field mappings, variable expressions
+4. **Key parameters** — collection names, filter conditions, field mappings, variable expressions, and any raw JSON sources that require a modeling node before downstream use
 
 If the workflow still depends on an unresolved `collection` after this clarification, follow the [Collection Resolution Gate](#collection-resolution-gate) before asking the user to decide.
 
@@ -176,7 +177,7 @@ Then follow [Approval UI authoring index](references/approval/ui-config/index.md
 0. **Resolve collection dependencies first** — follow the [Collection Resolution Gate](#collection-resolution-gate) before creating the workflow whenever any trigger or node config still has an unresolved `collection`.
 1. **Create workflow** — `nb api workflow workflows create` with `type`, `title`, `sync`, `enabled: false`
 2. **Configure trigger** — `nb api workflow workflows update` with `config`
-3. **Add nodes in order** — `nb api workflow workflows nodes create` for each node, chaining via `upstreamId`; wait for each node to be fully created before creating the next
+3. **Add nodes in order** — `nb api workflow workflows nodes create` for each node, chaining via `upstreamId`; when a source produces raw unmodeled JSON, place `json-variable-mapping` or `json-query` immediately after it; wait for each node to be fully created before creating the next
 4. **Configure each node** — `nb api workflow flow-nodes update` with `config`
 5. **Verify** — read back the workflow with nodes to confirm trigger config, node count, order, and each node's config are correct
 6. **Enable workflow** — confirm with the user, then `nb api workflow workflows update` with `enabled: true`
@@ -227,6 +228,7 @@ After completing any workflow operation, verify:
 6. `enabled` status matches the intended state
 7. For edits on frozen versions: the new revision `id` is being used, not the old one
 8. For approval UI edits: the bound workflow or node config points at the expected `approvalUid` or `taskCardUid`, and the FlowModel readback matches the intended route
+9. Raw JSON from custom-action custom context, Webhook, SQL, HTTP, or similar sources is followed by a configured JSON modeling node, and later nodes reference only the modeled output fields
 
 # Plugin version control revision rule
 

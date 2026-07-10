@@ -42,6 +42,8 @@ Variable expressions (`{{<path>}}`) are used throughout node configurations to r
 
 For complete syntax rules, all variable groups, and usage examples, see [Common Conventions - Variable Expressions](../conventions/index.md#variable-expressions).
 
+When a trigger or node returns JSON whose child fields are absent from the frontend variable tree, do not manually append server-resolvable paths. First add `json-variable-mapping` or `json-query`, define the required child fields, and use the modeled node output downstream. See [Common Conventions - Modeling Raw JSON](../conventions/index.md#modeling-raw-json-before-downstream-use).
+
 **Key rule**: Node results must be referenced by the node's `key` property (a short random string like `6qww6wh1wb8`), **not** by the numeric `id`. Always read the actual `key` from the node record after creating it.
 
 If a variable points to a data table structure, the internal property paths match the table field names.

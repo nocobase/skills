@@ -76,10 +76,32 @@ After execution, the node result will include `author` with its `department` dat
 
 Workflow variables are internally JSON values. In the variable picker UI they are usually exposed as a tree of `{ label, value, children? }`, but the actual runtime expression always uses the `value` path, not `label`.
 
+The runtime JSON shape and the frontend variable model are separate concerns. The server may resolve a manually written child path on a raw JSON object even when the variable picker exposes only the object root. Do not rely on that server-only behavior: a path that is absent from the variable tree cannot be displayed or reliably edited by ordinary users.
+
+### Modeling Raw JSON Before Downstream Use
+
+When a trigger or node exposes an object or array without modeled child fields, a JSON modeling node is mandatory before any downstream node uses a child value:
+
+1. Add `json-variable-mapping` when the required JSON paths are known and should become stable named variables.
+2. Add `json-query` when the JSON must first be filtered, calculated, or reshaped, and define its output fields in `model`.
+3. Pass the whole raw object/array into that JSON node. This is the only direct use of the raw source allowed in the downstream chain.
+4. Configure every later node from the JSON node's modeled output tree, for example `{{$jobsMapByNodeKey.map_payload.order_id}}`.
+5. Do not manually write a child expression such as `{{$context.data.order.id}}`, `{{$context.body.body_$0.order.id}}`, `{{$jobsMapByNodeKey.sql_rows.0.id}}`, or `{{$jobsMapByNodeKey.http_call.data.order.id}}` when those child paths are not exposed by the source's variable tree.
+
+This rule applies especially to:
+
+- `custom-action` with global custom-data context (`type = 0`), where `$context.data` is a raw JSON value.
+- Webhook request items whose extracted value is itself an object or array.
+- `sql` results, which expose only the full result root.
+- `request` results, where nested response body fields are not expanded in the variable picker.
+- Any other trigger or node that documents a raw root or no child variable tree.
+
+Modeling is not optional even when a handwritten path works at runtime. The modeled JSON node is what gives the frontend a stable label/value tree and lets ordinary users select, view, and maintain the variable.
+
 ### Core Rules
 
-1. Most variables are JSON objects or arrays, and you usually reference only the needed sub-path.
-2. Object properties are accessed with dot notation, such as `{{$context.data.title}}` or `{{$jobsMapByNodeKey.query1.author.department.name}}`.
+1. Most variables are JSON objects or arrays, and you usually reference only the needed sub-path when that path is present in the variable tree.
+2. Modeled object properties are accessed with dot notation, such as `{{$context.data.title}}` or `{{$jobsMapByNodeKey.query1.author.department.name}}`. If the property is absent from the source's variable tree, model it first instead of appending the path manually.
 3. A selected association field may itself be an object, and nested relations continue to form deeper object paths.
 4. Some variables are scalar values directly, such as `{{$context.date}}` or `{{$jobsMapByNodeKey.calc_total}}`.
 5. When a path segment is an array, selecting a child field under that array produces a mapped array of that child field's values.
@@ -191,6 +213,7 @@ The upstream means all the ancestor nodes search up the workflow graph by `upstr
 - Do NOT use the node's numeric `id` — use the string `key` instead.
 - Do NOT invent a key — always read the actual `key` from the node record after creating it.
 - Do NOT reference a node that is not upstream of the current node.
+- Do NOT append child paths that are absent from the node's variable tree. Pass the raw root through `json-variable-mapping` or `json-query` and use the modeled output instead.
 
 ### Scope Variables (`$scopes`)
 

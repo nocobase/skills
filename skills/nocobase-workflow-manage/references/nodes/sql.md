@@ -46,5 +46,6 @@ Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes
 This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
 
 - Exposed root: the full SQL execution result.
-- No child field tree is provided. If you need named fields from a row set or metadata tuple, follow this node with `json-query` or `json-variable-mapping`.
+- No child field tree is provided. If downstream nodes need to use any field from the SQL result, you must immediately follow this node with `json-variable-mapping` or `json-query`, pass the whole SQL result as its source, and define the required output fields.
+- Only the JSON modeling node may consume `{{$jobsMapByNodeKey.<nodeKey>}}`. All later nodes must reference the modeled JSON node output; do not manually configure paths such as `{{$jobsMapByNodeKey.sql_stats.0.total}}` even if the server can resolve them, because those paths are absent from the frontend variable tree and cannot be displayed or maintained reliably.
 - Example reference: `{{$jobsMapByNodeKey.sql_stats}}`.

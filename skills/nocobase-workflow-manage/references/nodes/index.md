@@ -33,6 +33,8 @@ Each node document with an `Output Variables` section that describes whether the
 
 Subsequent nodes can reference these variables in their configuration to implement dynamic workflow logic as required by business needs.
 
+Some nodes return JSON while exposing only a root value or a shallow tree. Do not treat the runtime JSON shape as a frontend variable model. Before a later node uses any unmodeled child field, insert `json-variable-mapping` or `json-query`, define the output fields, and reference only that JSON node's modeled variables. This is mandatory for raw SQL results, nested HTTP response bodies, and any other output whose child paths are absent from the variable selector. See [Common Conventions - Modeling Raw JSON](../conventions/index.md#modeling-raw-json-before-downstream-use).
+
 ## Usage Notes
 
 * **Only the type values specified in the documentation can be used**; other values will not be recognized by the workflow.

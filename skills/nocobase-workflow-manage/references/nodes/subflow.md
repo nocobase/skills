@@ -43,5 +43,6 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
 This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
 
 - Exposed root: the called workflow's final output value.
-- No child field tree is provided. If the sub-workflow returns structured JSON and you need named child variables, follow this node with `json-query` or `json-variable-mapping`.
+- No child field tree is provided. If the sub-workflow returns an object/array and a later node needs any child field, you must follow this node with `json-variable-mapping` or `json-query`, model the required fields, and make later nodes use only the JSON node's outputs.
+- Do not manually append child paths to the Call Workflow node root. Only the JSON modeling node should consume the raw sub-workflow result.
 - Example reference: `{{$jobsMapByNodeKey.call_order_calc}}`.

@@ -71,6 +71,8 @@ Use this when the action does not depend on a specific record.
   3. Select one or more enabled `custom-action` workflows whose context type is global custom data.
   4. Optionally provide JSON `Context data` in the binding dialog. This JSON becomes `$context.data` at runtime.
 
+`$context.data` is a raw JSON root in this mode. If the workflow needs any property inside it, the first node must be `json-variable-mapping` or `json-query`. Pass `{{$context.data}}` as that node's source, explicitly model the required fields, and use only the JSON node's output variables afterward. Do not configure later nodes with handwritten paths such as `{{$context.data.order.id}}`; the server may resolve them, but the frontend cannot display or maintain those unmodeled variables.
+
 ### Single Record (`type = 1`)
 
 Use this when the workflow should receive one record as trigger data.
@@ -131,15 +133,16 @@ Use this for batch actions on selected rows.
 1. Create the workflow with trigger type `custom-action`.
 2. Choose the correct context type first; this determines where the workflow can be bound later.
 3. For `type = 1` or `type = 2`, set `collection` and any needed `appends`.
-4. Enable the workflow.
-5. Return to the target page/block, add the correct `Trigger workflow` button, and bind the workflow.
-6. Test the button from the actual UI, including row-selection requirements for batch actions and any expected synchronous error handling.
+4. For `type = 0`, add and configure a JSON modeling node before any node that consumes a child field from `$context.data`.
+5. Enable the workflow.
+6. Return to the target page/block, add the correct `Trigger workflow` button, and bind the workflow.
+7. Test the button from the actual UI, including row-selection requirements for batch actions and any expected synchronous error handling.
 
 ## Output Variables
 The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
 
 - Exposed roots: `data`, `user`, `roleName`.
-- In global custom-data mode, `data` is exposed as a single raw object value with no predefined child field tree. Should use JSON variable mapping or JSON query node to extract specific fields.
+- In global custom-data mode, `data` is exposed as a single raw object value with no predefined child field tree. To use any child field, you must follow the trigger with `json-variable-mapping` or `json-query`, model the required fields, and reference the JSON node's outputs in all later nodes.
 - In single-record or multiple-record mode with a bound collection, `data` expands to that collection's fields; configured `appends` become nested children under `data`.
 - `user` follows the `users` collection schema; `roleName` is a scalar string.
-- Example references: `{{$context.data}}`, `{{$context.data.title}}`, `{{$context.user.nickname}}`, `{{$context.roleName}}`.
+- Direct trigger references: `{{$context.data}}`, `{{$context.user.nickname}}`, `{{$context.roleName}}`. `{{$context.data.title}}` is valid only when `data` is modeled by a bound collection (`type = 1` or `type = 2`), not in global custom-data mode.

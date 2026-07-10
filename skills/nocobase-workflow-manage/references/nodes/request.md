@@ -83,5 +83,6 @@ The variable selector for this node is a tree array of `{ label, value, children
 
 - When `onlyData=false`, the node exposes `status`, `data`, and `headers`.
 - When `onlyData=true`, only the node root is exposed, so reference the whole result as `{{$jobsMapByNodeKey.<nodeKey>}}`.
-- The selector does not expand nested fields inside `data`; if the response body is structured JSON and you need named child variables, follow this node with `json-query` or `json-variable-mapping`.
+- The selector does not expand nested fields inside `data`. If the response body is structured JSON and any downstream node needs a child field, you must follow this node with `json-variable-mapping` or `json-query`, pass `{{$jobsMapByNodeKey.<nodeKey>.data}}` (or the root when `onlyData=true`) as its source, and define the required output fields.
+- Only the JSON modeling node may consume the raw response object. All later nodes must reference the modeled JSON node output; do not manually configure paths such as `{{$jobsMapByNodeKey.http_call.data.order.id}}` even if the server can resolve them, because those paths are absent from the frontend variable tree.
 - Example references: `{{$jobsMapByNodeKey.http_call.status}}`, `{{$jobsMapByNodeKey.http_call.data}}`, `{{$jobsMapByNodeKey.http_call.headers}}`.

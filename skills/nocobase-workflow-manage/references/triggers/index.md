@@ -21,6 +21,8 @@ Each trigger document with an `Output Variables` section describes the exact tre
 
 Subsequent nodes can reference these variables in their configuration items based on business needs to achieve dynamic workflow logic.
 
+If a trigger exposes a JSON object/array only as a root value, do not manually append child paths even if the server can resolve them. Add `json-variable-mapping` or `json-query` as the first node, explicitly model the required fields, and make all later nodes use that modeled output. See [Common Conventions - Modeling Raw JSON](../conventions/index.md#modeling-raw-json-before-downstream-use).
+
 ## Usage Notes
 
 * **Only type values explicitly listed in the documentation can be used**; other values will cause the workflow to be unrecognized.

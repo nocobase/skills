@@ -199,4 +199,4 @@ Example references:
 - `{{$jobsMapByNodeKey.ai_review.decision}}`
 - `{{$jobsMapByNodeKey.ai_review.detail.reason}}`
 
-If `structuredOutput.schema` is missing, the client exposes no output variables for this node. Use `json-query` or `json-variable-mapping` downstream if you need to reshape nested output.
+If `structuredOutput.schema` is missing, the client exposes no output variables for this node. Do not manually reference child paths that only the server can resolve. Add `json-variable-mapping` or `json-query`, use the whole raw result as its source when available, explicitly model the required fields, and make later nodes use only that JSON node's outputs. Prefer defining `structuredOutput.schema` so the AI Employee node itself provides the frontend variable model.
