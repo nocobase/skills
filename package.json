@@ -1,6 +1,6 @@
 {
   "name": "@nocobase/skills",
-  "version": "2.0.23",
+  "version": "2.0.24",
   "description": "> [!WARNING] > NocoBase Skills is still in draft status. The content is for reference and may change at any time.",
   "main": "index.js",
   "scripts": {
