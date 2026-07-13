@@ -1,6 +1,6 @@
 ---
 title: "Approval workflow"
-description: "Cross-cutting reference for the approval workflow — trigger, node, notifications, UID-backed surfaces, and UI authoring."
+description: "Configuration guide for approval workflow, including approval trigger and approval node"
 ---
 
 # Approval workflow
