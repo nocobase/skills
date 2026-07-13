@@ -11,8 +11,8 @@ Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file own
 - `version` stays `"1"`.
 - `mode` is either `"create"` or `"replace"`.
 - `create` creates a new menu item + page.
-- `navigation.layoutUid` is optional in `create`; omit it for the default desktop/admin layout (`admin-layout-model`). Use `"mobile-layout-model"` for mobile page intent, put the visible entry in `navigation.item`, and omit `navigation.group`.
-- Duplicate-page prevention follows [navigation-targets.md](./navigation-targets.md): same layout + same group/root + same `page.title` may replace; different group or different layout with the same title does not merge, reuse, or auto-replace another page.
+- `navigation.layoutUid` and `navigation.portalUid` are optional, mutually exclusive create targets. Omit both for default desktop/admin authoring. Use `layoutUid: "mobile-layout-model"` for mobile intent; use `portalUid` only for an explicitly requested workspace returned by `list-navigation-targets`.
+- Duplicate-page prevention follows [navigation-targets.md](./navigation-targets.md): page identity is target layout/portal + `navigation.group.routeId` (or the mobile/root slot) + `page.title`. The same group and same title may replace; a different group, layout, or portal with the same title does not merge, reuse, or auto-replace another page.
 - In non-mobile `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. In mobile `create`, `navigation.item` must include the root tab title/icon and no group icon is needed.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
@@ -138,7 +138,7 @@ Payload boundary:
 - `version`: currently only `"1"`
 - `mode`: `"create" | "replace"`
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
-- `navigation`: only for `create`; controls target layout plus menu group/item metadata. Newly created non-mobile groups must include `icon`, and newly created top-level or second-level items must also include `icon`. For mobile pages, include `navigation.layoutUid: "mobile-layout-model"`, put the entry title/icon in `navigation.item`, and omit `navigation.group`; omitted `layoutUid` means default desktop/admin behavior. See [navigation-targets.md](./navigation-targets.md) for group reuse, duplicate same-title groups, and duplicate-page identity.
+- `navigation`: only for `create`; controls target layout/workspace plus menu group/item metadata. Set at most one of `layoutUid` and `portalUid`; omit both for default desktop/admin behavior. For mobile layouts or mobile-backed portals, put the entry title/icon in `navigation.item` and omit `navigation.group`. See [navigation-targets.md](./navigation-targets.md) for target discovery, group reuse, duplicate same-title groups, and duplicate-page identity.
 - `page`: page-level metadata
 - `defaults`: optional collection-level defaults for generated popup names and large grouped popup field candidates
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
@@ -245,9 +245,9 @@ Example:
 
 ### `navigation.group` semantics
 
-- `navigation.group` is for non-mobile creates only; mobile creates set `navigation.layoutUid: "mobile-layout-model"` and omit the group.
+- `navigation.group` is for non-mobile creates only; mobile layouts and mobile-backed portals omit the group.
 - Prefer `navigation.group.routeId` when the non-mobile destination group is known.
-- `navigation.group.title` may create or reuse a group only under the target layout; duplicate same-title groups require explicit `routeId`.
+- `navigation.group.title` may create or reuse a group only under the target layout or portal; duplicate same-title groups require explicit `routeId`.
 - `navigation.group.routeId` has highest priority and ignores group metadata on reuse.
 - For the full group resolution and duplicate-page identity matrix, use [navigation-targets.md](./navigation-targets.md).
 
