@@ -32,7 +32,7 @@ Dashboard self-check before first write:
 Do not treat "can render something" as sufficient for dashboard metric sections. Block choice must match the section semantics.
 
 2. Default a normal request to exactly one real tab.
-3. Determine the target UI layout before drafting navigation; use [navigation-targets.md](./navigation-targets.md) for the full layout/group/page-identity matrix. Default creates target desktop/admin `admin-layout-model`; mobile intent uses `navigation.layoutUid: "mobile-layout-model"`, `navigation.item`, and no `navigation.group`.
+3. Determine the navigation target before drafting navigation; use [navigation-targets.md](./navigation-targets.md) for the full layout/workspace/group/page-identity matrix. Default creates target desktop/admin `admin-layout-model`; mobile intent uses `navigation.layoutUid: "mobile-layout-model"`. Only explicit workspace intent runs `list-navigation-targets` and sets `navigation.portalUid`; otherwise omit it and do not probe Multi-portal. Never send `portalUid` and `layoutUid` together.
 4. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
   - You do not need to hand-build a helper envelope; backend authoring validation uses live metadata and returns aggregate errors for hard failures.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.

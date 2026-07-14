@@ -471,7 +471,7 @@ nb request body:
 }
 ```
 
-For mobile creates, set `navigation.layoutUid: "mobile-layout-model"`, put the visible entry title/icon in `navigation.item`, and omit `navigation.group`. Omitted `layoutUid` keeps the desktop/admin layout behavior. For non-mobile creates, duplicate same-title group handling, `navigation.group.routeId` precedence, and duplicate-page identity follow [navigation-targets.md](./navigation-targets.md). If an existing group's metadata must change, use low-level `update-menu` instead.
+For mobile creates, set `navigation.layoutUid: "mobile-layout-model"`, put the visible entry title/icon in `navigation.item`, and omit `navigation.group`. For an explicitly requested workspace returned by `list-navigation-targets`, set `navigation.portalUid` instead of `layoutUid`; mobile-backed portals also omit `navigation.group`. Omit both target fields for default desktop/admin behavior. For non-mobile creates, duplicate same-title group handling, `navigation.group.routeId` precedence, and duplicate-page identity follow [navigation-targets.md](./navigation-targets.md). If an existing group's metadata must change, use low-level `update-menu` instead.
 
 When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
 
