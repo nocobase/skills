@@ -16,8 +16,10 @@ Use this checklist after the matching quick route is already clear. For global r
   - localized existing-surface edit
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
+- When multiple pages share the same `navigation.group.title`, run their `applyBlueprint` writes serially. Let the first page create or resolve the titled group and capture its `routeId` from the response or `desktopRoutes`; every subsequent page must pass `navigation.group: { routeId }` and must not fall back to title-only `navigation.group.title`. Concurrent title-only creates for a shared menu group are forbidden.
 - Determine target layout before the first whole-page draft. Default is desktop/admin `admin-layout-model`; mobile page intent uses `navigation.layoutUid: "mobile-layout-model"`, `navigation.item`, and no `navigation.group`.
 - Follow [navigation-targets.md](./navigation-targets.md) for duplicate same-title group handling, multi-page shared-group serialization, and duplicate page identity.
+- Page identity is the menu group `navigation.group.routeId` plus the `page.title`. A create in the same group with the same page title upgrades to `replace`; a page in a different group with the same page title must not replace, merge, or reuse the existing page.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - If a dashboard asks for chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 / percentage / 占比, record the required chart sections before drafting; KPI JSBlocks and tables/lists cannot satisfy those chart sections.

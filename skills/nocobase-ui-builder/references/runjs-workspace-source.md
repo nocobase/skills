@@ -16,7 +16,7 @@ The save is a complete snapshot, not a patch. Include every retained file and se
 
 Settings schema and defaults live in `src/client/entry.json`. Host overrides are resolved with the descriptor defaults at runtime, preserving `false`, `0`, and `""`; invalid type, enum, range, or unknown paths are diagnostics. Settings values are Host state: they do not create source commits and must survive a Host reload. Clearing a setting removes the override and restores the descriptor default.
 
-Normally author 2-5 meaningful settings and at least two in ordinary cases. Exceptions are static UI (zero), one genuinely meaningful setting, compatibility migrations, and intentionally empty schemas. Every non-exception setting must be consumed by `ctx.settings`; do not add decorative settings that the code never reads.
+Normally author 2-5 meaningful settings and at least two in ordinary cases. Fewer than two are allowed for a pure bug fix, when the user explicitly asks to hardcode the behavior, when existing native Surface settings already cover the useful variation, or when the surface has fewer than two reasonable variation points. Every declared setting must be consumed by `ctx.settings`; do not add decorative settings that the code never reads.
 
 ## Boundaries
 

@@ -889,11 +889,15 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(skill, /Create JS page[\s\S]{0,180}create-js-page-quick\.md/i);
   assert.ok(skill.indexOf('create-js-page-quick.md') < skill.indexOf('whole-page-quick.md'));
   assert.match(createPage, /Host[\s\S]{0,240}sourceMode: "inline"[\s\S]{0,240}runJSSources:open/i);
-  assert.match(createPage, /Settings Pass[\s\S]{0,700}compilePreview[\s\S]{0,240}complete snapshot/i);
+  assert.match(createPage, /Settings Pass[\s\S]{0,1100}compilePreview[\s\S]{0,240}complete snapshot/i);
   assert.match(workspace, /baseCommitId[\s\S]{0,120}baseOwnerFingerprint/i);
   assert.match(workspace, /409[\s\S]{0,160}openLatest[\s\S]{0,220}merge[\s\S]{0,160}compile/i);
   assert.match(workspace, /normally author 2-5 meaningful settings[\s\S]{0,140}at least two/i);
   assert.match(workspace, /ctx\.settings/i);
+  assert.match(workspace, /pure bug fix/i);
+  assert.match(workspace, /explicitly asks to hardcode/i);
+  assert.match(workspace, /existing native Surface settings/i);
+  assert.match(workspace, /fewer than two reasonable variation points/i);
   assert.match(workspace, /do not create source commits|do not create a source commit/i);
   assert.match(lightExtension, /explicit externalization/i);
   assert.match(lightExtension, /application-level default Repository/i);

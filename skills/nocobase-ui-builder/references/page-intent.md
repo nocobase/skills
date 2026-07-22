@@ -54,7 +54,8 @@ Use this file only when the task is whole-page authoring. If the request is real
 - Side-by-side blocks, relation tables, and deep popups normally stay inside one tab, not in separate route-backed tabs.
 - Users may describe blocks, relations, and actions in business language only. Infer the minimum executable structure instead of expanding into a rigid pseudo-spec.
 - Prefer `navigation.group.routeId` when the non-mobile destination group is already known.
-- Navigation decisions follow [navigation-targets.md](./navigation-targets.md): mobile page intent sets `navigation.layoutUid: "mobile-layout-model"` and omits `navigation.group`; duplicate same-title non-mobile groups require explicit `routeId`; same layout + same group/root + same page title may replace, but different group or layout must not merge, reuse, or auto-replace.
+- Navigation decisions follow [navigation-targets.md](./navigation-targets.md): mobile page intent sets `navigation.layoutUid: "mobile-layout-model"` and omits `navigation.group`; duplicate same-title non-mobile groups require explicit `routeId`.
+- Page identity is the menu group `navigation.group.routeId` plus the `page.title`. A create in the same group with the same page title upgrades to `replace`; a page in a different group with the same page title must not replace, merge, or reuse the existing page.
 - If the user says clicking a shown record or relation record opens details, prefer a field popup rather than inventing a button.
 - Keep `fields[]` as simple strings unless a field object is actually needed.
 - Omit `layout` only when the tab/popup contains at most one non-filter block. Otherwise decide the layout explicitly instead of relying on default vertical stacking.

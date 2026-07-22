@@ -194,7 +194,8 @@ For `replace` runs:
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 - skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write
 - non-mobile `create` should prefer `navigation.group.routeId` when the group is known; duplicate same-title group titles require explicit `routeId`; mobile creates omit `navigation.group` and create root tab pages.
-- page identity, target layout inheritance, same-title replacement, cross-group/cross-layout isolation, and group metadata precedence are governed by [navigation-targets.md](./navigation-targets.md).
+- Page identity is the menu group `navigation.group.routeId` plus the `page.title`. A create in the same group with the same page title upgrades to `replace`; a page in a different group with the same page title must not replace, merge, or reuse the existing page.
+- Target layout inheritance and group metadata precedence are governed by [navigation-targets.md](./navigation-targets.md).
 
 Use the resolved page `target` from the public response as the carry-forward locator. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 
