@@ -6,6 +6,10 @@ Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file own
 
 ## 1. Core Rules
 
+This blueprint route is for ordinary page structure. A new complete JS Page is routed through [create-js-page-quick.md](./create-js-page-quick.md), where `flow-surfaces` creates the Host and `runJSSources` manages the Inline multi-file Workspace. Do not put a complete Workspace into `settings.code` or `assets.scripts`; use those fields only for the documented single-surface JS payloads.
+
+Page identity is the menu group `navigation.group.routeId` plus `page.title`: same group and same title uses `replace`; different group and same title does not merge, reuse, or auto-replace.
+
 - The wire format is **JSON**.
 - One document describes **one page**.
 - `version` stays `"1"`.

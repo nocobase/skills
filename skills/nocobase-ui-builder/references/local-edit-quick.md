@@ -2,7 +2,7 @@
 
 Use this file as the default first stop for normal edits on an existing live Modern page.
 
-Stay on this route when the request is "change one part of an existing page" rather than "rebuild the whole page".
+Stay on this route when the request is "change one part of an existing page" rather than "rebuild the whole page". Existing JS owners retain the ordinary compatibility gate. A new complete JS Page or JS Block is not a localized `settings.code` edit: route it through [create-js-page-quick.md](./create-js-page-quick.md). Externalization remains explicit and is documented in [light-extension-source.md](./light-extension-source.md).
 
 ## URL-derived start uid
 

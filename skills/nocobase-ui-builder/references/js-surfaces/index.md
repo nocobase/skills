@@ -12,6 +12,8 @@ Read this after [../js.md](../js.md) when the task is already known to be JS / R
 
 ## Quick route
 
+For a new complete JS Page, read [../create-js-page-quick.md](../create-js-page-quick.md) first. A new complete JS Block follows that same Host -> Inline Workspace route after Host creation. The surface table below describes the code scene inside the Workspace; it is not a reason to externalize source.
+
 | Surface | Read first | Editor scene | Writeback path | Validation style |
 | --- | --- | --- | --- | --- |
 | Event Flow `Execute JavaScript` | [event-flow.md](./event-flow.md) | `eventFlow` | `flowRegistry.*.steps.*.defaultParams.code` | action-style |

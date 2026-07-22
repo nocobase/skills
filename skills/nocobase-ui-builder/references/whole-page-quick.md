@@ -1,6 +1,10 @@
 # Whole-page Quick Route
 
-Use this file as the default first stop for whole-page `create` / `replace` work.
+Use this file as the default first stop for ordinary whole-page `create` / `replace` work. If the request is a new complete JS Page, route first to [create-js-page-quick.md](./create-js-page-quick.md); a complete JS Block created through a Host uses that same Inline Workspace contract. Do not treat a multi-file JS request as a reason to create a Light Extension.
+
+Page identity is `navigation.group.routeId` plus `page.title`: the same group and same title uses `replace`; a different group and same title must not merge, reuse, or auto-replace.
+
+When multiple pages share one `navigation.group.title`, serialize the page runs: the first page may create or resolve by `navigation.group.title` and capture its response `routeId`; later pages must use that routeId and must not use title-only creation.
 
 Stay on this route when the user is asking for a full page or one route-backed tab, not a small patch on an existing live surface.
 

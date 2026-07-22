@@ -731,6 +731,7 @@ test('required docs and relative links stay valid', () => {
     'references/chart-core.md',
     'references/cli-command-surface.md',
     'references/cli-transport.md',
+    'references/create-js-page-quick.md',
     'references/execution-checklist.md',
     'references/helper-contracts.md',
     'references/index.md',
@@ -746,6 +747,7 @@ test('required docs and relative links stay valid', () => {
     'references/js-surfaces/value-return.md',
     'references/js-surfaces/snippet-manifest.json',
     'references/local-edit-quick.md',
+    'references/light-extension-source.md',
     'references/normative-contract.md',
     'references/page-archetypes.md',
     'references/page-blueprint.md',
@@ -757,6 +759,7 @@ test('required docs and relative links stay valid', () => {
     'references/runjs-authoring-loop.md',
     'references/runjs-failure-taxonomy.md',
     'references/runjs-repair-playbook.md',
+    'references/runjs-workspace-source.md',
     'references/runtime-playbook.md',
     'references/settings.md',
     'references/template-decision-summary.md',
@@ -870,6 +873,37 @@ test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   assert.match(index, /\[reaction\.md\]/i, 'js-reference-index should route linkage writes back to reaction.md');
   assert.match(index, /Execute JavaScript/i, 'js-reference-index should cover event-flow Execute JavaScript');
   assert.match(index, /ctx\.\*/i, 'js-reference-index should expose ctx API routing');
+});
+
+test('new complete JS surfaces use the inline Workspace contract', () => {
+  const skill = read('SKILL.md');
+  const createPage = read('references/create-js-page-quick.md');
+  const workspace = read('references/runjs-workspace-source.md');
+  const lightExtension = read('references/light-extension-source.md');
+  const wholePage = read('references/whole-page-quick.md');
+  const localEdit = read('references/local-edit-quick.md');
+  const pageBlueprint = read('references/page-blueprint.md');
+  const surfaceIndex = read('references/js-surfaces/index.md');
+  const openai = read('agents/openai.yaml');
+
+  assert.match(skill, /Create JS page[\s\S]{0,180}create-js-page-quick\.md/i);
+  assert.ok(skill.indexOf('create-js-page-quick.md') < skill.indexOf('whole-page-quick.md'));
+  assert.match(createPage, /Host[\s\S]{0,240}sourceMode: "inline"[\s\S]{0,240}runJSSources:open/i);
+  assert.match(createPage, /Settings Pass[\s\S]{0,700}compilePreview[\s\S]{0,240}complete snapshot/i);
+  assert.match(workspace, /baseCommitId[\s\S]{0,120}baseOwnerFingerprint/i);
+  assert.match(workspace, /409[\s\S]{0,160}openLatest[\s\S]{0,220}merge[\s\S]{0,160}compile/i);
+  assert.match(workspace, /normally author 2-5 meaningful settings[\s\S]{0,140}at least two/i);
+  assert.match(workspace, /ctx\.settings/i);
+  assert.match(workspace, /do not create source commits|do not create a source commit/i);
+  assert.match(lightExtension, /explicit externalization/i);
+  assert.match(lightExtension, /application-level default Repository/i);
+  assert.match(lightExtension, /Multiple files[\s\S]{0,160}do not authorize externalization/i);
+  assert.match(createPage, /Host Preview[\s\S]{0,120}non-goal/i);
+  assert.match(wholePage, /create-js-page-quick\.md/i);
+  assert.match(localEdit, /compatibility gate/i);
+  assert.match(pageBlueprint, /complete Workspace[\s\S]{0,160}settings\.code[\s\S]{0,80}assets\.scripts/i);
+  assert.match(surfaceIndex, /new complete JS Page[\s\S]{0,180}Inline Workspace/i);
+  assert.match(openai, /Create JS page[\s\S]{0,220}runJSSources:open/i);
 });
 
 test('js surface docs stay discoverable and keep progressive disclosure', () => {
