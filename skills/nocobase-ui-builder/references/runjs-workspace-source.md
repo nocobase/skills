@@ -10,7 +10,10 @@ The normal sequence is:
 
 `Host create -> sourceMode:inline -> runJSSources:open -> Settings Pass -> full Workspace edit -> compilePreview -> diagnostics repair -> full snapshot save`
 
-The save is a complete snapshot, not a patch. Include every retained file and send mandatory `baseCommitId` and `baseOwnerFingerprint` tokens. On a 409 stale Head, call `openLatest`, merge the original/local/latest paths, compile the merged result, and save with the fresh tokens. Same-path conflicts stop automatic recovery and preserve local edits.
+The lifecycle requires a complete snapshot and the `baseCommitId` plus `baseOwnerFingerprint` returned by one open. A
+stale 409 follows the `open-latest` -> path merge -> compile -> save lifecycle, with same-path conflicts stopping
+automatic recovery. Use [runjs-transport.md](./runjs-transport.md) as the sole authority for CLI command names, request
+and response shapes, CAS fields, snapshot deletion semantics, and code-specific error handling.
 
 ## Settings Pass
 
