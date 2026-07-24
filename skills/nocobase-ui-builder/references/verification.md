@@ -2,7 +2,7 @@
 
 Use this file to verify inspect/prewrite output and post-write persistence.
 
-Agent-facing flow-surfaces front door is `nb api flow-surfaces <action>`. Treat the readback routes below as backend actions.
+The Host/UI front door is `nb api flow-surfaces <action>`. Complete Inline Workspace source uses `nb api run-js-sources <action>`. Treat the structural readback routes below as backend actions.
 
 For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
 
@@ -54,6 +54,17 @@ A page-blueprint draft is good when:
 - If a localized edit resolved to a template source, verify the template source readback itself before inferring that current references now reflect the change.
 - If live readback before the write showed an existing template reference, and post-write readback no longer exposes that reference or now exposes local inline popup content instead, treat that as a routing failure unless the user explicitly asked for local-only / detach / `copy`.
 - Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.
+
+### Inline Workspace source evidence
+
+For a complete JS Page or JS Block, source completion requires all of the following:
+
+- the Host returned a canonical locator and `run-js-sources open` succeeded
+- compile-preview returned no diagnostic with `severity: "error"`
+- save returned a new commit, `artifact.filesHash`, and the updated owner fingerprint
+- preview and save used the same complete candidate snapshot and the save tokens came from one open/open-latest response
+
+Host Preview is not required by this source contract and must not be claimed as validation when it was not run.
 
 ## 3. Minimum Readback Targets
 

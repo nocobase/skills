@@ -4,8 +4,10 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 
 ## 0. Canonical Transport
 
-- Agent-facing write path: `nb api flow-surfaces <action>` with the raw business payload.
-- Backend transport contract: flow-surfaces is the authoring compiler for raw UI Builder payloads.
+- Host/UI write path: `nb api flow-surfaces <action>` with the raw business payload. It owns navigation, layout, Flow Models, reactions, and ordinary Surface configuration.
+- Inline source write path: `nb api run-js-sources <action>` owns complete JS Page/JS Block Workspace files, compile previews, commits, and full-snapshot saves.
+- External source write path: only an explicitly externalized Light Extension Entry uses `nb light` or the matching Light Extension APIs.
+- Backend transport contract: flow-surfaces is the authoring compiler for raw UI Builder payloads; it is not the source repository transport for a complete Workspace.
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
 - `nb-template-decision` remains an optional local planning helper. Do not run skill-local helper output or `cliBody` generation as a write prerequisite.
 - Flow Surface write APIs accept the UI Builder raw business payload directly. If a write returns `errors[]`, repair the full list and retry once the payload is coherent.
@@ -14,8 +16,8 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 
 Rule precedence is always:
 
-1. live backend `nb api flow-surfaces` command behavior and generated CLI behavior
-2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level flow-surfaces write contracts
+1. live backend `nb api flow-surfaces` and `nb api run-js-sources` command behavior and generated CLI behavior
+2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level flow-surfaces and RunJS source contracts
 3. this `Normative Contract` for global transport, request-shape, and authoring rules
 4. [templates.md](./templates.md) for template-selection semantics
 5. other topic references (`popup`, `verification`, `runtime-playbook`, etc.)
@@ -32,6 +34,9 @@ If a lower-priority local document conflicts with a live contract fact, follow t
 - **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `nb api flow-surfaces apply-blueprint` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 - **Localized edit on an existing surface** -> matching `nb api flow-surfaces <action>` write (`compose`, `configure`, `add-block`, `add-blocks`, etc.) -> readback.
 - **Localized interaction / reaction edit** -> read `getReactionMeta`, plan against live reaction slots, write through the matching backend action -> readback.
+- **New complete JS Page / JS Block** -> create or locate the Host through `flow-surfaces` -> use the returned canonical locator with `run-js-sources` -> compile-preview -> complete snapshot save.
+- **Embedded or compatibility single-file JS** -> keep the owner on its public `flow-surfaces` code shape.
+- **Explicitly externalized JS** -> use the Light Extension repository protocol; never infer this route from multiple files or imports.
 
 Backend action names are the stable payload families exposed through `nb api flow-surfaces`.
 
@@ -83,7 +88,7 @@ The public `applyBlueprint` payload is:
 
 ### nb body rule
 
-For actual execution in this skill, `nb api flow-surfaces <action>` is the public write entry and the bullets below describe the raw backend body shape:
+For Host/UI execution in this skill, `nb api flow-surfaces <action>` is the public write entry and the bullets below describe the raw backend body shape. Complete Inline Workspace source switches to [runjs-transport.md](./runjs-transport.md) after the Host returns its canonical locator:
 
 - read commands may use top-level locator flags instead of JSON bodies
 - most other body-based `flow-surfaces` commands expect the raw business object through CLI `--body` / `--body-file`
@@ -285,7 +290,9 @@ Do **not** emulate a plan-style patch workflow in user-facing authoring.
 
 - Nested popups are allowed in page blueprint, but only as inline popup content beneath actions or fields.
 - When popup resource bindings, target-specific field addability, or JS/chart capability matters, read `catalog` before writing.
-- Any JS write goes through `nb api flow-surfaces <action>` with the raw payload. If the response returns `errors[]`, repair the listed issues and retry.
+- Embedded/single-surface JS writes go through `nb api flow-surfaces <action>` with the public code payload; repair returned aggregate `errors[]` and retry the same Surface.
+- Complete Inline Workspace JS writes go through `nb api run-js-sources <action>`; repair source/descriptor/import diagnostics and repeat preview/save without falling back to `settings.code` merely because compilation failed.
+- Explicitly externalized Light Extension source stays on its repository protocol. Do not use `nb light` to probe or save an ordinary Inline Workspace.
 
 ## 7. Recovery / Stop Conditions
 

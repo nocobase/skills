@@ -6,9 +6,11 @@ If the task only needs local blueprint artifacts or common-case drafting, stay i
 
 ## Write Behavior
 
-Send one raw business payload through `nb api flow-surfaces <action>`. If the response returns `errors[]`, repair the listed issues and retry the raw payload. Optional helpers are local/read-only aids: they do not execute `nb`, do not wrap the transport, and do not prepare a required write payload.
+Send each raw business payload through the command family that owns it: Host/UI payloads use `nb api flow-surfaces <action>`, while complete Inline Workspace source uses `nb api run-js-sources <action>`. If a `flow-surfaces` response returns `errors[]`, repair the listed issues and retry the raw payload; if Workspace preview returns error diagnostics, repair the complete source candidate and preview again. Optional helpers are local/read-only aids: they do not execute `nb`, do not wrap either transport, and do not prepare a required write payload.
 
-- agent-facing write path: `nb api flow-surfaces <action>`
+- Host/UI write path: `nb api flow-surfaces <action>`
+- Inline Workspace source write path: `nb api run-js-sources <action>`
+- externalized Light Extension write path: only after explicit externalization intent
 - input: one raw business payload, sent through `--body` / `--body-file`
 - backend result: successful normalized persisted write, or aggregate `errors[]` with stable locations and rule ids
 - backend authoring resolves navigation layout, group reuse, duplicate same-title groups, and mobile root tab pages according to [navigation-targets.md](./navigation-targets.md)
@@ -36,5 +38,5 @@ Use this only when template reuse/copy/reference choice is unclear and a local p
 
 - CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-template-decision.mjs plan-query --stdin-json`
 - input: template intent, repeat eligibility, current host context, and search terms
-- returns: planning guidance for template search/reuse; final writes still go through `nb api flow-surfaces <action>`
+- returns: planning guidance for template search/reuse; final Host/UI writes still go through `nb api flow-surfaces <action>`
 - template binding details stay in [templates.md](./templates.md) and [template-decision-summary.md](./template-decision-summary.md)

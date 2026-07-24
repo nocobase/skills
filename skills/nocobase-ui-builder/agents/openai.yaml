@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "Route Modern page work by intent: whole-page blueprint, localized flow-surfaces edit, or reaction authoring"
-  default_prompt: "Front door: `nb api flow-surfaces`Create JS page->runJSSources:openIntent-firstwholePage1 tabcomplex multi-blocknested popupmulti-reactionreadsmetadataokapply-blueprintlocalized editsbackend actionsget-reaction-metafirst writeapplyBlueprintno createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rulesfail->repair aggregate errors+retry<=5success only explicit local/live gapreportRepeat-eligiblecontextual list-templateskeyword-only searchdiscovery-onlylocal customizationtemplate sourcefirst resultpage wording≠local-only intentask, not copysame-titlerouteIdpageSchemaUidsame-groupsame-titlereplacedifferent-groupsame-titlenomergesemantic AntDesign iconmulti-non-filter keyed layout/titlestemplates exemptsingle non-filteroptionalunless askedhostBound搜索/filtersameHostfilterActionoptionalsetLayoutstring[][]number[][[a],[b]]2col[[a,b]]stackuid not keysearchPage≠filterfilter/search blockfilterForm4+ fieldscollapserow1defaultFilteromitbackend4explicitemptyinvalid<4errorsraw payload onlytreeTableomitrecordActionsdefaultaddChildEFmoveNoInjectfirstlivedirectnon-assoctitleField>name>code>title分析看板KPIJSBlocktrenddistributionrankingpercentage占比 chartrequiredtable/list!=chartchartassets.charts+block.chartcardGridsettings.codeconfigurechanges.code/versionban(top-level code/version,changes.settings,stepParams禁,propsdecoratorPropsflowRegistry)typejsBlockonlykanban/pipeline/status columnsKanbanassociatedRecords+associationField1 editFormtryTemplatesaveAsTemplate"
+  short_description: "Route Modern page work through flow-surfaces Hosts/UI and run-js-sources Inline Workspaces"
+  default_prompt: "Front doors: Host/UI=`nb api flow-surfaces`; complete Inline JS source=`nb api run-js-sources`; explicit externalization only=`nb light`. Create JS page->Host->run-js-sources open->Settings Pass->complete snapshot->compile-preview->save. Intent-firstwholePage1 tabcomplex multi-blocknested popupmulti-reactionreadsmetadataokapply-blueprintlocalized editsbackend actionsget-reaction-metafirst writeapplyBlueprintno createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rulesfail->repair aggregate errors+retry<=5success only explicit local/live gapreportRepeat-eligiblecontextual list-templateskeyword-only searchdiscovery-onlylocal customizationtemplate sourcefirst resultpage wording≠local-only intentask, not copysame-titlerouteIdpageSchemaUidsame-groupsame-titlereplacedifferent-groupsame-titlenomergesemantic AntDesign iconmulti-non-filter keyed layout/titlestemplates exemptsingle non-filteroptionalunless askedhostBound搜索/filtersameHostfilterActionoptionalsetLayoutstring[][]number[][[a],[b]]2col[[a,b]]stackuid not keysearchPage≠filterfilter/search blockfilterForm4+ fieldscollapserow1defaultFilteromitbackend4explicitemptyinvalid<4errorsraw payload onlytreeTableomitrecordActionsdefaultaddChildEFmoveNoInjectfirstlivedirectnon-assoctitleField>name>code>title分析看板KPIJSBlocktrenddistributionrankingpercentage占比 chartrequiredtable/list!=chartchartassets.charts+block.chartcardGridcompat-single-file=settings.code/configure.changes.code; complete workspace never fallback on compile error ban(top-level code/version,changes.settings,stepParams禁,propsdecoratorPropsflowRegistry)typejsBlockonlykanban/pipeline/status columnsKanbanassociatedRecords+associationField1 editFormtryTemplatesaveAsTemplate"
 
 # Long-form guardrails kept here for docs-consistency checks and human review:
 # rebuild defaults.collections from scratch via live metadata
@@ -11,7 +11,7 @@ interface:
 # table addNew threshold
 # associations popups{name,description} first-segment
 # described generated add/edit fields => structured formBehavior or formBehaviorDescriptionReview.fields.<field>{decision,reasonCode}; no legacy review/empty-object fallback
-# Create JS page and a new complete JS Block: Host -> sourceMode:inline -> runJSSources:open -> Settings Pass -> full Workspace edit -> compilePreview -> full snapshot save
+# Create JS page and a new complete JS Block: flow-surfaces Host -> sourceMode:inline -> nb api run-js-sources open -> Settings Pass -> full Workspace edit -> compile-preview -> full snapshot save
 # Save uses baseCommitId + baseOwnerFingerprint; 409 recovery is openLatest -> merge -> compilePreview -> save, never token replacement alone
 # Settings schema is src/client/entry.json; normally 2-5 meaningful settings and at least two, with the four documented exceptions; code consumes ctx.settings; Host values do not create source commits
 # Existing owners keep the compatibility gate; externalize only for explicit light-plugin, cross-Host reuse, independent Git, or distribution intent; unnamed destination uses the application default Repository
@@ -21,7 +21,7 @@ dependencies:
   tools:
     - type: "cli"
       value: "nb"
-      description: "Use nb api flow-surfaces for Modern-page UI operations"
+      description: "Use nb api flow-surfaces for Host/UI operations and nb api run-js-sources for complete Inline Workspace source"
 
 policy:
   allow_implicit_invocation: true
