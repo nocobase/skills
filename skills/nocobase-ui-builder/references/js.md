@@ -1,23 +1,34 @@
 # JS
 
-Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. After this file, route by authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), then use [runjs-authoring-loop.md](./runjs-authoring-loop.md). For bundled capability docs, `ctx.*` API references, and scenario-level examples copied into this skill, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md).
+Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. First classify the owner as `complete-workspace`, `embedded/single-surface`, or `compatibility-single-file`; only the latter two use [runjs-authoring-loop.md](./runjs-authoring-loop.md). Then route by authoring surface in [js-surfaces/index.md](./js-surfaces/index.md). For bundled capability docs, `ctx.*` API references, and scenario-level examples copied into this skill, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md).
 
 ## Contents
 
 1. Public JS capabilities
-2. Surface-first routing
-3. Authoring loop
-4. Reference layers
-5. Write repair
-6. Skill mapping
-7. Container support matrix
-8. Code style and context
-9. Strict Render rules
-10. Execution reminders
+2. Owner classification
+3. Surface-first routing
+4. Authoring loop
+5. Reference layers
+6. Write repair
+7. Skill mapping
+8. Container support matrix
+9. Code style and context
+10. Strict Render rules
+11. Execution reminders
+
+## Owner classification
+
+Classify before selecting a snippet or writing implementation code:
+
+- `complete-workspace`: a new complete JS Page, a new complete JS Block, or an existing owner already materialized as a Workspace. Use the Inline Workspace source loop.
+- `embedded/single-surface`: event-flow Execute JavaScript, linkage, value-return, custom variable, JS action/field/item/column, and other code embedded in one existing owner. Use the scoped five-step RunJS loop.
+- `compatibility-single-file`: the compatibility gate explicitly selected the public single-file path for an owner that cannot use the Workspace source route. Use the scoped five-step RunJS loop; do not infer this route merely because the requested code is short.
+
+If the owner type is unclear, inspect the live owner and capability gate before generating code. Do not downgrade a complete Workspace to single-file authoring after a compile or save failure.
 
 ## Surface-first routing
 
-For a **new complete JS Page** use the `Create JS page` route in [create-js-page-quick.md](./create-js-page-quick.md). A new complete JS Block enters the same route after Host creation. These surfaces default to an ordinary Inline multi-file Workspace; they are not Light Extensions merely because the code has multiple files, imports, hooks, or services.
+For a **new complete JS Page** use the `Create JS page` route in [create-js-page-quick.md](./create-js-page-quick.md). A new complete JS Block enters the same route after Host creation. These `complete-workspace` surfaces default to an ordinary Inline multi-file Workspace; they are not Light Extensions merely because the code has multiple files, imports, hooks, or services.
 
 Choose the authoring surface before you chase `ctx.*` details:
 
@@ -30,9 +41,9 @@ Choose the authoring surface before you chase `ctx.*` details:
 
 ## Authoring loop
 
-The complete-surface loop is: create or locate the Host, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json`, edit the complete Workspace snapshot, call `compilePreview`, repair diagnostics, then save the full snapshot with `baseCommitId` and `baseOwnerFingerprint`. Settings are Host values and do not create source commits.
+For `complete-workspace`, create or locate the Host, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json` **before implementation code**, edit the complete Workspace snapshot, call `compilePreview`, repair diagnostics, then save the full snapshot with `baseCommitId` and `baseOwnerFingerprint`. Settings are Host values and do not create source commits. The Workspace may contain any reasonable local `components`, `hooks`, `services`, `utils`, and related source files. A safe snippet is only a scaffold; it does not impose one-snippet, editable-slot, or single-file limits. Keep final source in Workspace files, never in `settings.code` or `assets.scripts`.
 
-Every JS request follows the same five-step loop:
+For `embedded/single-surface` and `compatibility-single-file`, use the scoped five-step loop:
 
 1. Lock the surface.
 2. Fill the scenario card in [runjs-authoring-loop.md](./runjs-authoring-loop.md), including `recordSemantic` and `contextEvidence` before choosing any record path.
@@ -66,11 +77,11 @@ For JS model render surfaces, default to Ant Design UI from `ctx.libs.antd` / `c
 
 ## Write Repair
 
-Whenever the current write involves JS `code`, submit the same raw `nb api flow-surfaces <action>` payload as other UI Builder writes.
+Route repair by the owner classification:
 
-- Send JS writes through the same direct `nb api flow-surfaces <action>` path as other authoring payloads.
-- On failure, repair all returned `errors[]` in one pass. For RunJS errors, map `details.repairClass` to [runjs-repair-playbook.md](./runjs-repair-playbook.md).
-- If the required surface is `jsBlock`, repair the same `jsBlock` payload and retry it as `jsBlock`. Use inline `settings.code`, or for whole-page `applyBlueprint` use `assets.scripts.<key>.code` plus block `script`. Do not switch a required `jsBlock` to `table`, `list`, `chart`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
+- For `embedded/single-surface` or `compatibility-single-file`, send the direct `nb api flow-surfaces <action>` payload and repair all returned `errors[]` in one pass. Map `details.repairClass` to [runjs-repair-playbook.md](./runjs-repair-playbook.md).
+- For `complete-workspace`, repair Workspace source files from `compilePreview` diagnostics and retry through `run-js-sources`; do not fall back to `settings.code` or `assets.scripts`.
+- If the required surface is `jsBlock`, keep it as `jsBlock`. Do not switch it to `table`, `list`, `chart`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
 - Error metadata is intentionally minimal: expect `ruleId`, `path`, `message`, and `details.repairClass` / `details.suggestedAction` when applicable. Do not depend on `docsKey`, `retryable`, `surfaceStyle`, or `suggestedSnippetIds`.
 
 ## Skill Mapping
@@ -151,4 +162,4 @@ All of them obey the same rules:
 - For form-scoped helper text that should appear only after a form value is selected, prefer a `jsItem` that calls `ctx.render(null)` while hidden and `ctx.render(...)` when visible. Current live `fieldLinkage` does not expose JSItem pseudo paths as target fields.
 - When that render-null pattern is the intended helper toggle, treat it as successful helper-toggle proof in readback/evidence summaries; do not mark the helper outcome false only because there was no separate reaction write against the JSItem uid.
 - `filterForm` does not support `renderer: "js"`, `jsColumn`, or `jsItem`. If JS is required there, redesign as a block or action instead.
-- Any JS write goes through `nb api flow-surfaces <action>`; if the response returns `errors[]`, fix the payload and retry.
+- Embedded and compatibility single-file writes go through `nb api flow-surfaces <action>`; if the response returns `errors[]`, fix the payload and retry. Complete Workspace source writes use `run-js-sources`.

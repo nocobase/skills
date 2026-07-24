@@ -1,6 +1,6 @@
 # Whole-page Quick Route
 
-Use this file as the default first stop for ordinary whole-page `create` / `replace` work. If the request is a new complete JS Page, route first to [create-js-page-quick.md](./create-js-page-quick.md); a complete JS Block created through a Host uses that same Inline Workspace contract. Do not treat a multi-file JS request as a reason to create a Light Extension.
+Use this file as the default first stop for ordinary whole-page `create` / `replace` work. If the request is a new complete JS Page, route first to [create-js-page-quick.md](./create-js-page-quick.md); a complete JS Block created through a Host uses that same Inline Workspace contract and [runjs-capability-gate.md](./runjs-capability-gate.md). If JS Page Workspace capability is unavailable, stop: do not replace the request with an ordinary page + JS Block. Do not treat a multi-file JS request as a reason to create a Light Extension.
 
 Page identity is `navigation.group.routeId` plus `page.title`: the same group and same title uses `replace`; a different group and same title must not merge, reuse, or auto-replace.
 
@@ -171,63 +171,26 @@ The checklist can stay short. It only needs to confirm create vs replace, target
 {
   "version": "1",
   "mode": "create",
-  "defaults": {
-      "collections": {
-        "support_tickets": {
-          "popups": {
-            "addNew": { "name": "Create ticket", "description": "Create one support ticket." },
-            "view": { "name": "Ticket details", "description": "View one support ticket." },
-            "edit": { "name": "Edit ticket", "description": "Edit one support ticket." },
-            "associations": {
-              "assignee": {
-                "view": { "name": "Assignee details", "description": "View one related assignee." },
-                "addNew": { "name": "Create assignee", "description": "Create one related assignee." },
-                "edit": { "name": "Edit assignee", "description": "Edit one related assignee." }
-              }
-            }
-          }
-        }
-    }
-  },
-  "navigation": {
-    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
-    "item": { "title": "Support tickets", "icon": "InboxOutlined" }
-  },
+  "defaults": { "collections": { "support_tickets": { "popups": {
+    "addNew": { "name": "Create ticket", "description": "Create one support ticket." },
+    "view": { "name": "Ticket details", "description": "View one support ticket." },
+    "edit": { "name": "Edit ticket", "description": "Edit one support ticket." },
+    "associations": { "assignee": {
+      "view": { "name": "Assignee details", "description": "View one related assignee." },
+      "addNew": { "name": "Create assignee", "description": "Create one related assignee." },
+      "edit": { "name": "Edit assignee", "description": "Edit one related assignee." }
+    } }
+  } } } },
+  "navigation": { "group": { "title": "Workspace", "icon": "AppstoreOutlined" }, "item": { "title": "Support tickets", "icon": "InboxOutlined" } },
   "page": { "title": "Support tickets" },
-  "tabs": [
-    {
-      "key": "main",
-      "title": "Overview",
-      "blocks": [
-        {
-          "key": "ticketsTable",
-          "type": "table",
-          "collection": "support_tickets",
-          "defaultFilter": {
-            "logic": "$and",
-            "items": [
-              { "path": "subject", "operator": "$includes", "value": "" },
-              { "path": "status", "operator": "$eq", "value": "" },
-              { "path": "priority", "operator": "$eq", "value": "" }
-            ]
-          },
-          "fields": ["subject", "status", "priority", "assignee"],
-          "actions": ["filter", "addNew"],
-          "recordActions": ["view", "edit"]
-        }
-      ]
-    }
-  ]
+  "tabs": [{ "key": "main", "title": "Overview", "blocks": [{ "key": "ticketsTable", "type": "table", "collection": "support_tickets", "defaultFilter": { "logic": "$and", "items": [{ "path": "subject", "operator": "$includes", "value": "" }, { "path": "status", "operator": "$eq", "value": "" }, { "path": "priority", "operator": "$eq", "value": "" }] }, "fields": ["subject", "status", "priority", "assignee"], "actions": ["filter", "addNew"], "recordActions": ["view", "edit"] }] }]
 }
 ```
 
 For a mobile page, omit `navigation.group` and use:
 
 ```json
-"navigation": {
-  "layoutUid": "mobile-layout-model",
-  "item": { "title": "Support tickets", "icon": "InboxOutlined" }
-}
+"navigation": { "layoutUid": "mobile-layout-model", "item": { "title": "Support tickets", "icon": "InboxOutlined" } }
 ```
 
 Final user-facing links should point at the mobile base route such as `/mobile/<pageSchemaUid>` rather than `/admin/<pageSchemaUid>`.

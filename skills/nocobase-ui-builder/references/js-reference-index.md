@@ -1,11 +1,11 @@
 # JS Reference Index
 
-Read this file when you need the bundled JS reference docs for capability discovery, `ctx.*` API lookup, or scenario examples. If the main problem is still surface selection, go back first to [js-surfaces/index.md](./js-surfaces/index.md).
+Read this file when you need the bundled JS reference docs for capability discovery, `ctx.*` API lookup, or scenario examples. Before opening examples, classify the owner as `complete-workspace`, `embedded/single-surface`, or `compatibility-single-file`. If that classification or the exact surface is still unclear, go back first to [js.md](./js.md) and [js-surfaces/index.md](./js-surfaces/index.md).
 
 This file is the bridge between two layers:
 
 - Surface-first layer in [js-surfaces/index.md](./js-surfaces/index.md): choose the exact RunJS authoring scene first.
-- Canonical snippet layer in [js-snippets/index.md](./js-snippets/index.md): grab the smallest `safe` final-code example before opening upstream docs.
+- Canonical snippet layer in [js-snippets/index.md](./js-snippets/index.md): for embedded and compatibility single-file owners, grab one `safe` final-code example; for a complete Workspace, use a safe snippet only as a scaffold.
 - Bundled product reference snapshot in [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md): product/runtime capability docs copied into this skill and lightly adapted for skill authoring, useful for examples, `ctx` APIs, and scenario descriptions.
 - Skill contract in [js.md](./js.md) and [reaction.md](./reaction.md): model selection, repair routing, and actual write payload rules.
 
@@ -15,6 +15,7 @@ The bundled product reference snapshot is still only a progressive-disclosure re
 
 | Need | Read first | Then |
 | --- | --- | --- |
+| new complete JS Page / JS Block or existing Workspace owner | [runjs-workspace-source.md](./runjs-workspace-source.md) | run the Settings Pass, edit reasonable local source files, then compile-preview and save through `run-js-sources` |
 | which RunJS authoring surface this write belongs to | [js-surfaces/index.md](./js-surfaces/index.md) | [js-snippets/catalog.json](./js-snippets/catalog.json) |
 | which JS authoring surface exists at all | [upstream-js/interface-builder/runjs.md](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) | [upstream-js/runjs/index.md](../runtime/reference-assets/upstream-js/runjs/index.md) |
 | JS Block code | [upstream-js/interface-builder/blocks/other-blocks/js-block.md](../runtime/reference-assets/upstream-js/interface-builder/blocks/other-blocks/js-block.md) | specific `ctx` pages under [`upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md) |
@@ -50,9 +51,9 @@ When reading the bundled reference docs, rewrite the following patterns before y
 
 ## Progressive Disclosure Order
 
-1. Start in [js.md](./js.md) to decide the surface and high-level contract.
+1. Start in [js.md](./js.md) to classify the owner and decide the high-level contract.
 2. Pick the exact authoring surface in [js-surfaces/index.md](./js-surfaces/index.md).
-3. Open [js-snippets/catalog.json](./js-snippets/catalog.json) and one safe snippet doc.
+3. For `complete-workspace`, open [runjs-workspace-source.md](./runjs-workspace-source.md), run the Settings Pass before implementation, and treat snippets only as safe scaffolds for any reasonable `components`, `hooks`, `services`, or `utils` files. For `embedded/single-surface` or `compatibility-single-file`, open [js-snippets/catalog.json](./js-snippets/catalog.json), choose exactly one safe snippet, and edit only its slots.
 4. Open the matching bundled scenario page under [`../runtime/reference-assets/upstream-js/interface-builder/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) only for missing capability detail.
 5. Open only the needed `ctx` pages under [`../runtime/reference-assets/upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md).
 6. Return to [settings.md](./settings.md) before any event-flow write.
@@ -62,6 +63,7 @@ When reading the bundled reference docs, rewrite the following patterns before y
 
 - The bundled product reference snapshot describes product/runtime behavior and authoring examples.
 - The skill contract is stricter in several places: model choice, write repair, and strict `ctx.render(...)` requirements. Those rules stay in [js.md](./js.md).
-- If a JS write returns `errors[]`, repair the payload through [js.md](./js.md) and [runjs-repair-playbook.md](./runjs-repair-playbook.md), then retry.
+- Complete Workspace final source stays in Workspace files, never `settings.code` or `assets.scripts`; its diagnostics repair and save route is `run-js-sources`.
+- If an embedded or compatibility single-file JS write returns `errors[]`, repair the `flow-surfaces` payload through [js.md](./js.md) and [runjs-repair-playbook.md](./runjs-repair-playbook.md), then retry.
 - Event Flow `Execute JavaScript` and linkage-rule pages are reference material for author intent and available context, not the final write contract for this skill.
 - For actual field value, linkage, block linkage, or action linkage payloads, [reaction.md](./reaction.md) remains authoritative.

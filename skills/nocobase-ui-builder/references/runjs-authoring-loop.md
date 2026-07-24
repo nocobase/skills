@@ -1,14 +1,44 @@
 # RunJS Authoring Loop
 
-Use this for every JS / RunJS write before code is produced.
+Use this loop only for `embedded/single-surface` RunJS and the explicitly selected `compatibility-single-file` path. New complete JS Pages, new complete JS Blocks, and owners already materialized as Workspaces use the Workspace loop below instead.
 
-## Five Steps
+## Contents
+
+1. Classification gate
+2. Embedded / single-surface five steps
+3. Complete Workspace loop
+4. Scenario, context, effect, and popup safety
+5. Repair, UI library, and stop contracts
+
+## Classification Gate
+
+- `complete-workspace`: new complete JS Page, new complete JS Block, or an existing Workspace owner.
+- `embedded/single-surface`: event-flow Execute JavaScript, linkage, value-return, custom variable, JS action/field/item/column, or another RunJS fragment embedded in one owner.
+- `compatibility-single-file`: the capability gate explicitly selected the public single-file code shape.
+
+Lock this classification before generating code. A compile, preview, or save error does not authorize switching a complete Workspace to the compatibility path.
+
+## Embedded / Single-Surface Five Steps
 
 1. Lock the surface: choose `event-flow.execute-javascript`, `linkage.execute-javascript`, `reaction.value-runjs`, `custom-variable.runjs`, `js-model.render`, or `js-model.action`.
 2. Fill the scenario card below.
 3. Pick exactly one `safe` snippet from [js-surfaces/snippet-manifest.json](./js-surfaces/snippet-manifest.json) or [js-snippets/catalog.json](./js-snippets/catalog.json), using `sceneHints`, `preferredForIntents`, and `offlineSafe` to narrow first.
 4. Edit only the documented slots in that snippet.
 5. Write through `nb api flow-surfaces <action>`. If the response returns `errors[]`, repair the listed issues from [runjs-repair-playbook.md](./runjs-repair-playbook.md), keyed by `details.repairClass`, and retry.
+
+These five restrictions also apply to `compatibility-single-file`. They do not constrain a complete Workspace.
+
+## Complete Workspace Loop
+
+For `complete-workspace`, follow [runjs-workspace-source.md](./runjs-workspace-source.md):
+
+1. Create or locate the Host, set `sourceMode: "inline"`, and open its canonical locator through `run-js-sources`.
+2. Complete the Settings Pass from `src/client/entry.json` before implementation code and consume declared settings through `ctx.settings`.
+3. Use a safe snippet only as a scaffold. Split implementation into any reasonable local files, including `components`, `hooks`, `services`, and `utils`; there is no one-snippet or editable-slot limit.
+4. Compile-preview the complete snapshot and repair every source diagnostic.
+5. Save the same complete snapshot with the CAS tokens from open or open-latest.
+
+Keep final Workspace source in source files. Do not put it back into `settings.code` or `assets.scripts`; those are compatibility/single-surface or Host-bootstrap shapes, not the final source channel for a complete Workspace.
 
 ## Scenario Card
 
@@ -45,6 +75,12 @@ If both `popup.record` and `record` are available, do not guess from the word "c
 - `action`: side effects are allowed; top-level `return` is optional.
 - `value`: top-level `return` is required; `ctx.render(...)` is forbidden.
 - `render`: `ctx.render(...)` is required for render models.
+
+These effect-style rules apply to both the embedded loop and complete Workspace code. Strict render models must still use `ctx.*` roots and call `ctx.render(...)`; never replace that contract with bare `record`, `formValues`, `resource`, or an implicit return.
+
+## Popup Safety
+
+Popup, drawer, dialog, and drilldown intent remains template-first on both paths. Resolve a persisted popup-capable FlowModel before code. `ctx.openView(triggerUid, ...)` is allowed only when `triggerUid` is that existing popup-capable model; never target a `ChildPageModel`, page, tab, popup subtree, or transient uid.
 
 ## Repair Contract
 

@@ -5,7 +5,7 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 
 # JS Model 与 RunJS 索引
 
-这是 legacy leaf-doc 目录，不再是 JS / RunJS 的第一入口。
+这是 legacy leaf-doc 目录，不再是 JS / RunJS 的第一入口。先把 owner 分类为 `complete-workspace`、`embedded/single-surface` 或 `compatibility-single-file`；本目录不能用来把完整 Workspace 降级成单文件。
 
 ## 什么时候先读这里
 
@@ -24,12 +24,13 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 - `JSEditableFieldModel`
 - `JSItemModel`
 - `JSActionModel`
-- 任何 `settings.code` / `assets.scripts` / internal readback `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
+- 兼容/嵌入式单文件的 `settings.code` / `assets.scripts` / internal readback `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
 
 ## 强规则
 
 - 对需要渲染的 JS model，默认使用 `ctx.render()`。
-- `JSBlockModel` 新建公开写入只用 `type: "jsBlock"` + `settings.code/settings.version`，或 whole-page `assets.scripts` + block `script`；配置已有 JSBlock 用 `changes.code/changes.version`；不要手写 block top-level `code/version` 或 internal `stepParams`。
+- 新完整 `JSBlockModel` 默认走 Host -> Inline Workspace：Settings Pass 先于实现，可拆分 `components` / `hooks` / `services` / `utils`，最终源码通过 `run-js-sources` 保存，不塞回 `settings.code` / `assets.scripts`。
+- 只有旧/兼容/嵌入式单文件 JSBlock 或 Host bootstrap 使用公开 `type: "jsBlock"` + `settings.code/settings.version`，或 whole-page `assets.scripts` + block `script`；配置该单文件 owner 用 `changes.code/changes.version`。不要手写 block top-level `code/version` 或 internal `stepParams`，也不要混用两条路径。
 - 不要把 `ctx.element.innerHTML = ...` 当作默认推荐方案；skill 会先尝试自动改写，仍残留则直接 blocker。
 - 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSEditableFieldModel`、`JSItemModel`、`JSItemActionModel` 的默认渲染范式。
 - `JSActionModel` 主要负责点击逻辑，不属于“渲染型 JS model”。
@@ -56,7 +57,7 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 
 | 模型 | 默认用途 | 默认上下文 | 默认写法 |
 | --- | --- | --- | --- |
-| `JSBlockModel` | 页面区块自定义内容 | `ctx.render` `ctx.user` `ctx.libs` `ctx.initResource()` | `ctx.render(...)` |
+| `JSBlockModel` | 页面区块自定义内容 | `ctx.render` `ctx.user` `ctx.libs` `ctx.initResource()` | 新完整 Block 用 Workspace；单文件兼容形状仍须 `ctx.render(...)` |
 | `JSColumnModel` | 表格单元格渲染 | `ctx.record` `ctx.recordIndex` `ctx.collection` `ctx.viewer` | `ctx.render(...)` |
 | `JSFieldModel` | 只读字段位置渲染 | `ctx.value` `ctx.record` `ctx.collection` | `ctx.render(...)` |
 | `JSEditableFieldModel` | 可编辑字段自定义输入 | `ctx.getValue()` `ctx.setValue()` `ctx.form` `ctx.formValues` | `ctx.render(...)` |
@@ -68,3 +69,4 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 
 - `JSBlockModel` 默认没有预绑定 `ctx.resource`；需要数据时先手动 `ctx.initResource(...)`。
 - `ctx.element` 在上游源码里仍是兼容上下文，但 skill 默认不接受直接写 `innerHTML`；渲染结果应统一交给 `ctx.render()`。
+- 两条 JSBlock 路径都保留 strict render、`ctx.*` root、effect style 与 popup target 安全约束；只有源码存储和写回通道不同。

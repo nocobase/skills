@@ -1,6 +1,6 @@
 # Execution Checklist
 
-Canonical write path is `nb api flow-surfaces <action>`. When runtime/auth is missing, report the blocked nb command before writing.
+Host/UI writes use `nb api flow-surfaces <action>`; complete Inline Workspace source uses `nb api run-js-sources <action>`. When runtime/auth is missing, report the blocked nb command before writing.
 
 Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
 
@@ -21,13 +21,22 @@ Use this checklist after the matching quick route is already clear. For global r
 - Follow [navigation-targets.md](./navigation-targets.md) for duplicate same-title group handling, multi-page shared-group serialization, and duplicate page identity.
 - Page identity is the menu group `navigation.group.routeId` plus the `page.title`. A create in the same group with the same page title upgrades to `replace`; a page in a different group with the same page title must not replace, merge, or reuse the existing page.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
-- If JS is involved, validate it first and route through [js.md](./js.md).
+- If JS is involved, validate it first, route through [js.md](./js.md), and apply [runjs-capability-gate.md](./runjs-capability-gate.md) before any single-file compatibility decision.
+- Record the Host `runJSLocator`, `workspaceStatus`, `workspaceRetryable`, and `workspaceError.code/message`; check the required `run-js-sources` action with action-level `--help`, then classify actual open/preview/save status and `errors[].code`. Do not use `nb light` as an Inline capability probe, and do not treat a generic 404 as a missing command/resource.
 - If a dashboard asks for chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 / percentage / 占比, record the required chart sections before drafting; KPI JSBlocks and tables/lists cannot satisfy those chart sections.
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
   - body-based `flow-surfaces` commands take the raw business object through `--body` / `--body-file`
   - never wrap that same object again before passing it to `nb api flow-surfaces`
 - Never invent `"root"` for `target.uid` or `locator.uid`.
+
+### RunJS capability stop/fallback check
+
+- `workspaceStatus=ready` plus a canonical locator stays on the multi-file Inline Workspace route.
+- Only a JS Block with confirmed `FLOW_SURFACE_RUNJS_BOOTSTRAP_PROVIDER_UNAVAILABLE` or `RUNJS_SOURCE_KIND_UNSUPPORTED` and a verified Host public write may fall back to `settings.code/settings.version` or direct `changes.code/changes.version`.
+- JS Page Workspace failure stops; public configure writes metadata only, so never substitute an ordinary page + JS Block.
+- 401/403, owner/Repository/base commit 404, error diagnostics, compile/descriptor/import 400, stale/no-change/archived 409, 413, and network/5xx failures use their real repair/stop paths and never prove unsupported capability.
+- If the user explicitly requested Light Extension, unavailable externalization capability is unfinished work, not permission to downgrade to Inline.
 
 ## 2. Template Decision Gate
 
@@ -118,3 +127,4 @@ Stop instead of guessing when:
 
 - For chart-required dashboards, the final summary must list `chart blocks: <title> -> <asset key or live chart uid>`.
 - If readback only proves `jsBlock`, `table`, or `list` content for a requested chart section, say the chart section is unfinished instead of claiming dashboard completion.
+- For an allowed JS Block fallback, state that multi-file Workspace capability is unavailable on the current instance, single-file Inline was used, and no Light Extension Repository was created.

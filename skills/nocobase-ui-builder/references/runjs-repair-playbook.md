@@ -17,6 +17,7 @@ Use this after a JS / RunJS write returns `errors[]` with `details.repairClass`.
 | `blocked-global-stop` | Code uses forbidden globals or unsafe browser APIs | Replace with allowed `ctx.*`, `window.*`, or `navigator.*` APIs |
 | `blocked-capability-reroute` | Code opens a popup with a transient uid, `ChildPageModel`, page/tab, or popup subtree target | Resolve a template-first popup-capable FlowModel, preserving `popupTemplateUid` / `popupTemplateMode`, then call `ctx.openView(triggerUid, ...)` |
 | `ctx-root-mismatch-stop` | The chosen surface does not expose a required `ctx.*` root, or uses unresolved `ctx[...]` access | Switch surface/snippet or inspect live host context |
+| `workspace-capability-gate` | Host or RunJS source handling may be unavailable | Apply [runjs-capability-gate.md](./runjs-capability-gate.md); only its two explicit JS Block branches may use single-file Inline |
 
 ## Repair Method
 
@@ -28,3 +29,5 @@ Do not depend on automatic rewrites or canonicalization before writes. Repair th
 - Rewrite builder-style filter groups to query filters manually when resource code needs them.
 
 Never auto-invent missing returns, form-only API substitutes, unknown expression wrappers, or hidden capability reroutes.
+
+Workspace failures require status-and-code repair. Error diagnostics from `compile-preview` + 200 repair the candidate and prohibit save; stale 409 uses `open-latest -> merge -> compile-preview -> save`; no-change 409 verifies latest state without merging. Authentication/permission, owner/Repository/base commit 404, archived Repository, 413, and network/5xx conditions stop or retry as specified by the capability gate. Do not use `nb light` as an Inline capability probe.
