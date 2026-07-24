@@ -21,6 +21,7 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 | optional helper CLI | [helper-contracts.md](helper-contracts.md) | [template-decision-summary.md](template-decision-summary.md) |
 | transport / nb 命令规则 | [cli-transport.md](cli-transport.md) | [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md) |
 | JS / RunJS / `ctx.*` / event-flow JS | [js.md](js.md) | [js-surfaces/index.md](js-surfaces/index.md), [runjs-authoring-loop.md](runjs-authoring-loop.md), [js-snippets/index.md](js-snippets/index.md), [runjs-repair-playbook.md](runjs-repair-playbook.md), [js-reference-index.md](js-reference-index.md), [settings.md](settings.md) |
+| 新完整 JS Page / JS Block | [runjs-workspace-source.md](runjs-workspace-source.md) | [runjs-transport.md](runjs-transport.md), [runjs-capability-gate.md](runjs-capability-gate.md), [light-extension-source.md](light-extension-source.md) |
 | 图表主题 | [chart.md](chart.md) | [chart-core.md](chart-core.md), [chart-validation.md](chart-validation.md) |
 
 ## Late-stage Write Docs
@@ -28,7 +29,7 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 这些文档不会替代 quick route。先命中一个 quick route，再按实际写入 / backend aggregate repair / readback 阶段按需打开下面这些文件。
 
 - 可选 helper / 验收: [helper-contracts.md](helper-contracts.md), [execution-checklist.md](execution-checklist.md), [verification.md](verification.md)
-- nb 命令边界: [cli-transport.md](cli-transport.md), [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md), [tool-shapes.md](tool-shapes.md)
+- nb 命令边界: [cli-transport.md](cli-transport.md), [runjs-transport.md](runjs-transport.md), [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md), [tool-shapes.md](tool-shapes.md)
 - 规则与能力边界: [normative-contract.md](normative-contract.md), [settings.md](settings.md), [runtime-playbook.md](runtime-playbook.md)
 
 ## Topic Deep Dives
@@ -38,5 +39,5 @@ description: 先命中 quick route，再按需下钻到完整参考文档。
 - Comments and record history blocks: [blocks/comments.md](blocks/comments.md), [blocks/record-history.md](blocks/record-history.md)
 - Reactions: [reaction.md](reaction.md)
 - Templates / popup reuse: [templates.md](templates.md), [template-decision-summary.md](template-decision-summary.md), [popup.md](popup.md)
-- JS / charts: [js.md](js.md), [js-surfaces/index.md](js-surfaces/index.md), [runjs-authoring-loop.md](runjs-authoring-loop.md), [runjs-repair-playbook.md](runjs-repair-playbook.md), [runjs-failure-taxonomy.md](runjs-failure-taxonomy.md), [js-reference-index.md](js-reference-index.md), [chart.md](chart.md), [chart-core.md](chart-core.md), [chart-validation.md](chart-validation.md)
+- JS / charts: [js.md](js.md), [js-surfaces/index.md](js-surfaces/index.md), [runjs-workspace-source.md](runjs-workspace-source.md), [runjs-transport.md](runjs-transport.md), [runjs-capability-gate.md](runjs-capability-gate.md), [runjs-authoring-loop.md](runjs-authoring-loop.md), [runjs-repair-playbook.md](runjs-repair-playbook.md), [runjs-failure-taxonomy.md](runjs-failure-taxonomy.md), [light-extension-source.md](light-extension-source.md), [js-reference-index.md](js-reference-index.md), [chart.md](chart.md), [chart-core.md](chart-core.md), [chart-validation.md](chart-validation.md)
 - Deep catalogs and naming: [blocks/index.md](blocks/index.md), [js-surfaces/index.md](js-surfaces/index.md), [js-snippets/index.md](js-snippets/index.md), [js-models/index.md](js-models/index.md), [aliases.md](aliases.md)

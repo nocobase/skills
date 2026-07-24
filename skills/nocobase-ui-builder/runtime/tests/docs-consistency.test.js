@@ -757,8 +757,10 @@ test('required docs and relative links stay valid', () => {
     'references/reaction.md',
     'references/reaction-quick.md',
     'references/runjs-authoring-loop.md',
+    'references/runjs-capability-gate.md',
     'references/runjs-failure-taxonomy.md',
     'references/runjs-repair-playbook.md',
+    'references/runjs-transport.md',
     'references/runjs-workspace-source.md',
     'references/runtime-playbook.md',
     'references/settings.md',
@@ -787,7 +789,10 @@ test('upstream js snapshot relative links stay valid', () => {
 test('docs keep canonical nb boundaries', () => {
   const skill = read('SKILL.md');
   assertBackendFirstWriteContract('SKILL.md');
-  assert.match(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
+  assert.match(skill, /Host[\s\S]{0,160}UI payload writes use `nb api flow-surfaces <action>`/i);
+  assert.match(skill, /Inline Workspace[\s\S]{0,160}`nb api run-js-sources <action>`/i);
+  assert.match(skill, /externalized Light Extension[\s\S]{0,160}`nb light`/i);
+  assert.doesNotMatch(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
   assert.match(skill, /backend `flow-surfaces` is the authoring compiler/i);
   assert.match(skill, /aggregate `?errors\[\]`?/i);
   assert.doesNotMatch(skill, /nocobase-ctl|MCP fallback|flow_surfaces_|requestBody|collections:get/i);
@@ -799,7 +804,10 @@ test('docs keep canonical nb boundaries', () => {
 
   assertBackendFirstWriteContract('references/normative-contract.md');
   const normativeContract = read('references/normative-contract.md');
-  assert.match(normativeContract, /Agent-facing write path: `nb api flow-surfaces <action>`/);
+  assert.match(normativeContract, /Host\/UI write path:[\s\S]{0,120}`nb api flow-surfaces <action>`/i);
+  assert.match(normativeContract, /Inline source write path:[\s\S]{0,120}`nb api run-js-sources <action>`/i);
+  assert.match(normativeContract, /External source write path:[\s\S]{0,160}Light Extension/i);
+  assert.doesNotMatch(normativeContract, /Agent-facing write path: `nb api flow-surfaces <action>`/);
   assert.match(normativeContract, /flow-surfaces is the authoring compiler/i);
 
   const templates = read('references/templates.md');
@@ -884,14 +892,19 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   const localEdit = read('references/local-edit-quick.md');
   const pageBlueprint = read('references/page-blueprint.md');
   const surfaceIndex = read('references/js-surfaces/index.md');
+  const transport = read('references/runjs-transport.md');
+  const capabilityGate = read('references/runjs-capability-gate.md');
   const openai = read('agents/openai.yaml');
 
   assert.match(skill, /Create JS page[\s\S]{0,180}create-js-page-quick\.md/i);
   assert.ok(skill.indexOf('create-js-page-quick.md') < skill.indexOf('whole-page-quick.md'));
-  assert.match(createPage, /Host[\s\S]{0,240}sourceMode: "inline"[\s\S]{0,240}runJSSources:open/i);
-  assert.match(createPage, /Settings Pass[\s\S]{0,1100}compilePreview[\s\S]{0,240}complete snapshot/i);
+  assert.match(createPage, /Host[\s\S]{0,240}sourceMode: "inline"[\s\S]{0,320}runjs-transport\.md/i);
+  assert.match(createPage, /Settings Pass[\s\S]{0,1100}complete snapshot/i);
+  assert.match(transport, /nb api run-js-sources open[\s\S]{0,200}nb api run-js-sources open-latest/i);
+  assert.match(transport, /nb api run-js-sources compile-preview[\s\S]{0,260}nb api run-js-sources save/i);
+  assert.match(transport, /compile-preview[\s\S]{0,160}artifact\.diagnostics/i);
   assert.match(workspace, /baseCommitId[\s\S]{0,120}baseOwnerFingerprint/i);
-  assert.match(workspace, /409[\s\S]{0,160}openLatest[\s\S]{0,220}merge[\s\S]{0,160}compile/i);
+  assert.match(workspace, /409[\s\S]{0,160}open-latest[\s\S]{0,220}merge[\s\S]{0,160}compile/i);
   assert.match(workspace, /normally author 2-5 meaningful settings[\s\S]{0,140}at least two/i);
   assert.match(workspace, /ctx\.settings/i);
   assert.match(workspace, /pure bug fix/i);
@@ -904,10 +917,78 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(lightExtension, /Multiple files[\s\S]{0,160}do not authorize externalization/i);
   assert.match(createPage, /Host Preview[\s\S]{0,120}non-goal/i);
   assert.match(wholePage, /create-js-page-quick\.md/i);
-  assert.match(localEdit, /compatibility gate/i);
+  assert.match(localEdit, /runjs-capability-gate\.md/i);
+  assert.match(capabilityGate, /JS Page[\s\S]{0,260}Never substitute an ordinary page \+ JS Block/i);
   assert.match(pageBlueprint, /complete Workspace[\s\S]{0,160}settings\.code[\s\S]{0,80}assets\.scripts/i);
   assert.match(surfaceIndex, /new complete JS Page[\s\S]{0,180}Inline Workspace/i);
-  assert.match(openai, /Create JS page[\s\S]{0,220}runJSSources:open/i);
+  assert.match(openai, /Create JS page[\s\S]{0,260}run-js-sources open/i);
+});
+
+test('RunJS transport, routing, capability, and discovery contracts stay aligned', () => {
+  const rootIndex = read('references/index.md');
+  const skill = read('SKILL.md');
+  const normative = read('references/normative-contract.md');
+  const openai = read('agents/openai.yaml');
+  const transport = read('references/runjs-transport.md');
+  const workspace = read('references/runjs-workspace-source.md');
+  const gate = read('references/runjs-capability-gate.md');
+  const lightExtension = read('references/light-extension-source.md');
+  const loop = read('references/runjs-authoring-loop.md');
+
+  for (const doc of [
+    'runjs-workspace-source.md',
+    'runjs-transport.md',
+    'runjs-capability-gate.md',
+    'light-extension-source.md',
+  ]) {
+    assert.match(rootIndex, new RegExp(doc.replace('.', '\\.')), `references/index.md should directly link ${doc}`);
+  }
+
+  for (const [label, text] of [
+    ['SKILL.md', skill],
+    ['normative contract', normative],
+    ['OpenAI prompt', openai],
+  ]) {
+    assert.match(text, /flow-surfaces/i, `${label} should keep the Host/UI route`);
+    assert.match(text, /run-js-sources/i, `${label} should keep the Inline Workspace source route`);
+    assert.match(text, /Light Extension|nb light/i, `${label} should keep explicit externalization`);
+  }
+
+  for (const action of ['open', 'open-latest', 'compile-preview', 'save']) {
+    assert.match(transport, new RegExp(`nb api run-js-sources ${action}\\b`));
+  }
+  assert.match(transport, /complete target Workspace snapshot/i);
+  assert.match(transport, /baseCommitId[\s\S]{0,220}baseOwnerFingerprint[\s\S]{0,220}same[\s\S]{0,80}(?:open|open-latest)/i);
+  assert.match(transport, /compile-preview` \+ 200[\s\S]{0,120}artifact\.diagnostics/i);
+  assert.match(transport, /Do not save that candidate/i);
+  assert.match(transport, /BASE_COMMIT_OUTDATED[\s\S]{0,120}RUNJS_SOURCE_OWNER_OUTDATED[\s\S]{0,280}open-latest/i);
+  assert.match(transport, /NO_CHANGES[\s\S]{0,80}RUNJS_SAVE_NO_CHANGES[\s\S]{0,180}Do not run a three-way merge/i);
+  assert.match(transport, /REPO_ARCHIVED[\s\S]{0,120}Stop/i);
+  assert.doesNotMatch(transport, /\b(?:207|422)\b/);
+  assert.match(transport, /Do not import[\s\S]{0,120}reviewed delta save/i);
+
+  assert.match(workspace, /Settings schema and defaults live in `src\/client\/entry\.json`/i);
+  assert.match(workspace, /Host overrides[\s\S]{0,160}preserving `false`, `0`, and `""`/i);
+  assert.match(workspace, /explicit externalization/i);
+  assert.match(lightExtension, /application-level default Repository/i);
+  assert.match(lightExtension, /Host Preview[\s\S]{0,120}outside/i);
+
+  for (const ownerClass of ['complete-workspace', 'embedded/single-surface', 'compatibility-single-file']) {
+    assert.match(loop, new RegExp(ownerClass.replace('/', '\\/'), 'i'));
+  }
+  assert.doesNotMatch(loop, /Use this for every JS|Every JS request|Any JS write goes through/i);
+
+  assert.match(gate, /FLOW_SURFACE_RUNJS_BOOTSTRAP_PROVIDER_UNAVAILABLE[^\n]*\n?[^|]*\| Yes \|/i);
+  assert.match(gate, /RUNJS_SOURCE_KIND_UNSUPPORTED[^\n]*\n?[^|]*\| Yes \|/i);
+  assert.match(gate, /JS Page[\s\S]{0,220}Never substitute an ordinary page \+ JS Block[\s\S]{0,80}\| No \|/i);
+  assert.match(gate, /401 or 403[\s\S]{0,80}\| No \|/i);
+  assert.match(gate, /owner, Repository, or base commit 404[\s\S]{0,120}\| No \|/i);
+  assert.match(gate, /413[\s\S]{0,140}\| No \|/i);
+  assert.match(gate, /network error or 5xx[\s\S]{0,140}\| No \|/i);
+  assert.match(gate, /Do not use `nb light`[\s\S]{0,120}ordinary Inline Workspace capability/i);
+
+  assert.ok(read('references/js-models/js-block.md').split('\n').length - 1 <= 220);
+  assert.ok(read('references/whole-page-quick.md').split('\n').length - 1 <= 220);
 });
 
 test('js surface docs stay discoverable and keep progressive disclosure', () => {
@@ -1002,7 +1083,7 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
 
 test('legacy js-model render docs keep Ant Design-first defaults', () => {
   const renderLeafDefaults = [
-    ['references/js-models/js-block.md', '默认写法'],
+    ['references/js-models/js-block.md', '安全 scaffold'],
     ['references/js-models/js-column.md', '默认写法'],
     ['references/js-models/js-field.md', '只读默认写法'],
     ['references/js-models/js-editable-field.md', '默认写法'],
@@ -1293,7 +1374,8 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /Front door: `nb api flow-surfaces`/);
+  assert.match(defaultPrompt, /Routes Host\/UI=`nb api flow-surfaces`/i);
+  assert.match(defaultPrompt, /Workspace=`nb api run-js-sources`/i);
   assert.match(defaultPrompt, /Intent-first/i);
   assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
@@ -1678,7 +1760,7 @@ test('JSBlock docs and prompt expose only canonical public authoring shapes', ()
     ['page-blueprint', pageBlueprint],
     ['settings', settings],
     ['SKILL', skill],
-    ['openai-default-prompt', defaultPrompt],
+    ['openai-yaml', openaiYaml],
   ]) {
     assert.match(
       text,
@@ -1715,8 +1797,8 @@ test('JSBlock docs and prompt expose only canonical public authoring shapes', ()
   }
 
   assert.match(
-    defaultPrompt,
-    /configure[\s\S]{0,80}changes\.code\/version|changes\.code\/version[\s\S]{0,80}configure/i,
+    openaiYaml,
+    /compatibility single-file JSBlock[\s\S]{0,120}settings\.code[\s\S]{0,120}configure changes\.code/i,
     'compressed prompt should document changes.code/version for JSBlock configure',
   );
   assert.match(
@@ -2283,7 +2365,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(cliTransport, /nb api flow-surfaces <action>|node skills\/nocobase-ui-builder\/runtime\/bin\/<helper>\.mjs/i);
   assert.match(cliTransport, /Check whether `?nb`? is available|do not probe bare PATH commands first/i);
   assert.match(cliTransport, /blocked command state|blocked nb command state/i);
-  assert.match(cliTransport, /exact `?nb api flow-surfaces <action>`? command\/output/i);
+  assert.match(cliTransport, /exact `?nb api <family> <action>`? command\/output/i);
 
   assertBackendFirstWriteContract('references/execution-checklist.md');
 
@@ -2841,21 +2923,37 @@ test('localized write docs keep backend validation boundary', () => {
   assert.match(defaultPrompt, /raw payload only/i);
 });
 
-test('JS authoring docs route writes through flow-surfaces errors repair', () => {
+test('JS authoring docs split embedded errors repair from complete Workspace source repair', () => {
   for (const relativePath of [
-    'references/js.md',
     'references/runjs-authoring-loop.md',
-    'references/helper-contracts.md',
-    'references/normative-contract.md',
     'references/chart-core.md',
     'references/js-snippets/index.md',
-    'references/js-reference-index.md',
   ]) {
     const text = read(relativePath);
     assert.match(
       text,
-      /(?:nb api flow-surfaces|errors\[\])/i,
-      `${relativePath} should route JS writes to direct flow-surfaces writes or returned errors`,
+      /nb api flow-surfaces[\s\S]{0,260}errors\[\]|errors\[\][\s\S]{0,260}nb api flow-surfaces/i,
+      `${relativePath} should keep embedded or single-surface JS on flow-surfaces errors repair`,
+    );
+    assert.doesNotMatch(
+      text,
+      /nb-runjs|must run the local validator|local validator gate|validator failure is failure|write cannot continue|do not continue to the nb write|must first pass the validator gate/i,
+      `${relativePath} should not mention the removed local RunJS helper or define a local validator write gate`,
+    );
+  }
+
+  for (const relativePath of [
+    'references/js.md',
+    'references/helper-contracts.md',
+    'references/normative-contract.md',
+    'references/js-reference-index.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(text, /run-js-sources/i, `${relativePath} should route complete Workspace source through run-js-sources`);
+    assert.match(
+      text,
+      /diagnostics|compile-preview|complete snapshot/i,
+      `${relativePath} should expose source-level Workspace repair or save evidence`,
     );
     assert.doesNotMatch(
       text,
