@@ -53,6 +53,7 @@ test('routes complete surfaces through a multi-file Workspace with snippets as s
     assert.match(text, /Settings Pass[\s\S]{0,100}(?:before implementation|before writing implementation|先于实现)/i);
     assert.match(text, /components[\s\S]{0,100}hooks[\s\S]{0,100}services[\s\S]{0,100}utils/i);
     assert.match(text, /run-js-sources|runJSSources/i);
+    assert.match(text, /save-changes|saveChanges/i);
     assert.match(text, /(?:never|not|do not|不能)[\s\S]{0,100}`settings\.code`[\s\S]{0,80}`assets\.scripts`/i);
   }
 });

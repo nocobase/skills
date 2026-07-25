@@ -11,7 +11,7 @@ Collect all of these signals instead of inferring capability from one status cod
 - the Host response's canonical `data.runJSLocator`; never construct it from other Host fields
 - `workspaceStatus: ready | pending | error`, `workspaceRetryable`, and `workspaceError.code/message`
 - whether the `nb api run-js-sources` action exists, checked with action-level `--help`
-- the actual `open`, `compile-preview`, and `save` HTTP status plus every `errors[].code`
+- the actual `open` and `save-changes` HTTP status plus every `errors[].code`; include `compile-preview` only when it was explicitly used
 - for a JS Block fallback, current public Host support for `settings.code/settings.version` on create and
   `changes.code/changes.version` on configure
 
@@ -23,18 +23,18 @@ owner, Repository, or base commit cannot be found.
 
 | Signal | Agent action | Single-file fallback |
 | --- | --- | --- |
-| `workspaceStatus=ready` and a canonical locator exists | Use the Inline Workspace `open -> compile-preview -> save` route. | No |
+| `workspaceStatus=ready` and a canonical locator exists | Use the Inline Workspace `open -> Settings Pass -> save-changes` route. | No |
 | JS Block: `FLOW_SURFACE_RUNJS_BOOTSTRAP_PROVIDER_UNAVAILABLE`, and the corresponding command/resource/provider is confirmed unavailable | Use the verified Host single-file write and disclose the fallback. | Yes |
 | JS Block: `RUNJS_SOURCE_KIND_UNSUPPORTED`, and the Host single-file public write is available | Use the verified Host single-file write and disclose the fallback. | Yes |
 | JS Page: provider/resource unavailable or source kind unsupported | Stop and report that the complete JS Page authoring path is unavailable. Never substitute an ordinary page + JS Block (`普通页面 + JS Block`). | No |
 | `workspaceStatus=pending` and retryable, without an explicit capability-unavailable code | Retry at most twice, then report that the environment is not ready. | No |
 | 401 or 403 | Stop and report authentication or permission failure. | No |
 | owner, Repository, or base commit 404 | Repair the locator, Host, or Workspace state. | No |
-| `compile-preview` + 200 + error diagnostics in `artifact.diagnostics` | Repair code, descriptor, path, imports, or Settings; preview again; do not save. | No |
-| 409 + `BASE_COMMIT_OUTDATED` or `RUNJS_SOURCE_OWNER_OUTDATED` | `open-latest -> merge -> compile-preview -> save` with fresh CAS tokens. | No |
+| `save-changes` + compile error diagnostics in `artifact.diagnostics` | No state was committed. Repair code, descriptor, path, imports, or Settings and retry on the unchanged base. | No |
+| 409 + `RUNJS_FILE_CONFLICT`, `BASE_COMMIT_OUTDATED`, or `RUNJS_SOURCE_OWNER_OUTDATED` | `open-latest -> read latest file/hash -> merge by path -> save-changes` with fresh hashes and CAS tokens; never replace tokens alone. | No |
 | 409 + `NO_CHANGES` or `RUNJS_SAVE_NO_CHANGES` | Verify latest state and report no changes; do not merge. | No |
 | 409 + `REPO_ARCHIVED` | Stop and report the Repository state. | No |
-| 400 + `RUNJS_COMPILE_FAILED`, import errors, or descriptor errors | Repair the candidate snapshot and retry preview. | No |
+| 400 + `RUNJS_COMPILE_FAILED`, import errors, or descriptor errors | Repair the changed files and retry `save-changes` on the unchanged base. | No |
 | 413 | Report the Workspace resource limit and ask to reduce or adjust the Workspace. | No |
 | network error or 5xx | Retry at most twice, then report an environment failure. | No |
 

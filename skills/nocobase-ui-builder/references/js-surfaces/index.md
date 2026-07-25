@@ -12,7 +12,7 @@ Read this after [../js.md](../js.md) when the task is already known to be JS / R
 
 ## Quick route
 
-For a new complete JS Page, read [../create-js-page-quick.md](../create-js-page-quick.md) first. A new complete JS Block follows that same Host -> Inline Workspace route after Host creation. Run the Settings Pass before implementation, keep reasonable `components`, `hooks`, `services`, and `utils` as separate local files, compile-preview, and save the complete snapshot through `run-js-sources`. The surface table describes the runtime scene; it does not impose a single-file snippet shape or justify externalization.
+For a new complete JS Page, read [../create-js-page-quick.md](../create-js-page-quick.md) first. A new complete JS Block follows that same Host -> Inline Workspace route after Host creation. Run the Settings Pass before implementation, keep reasonable `components`, `hooks`, `services`, and `utils` as separate local files, and send only changed paths through `run-js-sources save-changes`. The surface table describes the runtime scene; it does not impose a single-file snippet shape or justify externalization.
 
 | Surface | Read first | Editor scene | Writeback path | Validation style |
 | --- | --- | --- | --- | --- |

@@ -5,7 +5,7 @@ Use this surface for JS models whose main job is to render content in a block, f
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `jsModel`
-- Public writeback path for new `jsBlock`: inline `settings.code/settings.version`, or whole-page `assets.scripts.<key>.code` referenced by block `script`.
+- Public writeback path for a new complete `jsBlock`: minimal Host bootstrap code only when required, followed by final source through the Inline Workspace `save-changes` route. Inline `settings.code/settings.version` or whole-page `assets.scripts.<key>.code` referenced by block `script` remains final only for embedded/single-surface or capability-gated compatibility owners.
 - Public configure path for existing `jsBlock`: direct `changes.code/changes.version`.
 - Internal readback may contain `stepParams.jsSettings.runJs`; do not copy that persisted shape into public write requests.
 - Validation style: render

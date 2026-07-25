@@ -962,11 +962,11 @@ Public `applyBlueprint` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
 `assets.scripts` and `assets.charts` are reusable object maps. A block/field/action may refer to them by `script` or `chart`.
 
-For `jsBlock`, use exactly one public code form:
+For an embedded/single-surface or compatibility-single-file `jsBlock`, use exactly one public code form. For a new complete JS Block, these forms are Host bootstrap only: provide the smallest safe placeholder required by Host creation, then put final business source in the Inline Workspace.
 
 - Inline: put RunJS source under block `settings.code` and optional `settings.version`.
 - Asset reference: put source under `assets.scripts.<key>.code` and reference it with block `script: "<key>"`.
-- A new `jsBlock` must include one of those explicit code sources; do not rely on the default JS template.
+- An allowed single-file `jsBlock` must include one of those explicit code sources; a complete JS Block may use only a minimal safe placeholder here and must not leave final source in either form.
 - Do not put top-level `code` or top-level `version` on the block.
 - Do not author internal readback fields such as `stepParams`, `props`, `decoratorProps`, or `flowRegistry`.
 - Do not mix `script` with `settings.code` / `settings.version`.

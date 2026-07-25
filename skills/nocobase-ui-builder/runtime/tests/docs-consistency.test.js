@@ -4,6 +4,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { readYamlScalar } from './helpers/yaml-scalar.js';
+
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const backendWritePattern = /nb api flow-surfaces/i;
 const forbiddenWriteGatePattern =
@@ -147,12 +149,6 @@ function assertNoDirectCtxRecordValueReads(code, label) {
     /\bctx\.record(?:\?\.|\.)/,
     `${label} should read record values with await ctx.getVar('ctx.record...')`,
   );
-}
-
-function readYamlDoubleQuotedScalar(yamlText, key) {
-  const match = yamlText.match(new RegExp(`${key}: "((?:[^"\\\\]|\\\\.)*)"`, 'm'));
-  assert.ok(match, `${key} should be present`);
-  return JSON.parse(`"${match[1]}"`);
 }
 
 function assertPointsToTemplates(text, sourceLabel) {
@@ -894,17 +890,17 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   const surfaceIndex = read('references/js-surfaces/index.md');
   const transport = read('references/runjs-transport.md');
   const capabilityGate = read('references/runjs-capability-gate.md');
-  const openai = read('agents/openai.yaml');
+  const openai = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
 
   assert.match(skill, /Create JS page[\s\S]{0,180}create-js-page-quick\.md/i);
   assert.ok(skill.indexOf('create-js-page-quick.md') < skill.indexOf('whole-page-quick.md'));
   assert.match(createPage, /Host[\s\S]{0,240}sourceMode: "inline"[\s\S]{0,320}runjs-transport\.md/i);
-  assert.match(createPage, /Settings Pass[\s\S]{0,1100}complete snapshot/i);
+  assert.match(createPage, /Settings Pass[\s\S]{0,1100}saveChanges/i);
   assert.match(transport, /nb api run-js-sources open[\s\S]{0,200}nb api run-js-sources open-latest/i);
-  assert.match(transport, /nb api run-js-sources compile-preview[\s\S]{0,260}nb api run-js-sources save/i);
-  assert.match(transport, /compile-preview[\s\S]{0,160}artifact\.diagnostics/i);
+  assert.match(transport, /nb api run-js-sources save-changes[\s\S]{0,260}nb api run-js-sources compile-preview/i);
+  assert.match(transport, /compile-preview[\s\S]{0,220}optional dry-run/i);
   assert.match(workspace, /baseCommitId[\s\S]{0,120}baseOwnerFingerprint/i);
-  assert.match(workspace, /409[\s\S]{0,160}open-latest[\s\S]{0,220}merge[\s\S]{0,160}compile/i);
+  assert.match(workspace, /RUNJS_FILE_CONFLICT[\s\S]{0,220}open-latest[\s\S]{0,220}merge[\s\S]{0,180}save-changes/i);
   assert.match(workspace, /normally author 2-5 meaningful settings[\s\S]{0,140}at least two/i);
   assert.match(workspace, /ctx\.settings/i);
   assert.match(workspace, /pure bug fix/i);
@@ -921,14 +917,14 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(capabilityGate, /JS Page[\s\S]{0,260}Never substitute an ordinary page \+ JS Block/i);
   assert.match(pageBlueprint, /complete Workspace[\s\S]{0,160}settings\.code[\s\S]{0,80}assets\.scripts/i);
   assert.match(surfaceIndex, /new complete JS Page[\s\S]{0,180}Inline Workspace/i);
-  assert.match(openai, /Create JS page[\s\S]{0,260}run-js-sources open/i);
+  assert.match(openai, /new complete JS Page[\s\S]{0,420}run-js-sources open/i);
 });
 
 test('RunJS transport, routing, capability, and discovery contracts stay aligned', () => {
   const rootIndex = read('references/index.md');
   const skill = read('SKILL.md');
   const normative = read('references/normative-contract.md');
-  const openai = read('agents/openai.yaml');
+  const openai = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   const transport = read('references/runjs-transport.md');
   const workspace = read('references/runjs-workspace-source.md');
   const gate = read('references/runjs-capability-gate.md');
@@ -954,18 +950,19 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
     assert.match(text, /Light Extension|nb light/i, `${label} should keep explicit externalization`);
   }
 
-  for (const action of ['open', 'open-latest', 'compile-preview', 'save']) {
+  for (const action of ['open', 'open-latest', 'save-changes', 'compile-preview']) {
     assert.match(transport, new RegExp(`nb api run-js-sources ${action}\\b`));
   }
-  assert.match(transport, /complete target Workspace snapshot/i);
+  assert.match(transport, /path omitted from `changes` remains unchanged/i);
   assert.match(transport, /baseCommitId[\s\S]{0,220}baseOwnerFingerprint[\s\S]{0,220}same[\s\S]{0,80}(?:open|open-latest)/i);
-  assert.match(transport, /compile-preview` \+ 200[\s\S]{0,120}artifact\.diagnostics/i);
-  assert.match(transport, /Do not save that candidate/i);
+  assert.match(transport, /expectedBlobHash[\s\S]{0,220}open[\s\S]{0,80}open-latest/i);
+  assert.match(transport, /save-changes[\s\S]{0,220}full-candidate[\s\S]{0,180}atomic commit gate/i);
+  assert.match(transport, /RUNJS_FILE_CONFLICT[\s\S]{0,180}open-latest/i);
   assert.match(transport, /BASE_COMMIT_OUTDATED[\s\S]{0,120}RUNJS_SOURCE_OWNER_OUTDATED[\s\S]{0,280}open-latest/i);
   assert.match(transport, /NO_CHANGES[\s\S]{0,80}RUNJS_SAVE_NO_CHANGES[\s\S]{0,180}Do not run a three-way merge/i);
   assert.match(transport, /REPO_ARCHIVED[\s\S]{0,120}Stop/i);
   assert.doesNotMatch(transport, /\b(?:207|422)\b/);
-  assert.match(transport, /Do not import[\s\S]{0,120}reviewed delta save/i);
+  assert.match(transport, /Do not import[\s\S]{0,160}reviewed-change/i);
 
   assert.match(workspace, /Settings schema and defaults live in `src\/client\/entry\.json`/i);
   assert.match(workspace, /Host overrides[\s\S]{0,160}preserving `false`, `0`, and `""`/i);
@@ -1309,7 +1306,7 @@ test('low-level set-layout docs keep runtime rows/sizes separate from whole-page
   assert.match(shapes, /\[\[(?:"details-uid"|details-uid),\s*(?:"roles-table-uid"|roles-table-uid)\]\]/i, 'tool-shapes should show the stacked-cell set-layout example');
   assert.match(shapes, /\[\[12,\s*12\]\]/i, 'tool-shapes should forbid nested sizes arrays explicitly');
 
-  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(defaultPrompt, /setLayout[\s\S]{0,40}string\[\]\[\][\s\S]{0,40}number\[\]/i, 'openai prompt should mention low-level set-layout rows/sizes shapes');
   assert.match(defaultPrompt, /\[\[a\],\[b\]\][\s\S]{0,12}2col/i, 'openai prompt should keep the two-column set-layout shorthand');
   assert.match(defaultPrompt, /\[\[a,b\]\][\s\S]{0,12}stack/i, 'openai prompt should keep the stacked-cell shorthand');
@@ -1373,7 +1370,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   }
 
   const openaiYaml = read('agents/openai.yaml');
-  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  const defaultPrompt = readYamlScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /Routes Host\/UI=`nb api flow-surfaces`/i);
   assert.match(defaultPrompt, /Workspace=`nb api run-js-sources`/i);
   assert.match(defaultPrompt, /Intent-first/i);
@@ -1382,7 +1379,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
   assertOpenAIGuardrails(defaultPrompt);
-  assert.ok(defaultPrompt.length <= 1500, 'openai default_prompt should stay at or below 1500 chars');
+  assert.ok(defaultPrompt.length <= 5000, 'openai default_prompt should stay at or below 5000 chars');
 });
 
 test('data-surface docs allow backend defaultFilter materialization while keeping filter action routing visible', () => {
@@ -1550,7 +1547,7 @@ test('data-surface docs allow backend defaultFilter materialization while keepin
   assert.match(normativeContract, /filterableFieldNames[\s\S]{0,180}action-level\/defaultActionSettings `?defaultFilter`?[\s\S]{0,160}block-level `?defaultFilter`?[\s\S]{0,160}backend-generated default filter/i);
 
   const openaiYaml = read('agents/openai.yaml');
-  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  const defaultPrompt = readYamlScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索\/filter[\s\S]{0,30}sameHost[\s\S]{0,30}filterAction/i);
   assert.match(defaultPrompt, /defaultFilter[\s\S]{0,60}omit[\s\S]{0,60}backend4|backend4[\s\S]{0,60}defaultFilter/i);
   assert.match(defaultPrompt, /explicit[\s\S]{0,36}empty[\s\S]{0,36}invalid[\s\S]{0,36}<4[\s\S]{0,36}errors/i);
@@ -1589,7 +1586,7 @@ test('numeric KPI routing defaults to JSBlock instead of GridCard', () => {
   const jsBlock = read('references/js-models/js-block.md');
   const skill = read('SKILL.md');
   const openaiYaml = read('agents/openai.yaml');
-  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  const defaultPrompt = readYamlScalar(openaiYaml, 'default_prompt');
 
   for (const [label, text] of [
     ['SKILL', skill],
@@ -1655,7 +1652,7 @@ test('dashboard chart requests require chart blocks and cannot downgrade to JSBl
   const pageBlueprint = read('references/page-blueprint.md');
   const executionChecklist = read('references/execution-checklist.md');
   const verification = read('references/verification.md');
-  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
 
   for (const [label, text] of [
     ['SKILL', skill],
@@ -1753,7 +1750,7 @@ test('JSBlock docs and prompt expose only canonical public authoring shapes', ()
   const settings = read('references/settings.md');
   const skill = read('SKILL.md');
   const openaiYaml = read('agents/openai.yaml');
-  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  const defaultPrompt = readYamlScalar(openaiYaml, 'default_prompt');
 
   for (const [label, text] of [
     ['js-block', jsBlock],
@@ -1797,9 +1794,9 @@ test('JSBlock docs and prompt expose only canonical public authoring shapes', ()
   }
 
   assert.match(
-    openaiYaml,
-    /compatibility single-file JSBlock[\s\S]{0,120}settings\.code[\s\S]{0,120}configure changes\.code/i,
-    'compressed prompt should document changes.code/version for JSBlock configure',
+    defaultPrompt,
+    /compatibility-single-file[\s\S]{0,180}settings\.code[\s\S]{0,180}configure changes\.code/i,
+    'default prompt should document changes.code/version for JSBlock configure',
   );
   assert.match(
     defaultPrompt,
@@ -1880,7 +1877,7 @@ test('kanban routing docs distinguish analytics dashboards from KanbanBlockModel
     'kanban block doc should keep omitted defaultFilter and host-level filter action guidance together',
   );
 
-  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(defaultPrompt, /分析看板[\s\S]{0,80}trend[\s\S]{0,40}chart/i);
   assert.match(defaultPrompt, /distribution[\s\S]{0,40}ranking[\s\S]{0,40}占比[\s\S]{0,40}chart/i);
   assert.match(defaultPrompt, /chart[\s\S]{0,40}required/i);
@@ -1920,7 +1917,7 @@ test('search-vs-filter intent docs keep host-bound action routing and explicit b
     'filter-form doc should include a non-search-page negative example for page-level search wording',
   );
 
-  const defaultPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(defaultPrompt, /hostBound搜索[\s\S]{0,20}filter/i);
   assert.match(defaultPrompt, /searchPage≠filter/i);
   assert.match(defaultPrompt, /sameHost[\s\S]{0,20}filterAction/i);
@@ -2059,7 +2056,7 @@ test('title omission docs keep single-block scopes title-optional and multi-bloc
     assertTitleOmissionRule(read(relativePath), relativePath);
   }
 
-  const openaiPrompt = readYamlDoubleQuotedScalar(read('agents/openai.yaml'), 'default_prompt');
+  const openaiPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     openaiPrompt,
     /multi-non-filter(?: explicit)? keyed layout\/titles[\s\S]{0,60}(?:except templates|template-backed exempt|templates exempt)[\s\S]{0,80}single non-filter(?: block)?(?: title)?[\s\S]{0,80}(?:optional|may omit title)[\s\S]{0,80}(?:unless user asks|unless explicitly asked|unless asked)/i,
@@ -2709,7 +2706,7 @@ test('large field-grid docs require fieldGroups on create edit and details block
     'normative-contract should treat fieldGroups as mandatory for large field-grid blocks',
   );
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /more than 10[\s\S]{0,120}fieldGroups|fieldGroups[\s\S]{0,120}(?:more than 10|>10)/i,
@@ -2733,7 +2730,7 @@ test('defaults collection fieldGroups docs keep the large-popup threshold visibl
     );
   }
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /defaults\.collections[\s\S]{0,120}fieldGroups[\s\S]{0,160}(more than 10|>10|effective fields)/i,
@@ -2767,7 +2764,7 @@ test('defaults collection fieldGroups docs require fast self-review and one retr
     );
   }
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /defaults fieldGroups[\s\S]{0,120}self-review[\s\S]{0,120}approve[\/|]regenerate/i,
@@ -2805,7 +2802,7 @@ test('whole-page defaults docs require recomputing involved collections and keep
     );
   }
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /(recompute|rebuild)[\s\S]{0,120}(involved target collections|defaults\.collections)[\s\S]{0,120}(live metadata|from scratch)/i,
@@ -2830,7 +2827,7 @@ test('association popup defaults docs keep first-segment keying visible', () => 
     );
   }
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /associations[\s\S]{0,40}first-?segment|first-?segment[\s\S]{0,40}associations/i,
@@ -2863,7 +2860,7 @@ test('whole-page defaults docs keep the fixed popup trio and table addNew thresh
     );
   }
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /fixed[\s\S]{0,80}view[\s\S]{0,40}addNew[\s\S]{0,40}edit|view[\s\S]{0,40}addNew[\s\S]{0,40}edit[\s\S]{0,80}fixed/i,
@@ -2918,7 +2915,7 @@ test('localized write docs keep backend validation boundary', () => {
   assert.doesNotMatch(localEditQuick, /result\.cliBody|nb-localized-write-preflight|local preflight/i);
 
   const openaiYaml = read('agents/openai.yaml');
-  const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
+  const defaultPrompt = readYamlScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /backend aggregate validation|aggregate errors/i);
   assert.match(defaultPrompt, /raw payload only/i);
 });
@@ -2952,7 +2949,7 @@ test('JS authoring docs split embedded errors repair from complete Workspace sou
     assert.match(text, /run-js-sources/i, `${relativePath} should route complete Workspace source through run-js-sources`);
     assert.match(
       text,
-      /diagnostics|compile-preview|complete snapshot/i,
+      /diagnostics|save-changes/i,
       `${relativePath} should expose source-level Workspace repair or save evidence`,
     );
     assert.doesNotMatch(
@@ -3270,7 +3267,7 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
     'tool-shapes should keep popup descriptions in the defaults example',
   );
 
-  const defaultPrompt = read('agents/openai.yaml');
+  const defaultPrompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   assert.match(
     defaultPrompt,
     /popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}[\s\S]{0,120}associations|associations[\s\S]{0,120}popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}/i,

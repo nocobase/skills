@@ -35,8 +35,8 @@ For `complete-workspace`, follow [runjs-workspace-source.md](./runjs-workspace-s
 1. Create or locate the Host, set `sourceMode: "inline"`, and open its canonical locator through `run-js-sources`.
 2. Complete the Settings Pass from `src/client/entry.json` before implementation code and consume declared settings through `ctx.settings`.
 3. Use a safe snippet only as a scaffold. Split implementation into any reasonable local files, including `components`, `hooks`, `services`, and `utils`; there is no one-snippet or editable-slot limit.
-4. Compile-preview the complete snapshot and repair every source diagnostic.
-5. Save the same complete snapshot with the CAS tokens from open or open-latest.
+4. Submit only changed paths through `save-changes`; omitted paths remain unchanged and delete is explicit.
+5. Repair compile or conflict diagnostics and retry. Use `compile-preview` only for an explicit dry-run or debugging step.
 
 Keep final Workspace source in source files. Do not put it back into `settings.code` or `assets.scripts`; those are compatibility/single-surface or Host-bootstrap shapes, not the final source channel for a complete Workspace.
 

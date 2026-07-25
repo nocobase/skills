@@ -19,6 +19,7 @@ test('capability gate consumes Host, command, and operation evidence', () => {
     'workspaceRetryable',
     'workspaceError.code/message',
     'run-js-sources',
+    'save-changes',
     'errors[].code',
   ]) {
     assert.match(gate, new RegExp(signal.replaceAll(/[.[\]]/g, '\\$&'), 'i'));
@@ -50,6 +51,7 @@ test('ordinary failures remain repair or stop conditions', () => {
     '401 or 403',
     'owner, Repository, or base commit 404',
     'artifact.diagnostics',
+    'RUNJS_FILE_CONFLICT',
     'BASE_COMMIT_OUTDATED',
     'RUNJS_SOURCE_OWNER_OUTDATED',
     'RUNJS_SAVE_NO_CHANGES',
@@ -60,8 +62,9 @@ test('ordinary failures remain repair or stop conditions', () => {
   ]) {
     assert.match(gate, new RegExp(token.replaceAll(/[.[\]]/g, '\\$&'), 'i'));
   }
-  assert.match(gate, /error diagnostics[\s\S]{0,160}do not save/i);
-  assert.match(gate, /open-latest -> merge -> compile-preview -> save/i);
+  assert.match(gate, /error diagnostics[\s\S]{0,180}No state was committed/i);
+  assert.match(gate, /open-latest -> read latest file\/hash -> merge by path -> save-changes/i);
+  assert.match(gate, /never replace tokens alone/i);
 });
 
 test('quick routes preserve JS Page and explicit externalization boundaries', () => {

@@ -15,7 +15,7 @@ The bundled product reference snapshot is still only a progressive-disclosure re
 
 | Need | Read first | Then |
 | --- | --- | --- |
-| new complete JS Page / JS Block or existing Workspace owner | [runjs-workspace-source.md](./runjs-workspace-source.md) | run the Settings Pass, edit reasonable local source files, then compile-preview and save through `run-js-sources` |
+| new complete JS Page / JS Block or existing Workspace owner | [runjs-workspace-source.md](./runjs-workspace-source.md) | run the Settings Pass, edit reasonable local source files, then send only changed paths through `run-js-sources save-changes` |
 | which RunJS authoring surface this write belongs to | [js-surfaces/index.md](./js-surfaces/index.md) | [js-snippets/catalog.json](./js-snippets/catalog.json) |
 | which JS authoring surface exists at all | [upstream-js/interface-builder/runjs.md](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) | [upstream-js/runjs/index.md](../runtime/reference-assets/upstream-js/runjs/index.md) |
 | JS Block code | [upstream-js/interface-builder/blocks/other-blocks/js-block.md](../runtime/reference-assets/upstream-js/interface-builder/blocks/other-blocks/js-block.md) | specific `ctx` pages under [`upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md) |

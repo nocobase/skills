@@ -60,9 +60,10 @@ A page-blueprint draft is good when:
 For a complete JS Page or JS Block, source completion requires all of the following:
 
 - the Host returned a canonical locator and `run-js-sources open` succeeded
-- compile-preview returned no diagnostic with `severity: "error"`
-- save returned a new commit, `artifact.filesHash`, and the updated owner fingerprint
-- preview and save used the same complete candidate snapshot and the save tokens came from one open/open-latest response
+- `save-changes` succeeded and its artifact contains no diagnostic with `severity: "error"`
+- the response returned a new commit, `artifact.filesHash`, and the updated owner fingerprint
+- the request sent only changed paths with the CAS tokens and `expectedBlobHash` values from one open/open-latest response
+- no Light Extension Repository was automatically created
 
 Host Preview is not required by this source contract and must not be claimed as validation when it was not run.
 

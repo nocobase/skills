@@ -41,7 +41,7 @@ Choose the authoring surface before you chase `ctx.*` details:
 
 ## Authoring loop
 
-For `complete-workspace`, create or locate the Host, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json` **before implementation code**, edit the complete Workspace snapshot, call `compilePreview`, repair diagnostics, then save the full snapshot with `baseCommitId` and `baseOwnerFingerprint`. Settings are Host values and do not create source commits. The Workspace may contain any reasonable local `components`, `hooks`, `services`, `utils`, and related source files. A safe snippet is only a scaffold; it does not impose one-snippet, editable-slot, or single-file limits. Keep final source in Workspace files, never in `settings.code` or `assets.scripts`.
+For `complete-workspace`, create or locate the Host, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json` **before implementation code**, edit the needed Workspace source files, then call `runJSSources:saveChanges` with only changed paths plus `baseCommitId`, `baseOwnerFingerprint`, and per-path `expectedBlobHash`. The save compiles the complete materialized candidate; repair diagnostics and retry against the unchanged base. `compilePreview` remains optional for a dry-run or debugging. Settings are Host values and do not create source commits. The Workspace may contain any reasonable local `components`, `hooks`, `services`, `utils`, and related source files. A safe snippet is only a scaffold; it does not impose one-snippet, editable-slot, or single-file limits. Keep final source in Workspace files, never in `settings.code` or `assets.scripts`.
 
 For `embedded/single-surface` and `compatibility-single-file`, use the scoped five-step loop:
 
@@ -80,7 +80,7 @@ For JS model render surfaces, default to Ant Design UI from `ctx.libs.antd` / `c
 Route repair by the owner classification:
 
 - For `embedded/single-surface` or `compatibility-single-file`, send the direct `nb api flow-surfaces <action>` payload and repair all returned `errors[]` in one pass. Map `details.repairClass` to [runjs-repair-playbook.md](./runjs-repair-playbook.md).
-- For `complete-workspace`, repair Workspace source files from `compilePreview` diagnostics and retry through `run-js-sources`; do not fall back to `settings.code` or `assets.scripts`.
+- For `complete-workspace`, repair changed Workspace source files from `save-changes` artifact diagnostics and retry through `run-js-sources`; do not fall back to `settings.code` or `assets.scripts`.
 - If the required surface is `jsBlock`, keep it as `jsBlock`. Do not switch it to `table`, `list`, `chart`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
 - Error metadata is intentionally minimal: expect `ruleId`, `path`, `message`, and `details.repairClass` / `details.suggestedAction` when applicable. Do not depend on `docsKey`, `retryable`, `surfaceStyle`, or `suggestedSnippetIds`.
 

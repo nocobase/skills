@@ -46,7 +46,7 @@ Agent-facing front door is `nb api flow-surfaces <action>`. This file is for **l
 
 ### JSBlock Settings
 
-Localized `jsBlock` create / compose writes use only the inline public shape:
+For a new complete `jsBlock`, use this public shape only as the Host bootstrap when the Host API requires code. Keep the code as a minimal safe placeholder, then open the canonical Inline Workspace and put final business source there. This shape may remain final only for `embedded/single-surface`, explicit `compatibility-single-file`, or a capability-gated JS Block fallback:
 
 ```json
 {
@@ -54,14 +54,14 @@ Localized `jsBlock` create / compose writes use only the inline public shape:
   "settings": {
     "title": "KPI Cards",
     "version": "v2",
-    "code": "ctx.render(<div>Hello</div>);"
+    "code": "ctx.render(null);"
   }
 }
 ```
 
-The inline `settings.code` is required for new localized JSBlocks; do not create title-only JSBlocks and rely on default template code.
+Do not leave a complete JS Block's final implementation in `settings.code`. When the classified owner is an allowed single-file path, `settings.code` is required rather than relying on default template code.
 
-Localized `configure` for an existing JSBlock uses direct `changes.code` and `changes.version`:
+Localized `configure` for an existing embedded or compatibility-single-file JSBlock uses direct `changes.code` and `changes.version`:
 
 ```json
 {
