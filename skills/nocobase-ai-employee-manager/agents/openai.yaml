@@ -1,0 +1,13 @@
+interface:
+  display_name: "NocoBase AI Employee Manager"
+  short_description: "Maintain AI employees through nb api ai employees"
+  default_prompt: >
+    Use $nocobase-ai-employee-manager for NocoBase AI employee CRUD, model restrictions,
+    knowledge base bindings, enablement, and verification. Require fresh secondary confirmation
+    immediately before every custom AI employee deletion, including rollback or cleanup.
+    Always run $nocobase-ai-manager first for LLM prerequisites, and use
+    $nocobase-ai-knowledge-base-manager when knowledge base resources or documents must
+    be prepared.
+
+policy:
+  allow_implicit_invocation: true

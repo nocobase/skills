@@ -14,6 +14,9 @@ NocoBase CLI automatically installs Skills during initialization (`nb init`), so
 | Skill                      | Description                                                                                                                                |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `nocobase-env-manage`      | Bootstrap and manage NocoBase application lifecycle — install, start, stop, upgrade, and environment management via `nb` CLI.              |
+| `nocobase-ai-manager`      | Prepare shared AI prerequisites — discover providers/models and securely manage saved LLM services through `nb api ai`.                    |
+| `nocobase-ai-employee-manager` | Maintain AI employees, model restrictions, and knowledge base bindings through `nb api ai employees`.                                  |
+| `nocobase-ai-knowledge-base-manager` | Maintain vector databases, knowledge bases, documents, retrieval tests, and employee KB bindings through `nb api kb`.             |
 | `nocobase-data-modeling`   | Create and manage data models — collections, fields, relations, and view-backed schemas.                                                   |
 | `nocobase-ui-builder`      | **Default entry point for UI authoring** — create and edit pages, blocks, popups, menu items, and linkage rules on a running NocoBase app. |
 | `nocobase-prototype-repro` | **Opt-in** reproduce a given HTML/image prototype as a faithful NocoBase app — region→native-block map + a screenshot-vs-prototype loop.   |
