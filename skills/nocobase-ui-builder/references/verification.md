@@ -67,6 +67,25 @@ For a complete JS Page or JS Block, source completion requires all of the follow
 
 Host Preview is not required by this source contract and must not be claimed as validation when it was not run.
 
+### Light Extension reuse and move-back evidence
+
+For an explicit multi-Host reuse or move-back request, follow
+[light-extension-roundtrip.md](./light-extension-roundtrip.md) and report all of the following:
+
+- before and after `sourceMode`, exact public binding identity, and independent settings override for each Host
+- one Repository and one Entry, including stable `entry.json.key`/`entryName`, old/current Head, compiled commit, source
+  history, runtime availability, and artifact/settings hashes
+- reference readback for the exact Repository/Entry before reuse and after moving one Host back Inline
+- proof that the moved Host used the latest reachable Entry source, cleared only its own binding/reference, and returned
+  a new Inline RunJS commit and owner fingerprint
+- proof that the other Host kept its binding/override and the Repository, Entry, stable key, Head, history, and remaining
+  references were preserved
+- the boundary between API/CLI verification and any browser rendering that was actually performed
+
+A Host-only override edit must preserve explicit `false`, `0`, and `""` and must not create a source commit. After
+move-back, separately verify that Inline `save-changes` advances only the moved Host and Repository `save` advances only
+the Entry still used by the other Host.
+
 ## 3. Minimum Readback Targets
 
 | operation | minimum readback |
@@ -85,6 +104,8 @@ Host Preview is not required by this source contract and must not be claimed as 
 | `convert-template-to-copy` | modified target readback |
 | `update-template` | `nb api flow-surfaces get-template --uid <uid>` |
 | `update-menu` / `create-menu` | menu tree when placement matters |
+| Light Extension reuse | both Hosts plus `light-extension-entries list-selectable/get`, Repository Head, and exact Repository/Entry reference readback |
+| Light Extension move-back | both Hosts, moved Host Inline commit/owner, preserved Repository/Entry/Head/history, and remaining Host reference |
 
 ### Reaction-specific readback
 

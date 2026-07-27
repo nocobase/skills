@@ -7,6 +7,12 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 - Host/UI write path: `nb api flow-surfaces <action>` with the raw business payload. It owns navigation, layout, Flow Models, reactions, and ordinary Surface configuration.
 - Inline source write path: `nb api run-js-sources <action>` owns complete JS Page/JS Block Workspace files and commits; ordinary Agent writes use incremental `save-changes`, while `compile-preview` is optional.
 - External source write path: only an explicitly externalized Light Extension Entry uses `nb light` or the matching Light Extension APIs.
+- Light Extension reuse path: externalize the first Host once, then keep one Repository and one Entry while binding another
+  compatible Host to the same returned Repository/Entry identity through its public `flow-surfaces` source settings. Host settings overrides remain
+  independent and create no source commit.
+- Light Extension move-back path: move only the selected Host from the latest reachable Entry source. Preserve other
+  bindings, Repository/Entry identity, stable key, source history, and references; the retained Inline fallback is not
+  the move-back source.
 - Backend transport contract: flow-surfaces is the authoring compiler for raw UI Builder payloads; it is not the source repository transport for a complete Workspace.
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
 - `nb-template-decision` remains an optional local planning helper. Do not run skill-local helper output or `cliBody` generation as a write prerequisite.
@@ -37,6 +43,10 @@ If a lower-priority local document conflicts with a live contract fact, follow t
 - **New complete JS Page / JS Block** -> create or locate the Host through `flow-surfaces` -> use the returned canonical locator with `run-js-sources open` -> Settings Pass -> edit source files -> incremental `save-changes`.
 - **Embedded or compatibility single-file JS** -> keep the owner on its public `flow-surfaces` code shape.
 - **Explicitly externalized JS** -> use the Light Extension repository protocol; never infer this route from multiple files or imports.
+- **Explicit multi-Host reuse** -> reuse the first move's binding; do not run another move, duplicate the Entry, or alter
+  `entry.json.key`.
+- **Move one external Host back Inline** -> use the current Entry's reachable source and clear only that Host binding;
+  `moveToInline` is not idempotent, and later Inline and Repository histories advance independently.
 
 Backend action names are the stable payload families exposed through `nb api flow-surfaces`.
 
@@ -293,6 +303,12 @@ Do **not** emulate a plan-style patch workflow in user-facing authoring.
 - Embedded/single-surface JS writes go through `nb api flow-surfaces <action>` with the public code payload; repair returned aggregate `errors[]` and retry the same Surface.
 - Complete Inline Workspace JS writes go through `nb api run-js-sources save-changes`; repair source/descriptor/import diagnostics and retry the changed paths against the unchanged base without falling back to `settings.code` merely because compilation failed. Use `compile-preview` only for an explicit dry-run or debugging step.
 - Explicitly externalized Light Extension source stays on its repository protocol. Do not use `nb light` to probe or save an ordinary Inline Workspace.
+- One Light Extension Entry may serve multiple compatible Hosts, but each Host owns its own settings override. Reuse the
+  original Repository/Entry binding and validate it with `light-extension-entries list-selectable/get`; never create a
+  source commit for an override-only edit.
+- Moving one Host back Inline uses the latest reachable Entry source and preserves every other binding, reference,
+  Repository/Entry identity, stable key, and source commit. Never use retained fallback source or claim that
+  `moveToInline` is idempotent.
 
 ## 7. Recovery / Stop Conditions
 

@@ -1,5 +1,10 @@
 # Light Extension source
 
+This file is the intent router. Use [light-extension-transport.md](./light-extension-transport.md) for capability,
+Repository, Entry, move, CAS, compile, and recovery payloads. Use
+[light-extension-roundtrip.md](./light-extension-roundtrip.md) when one Entry is reused by multiple Hosts or one Host is
+moved back Inline.
+
 Light Extension is an explicit externalization destination, not the default authoring path for new JS. Use it only when the user asks for a light plugin, cross-Host reuse, independent Git ownership, or distribution. Multiple files, imports, hooks, services, or complexity alone do not authorize externalization.
 
 If that explicit Light Extension capability is unavailable, report that the requested externalization, reuse, Git ownership, or distribution is incomplete. Do not silently replace it with Inline Workspace or single-file Inline. Conversely, do not use `nb light` to probe ordinary Inline Workspace capability; use [runjs-capability-gate.md](./runjs-capability-gate.md).

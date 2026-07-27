@@ -744,6 +744,7 @@ test('required docs and relative links stay valid', () => {
     'references/js-surfaces/snippet-manifest.json',
     'references/local-edit-quick.md',
     'references/light-extension-source.md',
+    'references/light-extension-roundtrip.md',
     'references/normative-contract.md',
     'references/page-archetypes.md',
     'references/page-blueprint.md',
