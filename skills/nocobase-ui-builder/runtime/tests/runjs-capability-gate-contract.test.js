@@ -14,6 +14,12 @@ test('capability gate consumes Host, command, and operation evidence', () => {
   const gate = read('references/runjs-capability-gate.md');
 
   for (const signal of [
+    'run-js-sources capabilities -j',
+    'authoringContractVersion',
+    'inlineWorkspace.ownerKinds',
+    'inlineWorkspace.modelUses',
+    'inlineWorkspace.saveMode',
+    'externalization.available',
     'runJSLocator',
     'workspaceStatus',
     'workspaceRetryable',
@@ -26,6 +32,8 @@ test('capability gate consumes Host, command, and operation evidence', () => {
   }
   assert.match(gate, /generic 404[\s\S]{0,180}not proof/i);
   assert.match(gate, /Do not use `nb light`[\s\S]{0,120}ordinary Inline Workspace capability/i);
+  assert.match(gate, /explicit multi-file request[\s\S]{0,260}no single-file fallback/i);
+  assert.match(gate, /never[\s\S]{0,180}`settings\.code`[\s\S]{0,180}ordinary JS Block[\s\S]{0,180}Light Extension/i);
 });
 
 test('only the two explicit JS Block capability failures allow single-file fallback', () => {
@@ -38,6 +46,7 @@ test('only the two explicit JS Block capability failures allow single-file fallb
     assert.match(gate, new RegExp(`JS Block[^\n]*${code}[^\n]*\n?[^|]*\\| Yes \\|`, 'i'));
   }
   assert.equal(gate.match(/\| Yes \|/g)?.length, 2, 'only two matrix rows may permit fallback');
+  assert.match(gate, /only when the user did not explicitly request multiple files/i);
   assert.match(gate, /add-block[\s\S]{0,160}settings:\s*\{ code, version \}/i);
   assert.match(gate, /configure[\s\S]{0,160}changes:\s*\{ code, version \}/i);
   assert.match(gate, /JS Page[\s\S]{0,220}Never substitute an ordinary page \+ JS Block[\s\S]{0,80}\| No \|/i);

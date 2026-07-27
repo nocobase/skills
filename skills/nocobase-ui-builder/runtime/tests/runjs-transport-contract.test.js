@@ -13,6 +13,7 @@ function read(relativePath) {
 test('documents the default delta action and optional preview transport', () => {
   const transport = read('references/runjs-transport.md');
 
+  assert.match(transport, /nb api run-js-sources capabilities -j/);
   for (const action of ['open', 'open-latest', 'save-changes', 'compile-preview']) {
     assert.match(transport, new RegExp(`nb api run-js-sources ${action} --body-file`));
   }
@@ -21,7 +22,9 @@ test('documents the default delta action and optional preview transport', () => 
     /runJSSources:open[\s\S]*runJSSources:openLatest[\s\S]*runJSSources:saveChanges[\s\S]*runJSSources:compilePreview/,
   );
   assert.match(transport, /canonical [`]?data\.runJSLocator/i);
-  assert.match(transport, /Do not construct a locator from `modelUid`/i);
+  assert.match(transport, /Do not construct either locator from `modelUid`/i);
+  assert.match(transport, /Host response[\s\S]{0,180}`data\.runJSLocator`[\s\S]{0,180}unchanged into `open`/i);
+  assert.match(transport, /open` or `open-latest`[\s\S]{0,180}`data\.locator` unchanged into subsequent requests/i);
   assert.match(transport, /compile-preview[\s\S]{0,180}optional dry-run/i);
   assert.match(transport, /legacy `runJSSources:save`[\s\S]{0,220}not the ordinary Agent route/i);
   assert.doesNotMatch(transport, /--body\s+['"]\{/);

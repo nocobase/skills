@@ -5,14 +5,15 @@ Use this surface for JS models whose main job is to render content in a block, f
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `jsModel`
-- Public writeback path for a new complete `jsBlock`: minimal Host bootstrap code only when required, followed by final source through the Inline Workspace `save-changes` route. Inline `settings.code/settings.version` or whole-page `assets.scripts.<key>.code` referenced by block `script` remains final only for embedded/single-surface or capability-gated compatibility owners.
-- Public configure path for existing `jsBlock`: direct `changes.code/changes.version`.
+- Public writeback path for every complete render Model declared by `run-js-sources capabilities`: create/read the Host, copy its canonical locator exactly, then write final source through the Inline Workspace `open -> Settings Pass -> save-changes` route. A new `jsBlock` may use minimal Host bootstrap code only when required.
+- Inline `settings.code/settings.version`, whole-page `assets.scripts.<key>.code` referenced by block `script`, or direct `changes.code/changes.version` remains final only for embedded/single-surface or capability-gated compatibility owners.
 - Internal readback may contain `stepParams.jsSettings.runJs`; do not copy that persisted shape into public write requests.
 - Validation style: render
 - `ctx.render(...)` is required on the directly executed top-level path.
 - Do not wrap all render logic in an uncalled function or callback; move that body to top-level code.
 - Do not rely on top-level `return` for rendering.
 - Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, or `JSItemActionModel`.
+- When any of those model uses is present in the machine contract and the Host returns a canonical locator, it is eligible for the complete Workspace route; field/item/column placement does not make it embedded.
 - Default UI library policy: render React JSX with Ant Design components from `ctx.libs.antd` / `ctx.libs.antdIcons`.
 - Use external UI libraries only when the requested UI needs capabilities Ant Design does not provide.
 

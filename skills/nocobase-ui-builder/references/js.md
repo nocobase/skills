@@ -18,30 +18,32 @@ Read this file when the current write involves JS `code`, `renderer: "js"`, `jsB
 
 ## Owner classification
 
-Classify before selecting a snippet or writing implementation code:
+Before the first complete RunJS authoring operation, run `nb api run-js-sources capabilities -j` and record its
+`authoringContractVersion`, `inlineWorkspace.ownerKinds`, `inlineWorkspace.modelUses`, `inlineWorkspace.saveMode`, and
+`externalization.available`. Then classify before selecting a snippet or writing implementation code:
 
-- `complete-workspace`: a new complete JS Page, a new complete JS Block, or an existing owner already materialized as a Workspace. Use the Inline Workspace source loop.
-- `embedded/single-surface`: event-flow Execute JavaScript, linkage, value-return, custom variable, JS action/field/item/column, and other code embedded in one existing owner. Use the scoped five-step RunJS loop.
+- `complete-workspace`: the requested complete JS Model has a matching `ownerKind` and `modelUse` in the machine contract, and Host create/get returns a canonical locator. This includes complete JS Page, Block, Field, Editable Field, Column, Item, Item Action, and action-family Models, not only owners already materialized as Workspaces.
+- `embedded/single-surface`: event-flow Execute JavaScript, linkage, value-return/default/copy, custom variable, workflow JavaScript, chart option/events, `flowRegistry` RunJS, and other code whose owner is not declared by the complete Workspace contract. Use the scoped five-step RunJS loop.
 - `compatibility-single-file`: the compatibility gate explicitly selected the public single-file path for an owner that cannot use the Workspace source route. Use the scoped five-step RunJS loop; do not infer this route merely because the requested code is short.
 
-If the owner type is unclear, inspect the live owner and capability gate before generating code. Do not downgrade a complete Workspace to single-file authoring after a compile or save failure.
+If the owner type is unclear, inspect the live owner and capability gate before generating code. Copy the canonical locator returned by Host create/get exactly; never construct it from `uid`, `modelUid`, `use`, or `fieldUid`. Do not downgrade a complete Workspace to single-file authoring after a compile or save failure. If the user explicitly requests multiple files, missing contract support, locator, or readiness is a stop condition rather than a compatibility fallback.
 
 ## Surface-first routing
 
-For a **new complete JS Page** use the `Create JS page` route in [create-js-page-quick.md](./create-js-page-quick.md). A new complete JS Block enters the same route after Host creation. These `complete-workspace` surfaces default to an ordinary Inline multi-file Workspace; they are not Light Extensions merely because the code has multiple files, imports, hooks, or services.
+For a **new complete JS Page** use the `Create JS page` route in [create-js-page-quick.md](./create-js-page-quick.md). Every other capability-backed complete JS Model enters the same Host -> canonical locator -> Inline Workspace route after Host creation. These `complete-workspace` surfaces are not Light Extensions merely because the code has multiple files, imports, hooks, or services.
 
 Choose the authoring surface before you chase `ctx.*` details:
 
 - event-flow `Execute JavaScript` -> [js-surfaces/event-flow.md](./js-surfaces/event-flow.md)
 - linkage `Execute JavaScript` -> [js-surfaces/linkage.md](./js-surfaces/linkage.md)
 - field/default/copy/custom-variable value-return RunJS -> [js-surfaces/value-return.md](./js-surfaces/value-return.md)
-- render-style JS model code -> [js-surfaces/js-model-render.md](./js-surfaces/js-model-render.md); for a new complete JS Page/Block, continue into [runjs-workspace-source.md](./runjs-workspace-source.md)
-- action-style JS model code -> [js-surfaces/js-model-action.md](./js-surfaces/js-model-action.md)
+- render-style JS model code -> [js-surfaces/js-model-render.md](./js-surfaces/js-model-render.md); for a capability-backed complete Model, continue into [runjs-workspace-source.md](./runjs-workspace-source.md)
+- action-style JS model code -> [js-surfaces/js-model-action.md](./js-surfaces/js-model-action.md); for a capability-backed complete Model, continue into [runjs-workspace-source.md](./runjs-workspace-source.md)
 - exact `JSBlockModel` / `JSFieldModel` / `JSItemModel` leaf behavior -> [js-models/index.md](./js-models/index.md) only after the surface is already clear
 
 ## Authoring loop
 
-For `complete-workspace`, create or locate the Host, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json` **before implementation code**, edit the needed Workspace source files, then call `runJSSources:saveChanges` with only changed paths plus `baseCommitId`, `baseOwnerFingerprint`, and per-path `expectedBlobHash`. The save compiles the complete materialized candidate; repair diagnostics and retry against the unchanged base. `compilePreview` remains optional for a dry-run or debugging. Settings are Host values and do not create source commits. The Workspace may contain any reasonable local `components`, `hooks`, `services`, `utils`, and related source files. A safe snippet is only a scaffold; it does not impose one-snippet, editable-slot, or single-file limits. Keep final source in Workspace files, never in `settings.code` or `assets.scripts`.
+For `complete-workspace`, create or locate the Host, copy its returned canonical locator exactly, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json` **before implementation code**, edit the needed Workspace source files, then call `runJSSources:saveChanges` with only changed paths plus `baseCommitId`, `baseOwnerFingerprint`, and per-path `expectedBlobHash`. The save compiles the complete materialized candidate; repair diagnostics and retry against the unchanged base. `compilePreview` remains optional for a dry-run or debugging. Settings are Host values and do not create source commits. The Workspace may contain any reasonable local `components`, `hooks`, `services`, `utils`, and related source files. A safe snippet is only a scaffold; it does not impose one-snippet, editable-slot, or single-file limits. Keep final source in Workspace files, never in `settings.code` or `assets.scripts`.
 
 For `embedded/single-surface` and `compatibility-single-file`, use the scoped five-step loop:
 

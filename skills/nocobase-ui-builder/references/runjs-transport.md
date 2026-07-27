@@ -1,13 +1,15 @@
 # Inline RunJS Workspace transport
 
 This file is the canonical transport contract for ordinary Inline RunJS Workspaces. Host actions create or read the
-surface; the Host response supplies the canonical `data.runJSLocator`. Copy that `runJSLocator` object unchanged into
-every RunJS request. Do not construct a locator from `modelUid` or other Host fields.
+surface; the Host response supplies the canonical `data.runJSLocator`. Copy that object unchanged into `open`. After
+`open` or `open-latest`, copy that response's normalized `data.locator` unchanged into subsequent requests based on the
+same snapshot. Do not construct either locator from `modelUid` or other Host fields.
 
 The backend action names and shell commands are distinct:
 
 | Backend action | Shell command | Agent role |
 | --- | --- | --- |
+| `runJSSources:capabilities` | `nb api run-js-sources capabilities -j` | read the versioned owner/model-use and transport capability contract before first complete authoring |
 | `runJSSources:open` | `nb api run-js-sources open` | open the current Workspace and collect CAS/file evidence |
 | `runJSSources:openLatest` | `nb api run-js-sources open-latest` | recover after file, base, or owner conflicts |
 | `runJSSources:saveChanges` | `nb api run-js-sources save-changes` | default Agent save; send changed paths only |
@@ -22,19 +24,9 @@ and template strings are easy to corrupt.
 
 ## Open
 
-Write `/tmp/runjs-open.json` with the canonical Host locator:
-
-```json
-{
-  "locator": {
-    "kind": "flowModel.step",
-    "modelUid": "copied-from-data.runJSLocator",
-    "flowKey": "copied-from-data.runJSLocator",
-    "stepKey": "copied-from-data.runJSLocator",
-    "paramPath": ["copied", "from", "data.runJSLocator"]
-  }
-}
-```
+Write `/tmp/runjs-open.json` by serializing one root object whose `locator` value is the exact
+`data.runJSLocator` object returned by Host create/get. Do not select fields, rename keys, merge another response, or
+type a locator-shaped object by hand.
 
 For a recognized but uninitialized owner, the optional `initialSource` is `{ "code": "...", "version": "v2" }`.
 Then run:
@@ -71,11 +63,11 @@ an empty repository id and `headCommitId: null` when no persisted Workspace exis
 
 ## Save changed paths
 
-Create `/tmp/runjs-save-changes.json` from the files actually changed since `open`:
+Create `/tmp/runjs-save-changes.json` from the files actually changed since `open`. Set its `locator` to the exact
+`data.locator` object returned by that same `open` response. The rest of the root body has this shape:
 
 ```json
 {
-  "locator": {},
   "repoId": "repository.repoId-or-id",
   "baseCommitId": "repository.headCommitId-or-null",
   "baseOwnerFingerprint": "ownerFingerprint-from-the-same-open-response",
@@ -104,7 +96,9 @@ Create `/tmp/runjs-save-changes.json` from the files actually changed since `ope
 }
 ```
 
-`locator`, `repoId`, `baseCommitId`, `baseOwnerFingerprint`, `message`, and a non-empty `changes` array are required.
+The shown JSON fragment omits `locator` only to prevent hand-shaped examples; the transmitted root object must include
+the exact serialized `data.locator`. `locator`, `repoId`, `baseCommitId`, `baseOwnerFingerprint`, `message`, and a
+non-empty `changes` array are required.
 `entryPath` and `version` are optional only when the server can resolve them. Both CAS tokens must come from the same
 `open` or `open-latest` response. Inline save has no `expectedHeadCommitId` field.
 

@@ -1,10 +1,35 @@
 # RunJS Workspace source
 
-This is the contract for an ordinary Inline RunJS Workspace used by a new complete JS Page or JS Block. `flow-surfaces` creates and locates the Host; `runJSSources` owns source files, commits, optional compile previews, and incremental Agent saves.
+This is the contract for an ordinary Inline RunJS Workspace used by every complete JS Model declared by the versioned authoring capability contract. `flow-surfaces` creates and locates the Host; `runJSSources` owns source files, commits, optional compile previews, and incremental Agent saves.
+
+Before first use, run `nb api run-js-sources capabilities -j`. Require `inlineWorkspace.available: true`,
+`inlineWorkspace.saveMode: "delta"`, `inlineWorkspace.supportsMaterialize: true`, and both the requested model use and
+its broad owner kind in the independently published arrays. Contract version `1` publishes:
+
+- owner kinds: `js-block`, `js-page`, `js-field`, `js-column`, `js-action`, `js-item`
+- model uses: `JSPageModel`, `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSColumnModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSItemActionModel`, `JSActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, `JSFormActionModel`, `FilterFormJSActionModel`
+
+The arrays are independent capability lists, not a one-to-one pair mapping. UI Builder maps complete Hosts as follows:
+
+| Broad owner kind | Complete model uses |
+| --- | --- |
+| `js-page` | `JSPageModel` |
+| `js-block` | `JSBlockModel` |
+| `js-field` | `JSFieldModel`, `JSEditableFieldModel` |
+| `js-column` | `JSColumnModel` |
+| `js-action` | `JSActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, `JSFormActionModel`, `FilterFormJSActionModel` |
+| `js-item` | `JSItemModel`, `FormJSFieldItemModel`, `JSItemActionModel` |
+
+Treat the live response as authoritative for its `authoringContractVersion` and matrix. Embedded default/assignment,
+linkage, custom variable, workflow JavaScript, chart option/events, and `flowRegistry` RunJS stay single-surface because
+they are not in this complete-owner matrix.
 
 ## Default route
 
-Use `sourceMode: "inline"`, then `runJSSources:open`. A new Workspace is bootstrapped with the source entry, descriptor, and entry metadata. Existing files are preserved and missing initialization files are added idempotently. This route does not create a `lightExtensionRepos` row or `sourceBinding`.
+Copy the canonical locator returned by Host create/get exactly; never construct it from `uid`, `modelUid`, `use`, or
+`fieldUid`. Use `sourceMode: "inline"`, then `runJSSources:open`. A new Workspace is bootstrapped with the source entry,
+descriptor, and entry metadata. Existing files are preserved and missing initialization files are added idempotently.
+This route does not create a `lightExtensionRepos` row or `sourceBinding`.
 
 The normal sequence is:
 
@@ -26,4 +51,11 @@ Do not expose secrets, tokens, internal UIDs, arbitrary JS/HTML/SQL, module path
 
 ## Boundaries
 
-Use the ordinary owner compatibility gate for existing workspaces. Do not silently externalize an Inline Workspace because it is large, modular, uses imports, or has hooks/services. Explicit externalization is a separate action; use [light-extension-source.md](./light-extension-source.md) for that handoff.
+Use the ordinary owner compatibility gate for existing workspaces. Multiple files, imports, hooks, services, size, or
+complexity never trigger Light Extension; do not silently externalize an Inline Workspace for any of those reasons.
+Explicit externalization is a separate user intent; use [light-extension-source.md](./light-extension-source.md) for that
+handoff.
+
+If the user explicitly requested multiple files, missing capability support, a missing canonical locator, or a non-ready
+Workspace is a stop condition. Do not downgrade to `settings.code`, an ordinary JS Block, another Surface, or a Light
+Extension.

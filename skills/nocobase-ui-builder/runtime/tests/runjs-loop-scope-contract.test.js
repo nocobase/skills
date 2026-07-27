@@ -19,7 +19,7 @@ test('classifies complete workspaces before routing embedded and compatibility R
     assert.match(loop, new RegExp(label.replace('/', '\\/'), 'i'));
   }
 
-  assert.match(js, /complete-workspace[\s\S]{0,220}new complete JS Page[\s\S]{0,120}new complete JS Block/i);
+  assert.match(js, /complete-workspace[\s\S]{0,260}complete JS Page, Block, Field, Editable Field, Column, Item, Item Action, and action-family Models/i);
   assert.match(js, /embedded\/single-surface[\s\S]{0,260}event-flow[\s\S]{0,180}linkage[\s\S]{0,180}value-return/i);
   assert.match(js, /compatibility-single-file[\s\S]{0,120}compatibility gate/i);
   assert.match(js, /compatibility gate[\s\S]{0,120}public single-file path/i);

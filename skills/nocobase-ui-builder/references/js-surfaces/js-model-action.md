@@ -5,11 +5,13 @@ Use this surface for JS actions whose main job is to run click logic.
 ## Contract
 
 - Editor scene in the bundled product reference snapshot: `jsAction`
-- Writeback path in this skill: `clickSettings.runJs`
+- Writeback path for a complete action-family Model declared by `run-js-sources capabilities`: create/read the Host, copy its canonical locator exactly, then use Inline Workspace `open -> Settings Pass -> save-changes`.
+- `clickSettings.runJs` remains the embedded/single-surface or compatibility-single-file writeback path.
 - Validation style: action
 - Return is optional.
 - `ctx.render(...)` is not the default output mechanism.
 - Exact modelUse still matters; use `JSActionModel`, `JSFormActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, or `FilterFormJSActionModel`.
+- When one of those model uses is present in the machine contract and the Host returns a canonical locator, action placement does not make it embedded.
 - `JSItemActionModel` is not validated on this surface; it uses the render contract in [js-model-render.md](./js-model-render.md).
 
 ## Choosing `js` vs `jsItem`

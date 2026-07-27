@@ -12,7 +12,7 @@ Read this after [../js.md](../js.md) when the task is already known to be JS / R
 
 ## Quick route
 
-For a new complete JS Page, read [../create-js-page-quick.md](../create-js-page-quick.md) first. A new complete JS Block follows that same Host -> Inline Workspace route after Host creation. Run the Settings Pass before implementation, keep reasonable `components`, `hooks`, `services`, and `utils` as separate local files, and send only changed paths through `run-js-sources save-changes`. The surface table describes the runtime scene; it does not impose a single-file snippet shape or justify externalization.
+For a new complete JS Page, read [../create-js-page-quick.md](../create-js-page-quick.md) first. Every complete JS Model declared by `run-js-sources capabilities` follows the same Host -> canonical locator -> Inline Workspace route after Host creation. Run the Settings Pass before implementation, keep reasonable `components`, `hooks`, `services`, and `utils` as separate local files, and send only changed paths through `run-js-sources save-changes`. The surface table describes the runtime scene; it does not impose a single-file snippet shape or justify externalization.
 
 | Surface | Read first | Editor scene | Writeback path | Validation style |
 | --- | --- | --- | --- | --- |
@@ -20,9 +20,10 @@ For a new complete JS Page, read [../create-js-page-quick.md](../create-js-page-
 | Linkage `Execute JavaScript` | [linkage.md](./linkage.md) | `linkage` | `actions[].name="linkageRunjs" -> params.value.script` | action-style |
 | Field/default/copy value RunJS | [value-return.md](./value-return.md) | usually `formValue` | `value.source="runjs"` | value-return |
 | Custom-variable RunJS | [value-return.md](./value-return.md) | `customVariable` | `variables[].runjs` | value-return |
-| Complete JS Page / JS Block render | [js-model-render.md](./js-model-render.md) | `jsModel` | Workspace files through `run-js-sources`; snippets are scaffolds only | render |
+| Capability-backed complete JS Page / Block / Field / Editable Field / Column / Item / Item Action render | [js-model-render.md](./js-model-render.md) | `jsModel` | Workspace files through `run-js-sources`; snippets are scaffolds only | render |
 | Embedded or compatibility JS model render | [js-model-render.md](./js-model-render.md) | `jsModel` | public `settings.code` / `assets.scripts` + `script`; configure uses `changes.code`; internal readback may show `stepParams.jsSettings.runJs` | render |
-| JS model action | [js-model-action.md](./js-model-action.md) | `jsAction` | `clickSettings.runJs` | action-style |
+| Capability-backed complete JS action-family Model | [js-model-action.md](./js-model-action.md) | `jsAction` | Workspace files through `run-js-sources`; snippets are scaffolds only | action-style |
+| Embedded or compatibility JS model action | [js-model-action.md](./js-model-action.md) | `jsAction` | `clickSettings.runJs` | action-style |
 
 ## Snippet manifest
 

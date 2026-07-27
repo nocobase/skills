@@ -916,8 +916,8 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(localEdit, /runjs-capability-gate\.md/i);
   assert.match(capabilityGate, /JS Page[\s\S]{0,260}Never substitute an ordinary page \+ JS Block/i);
   assert.match(pageBlueprint, /complete Workspace[\s\S]{0,160}settings\.code[\s\S]{0,80}assets\.scripts/i);
-  assert.match(surfaceIndex, /new complete JS Page[\s\S]{0,180}Inline Workspace/i);
-  assert.match(openai, /new complete JS Page[\s\S]{0,420}run-js-sources open/i);
+  assert.match(surfaceIndex, /new complete JS Page[\s\S]{0,260}Every complete JS Model[\s\S]{0,180}Inline Workspace/i);
+  assert.match(openai, /run-js-sources capabilities -j[\s\S]{0,720}all use Host -> canonical locator -> Inline Workspace/i);
 });
 
 test('RunJS transport, routing, capability, and discovery contracts stay aligned', () => {

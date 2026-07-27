@@ -37,6 +37,9 @@ test('real default prompt carries the complete RunJS route without relying on YA
 
   for (const token of [
     'flow-surfaces',
+    'run-js-sources capabilities -j',
+    'authoringContractVersion',
+    'ownerKinds/modelUses/saveMode',
     'canonical runJSLocator',
     'Settings Pass',
     'save-changes',
@@ -52,9 +55,19 @@ test('real default prompt carries the complete RunJS route without relying on YA
   }
 
   assert.match(prompt, /Multiple files[\s\S]{0,180}do not trigger Light Extension/i);
+  assert.match(prompt, /explicit multi-file intent[\s\S]{0,220}never downgrade/i);
   assert.match(prompt, /JS Page capability failure[\s\S]{0,120}never fake/i);
   assert.match(prompt, /complete JS Block[\s\S]{0,240}minimal safe `?settings\.code`? placeholder[\s\S]{0,240}final business source[\s\S]{0,120}Workspace/i);
   assert.match(prompt, /save-changes success[\s\S]{0,200}new commit and owner fingerprint/i);
+});
+
+test('transport serializes the Host-returned locator without teaching a hand-shaped locator', () => {
+  const transport = read('references/runjs-transport.md');
+
+  assert.match(transport, /exact[\s\S]{0,80}`data\.runJSLocator` object returned by Host create\/get/i);
+  assert.match(transport, /exact serialized `data\.locator`/i);
+  assert.doesNotMatch(transport, /"locator"\s*:\s*\{/i);
+  assert.doesNotMatch(transport, /"flowKey"|"stepKey"|"paramPath"/i);
 });
 
 test('default prompt extraction ignores comments outside the scalar', () => {
