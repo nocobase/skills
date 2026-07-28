@@ -1,7 +1,7 @@
 ---
 name: nocobase-portal-manage
-description: "Use when users need to create, configure, inspect, sync, push, pull, deploy, develop, diagnose, or destroy NocoBase portals through direct `nb portal` commands, including Git source storage setup and portal source push/pull workflows."
-argument-hint: "[action: list|info|create|config|pull|push|deploy|dev|destroy|diagnose] [portal?] [env?: name]"
+description: "Use when users need to build, modify, inspect, create, configure, sync, push, pull, deploy, develop, diagnose, or destroy NocoBase portals. For natural Portal UI requests, first identify whether the target is a no-code Portal or an AI Portal: use the `nocobase-ui-builder` skill to build no-code Portal UI, and work in the corresponding Portal source directory for AI Portal UI authoring. Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deployment operations."
+argument-hint: "[action: build|list|info|create|config|pull|push|deploy|dev|destroy|diagnose] [portal?] [env?: name]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
 version: 1.0.0
@@ -11,11 +11,14 @@ risk-level: medium
 
 # Goal
 
-Manage NocoBase Portal workspaces with direct `nb portal` commands, preserving env selection, source storage configuration, and clear readback after changes.
+Manage NocoBase Portal workspaces and route Portal UI build requests to the correct implementation path, preserving env selection, source storage configuration, and clear readback after changes.
 
 # Scope
 
 - Inspect Portal inventory and details.
+- Start natural Portal UI build requests by resolving the target env, Portal, and Portal type.
+- Use the `nocobase-ui-builder` skill to build no-code Portal UI.
+- Route AI Portal UI building to the corresponding Portal source directory.
 - Create Portal workspaces from templates.
 - Configure Portal source storage, including Git repo, branch, and path.
 - Pull and push Portal source between local workspace, NocoBase storage, and Git source storage.
@@ -25,7 +28,8 @@ Manage NocoBase Portal workspaces with direct `nb portal` commands, preserving e
 
 # Non-Goals
 
-- Do not author Modern UI pages, blocks, menus, reactions, or page content; hand off to `nocobase-ui-builder`.
+- Do not directly author no-code Modern UI pages, blocks, menus, reactions, or page content inside this skill; use the `nocobase-ui-builder` skill while preserving Portal env and workspace context.
+- Do not use `nocobase-ui-builder` for AI Portal source-code UI implementation; work in the corresponding Portal source directory after resolving it from Portal info or local workspace state.
 - Do not manage app runtime lifecycle, CLI self-update, env setup, or installed skills update; hand off to `nocobase-env-manage`.
 - Do not manage backup restore or migration publishing; hand off to `nocobase-publish-manage`.
 - Do not directly edit Portal source files unless the user explicitly asks for code changes.
@@ -34,7 +38,7 @@ Manage NocoBase Portal workspaces with direct `nb portal` commands, preserving e
 
 # Hard Rules
 
-- Use direct `nb portal` commands only.
+- Use direct `nb portal` commands for Portal lifecycle, source storage, sync, deploy, and diagnosis operations.
 - Use the current configured CLI env unless the user provides an explicit env.
 - When passing an explicit env that may differ from the current env, include `--yes` only when the user requested non-interactive execution or explicitly confirmed the target env.
 - Before `destroy`, require explicit confirmation from the user.
@@ -57,12 +61,13 @@ Manage NocoBase Portal workspaces with direct `nb portal` commands, preserving e
 - `dev`
 - `destroy`
 - `diagnose`
+- `build`
 
 # Input Contract
 
 | Input | Required | Default | Validation | Clarification Question |
 |---|---|---|---|---|
-| `action` | yes | inferred | one of `list/info/create/config/pull/push/deploy/dev/destroy/diagnose` | "Which Portal action should I run?" |
+| `action` | yes | inferred | one of `build/list/info/create/config/pull/push/deploy/dev/destroy/diagnose` | "Which Portal action should I run?" |
 | `portal` | except `list` | none | valid Portal slug/name accepted by CLI | "Which Portal should I target?" |
 | `runtime_env_name` | no | current env | configured CLI env name | "Which env should I target?" |
 | `template` | create only | CLI default | npm package, local path, or `file://` URL | "Which Portal template should I use?" |
@@ -92,6 +97,26 @@ Rules:
 
 # Workflow
 
+## Natural Portal UI Build Workflow
+
+Use this path when the user asks to build, modify, or continue a Portal UI in natural language, such as "搭一个客户门户", "做一个供应商 Portal", "改 AI Portal 首页", "给外部客户做订单查询", or "在 Portal 里加一个工单页面".
+
+1. Inspect the current env with `nb env current` and `nb env info`.
+2. Inspect Portal inventory with `nb portal list`.
+3. Resolve the target Portal:
+   - If exactly one Portal exists, use it by default.
+   - If no Portal exists and the request is a new-build request, create a Portal only after resolving the minimum create inputs such as slug/title and Portal type.
+   - If no Portal exists and the user did not ask to create one, ask whether to create a new Portal.
+   - If multiple Portals exist, infer the target from the user's words, active/local Portal workspace, recent `portal.config.json`, current working directory, or unique name/title match.
+   - If multiple Portals still remain possible, ask one concise Portal-selection question and include the available Portal names.
+4. Determine whether the target is a no-code Portal or an AI Portal from the user's words, Portal info, template/source metadata, or local workspace structure.
+5. If it is a no-code Portal, use the `nocobase-ui-builder` skill for page, menu, block, field, action, and permission authoring.
+6. If it is an AI Portal, locate the corresponding Portal source directory from `nb portal info <portal>`, `portal.config.json`, or the local Portal workspace, then edit and test the UI in that directory.
+7. If the Portal type is ambiguous, ask one concise question: "这是 no-code portal 还是 ai portal?"
+8. After UI changes, use this skill for `nb portal dev`, `nb portal push`, or `nb portal deploy` only when requested or naturally needed for verification/readback.
+
+## Portal Command Workflow
+
 1. Infer the Portal action and target env from the user's request.
 2. Read [Runtime Contract](references/runtime-contract.md) before executing an unfamiliar command shape or when building a command with flags.
 3. For Git source storage setup or failures, read [Git Source Storage](references/git-source-storage.md).
@@ -113,6 +138,10 @@ Rules:
 - Use `dev` for "启动 portal dev", "local portal development".
 - Use `destroy` only for explicit delete/destroy intent.
 - Use `diagnose` when the user provides an error log or asks why a Portal command failed.
+- Use `build` for natural UI requests such as "搭 portal", "客户门户", "供应商 portal", "AI Portal 页面", "portal UI", "订单查询页面", "提交工单", "会员中心", or "外部用户页面".
+- When a UI request omits the Portal name, inspect env and Portal inventory first; use the only Portal by default, infer from local context when possible, and ask only if multiple targets remain plausible.
+- For no-code Portal build requests, use the `nocobase-ui-builder` skill for UI authoring.
+- For AI Portal build requests, locate the Portal source directory and implement UI changes there.
 
 # Reference Loading Map
 
@@ -154,6 +183,9 @@ Rollback guidance:
 - Git source storage commands include a full remote URL when required.
 - Default Git path uses `.` for one-Portal-per-repository workflows.
 - Write actions have readback with `nb portal info` or `nb portal list`.
+- Natural UI build requests resolve no-code Portal vs AI Portal before choosing an implementation path.
+- No-code Portal UI authoring uses the `nocobase-ui-builder` skill.
+- AI Portal UI authoring happens in the corresponding Portal source directory.
 - Failure output includes the failed command and relevant CLI lines.
 - Final answer reports commands, result, readback status, assumptions, and remaining risks.
 
@@ -164,12 +196,14 @@ Rollback guidance:
 3. `push` with an empty Git repository reports branch creation support or actionable recovery.
 4. `pull --force` blocks until explicit confirmation.
 5. `destroy` blocks until explicit confirmation.
-6. UI page authoring request is handed off to `nocobase-ui-builder`.
-7. App start/update request is handed off to `nocobase-env-manage`.
+6. No-code Portal UI page authoring request uses the `nocobase-ui-builder` skill.
+7. AI Portal UI page authoring request resolves and edits the corresponding Portal source directory.
+8. Ambiguous Portal UI request asks whether the target is no-code Portal or AI Portal when it cannot be inferred.
+9. App start/update request is handed off to `nocobase-env-manage`.
 
 # Output Contract
 
-Always return:
+For direct Portal command tasks, always return:
 
 - `request`
 - `commands`
@@ -178,6 +212,17 @@ Always return:
 - `result`
 - `readback`
 - `assumptions`
+- `next_steps`
+
+For natural UI build tasks, return:
+
+- `request`
+- `env`
+- `portal`
+- `portal_type`
+- `implementation_path`
+- `build_summary`
+- `verification`
 - `next_steps`
 
 # References

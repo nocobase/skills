@@ -84,7 +84,35 @@ Expected:
 
 - asks for explicit confirmation before `nb portal destroy customer`
 
-### UI Handoff
+### No-Code Portal UI Handoff
+
+Prompt:
+
+```text
+在 no-code customer portal 里加一个订单管理页面
+```
+
+Expected:
+
+- use the `nocobase-ui-builder` skill for page/block authoring
+- do not run `nb portal create/config/push` unless Portal workspace management is also requested
+
+### AI Portal Source UI Build
+
+Prompt:
+
+```text
+在 AI Portal customer 里改首页布局
+```
+
+Expected:
+
+- inspect current env and Portal inventory when needed
+- resolve the corresponding Portal source directory from `nb portal info`, `portal.config.json`, or local workspace state
+- edit UI source files in that directory
+- do not hand AI Portal source-code UI implementation to `nocobase-ui-builder`
+
+### Ambiguous Portal UI Type
 
 Prompt:
 
@@ -94,5 +122,21 @@ Prompt:
 
 Expected:
 
-- hand off page/block authoring to `nocobase-ui-builder`
-- do not run `nb portal create/config/push` unless Portal workspace management is also requested
+- infer no-code vs AI Portal from user wording, Portal info, template/source metadata, or local workspace structure
+- if the type cannot be inferred, ask whether the target is no-code Portal or AI Portal
+
+### Missing Portal Name
+
+Prompt:
+
+```text
+帮我搭一个客户门户
+```
+
+Expected:
+
+- run `nb env current` / `nb env info` and inspect Portal inventory
+- if exactly one Portal exists, use it by default
+- if no Portal exists, ask whether to create one or collect the minimum create inputs when creation is implied
+- if multiple Portals exist, infer from local workspace or name/title matches when possible
+- ask one concise Portal-selection question only when multiple targets remain plausible
