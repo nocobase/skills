@@ -24,6 +24,7 @@ Mobile create navigation:
 ## Explicit Workspace Target
 
 - When the user explicitly names a workspace or asks to discover navigation targets, run `nb api flow-surfaces list-navigation-targets -j`.
+- This same discovery path is the compatibility fallback after `nocobase-portal-manage` reports that the installed CLI does not expose `nb portal`, but only for no-code Modern UI workspace/page authoring.
 - Match exact `targets[].uid` first, then one unique exact `targets[].title`. Missing or duplicate matches require user confirmation; never auto-create a workspace.
 - If `capabilities.multiPortal` is false, report that the optional capability is unavailable only for the workspace-specific request.
 - For `kind: "portal"`, set `navigation.portalUid` from the returned target and omit `navigation.layoutUid`. For layout targets, keep the existing `layoutUid` rules; default Admin omits both.

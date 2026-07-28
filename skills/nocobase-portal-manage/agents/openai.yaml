@@ -1,6 +1,6 @@
 interface:
   display_name: "NocoBase Portal Manage"
-  short_description: "Resolve Portal type with nb portal list, then build, sync, deploy, and diagnose NocoBase portals"
+  short_description: "Resolve Portal type with nb portal when available; degrade gracefully on CLI versions without portal support"
   default_prompt: >
     Use $nocobase-portal-manage for NocoBase Portal UI build routing and Portal workspace management.
 
@@ -19,8 +19,10 @@ interface:
     - destroying a portal after explicit confirmation
 
     Hard rules:
+    - Check whether the installed CLI exposes `nb portal` before running Portal commands.
     - Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deploy operations.
-    - For Portal UI requests, run `nb portal list` before `flow-surfaces list-navigation-targets`, no-code page authoring, or AI Portal source-code edits.
+    - For Portal UI requests, run `nb portal list` before `flow-surfaces list-navigation-targets`, no-code page authoring, or AI Portal source-code edits when the Portal command surface is available.
+    - If `nb portal` is unavailable, block lifecycle/source/deploy/destroy operations with a clear CLI capability report; likely no-code Modern UI workspace/page authoring may fall back to $nocobase-ui-builder and `flow-surfaces list-navigation-targets`.
     - Use the current configured env unless the user provides an explicit env.
     - For one-portal-per-repository Git workflows, prefer `--git-path .`.
     - For no-code Portal UI, use the $nocobase-ui-builder skill for page, menu, block, field, action, and permission authoring.

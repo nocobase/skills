@@ -33,7 +33,7 @@ The report can stay short. It should say:
 
 | Request slice | Handoff |
 | --- | --- |
-| any named/classed Portal UI, such as customer / supplier / admin / custom / AI Portal page or Portal source-code UI | `nocobase-portal-manage` first; it must run `nb portal list` before deciding no-code vs AI Portal |
+| any named/classed Portal UI, such as customer / supplier / admin / custom / AI Portal page or Portal source-code UI | `nocobase-portal-manage` first; it checks whether `nb portal` is available and runs `nb portal list` when supported. If `nb portal` is missing, only likely no-code Modern UI workspace/page authoring may return here through `flow-surfaces list-navigation-targets`; Portal lifecycle and AI Portal source-code routing stay blocked. |
 | ACL / role / route permission | `nocobase-acl-manage` |
 | collection / field / relation authoring | `nocobase-data-modeling` |
 | workflow create / update / execution | `nocobase-workflow-manage` |

@@ -7,6 +7,7 @@ Map Portal management intent to direct `nb portal` commands.
 ## Table Of Contents
 
 - [Env Flags](#env-flags)
+- [Capability Detection](#capability-detection)
 - [Command Map](#command-map)
 - [Readback](#readback)
 - [Failure Reporting](#failure-reporting)
@@ -16,6 +17,23 @@ Map Portal management intent to direct `nb portal` commands.
 - Use the current configured env by default.
 - When the user names an env, pass the env flag only according to the command help.
 - Add `--yes` only when the user explicitly requested non-interactive execution or confirmed the cross-env target.
+
+## Capability Detection
+
+Before running a Portal command, verify the installed CLI exposes the command surface:
+
+```bash
+nb portal --help
+```
+
+If that command fails because `portal` is unknown or unavailable:
+
+- stop lifecycle, source storage, sync, deploy, dev, destroy, list, and info actions
+- report that the installed `nb` version does not provide Portal CLI support
+- hand CLI/runtime update or env diagnosis to `nocobase-env-manage`
+- do not emulate Portal operations through direct database edits, Docker commands, private APIs, or wrapper scripts
+
+For natural no-code UI requests that merely need a Modern UI workspace/page target, the caller may fall back to `nocobase-ui-builder`; that skill can use `nb api flow-surfaces list-navigation-targets -j` when the backend supports explicit workspace targets.
 
 ## Command Map
 

@@ -16,8 +16,50 @@ List portals in the current environment
 
 Expected:
 
+- checks that `nb portal` is available before running the list command
 - command uses `nb portal list`
 - no Portal name clarification is required
+
+### Missing Portal CLI Blocks Lifecycle
+
+Prompt:
+
+```text
+List portals in the current environment
+```
+
+Setup:
+
+```text
+Installed nb help does not expose a portal command.
+```
+
+Expected:
+
+- reports that the installed CLI does not support `nb portal`
+- does not try direct database, Docker, private API, or wrapper-script fallbacks
+- hands CLI/runtime update or env diagnosis to `nocobase-env-manage`
+
+### Missing Portal CLI No-Code UI Fallback
+
+Prompt:
+
+```text
+Add an order management page to the customer portal
+```
+
+Setup:
+
+```text
+Installed nb help does not expose a portal command, but flow-surfaces list-navigation-targets is available.
+```
+
+Expected:
+
+- reports that Portal type/lifecycle resolution is limited because `nb portal` is unavailable
+- for likely no-code Modern UI workspace/page authoring, returns to `nocobase-ui-builder`
+- `nocobase-ui-builder` may run `nb api flow-surfaces list-navigation-targets -j` and set `navigation.portalUid` when it finds one matching workspace
+- does not claim AI Portal source-code routing is resolved
 
 ### Configure Git Root Path
 
