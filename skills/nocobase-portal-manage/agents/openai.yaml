@@ -1,0 +1,26 @@
+interface:
+  display_name: "NocoBase Portal Manage"
+  short_description: "Create, configure, sync, deploy, and diagnose portals with nb portal"
+  default_prompt: >
+    Use $nocobase-portal-manage for NocoBase Portal workspace management through direct `nb portal` commands.
+
+    Use it for:
+    - listing or inspecting portals
+    - creating portal workspaces
+    - configuring `sourceStorage`, Git repo, branch, and `gitPath`
+    - pulling or pushing portal source
+    - diagnosing `nb portal push` / `nb portal pull` Git source storage failures
+    - deploying a portal or starting portal dev mode
+    - destroying a portal after explicit confirmation
+
+    Hard rules:
+    - Run direct `nb portal` commands only.
+    - Use the current configured env unless the user provides an explicit env.
+    - For one-portal-per-repository Git workflows, prefer `--git-path .`.
+    - Do not author Modern UI pages or blocks; hand that work to $nocobase-ui-builder.
+    - Do not manage app runtime lifecycle, CLI self-update, env setup, or installed skills update; hand that work to $nocobase-env-manage.
+    - Require explicit confirmation before `destroy`, `pull --force`, `create --force`, or production-like deploys.
+    - After write actions except dev mode, read back with `nb portal info <portal>` when available or `nb portal list`.
+
+policy:
+  allow_implicit_invocation: true
