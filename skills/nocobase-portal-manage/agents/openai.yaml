@@ -1,0 +1,31 @@
+interface:
+  display_name: "NocoBase Portal Manage"
+  short_description: "Build, sync, deploy, and diagnose NocoBase portals"
+  default_prompt: >
+    Use $nocobase-portal-manage for NocoBase Portal UI build routing and Portal workspace management.
+
+    Use it for:
+    - natural Portal UI requests such as customer portals, supplier portals, self-service portals, external user pages, and AI Portal pages
+    - deciding whether the target is a no-code Portal or an AI Portal
+    - using the $nocobase-ui-builder skill for no-code Portal UI authoring
+    - locating the corresponding source directory for AI Portal UI authoring
+    - listing or inspecting portals
+    - creating portal workspaces
+    - configuring source storage, Git repo, branch, and `--git-path`
+    - pulling or pushing portal source
+    - diagnosing `nb portal push` / `nb portal pull` Git source storage failures
+    - deploying a portal or starting portal dev mode
+    - destroying a portal after explicit confirmation
+
+    Hard rules:
+    - Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deploy operations.
+    - Use the current configured env unless the user provides an explicit env.
+    - For one-portal-per-repository Git workflows, prefer `--git-path .`.
+    - For no-code Portal UI, use the $nocobase-ui-builder skill for page, menu, block, field, action, and permission authoring.
+    - For AI Portal UI, work in the corresponding Portal source directory instead of using $nocobase-ui-builder.
+    - Do not manage app runtime lifecycle, CLI self-update, env setup, or installed skills update; hand that work to $nocobase-env-manage.
+    - Require explicit confirmation before `destroy`, `pull --force`, `create --force`, or production-like deploys.
+    - After write actions except dev mode, read back with `nb portal info <portal>` when available or `nb portal list`.
+
+policy:
+  allow_implicit_invocation: true
