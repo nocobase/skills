@@ -250,6 +250,29 @@ Application-level environment variables configured in NocoBase settings.
 
 **Format**: `{{$env.VARIABLE_NAME}}`
 
+### Pure Variables in Field Assignments
+
+For `params.values` in `create` and `update` nodes, use variables only as the complete assigned value. Do not mix literal text and variables in the same assigned string.
+
+Allowed:
+
+```json
+{
+  "orderId": "{{$context.data.id}}",
+  "status": "paid"
+}
+```
+
+Denied:
+
+```json
+{
+  "orderCode": "abc-{{$context.data.id}}"
+}
+```
+
+If a field needs a composed string, calculate it in an upstream `calculation`, `script`, `json-query`, or `json-variable-mapping` node, then assign the resulting pure variable, for example `"{{$jobsMapByNodeKey.build_order_code}}"`.
+
 ### Usage Examples
 
 #### Assigning field values in an update node

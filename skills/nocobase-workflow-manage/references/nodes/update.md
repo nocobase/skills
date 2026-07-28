@@ -24,7 +24,7 @@ Updating the status and timestamp fields after an order is successfully paid.
 | assignFormSchema | object | {} | No | UI Schema for the custom assignment form (primarily for frontend use). The schema format follows Formily form schema, each field should be configured accordingly (type in collection) as the values are assigned. Each key of properties should be generated as an uid string. |
 | params.individualHooks | boolean | false | No | Update mode: `false` for batch update; `true` for individual update (triggers record-level hooks/workflows). |
 | params.filter | object | None | Yes | Filter conditions (must contain at least one condition). See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
-| params.values | object | {} | No | Field assignment object, where keys are field names and values can be constants or variables; must include at least one field to be updated. |
+| params.values | object | {} | No | Field assignment object, where keys are field names and values can be constants or variables; must include at least one field to be updated. Variables must be pure assigned values, not string templates mixed with literal text; see [Common Conventions - pure variables in field assignments](../conventions/index.md#pure-variables-in-field-assignments). |
 
 ## Branching
 Does not support branches.
