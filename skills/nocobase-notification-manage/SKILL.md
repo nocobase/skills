@@ -45,6 +45,7 @@ Rules:
 - If any required input is missing, stop mutation and ask clarification.
 - If user says "you decide", use documented defaults.
 - Resolve channel names from `notificationChannels`; do not guess generated `s_` names.
+- A notification channel must exist in `notificationChannels` before any workflow node or send operation uses it. Never invent or fill in a non-existent `channelName`; create the channel first, then read it back and use the real `name`.
 - Prefer safe mode for all configuration and test work.
 
 # Mandatory Clarification Gate
@@ -72,7 +73,8 @@ Rules:
 4. Read the relevant reference file before producing field-level guidance.
 5. For mutations, execute one write at a time and read back `notificationChannels`.
 6. For delivery tests, inspect `notificationSendLogs.status`, `reason`, `message`, `triggerFrom`, and `channelName`.
-7. Report the final state, evidence, and any remaining risk.
+7. For workflow notification nodes, use only a read-back `notificationChannels.name`; if no suitable channel exists, create/configure the channel first or stop and report the missing channel.
+8. Report the final state, evidence, and any remaining risk.
 
 # Reference Loading Map
 
@@ -124,6 +126,7 @@ Rollback guidance:
 - Email channel has SMTP `host`, `port`, `secure`, `account`, `password`, and `from` configured without printing secrets.
 - In-app message channel has a display title and can be selected by workflow notifications.
 - Workflow notification node uses type `notification` and a real `channelName`.
+- Workflow in-app message `receivers` constants use integer user IDs, not string values such as `"1"`.
 - Send logs show expected `status`, `triggerFrom`, `channelName`, and `reason` when failed.
 - Errors and partial successes are reported separately.
 - Final output includes CLI env and app context used.

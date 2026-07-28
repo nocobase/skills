@@ -9,6 +9,12 @@
 - Provider configuration field: `options`.
 - Send log collection: `notificationSendLogs`.
 
+## Channel Existence Rule
+
+- A channel must be created in `notificationChannels` before it can be used by workflow notification nodes, tests, or direct send operations.
+- Do not invent a `channelName`, including plausible generated names like `s_ops_email`. If a requested channel is missing, create the channel first and read it back before using it.
+- When a user names a display title, resolve it to the real `notificationChannels.name`; workflow nodes store `channelName`, not the display title.
+
 ## In-App Message
 
 - Channel type: `in-app-message`.
@@ -79,4 +85,5 @@ If `email` or `in-app-message` does not appear as an available channel type:
 3. Confirm high-risk provider changes, especially SMTP credentials.
 4. Write the channel record.
 5. Read back the channel by `name`.
-6. For email, run only an explicitly approved test send.
+6. Use only the read-back `name` in workflow notification nodes or send tests.
+7. For email, run only an explicitly approved test send.

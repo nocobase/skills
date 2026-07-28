@@ -20,7 +20,7 @@ Add an order log or related record after an order is submitted.
 | --- | --- | --- | --- | --- |
 | collection | string | None | Yes | Target data table. The format matches the data source selector. For a single data source, write the collection name (e.g., `posts`). For data sources not main, use `dataSource:collection`. |
 | usingAssignFormSchema | boolean | false | Yes | Whether to use a custom assignment form (primarily affects the frontend configuration display). This option Should always be set to false for new configurations. |
-| params.values | object | {} | No | Field assignment object where keys are field names and values can be constants or variables. Unassigned fields will use their default value or `null`. Variables should follow [Common Conventions - variables](../conventions/index.md#variable-expressions). |
+| params.values | object | {} | No | Field assignment object where keys are field names and values can be constants or variables. Unassigned fields will use their default value or `null`. Variables must be pure assigned values, not string templates mixed with literal text; see [Common Conventions - pure variables in field assignments](../conventions/index.md#pure-variables-in-field-assignments). |
 | params.appends | string[] | [] | No | List of relationship fields to pre-load. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Branch Description
