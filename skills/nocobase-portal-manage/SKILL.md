@@ -1,6 +1,6 @@
 ---
 name: nocobase-portal-manage
-description: "Use when users need to build, modify, inspect, create, configure, sync, push, pull, deploy, develop, diagnose, or destroy NocoBase portals. For natural Portal UI requests, first identify whether the target is a no-code Portal or an AI Portal: use the `nocobase-ui-builder` skill to build no-code Portal UI, and work in the corresponding Portal source directory for AI Portal UI authoring. Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deployment operations."
+description: "Use when users need to build, modify, inspect, create, configure, sync, push, pull, deploy, develop, diagnose, or destroy NocoBase portals, including named or classed Portal UI requests such as customer, supplier, admin, custom, or AI Portal pages. For natural Portal UI requests, first run `nb portal list` and identify whether the target is a no-code Portal or an AI Portal: use the `nocobase-ui-builder` skill to build no-code Portal UI, and work in the corresponding Portal source directory for AI Portal UI authoring. Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deployment operations."
 argument-hint: "[action: build|list|info|create|config|pull|push|deploy|dev|destroy|diagnose] [portal?] [env?: name]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
@@ -39,6 +39,7 @@ Manage NocoBase Portal workspaces and route Portal UI build requests to the corr
 # Hard Rules
 
 - Use direct `nb portal` commands for Portal lifecycle, source storage, sync, deploy, and diagnosis operations.
+- For any natural UI request that mentions `portal`, names a Portal, mentions a Portal class such as customer / supplier / admin / custom / AI Portal, or asks to build/change a page inside a Portal, inspect Portal inventory with `nb portal list` before using `flow-surfaces list-navigation-targets`, `apply-blueprint`, or any source-code edit path.
 - Use the current configured CLI env unless the user provides an explicit env.
 - When passing an explicit env that may differ from the current env, include `--yes` only when the user requested non-interactive execution or explicitly confirmed the target env.
 - Before `destroy`, require explicit confirmation from the user.
@@ -99,7 +100,7 @@ Rules:
 
 ## Natural Portal UI Build Workflow
 
-Use this path when the user asks to build, modify, or continue a Portal UI in natural language, such as "搭一个客户门户", "做一个供应商 Portal", "改 AI Portal 首页", "给外部客户做订单查询", or "在 Portal 里加一个工单页面".
+Use this path when the user asks to build, modify, or continue a Portal UI in natural language, such as "搭一个客户门户", "做一个供应商 Portal", "改 AI Portal 首页", "admin portal 里建页面", "合作伙伴 portal 加页面", "给外部客户做订单查询", or "在 Portal 里加一个工单页面".
 
 1. Inspect the current env with `nb env current` and `nb env info`.
 2. Inspect Portal inventory with `nb portal list`.
@@ -138,7 +139,7 @@ Use this path when the user asks to build, modify, or continue a Portal UI in na
 - Use `dev` for "启动 portal dev", "local portal development".
 - Use `destroy` only for explicit delete/destroy intent.
 - Use `diagnose` when the user provides an error log or asks why a Portal command failed.
-- Use `build` for natural UI requests such as "搭 portal", "客户门户", "供应商 portal", "AI Portal 页面", "portal UI", "订单查询页面", "提交工单", "会员中心", or "外部用户页面".
+- Use `build` for natural UI requests such as "搭 portal", "客户门户", "供应商 portal", "admin portal 里建页面", "合作伙伴 portal 加页面", "AI Portal 页面", "portal UI", "订单查询页面", "提交工单", "会员中心", or "外部用户页面".
 - When a UI request omits the Portal name, inspect env and Portal inventory first; use the only Portal by default, infer from local context when possible, and ask only if multiple targets remain plausible.
 - For no-code Portal build requests, use the `nocobase-ui-builder` skill for UI authoring.
 - For AI Portal build requests, locate the Portal source directory and implement UI changes there.

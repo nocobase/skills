@@ -33,6 +33,7 @@ The report can stay short. It should say:
 
 | Request slice | Handoff |
 | --- | --- |
+| any named/classed Portal UI, such as customer / supplier / admin / custom / AI Portal page or Portal source-code UI | `nocobase-portal-manage` first; it must run `nb portal list` before deciding no-code vs AI Portal |
 | ACL / role / route permission | `nocobase-acl-manage` |
 | collection / field / relation authoring | `nocobase-data-modeling` |
 | workflow create / update / execution | `nocobase-workflow-manage` |

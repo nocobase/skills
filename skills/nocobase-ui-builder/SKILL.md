@@ -10,8 +10,8 @@ description: >-
   base to nocobase-ai-employee, then return for the UI write. Only hand off to
   nocobase-dsl-reconciler when the user explicitly asks for DSL, YAML, git, or
   cli push workflow. Does not handle ACL, data modeling, workflow
-  orchestration, browser reproduction, page error postmortems, or non-Modern
-  page navigation.
+  orchestration, browser reproduction, page error postmortems, NocoBase Portal
+  CLI / AI Portal source-code UI, or non-Modern page navigation.
 ---
 
 # Goal
@@ -28,6 +28,7 @@ description: >-
 
 # Router
 
+- Portal-first boundary: when the user says `portal`, names any Portal, mentions a Portal class such as customer / supplier / admin / custom / AI Portal, or asks to build/change a page inside a Portal, hand off first to `nocobase-portal-manage` so it can run `nb portal list` and resolve the Portal type. Do not start with `flow-surfaces list-navigation-targets`. Return to this skill only after the target is confirmed as a no-code Modern UI Portal or ordinary Modern page surface.
 - whole-page authoring goes through backend `applyBlueprint`, `nb api flow-surfaces apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
 - AI employee / AI assistant action authoring stays inside whole-page or localized `flow-surfaces` writes; read [ai-employee-actions.md](./references/ai-employee-actions.md) when the request mentions AI employee placement, AI analysis buttons, AI assistants, or AI task reconfiguration. Use `nocobase-ai-employee` first only when the request needs employee discovery, matching, creation, prompt/model/skill/tool configuration, or a lifecycle decision beyond binding an existing visible username.
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)
@@ -120,6 +121,7 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 # Scope & Handoff
 
 - Handle only Modern page (v2) menu/page/tab/popup/content surfaces and the block / field / action / layout / reaction work inside them.
+- Hand off any named or classed Portal UI request, including customer / supplier / admin / custom / AI Portal pages, to `nocobase-portal-manage` before any navigation discovery. Portal Manage decides no-code vs AI Portal from `nb portal list` / `nb portal info`; only no-code Portal work may return here for `flow-surfaces` authoring.
 - For partial-match or boundary-report tasks, keep the Modern-page slice narrow and write the handoff report directly from this boundary list. Do not inspect runtime or scripts unless the request is explicitly about those mechanics.
 - Hand off ACL / route permissions / role permissions to `nocobase-acl-manage`.
 - Hand off collection / field / relation authoring to `nocobase-data-modeling`.

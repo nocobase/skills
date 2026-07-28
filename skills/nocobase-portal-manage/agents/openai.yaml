@@ -1,11 +1,12 @@
 interface:
   display_name: "NocoBase Portal Manage"
-  short_description: "Build, sync, deploy, and diagnose NocoBase portals"
+  short_description: "Resolve Portal type with nb portal list, then build, sync, deploy, and diagnose NocoBase portals"
   default_prompt: >
     Use $nocobase-portal-manage for NocoBase Portal UI build routing and Portal workspace management.
 
     Use it for:
     - natural Portal UI requests such as customer portals, supplier portals, self-service portals, external user pages, and AI Portal pages
+    - named or classed Portal UI requests such as "admin portal 里建页面", "供应商 portal 加页面", or "合作伙伴 portal 首页"
     - deciding whether the target is a no-code Portal or an AI Portal
     - using the $nocobase-ui-builder skill for no-code Portal UI authoring
     - locating the corresponding source directory for AI Portal UI authoring
@@ -19,6 +20,7 @@ interface:
 
     Hard rules:
     - Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deploy operations.
+    - For Portal UI requests, run `nb portal list` before `flow-surfaces list-navigation-targets`, no-code page authoring, or AI Portal source-code edits.
     - Use the current configured env unless the user provides an explicit env.
     - For one-portal-per-repository Git workflows, prefer `--git-path .`.
     - For no-code Portal UI, use the $nocobase-ui-builder skill for page, menu, block, field, action, and permission authoring.
