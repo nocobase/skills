@@ -14,7 +14,7 @@ Map Portal management intent to direct `nb portal` commands.
 ## Env Flags
 
 - Use the current configured env by default.
-- When the user names an env, pass `--env <env>` or `-e <env>` according to the command help.
+- When the user names an env, pass the env flag only according to the command help.
 - Add `--yes` only when the user explicitly requested non-interactive execution or confirmed the cross-env target.
 
 ## Command Map
@@ -23,14 +23,12 @@ Map Portal management intent to direct `nb portal` commands.
 
 ```bash
 nb portal list
-nb portal list --env <env> --yes
 ```
 
 ### info
 
 ```bash
 nb portal info <portal>
-nb portal info <portal> --env <env> --yes
 ```
 
 ### create

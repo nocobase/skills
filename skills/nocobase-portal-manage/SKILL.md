@@ -45,7 +45,7 @@ Manage NocoBase Portal workspaces and route Portal UI build requests to the corr
 - Before `pull --force`, `create --force`, or any operation that overwrites local Portal source, require explicit confirmation.
 - For one-Portal-per-repository Git workflows, prefer `--git-path .`.
 - Use subdirectory `--git-path` values only when the user wants multiple Portals or other content in the same Git repository.
-- If an existing `portal.config.json` or remote Portal record already has `git.path`, do not assume the current CLI default rewrites it; change it explicitly with `nb portal config <portal> --git-path .` when requested.
+- If an existing `portal.config.json` or remote Portal record already has a configured Git path, do not assume the current CLI default rewrites it; change it explicitly with `nb portal config <portal> --git-path .` when requested.
 - For `push`, use the user's requested commit message when provided; otherwise let CLI defaults apply.
 - On command failure, report the relevant CLI output and the next concrete recovery command instead of switching transports.
 
@@ -93,7 +93,7 @@ Rules:
 - Before `destroy`, ask for secondary confirmation.
 - Before `pull --force` or `create --force`, ask for secondary confirmation.
 - Before configuring Git storage without `git_repo`, ask for the Git remote URL.
-- If a Git source storage failure mentions an empty remote, missing branch, or missing `gitPath`, diagnose from [Git Source Storage](references/git-source-storage.md) before recommending manual Git commands.
+- If a Git source storage failure mentions an empty remote, missing branch, or missing configured Git path, diagnose from [Git Source Storage](references/git-source-storage.md) before recommending manual Git commands.
 
 # Workflow
 

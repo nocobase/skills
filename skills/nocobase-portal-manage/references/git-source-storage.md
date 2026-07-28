@@ -49,7 +49,7 @@ fatal: Remote branch main not found in upstream origin
 
 Recovery options:
 
-1. Update to a CLI version that supports branch creation during Portal Git push.
+1. Hand off to `nocobase-env-manage` to update to a CLI version that supports branch creation during Portal Git push.
 2. Initialize the remote branch manually with a first commit.
 3. Configure a branch that already exists:
 

@@ -11,7 +11,7 @@ interface:
     - locating the corresponding source directory for AI Portal UI authoring
     - listing or inspecting portals
     - creating portal workspaces
-    - configuring `sourceStorage`, Git repo, branch, and `gitPath`
+    - configuring source storage, Git repo, branch, and `--git-path`
     - pulling or pushing portal source
     - diagnosing `nb portal push` / `nb portal pull` Git source storage failures
     - deploying a portal or starting portal dev mode

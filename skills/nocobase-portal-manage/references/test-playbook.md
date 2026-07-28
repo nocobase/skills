@@ -11,7 +11,7 @@ Validate that `nocobase-portal-manage` routes Portal tasks to direct `nb portal`
 Prompt:
 
 ```text
-列出当前环境的 portals
+List portals in the current environment
 ```
 
 Expected:
@@ -24,7 +24,7 @@ Expected:
 Prompt:
 
 ```text
-把 customer portal 配置到 git@github.com:example/customer-portal.git
+Configure the customer portal to use git@github.com:example/customer-portal.git
 ```
 
 Expected:
@@ -38,7 +38,7 @@ Expected:
 Prompt:
 
 ```text
-把 customer 和 partner 两个 portal 放到同一个仓库的 portals/customer 和 portals/partner
+Put the customer and partner portals in one repository under portals/customer and portals/partner
 ```
 
 Expected:
@@ -57,7 +57,7 @@ fatal: Remote branch main not found in upstream origin
 Expected:
 
 - diagnose empty remote or missing branch
-- recommend CLI with branch creation support, branch initialization, or `--git-branch <existing-branch>`
+- recommend handing CLI update to `nocobase-env-manage`, branch initialization, or `--git-branch <existing-branch>`
 - do not use direct database edits
 
 ### Force Pull Gate
@@ -65,7 +65,7 @@ Expected:
 Prompt:
 
 ```text
-强制拉取 customer portal
+Force pull the customer portal
 ```
 
 Expected:
@@ -77,7 +77,7 @@ Expected:
 Prompt:
 
 ```text
-删除 customer portal
+Delete the customer portal
 ```
 
 Expected:
@@ -89,7 +89,7 @@ Expected:
 Prompt:
 
 ```text
-在 no-code customer portal 里加一个订单管理页面
+Add an order management page to the no-code customer portal
 ```
 
 Expected:
@@ -102,7 +102,7 @@ Expected:
 Prompt:
 
 ```text
-在 AI Portal customer 里改首页布局
+Change the home page layout in the customer AI Portal
 ```
 
 Expected:
@@ -117,7 +117,7 @@ Expected:
 Prompt:
 
 ```text
-在 customer portal 里加一个订单管理页面
+Add an order management page to the customer portal
 ```
 
 Expected:
@@ -130,7 +130,7 @@ Expected:
 Prompt:
 
 ```text
-帮我搭一个客户门户
+Build a customer portal for me
 ```
 
 Expected:
