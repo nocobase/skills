@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "Route Modern page work by intent; hand named/classed Portal UI to Portal Manage first, with legacy no-nb-portal fallback"
-  default_prompt: "Front door: `nb api flow-surfaces`Intent-firstwholePage1 tabcomplex multi-blocknested popupmulti-reactionreadsmetadataokapply-blueprintlocalized editsbackend actionsget-reaction-metafirst writeapplyBlueprintno createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rulesfail->repair aggregate errors+retry<=5success only explicit local/live gapreportmobilenavigation.layoutUidmobile-layout-modelRepeat-eligiblecontextual list-templateskeyword-only searchdiscovery-onlylocal customizationtemplate sourcefirst resultpage wording≠local-only intentask, not copysame-titlerouteIdpageSchemaUidsame-groupsame-titlereplacedifferent-groupsame-titlenomergesemantic AntDesign iconmulti-non-filter keyed layout/titlestemplates exemptsingle non-filteroptionalunless askedhostBound搜索/filtersameHostfilterActionoptionalsetLayoutstring[][]number[][[a],[b]]2col[[a,b]]stackuid not keysearchPage≠filterfilter/search blockfilterForm4+ fieldscollapserow1defaultFilteromitbackend4explicitemptyinvalid<4errorsraw payload onlytreeTableomitrecordActionsdefaultaddChildEFmoveNoInjectfirstlivedirectnon-assoctitleField>name>code>title分析看板KPIJSBlocktrenddistributionrankingpercentage占比 chartrequiredtable/list!=chartchartassets.charts+block.chartcardGridsettings.codeconfigurechanges.code/versionban(top-level code/version,changes.settings,stepParams禁,propsdecoratorPropsflowRegistry)typejsBlockonlykanban/pipeline/status columnsKanbanassociatedRecords+associationField1 editFormtryTemplatesaveAsTemplate"
+  short_description: "Execute Modern UI only for one resolved no-code Portal; unresolved or AI Portal UI returns to Portal Manage"
+  default_prompt: "Gate:PM unless noCode portalUid/legacy multiPortal:false/`nb api flow-surfaces`Intent-firstwholePage1 tabcomplex multi-blocknested popupmulti-reactionreadsmetadataokapply-blueprintlocalized editsbackend actionsget-reaction-metafirst writeapplyBlueprintno createMenu/createPage/compose/configure/updateSettings/add*/move*/remove*/set*Rulesfail->repair aggregate errors+retry<=5success only explicit local/live gapreportRepeat-eligiblecontextual list-templateskeyword-only searchdiscovery-onlylocal customizationtemplate sourcefirst resultpage wording≠local-only intentask, not copysame-titlerouteIdpageSchemaUidsame-groupsame-titlereplacedifferent-groupsame-titlenomergesemantic AntDesign iconmulti-non-filter keyed layout/titlestemplates exemptsingle non-filteroptionalunless askedhostBound搜索/filtersameHostfilterActionoptionalsetLayoutstring[][]number[][[a],[b]]2col[[a,b]]stackuid not keysearchPage≠filterfilter/search blockfilterForm4+ fieldscollapserow1defaultFilteromitbackend4explicitemptyinvalid<4errorsraw payload onlytreeTableomitrecordActionsdefaultaddChildEFmoveNoInjectfirstlivedirectnon-assoctitleField>name>code>title分析看板KPIJSBlocktrenddistributionrankingpercentage占比 chartrequiredtable/list!=chartchartassets.charts+block.chartcardGridsettings.codeconfigurechanges.code/versionban(top-level code/version,changes.settings,stepParams禁,propsdecoratorPropsflowRegistry)typejsBlockonlykanban/pipeline/status columnsKanbanassociatedRecords+associationField1 editFormtryTemplatesaveAsTemplate"
 
 # Long-form guardrails kept here for docs-consistency checks and human review:
 # rebuild defaults.collections from scratch via live metadata
@@ -11,12 +11,15 @@ interface:
 # table addNew threshold
 # associations popups{name,description} first-segment
 # described generated add/edit fields => structured formBehavior or formBehaviorDescriptionReview.fields.<field>{decision,reasonCode}; no legacy review/empty-object fallback
+# Portal preflight before every mutation: no selection or multiple selections stop; AI stays on Portal Manage's source path; no-code requires a non-empty selected name and exact kind=portal + routeName mapping.
+# Use the unique target portalUid/uid as navigation.portalUid; ignore target default, layout targets, and backing layoutUid. Legacy Admin/Mobile layout requires capabilities.multiPortal=false.
+# navigation-portal-type-unsupported, navigation-portal-selection-required, navigation-portal-not-found, and navigation-admin-layout-not-portal-target stop or hand off; never repair-loop or retry against Admin.
 
 dependencies:
   tools:
     - type: "cli"
       value: "nb"
-      description: "Use nb api flow-surfaces for Modern-page UI operations; use Portal Manage first for named/classed Portal UI, and allow list-navigation-targets fallback when nb portal is unavailable"
+      description: "After Portal Manage resolves one no-code Portal, map kind=portal plus exact routeName and use its portalUid for nb api flow-surfaces; use direct Admin/Mobile only when multiPortal=false"
 
 policy:
   allow_implicit_invocation: true

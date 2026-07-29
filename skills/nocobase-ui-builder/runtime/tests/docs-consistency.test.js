@@ -476,12 +476,12 @@ function assertSharedMenuGroupMultiPageRunsAreSerialized(text, sourceLabel) {
   );
   assert.match(
     text,
-    /(?:first|first page|第一页|首个页面)[\s\S]{0,220}(?:title|navigation\.group\.title)[\s\S]{0,260}(?:routeId|response|desktopRoutes|响应)/i,
+    /(?:first|first page|第一页|首个页面)[\s\S]{0,220}(?:(?:title|navigation\.group\.title)[\s\S]{0,260}(?:routeId|response|desktopRoutes|响应)|resolved `?routeId`?)/i,
     `${sourceLabel} should allow the first shared-group page to create or resolve the group and capture routeId`,
   );
   assert.match(
     text,
-    /(?:subsequent|later|remaining|后续|其余)[\s\S]{0,220}(?:navigation\.group[\s\S]{0,80}\{\s*["']?routeId|routeId)[\s\S]{0,220}(?:not|never|不要|不得|禁止)[\s\S]{0,120}(?:title-only|title only|只用 title|navigation\.group\.title)/i,
+    /(?:subsequent|later|remaining|后续|其余)[\s\S]{0,220}(?:navigation\.group[\s\S]{0,80}\{\s*["']?routeId|routeId)[\s\S]{0,220}(?:not|never|不要|不得|禁止)[\s\S]{0,120}(?:title-only|title only|只用 title|navigation\.group\.title)|carry the first page's resolved `?routeId`?/i,
     `${sourceLabel} should require later shared-group pages to use the captured routeId instead of title-only creation`,
   );
   assert.match(
@@ -772,6 +772,91 @@ test('required docs and relative links stay valid', () => {
     assert.equal(existsSync(path.join(skillRoot, relativePath)), true, `${relativePath} should exist`);
     if (relativePath.endsWith('.md')) assertRelativeMarkdownLinksExist(relativePath);
   }
+});
+
+test('Portal Manage dispatches UI requests and UI Builder requires resolved no-code routing', () => {
+  const readPortal = (relativePath) => read(`../nocobase-portal-manage/${relativePath}`);
+  const readme = read('../../README.md');
+  const portalSkill = readPortal('SKILL.md');
+  const portalAgent = readPortal('agents/openai.yaml');
+  const portalRuntime = readPortal('references/runtime-contract.md');
+  const portalPlaybook = readPortal('references/test-playbook.md');
+  const uiSkill = read('SKILL.md');
+  const uiAgent = read('agents/openai.yaml');
+  const navigation = read('references/navigation-targets.md');
+  const boundary = read('references/boundary-quick.md');
+
+  assert.match(readme, /nocobase-portal-manage[^\n]*Default dispatcher for NocoBase UI authoring/i);
+  assert.doesNotMatch(readme, /nocobase-ui-builder[^\n]*Default entry point for UI authoring/i);
+  assert.match(portalSkill, /Default dispatcher for every NocoBase page, menu, block, field, action, layout, or reaction/i);
+  assert.match(portalAgent, /default dispatcher for NocoBase UI authoring/i);
+  assert.doesNotMatch(uiSkill, /DEFAULT entry point/i);
+  assert.match(uiSkill, /Execute NocoBase Modern UI authoring only after[\s\S]{0,180}no-code Portal/i);
+  assert.match(uiSkill, /every unresolved NocoBase page\/UI request[\s\S]{0,120}nocobase-portal-manage/i);
+  assert.match(uiAgent, /Execute Modern UI only for one resolved no-code Portal/i);
+
+  for (const [label, text] of [
+    ['portal SKILL', portalSkill],
+    ['portal agent', portalAgent],
+    ['portal runtime', portalRuntime],
+    ['portal playbook', portalPlaybook],
+  ]) {
+    assert.match(text, /nb portal list -j/i, `${label} should use structured Portal inventory`);
+    assert.match(text, /zero[\s\S]{0,120}stop/i, `${label} should stop zero-Portal UI builds`);
+    assert.match(text, /multiple[\s\S]{0,400}explicit(?: Portal| user)? selection/i, `${label} should require explicit multi-Portal selection`);
+    assert.match(text, /(?:do|does) not infer[\s\S]{0,220}(?:cwd|portal\.config\.json)/i, `${label} should forbid local-context selection`);
+    assert.doesNotMatch(text, /likely no-code Modern UI|legacy no-nb-portal fallback/i, `${label} should not keep the unsafe old-CLI fallback`);
+  }
+
+  for (const [label, text] of [
+    ['UI SKILL', uiSkill],
+    ['UI agent', uiAgent],
+    ['navigation targets', navigation],
+    ['boundary quick', boundary],
+  ]) {
+    assert.match(text, /multiPortal(?:\s*===|\s*:\s*)?\s*false/i, `${label} should require explicit legacy evidence`);
+    assert.doesNotMatch(text, /likely no-code Modern UI|legacy no-nb-portal fallback|compatibility fallback after/i, `${label} should not keep unsafe CLI fallback wording`);
+  }
+
+  assert.match(uiSkill, /before any `flow-surfaces` mutation/i);
+  assert.match(uiSkill, /no Portal resolution[\s\S]{0,120}multiple Portals[\s\S]{0,120}stop without writing/i);
+  assert.match(uiSkill, /selected an AI Portal[\s\S]{0,120}stop UI Builder[\s\S]{0,160}source-code implementation path/i);
+  assert.match(boundary, /No Portal, multiple unselected Portals, or an AI Portal[\s\S]{0,120}stop UI Builder/i);
+});
+
+test('selected no-code Portal mapping is exact and Portal navigation errors stop or hand off', () => {
+  const navigation = read('references/navigation-targets.md');
+  const uiSkill = read('SKILL.md');
+  const uiAgent = read('agents/openai.yaml');
+
+  assert.match(navigation, /target\.kind\s*===\s*"portal"/i);
+  assert.match(navigation, /target\.routeName\s*===\s*selectedPortal\.name/i);
+  assert.match(navigation, /Require exactly one match[\s\S]{0,120}target\.portalUid[\s\S]{0,40}target\.uid/i);
+  assert.match(navigation, /Set `navigation\.portalUid`[\s\S]{0,100}omit `navigation\.layoutUid`/i);
+  assert.match(navigation, /Ignore `targets\[\]\.default`/i);
+  assert.match(navigation, /Ignore every `kind: "layout"`/i);
+  assert.match(navigation, /backing `layoutUid`[\s\S]{0,80}not Portal identity/i);
+  assert.match(navigation, /mobile-backed no-code Portal[\s\S]{0,100}`navigation\.portalUid`/i);
+  assert.match(navigation, /whole-page create[\s\S]{0,120}`navigation\.portalUid`[\s\S]{0,180}`admin-layout-model` as a fallback/i);
+
+  for (const ruleId of [
+    'navigation-portal-type-unsupported',
+    'navigation-portal-selection-required',
+    'navigation-portal-not-found',
+    'navigation-admin-layout-not-portal-target',
+  ]) {
+    for (const [label, text] of [
+      ['UI SKILL', uiSkill],
+      ['navigation targets', navigation],
+      ['UI agent', uiAgent],
+    ]) {
+      assert.match(text, new RegExp(ruleId), `${label} should document ${ruleId}`);
+    }
+  }
+
+  assert.match(navigation, /not[\s\S]{0,80}aggregate authoring `errors\[\]` payload-repair loop/i);
+  assert.match(uiSkill, /navigation-portal-type-unsupported[\s\S]{0,180}do not switch to Admin/i);
+  assert.match(uiSkill, /navigation-admin-layout-not-portal-target[\s\S]{0,160}rerun Portal resolution/i);
 });
 
 test('upstream js snapshot relative links stay valid', () => {
@@ -1255,7 +1340,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.match(defaultPrompt, /Front door: `nb api flow-surfaces`/);
+  assert.match(defaultPrompt, /Gate:[\s\S]{0,120}multiPortal:false[\s\S]{0,80}`nb api flow-surfaces`/i);
   assert.match(defaultPrompt, /Intent-first/i);
   assert.match(defaultPrompt, /Repeat-eligible(?: scenes)?/i);
   assert.match(defaultPrompt, /local customization/i);
@@ -1878,10 +1963,15 @@ test('multi-page shared menu-group docs require serialized routeId handoff', () 
   for (const relativePath of [
     'SKILL.md',
     'references/whole-page-quick.md',
-    'references/execution-checklist.md',
   ]) {
     assertSharedMenuGroupMultiPageRunsAreSerialized(read(relativePath), relativePath);
   }
+
+  assert.match(
+    read('references/execution-checklist.md'),
+    /navigation-targets\.md[\s\S]{0,160}multi-page shared-group serialization/i,
+    'execution-checklist should route multi-page shared-group serialization to navigation-targets.md',
+  );
 });
 
 test('menu discovery docs use current nb resource read path and locator mapping', () => {
@@ -1915,15 +2005,39 @@ test('menu discovery docs use current nb resource read path and locator mapping'
 test('same-group same-title page docs require replace and cross-group isolation', () => {
   for (const relativePath of [
     'SKILL.md',
-    'references/whole-page-quick.md',
+    'references/navigation-targets.md',
     'references/page-blueprint.md',
-    'references/page-intent.md',
+  ]) {
+    assertSameGroupSameTitlePageIdentityRule(read(relativePath), relativePath);
+  }
+
+  for (const relativePath of [
     'references/normative-contract.md',
     'references/execution-checklist.md',
     'references/verification.md',
   ]) {
-    assertSameGroupSameTitlePageIdentityRule(read(relativePath), relativePath);
+    assert.match(
+      read(relativePath),
+      /navigation-targets\.md[\s\S]{0,180}page identity|page identity[\s\S]{0,180}navigation-targets\.md/i,
+      `${relativePath} should delegate page identity to navigation-targets.md`,
+    );
   }
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(wholePageQuick, /navigation-targets\.md[\s\S]{0,160}page-identity matrix/i);
+  assert.match(
+    wholePageQuick,
+    /same layout[\s\S]{0,80}same group[\s\S]{0,80}same `?page\.title`?[\s\S]{0,80}replace[\s\S]{0,160}different group[\s\S]{0,160}(?:must not|do not|not)[\s\S]{0,80}(?:merge|replace)/i,
+    'whole-page-quick should keep same-group replacement and cross-group isolation visible',
+  );
+
+  const pageIntent = read('references/page-intent.md');
+  assert.match(pageIntent, /navigation-targets\.md/i);
+  assert.match(
+    pageIntent,
+    /same layout[\s\S]{0,80}same group\/root[\s\S]{0,80}same page title[\s\S]{0,80}replace[\s\S]{0,160}different group or layout[\s\S]{0,100}must not[\s\S]{0,80}(?:merge|replace)/i,
+    'page-intent should keep same-group replacement and cross-group isolation visible',
+  );
 });
 
 test('title omission docs keep single-block scopes title-optional and multi-block scopes titled', () => {
