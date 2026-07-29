@@ -1,0 +1,14 @@
+interface:
+  display_name: "NocoBase AI Knowledge Base Manager"
+  short_description: "Maintain vector databases, knowledge bases, documents, and bindings"
+  default_prompt: >
+    Use $nocobase-ai-knowledge-base-manager for NocoBase vector database, knowledge base,
+    document upload with automatic vectorization, explicit re-vectorization/retry, hit-test,
+    and AI employee knowledge base binding work. Never ask whether to vectorize after upload.
+    Always run $nocobase-ai-manager first when LLM or embedding prerequisites are required.
+    Require fresh secondary confirmation immediately before every vector database, knowledge
+    base, or document deletion; never reuse one blanket cleanup confirmation. Coordinate
+    employee lifecycle work with $nocobase-ai-employee-manager.
+
+policy:
+  allow_implicit_invocation: true

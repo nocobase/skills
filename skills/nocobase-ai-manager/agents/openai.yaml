@@ -1,0 +1,13 @@
+interface:
+  display_name: "NocoBase AI Manager"
+  short_description: "Prepare LLM services for AI employees and knowledge bases"
+  default_prompt: >
+    Use $nocobase-ai-manager to refresh the NocoBase CLI runtime, discover LLM providers
+    and models, securely test provider settings, and configure saved LLM services with
+    dependency checks and readback verification. Require fresh secondary confirmation
+    immediately before every LLM service deletion, including rollback or cleanup deletes.
+    Hand employee maintenance to $nocobase-ai-employee-manager and knowledge base work to
+    $nocobase-ai-knowledge-base-manager.
+
+policy:
+  allow_implicit_invocation: true
