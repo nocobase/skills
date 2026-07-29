@@ -2,9 +2,240 @@
 
 ## Purpose
 
-Validate that `nocobase-portal-manage` routes Portal tasks to direct `nb portal` commands and applies safety gates.
+Validate that `nocobase-portal-manage` dispatches every ordinary NocoBase UI authoring request to exactly one enabled Portal, routes only by `portalType`, and preserves Portal lifecycle safety gates.
 
-## Scenarios
+## UI Routing Scenarios
+
+All scenarios use structured `nb portal list -j` output and count only records where `enabled === true`.
+
+### Zero Enabled Portals
+
+Prompt:
+
+```text
+Add an order management page
+```
+
+Expected:
+
+- zero enabled Portals stop the ordinary UI build
+- tells the user to explicitly create a Portal first
+- does not create one automatically and does not call `nb portal create`
+- makes no UI Builder or AI source write
+
+### Exactly One No-Code Portal
+
+Setup:
+
+```json
+[{ "name": "customer", "portalType": "no-code", "enabled": true }]
+```
+
+Expected:
+
+- automatically selects `customer`
+- reads the implementation type only from `portalType`
+- hands page, menu, block, field, action, layout, or reaction authoring to `nocobase-ui-builder`
+
+### Exactly One AI Portal
+
+Setup:
+
+```json
+[{ "name": "customer-ai", "portalType": "ai", "enabled": true }]
+```
+
+Expected:
+
+- automatically selects `customer-ai`
+- locates the selected Portal's source project and implements the UI there
+- treats the UI build request as source-edit authorization without asking the user to repeat "modify source"
+- does not call `nocobase-ui-builder`
+
+### One No-Code And One AI Portal
+
+Setup:
+
+```json
+[
+  { "name": "customer", "portalType": "no-code", "enabled": true },
+  { "name": "customer-ai", "portalType": "ai", "enabled": true }
+]
+```
+
+Expected:
+
+- lists both names and `portalType` values
+- requires explicit Portal selection before any write
+- does not prefer the no-code Portal based on the requested page or wording
+
+### Multiple No-Code Portals
+
+Setup:
+
+```json
+[
+  { "name": "customer", "portalType": "no-code", "enabled": true },
+  { "name": "partner", "portalType": "no-code", "enabled": true }
+]
+```
+
+Expected:
+
+- lists both enabled Portals with their `portalType`
+- requires explicit Portal selection
+- does not choose the first Portal or use title similarity
+
+### Multiple AI Portals
+
+Setup:
+
+```json
+[
+  { "name": "customer-ai", "portalType": "ai", "enabled": true },
+  { "name": "partner-ai", "portalType": "ai", "enabled": true }
+]
+```
+
+Expected:
+
+- lists both enabled Portals with their `portalType`
+- requires explicit Portal selection before locating or editing a source project
+- does not infer a target from source layout or local workspace state
+
+### Cwd Is Inside A Candidate Portal
+
+Setup:
+
+```text
+Two enabled Portals exist. cwd is inside one candidate's localPath and a nearby portal.config.json names it.
+```
+
+Expected:
+
+- still lists all enabled Portal names and `portalType` values
+- requires explicit Portal selection
+- does not infer from cwd, active files, `portal.config.json`, `localPath`, sync state, source directory, or recency
+
+### Explicit Existing Portal
+
+Prompt:
+
+```text
+Add an order page to customer
+```
+
+Expected:
+
+- matches `name` exactly, not by title or similarity
+- continues only when exactly one record has `name: "customer"` and `enabled: true`
+- routes by that record's `portalType`
+
+### Explicit Missing, Disabled, Or Non-Unique Portal
+
+Setup:
+
+```text
+The requested exact name is absent, has enabled: false, or occurs more than once in CLI output.
+```
+
+Expected:
+
+- stops and reports that the requested Portal cannot be selected
+- does not substitute another enabled Portal, even if exactly one alternative remains
+- does not infer from cwd, title, type, or local files
+
+### Portal Type Conflicts With User Wording
+
+Setup:
+
+```json
+[{ "name": "customer", "portalType": "ai", "enabled": true }]
+```
+
+Prompt:
+
+```text
+Use the no-code builder to add a customer page
+```
+
+Expected:
+
+- treats structured `portalType: "ai"` as authoritative
+- does not infer no-code from the prompt, template, or source shape
+- follows the AI source implementation path or reports the conflict without calling UI Builder
+
+### Explicit Portal Creation With Zero Inventory
+
+Prompt:
+
+```text
+Create a new Portal named customer
+```
+
+Expected:
+
+- preserves the explicit `action=create` Portal lifecycle workflow
+- does not apply the ordinary UI-build zero-Portal stop to this request
+
+## Missing Portal CLI Scenarios
+
+### Missing CLI With Multi-Portal True
+
+Setup:
+
+```text
+`nb portal` is unavailable. `nb api flow-surfaces list-navigation-targets -j` returns capabilities.multiPortal: true.
+```
+
+Expected:
+
+- stops ordinary UI authoring and recommends a CLI/runtime upgrade or diagnosis
+- does not use navigation targets as Portal inventory
+- does not infer no-code versus AI and does not call UI Builder
+
+### Missing CLI With Multi-Portal False
+
+Setup:
+
+```text
+`nb portal` is unavailable. `nb api flow-surfaces list-navigation-targets -j` returns capabilities.multiPortal: false.
+```
+
+Expected:
+
+- permits the legacy `nocobase-ui-builder` lane
+- uses the response only to establish the explicit legacy capability
+- does not claim that navigation targets are complete no-code/AI Portal inventory
+
+### Missing CLI With Unclear Capability
+
+Setup:
+
+```text
+`nb portal` is unavailable and list-navigation-targets is missing, fails, omits capabilities.multiPortal, or returns an unclear value.
+```
+
+Expected:
+
+- stops ordinary UI authoring with CLI/runtime upgrade guidance
+- does not assume legacy mode
+
+### Missing Portal CLI Blocks Lifecycle
+
+Prompt:
+
+```text
+List portals in the current environment
+```
+
+Expected:
+
+- reports that the installed CLI does not support `nb portal`
+- does not try direct database, Docker, private API, or wrapper-script fallbacks
+- hands CLI/runtime update or env diagnosis to `nocobase-env-manage`
+
+## Portal Command Scenarios
 
 ### Inspect List
 
@@ -16,50 +247,9 @@ List portals in the current environment
 
 Expected:
 
-- checks that `nb portal` is available before running the list command
-- command uses `nb portal list`
-- no Portal name clarification is required
-
-### Missing Portal CLI Blocks Lifecycle
-
-Prompt:
-
-```text
-List portals in the current environment
-```
-
-Setup:
-
-```text
-Installed nb help does not expose a portal command.
-```
-
-Expected:
-
-- reports that the installed CLI does not support `nb portal`
-- does not try direct database, Docker, private API, or wrapper-script fallbacks
-- hands CLI/runtime update or env diagnosis to `nocobase-env-manage`
-
-### Missing Portal CLI No-Code UI Fallback
-
-Prompt:
-
-```text
-Add an order management page to the customer portal
-```
-
-Setup:
-
-```text
-Installed nb help does not expose a portal command, but flow-surfaces list-navigation-targets is available.
-```
-
-Expected:
-
-- reports that Portal type/lifecycle resolution is limited because `nb portal` is unavailable
-- for likely no-code Modern UI workspace/page authoring, returns to `nocobase-ui-builder`
-- `nocobase-ui-builder` may run `nb api flow-surfaces list-navigation-targets -j` and set `navigation.portalUid` when it finds one matching workspace
-- does not claim AI Portal source-code routing is resolved
+- checks that `nb portal` is available
+- uses `nb portal list -j`
+- requires no Portal name clarification
 
 ### Configure Git Root Path
 
@@ -71,9 +261,9 @@ Configure the customer portal to use git@github.com:example/customer-portal.git
 
 Expected:
 
-- command uses `nb portal config customer --source-storage git --git-repo ...`
-- `--git-path .` is preferred or documented as the default
-- readback uses `nb portal info customer`
+- uses `nb portal config customer --source-storage git --git-repo ...`
+- prefers or documents `--git-path .`
+- reads back with `nb portal info customer`
 
 ### Configure Multi-Portal Repository
 
@@ -85,7 +275,7 @@ Put the customer and partner portals in one repository under portals/customer an
 
 Expected:
 
-- command uses explicit subdirectory `--git-path` values
+- uses explicit subdirectory `--git-path` values
 - does not default both Portals to `.`
 
 ### Push Empty Git Repository Failure
@@ -98,9 +288,9 @@ fatal: Remote branch main not found in upstream origin
 
 Expected:
 
-- diagnose empty remote or missing branch
-- recommend handing CLI update to `nocobase-env-manage`, branch initialization, or `--git-branch <existing-branch>`
-- do not use direct database edits
+- diagnoses an empty remote or missing branch
+- recommends CLI update handoff, branch initialization, or `--git-branch <existing-branch>`
+- does not use direct database edits
 
 ### Force Pull Gate
 
@@ -125,60 +315,3 @@ Delete the customer portal
 Expected:
 
 - asks for explicit confirmation before `nb portal destroy customer`
-
-### No-Code Portal UI Handoff
-
-Prompt:
-
-```text
-Add an order management page to the no-code customer portal
-```
-
-Expected:
-
-- use the `nocobase-ui-builder` skill for page/block authoring
-- do not run `nb portal create/config/push` unless Portal workspace management is also requested
-
-### AI Portal Source UI Build
-
-Prompt:
-
-```text
-Change the home page layout in the customer AI Portal
-```
-
-Expected:
-
-- inspect current env and Portal inventory when needed
-- resolve the corresponding Portal source directory from `nb portal info`, `portal.config.json`, or local workspace state
-- edit UI source files in that directory
-- do not hand AI Portal source-code UI implementation to `nocobase-ui-builder`
-
-### Ambiguous Portal UI Type
-
-Prompt:
-
-```text
-Add an order management page to the customer portal
-```
-
-Expected:
-
-- infer no-code vs AI Portal from user wording, Portal info, template/source metadata, or local workspace structure
-- if the type cannot be inferred, ask whether the target is no-code Portal or AI Portal
-
-### Missing Portal Name
-
-Prompt:
-
-```text
-Build a customer portal for me
-```
-
-Expected:
-
-- run `nb env current` / `nb env info` and inspect Portal inventory
-- if exactly one Portal exists, use it by default
-- if no Portal exists, ask whether to create one or collect the minimum create inputs when creation is implied
-- if multiple Portals exist, infer from local workspace or name/title matches when possible
-- ask one concise Portal-selection question only when multiple targets remain plausible
