@@ -41,7 +41,6 @@ export const RUNJS_MODEL_USES = new Set([
   'JSFieldModel',
   'JSItemModel',
   'JSEditableFieldModel',
-  'FormJSFieldItemModel',
   'JSItemActionModel',
   'JSActionModel',
   'JSFormActionModel',

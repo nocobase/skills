@@ -32,10 +32,13 @@ test('versioned capability guidance carries a consistent owner and model-use mat
   assert.ok(modelUses.length > 0, 'workspace guidance should document model uses');
   assert.equal(new Set(ownerKinds).size, ownerKinds.length, 'owner kinds should not contain duplicates');
   assert.equal(new Set(modelUses).size, modelUses.length, 'model uses should not contain duplicates');
+  assert.equal(modelUses.includes('FormJSFieldItemModel'), false, 'menu-only pseudo Host must not be in Contract v1');
+  assert.equal(modelUses.includes('JSEditableFieldModel'), true, 'form JS renderer should use JSEditableFieldModel');
 
   const promptMatrix = prompt.match(/Capability-backed ([\s\S]*?) all use Host -> canonical locator -> Inline Workspace/i)?.[1];
   assert.ok(promptMatrix, 'default prompt should publish one complete capability-backed model-use list');
   assert.deepEqual(promptMatrix.match(/\b[A-Z][A-Za-z]+Model\b/g), modelUses);
+  assert.doesNotMatch(prompt, /FormJSFieldItemModel/);
 });
 
 test('documented broad owner mapping covers every complete model use exactly once', () => {
@@ -64,6 +67,9 @@ test('all complete render and action models share Host locator and Workspace rou
   assert.match(action, /complete action-family Model[\s\S]{0,220}open -> Settings Pass -> save-changes/i);
   assert.match(render, /field\/item\/column placement does not make it embedded/i);
   assert.match(action, /action placement does not make it embedded/i);
+  assert.doesNotMatch(js, /FormJSFieldItemModel/);
+  assert.doesNotMatch(render, /FormJSFieldItemModel/);
+  assert.match(js, /form\/createForm\/editForm[\s\S]{0,80}`JSEditableFieldModel`/i);
 });
 
 test('explicit multi-file intent stops instead of downgrading or externalizing', () => {

@@ -91,9 +91,8 @@ test('uses the product manifest as the sole enum authority for Skills routing', 
   sortedUnique(manifest.externalization.entryKinds, 'externalization.entryKinds');
 
   const documentedDestinations = [
-    extractJsonAfterHeading(transport, 'Default Repository request').destination.type,
-    extractJsonAfterHeading(transport, 'Existing Repository request').destination.type,
-    extractJsonAfterHeading(transport, 'New Repository request').destination.type,
+    extractJsonAfterHeading(transport, 'Existing destination').type,
+    extractJsonAfterHeading(transport, 'New destination').type,
   ];
   assert.deepEqual(
     sortedUnique(documentedDestinations, 'documented destinations'),
@@ -170,7 +169,8 @@ test('keeps Core, Flow Surfaces, and Light Extension Swagger aligned with the ma
     'LightExtensionMoveToInlineRequest:',
     'LightExtensionMoveToInlineResult:',
   );
-  assert.doesNotMatch(moveToInlineSchema, /idempotencyKey/);
+  assert.match(moveToInlineSchema, /required:[^\n]*idempotencyKey/i);
+  assert.match(moveToInlineSchema, /idempotencyKey/);
   assert.match(moveToInlineSchema, /Complete source files reachable from the Entry/i);
 });
 
@@ -215,7 +215,8 @@ test('locks delta, externalization, reuse, and move-back semantics across reposi
   assert.equal(manifest.externalization.supportsIdempotency, true);
   assert.equal(manifest.externalization.supportsMoveToInline, true);
   assert.match(transport, /equivalent semantic request/i);
-  assert.match(transport, /`moveToInline` does not accept or promise an `idempotencyKey`/i);
+  assert.match(transport, /required `idempotencyKey`/i);
+  assert.match(transport, /completed replay returns the same first/i);
   assert.match(roundtrip, /one Repository, one Entry, and two Host bindings/i);
   assert.match(roundtrip, /latest reachable dependency closure/i);
   assert.match(roundtrip, /Host A and Entry E have separate histories/i);

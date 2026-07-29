@@ -1,6 +1,6 @@
 # Light Extension round trips and multi-Host reuse
 
-Use this guide after [light-extension-source.md](./light-extension-source.md) routes an explicit reuse or move-back
+Use this guide after [light-extension-source.md](./light-extension-source.md) routes reuse or move-back
 request to Light Extension. [light-extension-transport.md](./light-extension-transport.md) remains the canonical command,
 payload, CAS, compile, and recovery contract. This file owns the lifecycle invariant: one Repository, one Entry, two
 compatible Host bindings, then one Host moved back Inline without changing the other.
@@ -129,8 +129,10 @@ Snapshot freshness is the caller's responsibility. Immediately re-read/pull the 
 `moveToInline` does not fetch or lock the latest Light Extension Head and does not accept an expected Head/compiled commit
 CAS token. If the current Head cannot be proved, stop instead of calling the supplied files “latest.”
 
-Send `move-to-inline` with Host A's exact canonical locator and the current Repository/Entry identity. `moveToInline` is
-not idempotent and must not contain or promise an `idempotencyKey`:
+Send `move-to-inline` with Host A's exact canonical locator, the current Repository/Entry identity, and a stable
+`idempotencyKey` derived for the complete request. Reuse that key after an ambiguous response or in-progress result only
+when the entire request is unchanged; changed files, locator, Repository/Entry identity, kind, path, or version require a
+new key:
 
 ```bash
 nb api light-extensions move-to-inline --body-file /tmp/light-move-inline.json -j
@@ -140,6 +142,10 @@ The transaction clears only Host A's external binding and reference, writes the 
 Host A's Inline Workspace, and returns its new RunJS Repository/commit/owner evidence. It must preserve Host B's binding
 and reference, Repository R, Entry E, stable key, Repository Head, source history, and all unrelated reference rows.
 Deleting the Repository/Entry or editing `entry.json.key` is not a move-back operation.
+
+A completed replay returns the first `runJSRepoId`, Inline `commitId`, `ownerFingerprint`, and `sourceRef` even though Host
+A is already Inline. The replay still checks current Host, Repository, Entry, and RunJS Repository permissions. Idempotency
+does not fetch or lock the latest Repository Head and does not add an expected Head/compiled commit CAS input.
 
 ## 6. Continue with independent histories
 

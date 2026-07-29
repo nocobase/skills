@@ -95,7 +95,6 @@ Route repair by the owner classification:
 | `jsItem` | `form/createForm/editForm` | `JSItemModel` | render | standalone form item |
 | `renderer: "js"` | `table/details/list/gridCard` | `JSFieldModel` | render | display-state JS renderer bound to a real field |
 | `renderer: "js"` | `form/createForm/editForm` | `JSEditableFieldModel` | render | editable JS renderer bound to a real field |
-| inline form JS field item | inline JS config inside a form field item | `FormJSFieldItemModel` | render | only use when live capability clearly says this is inline item-level JS |
 | block-level `js` action | block actions on `table/list/gridCard/calendar/kanban`, etc. | `JSCollectionActionModel` | action | targets the whole dataset |
 | record-level `js` action | `table/details/list/gridCard` | `JSRecordActionModel` | action | targets the current record |
 | form `js` action | `form/createForm/editForm` | `JSFormActionModel` | action | targets form context |
@@ -138,7 +137,7 @@ If the live environment does not make it clear which JS action model applies, st
 
 ## Strict Render Rules
 
-The following models are strict render models: `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, and `JSItemActionModel`.
+The following models are strict render models: `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `JSColumnModel`, and `JSItemActionModel`.
 
 All of them obey the same rules:
 

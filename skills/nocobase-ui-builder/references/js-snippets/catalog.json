@@ -46,8 +46,7 @@
           "JSEditableFieldModel",
           "JSItemModel",
           "JSRecordActionModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSRecordActionModel",
@@ -104,8 +103,7 @@
           "JSEditableFieldModel",
           "JSItemModel",
           "JSRecordActionModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSRecordActionModel",
@@ -163,8 +161,7 @@
           "JSItemModel",
           "JSRecordActionModel",
           "JSCollectionActionModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSActionModel",
@@ -549,8 +546,7 @@
           "JSEditableFieldModel",
           "JSItemModel",
           "JSRecordActionModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSRecordActionModel",
@@ -702,8 +698,7 @@
         "linkage.execute-javascript": [
           "JSEditableFieldModel",
           "JSItemModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSFormActionModel",
@@ -753,8 +748,7 @@
         "linkage.execute-javascript": [
           "JSEditableFieldModel",
           "JSItemModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSFormActionModel",
@@ -804,8 +798,7 @@
         "linkage.execute-javascript": [
           "JSEditableFieldModel",
           "JSItemModel",
-          "JSItemActionModel",
-          "FormJSFieldItemModel"
+          "JSItemActionModel"
         ],
         "js-model.action": [
           "JSFormActionModel",
@@ -1312,13 +1305,11 @@
       "modelUses": {
         "reaction.value-runjs": [
           "JSEditableFieldModel",
-          "JSItemModel",
-          "FormJSFieldItemModel"
+          "JSItemModel"
         ],
         "custom-variable.runjs": [
           "JSEditableFieldModel",
-          "JSItemModel",
-          "FormJSFieldItemModel"
+          "JSItemModel"
         ]
       },
       "offlineSafe": true,
@@ -1362,13 +1353,11 @@
       "modelUses": {
         "reaction.value-runjs": [
           "JSEditableFieldModel",
-          "JSItemModel",
-          "FormJSFieldItemModel"
+          "JSItemModel"
         ],
         "custom-variable.runjs": [
           "JSEditableFieldModel",
-          "JSItemModel",
-          "FormJSFieldItemModel"
+          "JSItemModel"
         ]
       },
       "offlineSafe": true,
@@ -1412,13 +1401,11 @@
       "modelUses": {
         "reaction.value-runjs": [
           "JSEditableFieldModel",
-          "JSItemModel",
-          "FormJSFieldItemModel"
+          "JSItemModel"
         ],
         "custom-variable.runjs": [
           "JSEditableFieldModel",
-          "JSItemModel",
-          "FormJSFieldItemModel"
+          "JSItemModel"
         ]
       },
       "offlineSafe": true,
@@ -1557,8 +1544,7 @@
       "modelUses": {
         "js-model.render": [
           "JSFieldModel",
-          "JSEditableFieldModel",
-          "FormJSFieldItemModel"
+          "JSEditableFieldModel"
         ]
       },
       "offlineSafe": true,
@@ -1702,7 +1688,6 @@
           "JSFieldModel",
           "JSItemModel",
           "JSEditableFieldModel",
-          "FormJSFieldItemModel",
           "JSItemActionModel"
         ]
       },

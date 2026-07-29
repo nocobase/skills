@@ -24,7 +24,7 @@ test('global contract splits Host, Inline source, and externalized source routes
   ]) {
     assert.match(text, /flow-surfaces/i, `${label} should retain the Host/UI route`);
     assert.match(text, /run-js-sources/i, `${label} should expose the Inline source route`);
-    assert.match(text, /Light Extension|nb light/i, `${label} should expose explicit externalization`);
+    assert.match(text, /Light Extension|nb light/i, `${label} should expose reusable source routing`);
   }
 
   assert.doesNotMatch(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
@@ -59,6 +59,27 @@ test('real default prompt carries the complete RunJS route without relying on YA
   assert.match(prompt, /JS Page capability failure[\s\S]{0,120}never fake/i);
   assert.match(prompt, /complete JS Block[\s\S]{0,240}minimal safe `?settings\.code`? placeholder[\s\S]{0,240}final business source[\s\S]{0,120}Workspace/i);
   assert.match(prompt, /save-changes success[\s\S]{0,200}new commit and owner fingerprint/i);
+});
+
+test('business reuse intent selects Light Extension without requiring transport terminology', () => {
+  const skill = read('SKILL.md');
+  const source = read('references/light-extension-source.md');
+  const prompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
+
+  for (const [label, text] of [
+    ['SKILL.md', skill],
+    ['Light Extension intent router', source],
+    ['OpenAI prompt', prompt],
+  ]) {
+    assert.match(text, /one implementation[\s\S]{0,180}(?:multiple|across) Hosts/i, label);
+    assert.match(text, /maintain(?:ed)? once[\s\S]{0,100}(?:without|no) copied code/i, label);
+    assert.match(text, /independent(?:ly)? Git[- ]owned|independent Git ownership/i, label);
+    assert.match(text, /user (?:does not|need not)[\s\S]{0,160}(?:Light Extension|transport)/i, label);
+  }
+
+  assert.match(source, /used only by its current Host stays Inline/i);
+  assert.match(prompt, /Current-Host[\s\S]{0,80}stays Inline/i);
+  assert.match(prompt, /Multiple files[\s\S]{0,160}do not trigger Light Extension/i);
 });
 
 test('transport serializes the Host-returned locator without teaching a hand-shaped locator', () => {

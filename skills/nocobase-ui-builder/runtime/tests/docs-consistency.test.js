@@ -788,7 +788,8 @@ test('docs keep canonical nb boundaries', () => {
   assertBackendFirstWriteContract('SKILL.md');
   assert.match(skill, /Host[\s\S]{0,160}UI payload writes use `nb api flow-surfaces <action>`/i);
   assert.match(skill, /Inline Workspace[\s\S]{0,160}`nb api run-js-sources <action>`/i);
-  assert.match(skill, /externalized Light Extension[\s\S]{0,160}`nb light`/i);
+  assert.match(skill, /Light Extension/i);
+  assert.match(skill, /`nb light`/i);
   assert.doesNotMatch(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
   assert.match(skill, /backend `flow-surfaces` is the authoring compiler/i);
   assert.match(skill, /aggregate `?errors\[\]`?/i);
@@ -909,8 +910,9 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(workspace, /existing native Surface settings/i);
   assert.match(workspace, /fewer than two reasonable variation points/i);
   assert.match(workspace, /do not create source commits|do not create a source commit/i);
-  assert.match(lightExtension, /explicit externalization/i);
-  assert.match(lightExtension, /application-level default Repository/i);
+  assert.match(lightExtension, /one implementation[\s\S]{0,180}reused by multiple Hosts/i);
+  assert.match(lightExtension, /otherwise create a New Repository/i);
+  assert.doesNotMatch(lightExtension, /application(?:-level)? default Repository/i);
   assert.match(lightExtension, /Multiple files[\s\S]{0,160}do not authorize externalization/i);
   assert.match(createPage, /Host Preview[\s\S]{0,120}non-goal/i);
   assert.match(wholePage, /create-js-page-quick\.md/i);
@@ -948,7 +950,7 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
   ]) {
     assert.match(text, /flow-surfaces/i, `${label} should keep the Host/UI route`);
     assert.match(text, /run-js-sources/i, `${label} should keep the Inline Workspace source route`);
-    assert.match(text, /Light Extension|nb light/i, `${label} should keep explicit externalization`);
+    assert.match(text, /Light Extension|nb light/i, `${label} should keep reusable source routing`);
   }
 
   for (const action of ['open', 'open-latest', 'save-changes', 'compile-preview']) {
@@ -967,8 +969,9 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
 
   assert.match(workspace, /Settings schema and defaults live in `src\/client\/entry\.json`/i);
   assert.match(workspace, /Host overrides[\s\S]{0,160}preserving `false`, `0`, and `""`/i);
-  assert.match(workspace, /explicit externalization/i);
-  assert.match(lightExtension, /application-level default Repository/i);
+  assert.match(workspace, /shared implementation[\s\S]{0,180}single-maintenance/i);
+  assert.match(lightExtension, /business-meaningful name/i);
+  assert.doesNotMatch(lightExtension, /application(?:-level)? default Repository/i);
   assert.match(lightExtension, /Host Preview[\s\S]{0,120}outside/i);
 
   for (const ownerClass of ['complete-workspace', 'embedded/single-surface', 'compatibility-single-file']) {

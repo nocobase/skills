@@ -1,9 +1,9 @@
 # Light Extension public transport
 
-This file is the canonical transport contract for explicitly externalized Light Extension source. Use only `nb`
+This file is the canonical transport contract for reusable Light Extension source. Use only `nb`
 commands as the public transport. Do not call internal services, write database rows, or substitute raw HTTP requests.
-Ordinary Inline Workspace authoring stays on [runjs-transport.md](./runjs-transport.md); externalization is allowed only
-for the explicit intents described in [light-extension-source.md](./light-extension-source.md).
+Ordinary Inline Workspace authoring stays on [runjs-transport.md](./runjs-transport.md); Light Extension routing follows
+the business reuse, single-maintenance, Git ownership, and distribution intents in [light-extension-source.md](./light-extension-source.md).
 
 ## Contents
 
@@ -11,9 +11,9 @@ for the explicit intents described in [light-extension-source.md](./light-extens
 - [Discovery](#discovery)
 - [Capture one Inline source snapshot](#capture-one-inline-source-snapshot)
 - [Externalize with a stable request](#externalize-with-a-stable-request)
-- [Default Repository request](#default-repository-request)
-- [Existing Repository request](#existing-repository-request)
-- [New Repository request](#new-repository-request)
+- [Canonical moveSource request](#canonical-movesource-request)
+- [Existing destination](#existing-destination)
+- [New destination](#new-destination)
 - [Record externalization evidence](#record-externalization-evidence)
 - [Repository edit loop](#repository-edit-loop)
 - [Do not mix the two CAS protocols](#do-not-mix-the-two-cas-protocols)
@@ -24,15 +24,15 @@ for the explicit intents described in [light-extension-source.md](./light-extens
 ## Capability and command crosswalk
 
 Start with the machine contract and require `externalization.available=true`. Also require the current Entry kind and
-destination type to appear in the returned contract. For move-back, require `supportsMoveToInline=true`; for an
-idempotent move-source request, require `supportsIdempotency=true`.
+destination type to appear in the returned contract. For move-back, require `supportsMoveToInline=true`; both move
+directions also require `supportsIdempotency=true`.
 
 ```bash
 nb api run-js-sources capabilities -j
 ```
 
 If those signals are unavailable or false, stop and report the missing Light Extension capability. Do not silently
-keep the source Inline when the user explicitly requested externalization, reuse, Git ownership, or distribution.
+keep the source Inline when the user requested reuse, single maintenance, Git ownership, or distribution.
 
 Backend actions and public shell commands are distinct:
 
@@ -70,9 +70,9 @@ Optional `--repo-id <repoId>` and `--kind <kind>` filters narrow the result. A r
 same result row's `repoId`, `id` as `entryId`, `kind`, `entryName`, and `entryPath`. Keep its settings schema/default
 hashes and runtime hashes as readback evidence. Do not combine the Repository from one row with the Entry from another.
 
-When the user specifies an existing Repository, use its exact id. When the user asks for a new Repository, use the
-`new` destination. When no Repository is specified, send the explicit default destination `{ "type": "default" }`;
-do not choose an arbitrary item from the Repository list.
+Use `existing` only when the Entry already belongs to that Repository, the user explicitly selected it, or the same task
+just created it; use its exact id. Otherwise use `new` with a business-meaningful name, title, and description. Never
+choose an unrelated item from the Repository list and never emit a Default destination.
 
 ## Capture one Inline source snapshot
 
@@ -110,19 +110,18 @@ Changing the destination, Host/locator, Entry name/title, source Head, source fi
 origin binding creates a different request and requires a new key. Reusing one key with a different request returns an
 idempotency conflict; never work around that conflict by changing only the key while pretending it is the same move.
 
-Each destination example below is a complete root request. Replace the entire sample `locator` object with the exact
-normalized `data.locator` object from one current Inline `open`/`open-latest` response; never fill, remove, or construct
-its fields individually. Replace every other evidence placeholder from that same response and write the selected request
-to `/tmp/light-move-source.json`. The sample file contents are illustrative; the real request must contain the complete
+Replace the entire sample `locator` object below with the exact normalized `data.locator` object from one current Inline
+`open`/`open-latest` response; never fill, remove, or construct its fields individually. Replace every other evidence
+placeholder from that same response. The sample file contents are illustrative; the real request must contain the complete
 opened Workspace.
 
-## Default Repository request
+## Canonical moveSource request
 
-Use this form when the user did not specify a Repository:
+Keep one canonical common body and replace only `destination` with one of the two fragments below:
 
 ```json
 {
-  "idempotencyKey": "move-source-v1-sha256-of-the-complete-default-request",
+  "idempotencyKey": "move-source-v1-sha256-of-the-complete-request",
   "locator": {
     "kind": "flowModel.step",
     "modelUid": "modelUid-from-one-open-response",
@@ -161,131 +160,39 @@ Use this form when the user did not specify a Repository:
       "mode": "100644"
     }
   ],
-  "destination": {
-    "type": "default"
-  },
+  "destination": {},
   "entryName": "sales-summary",
   "entryTitle": "Sales summary"
 }
 ```
 
-```bash
-nb api light-extensions move-source --body-file /tmp/light-move-source.json -j
-```
+## Existing destination
 
-## Existing Repository request
-
-Use the exact Repository id selected during discovery:
+Use this only for the Entry's current Repository, a user-selected Repository, or one created earlier in the same task:
 
 ```json
 {
-  "idempotencyKey": "move-source-v1-sha256-of-the-complete-existing-request",
-  "locator": {
-    "kind": "flowModel.step",
-    "modelUid": "modelUid-from-one-open-response",
-    "flowKey": "flowKey-from-the-same-open-response",
-    "stepKey": "stepKey-from-the-same-open-response",
-    "paramPath": ["paramPath", "from", "the-same-open-response"]
-  },
-  "expectedOwnerFingerprint": "ownerFingerprint-from-the-same-open-response",
-  "sourceRepoId": "repository.repoId-or-id-from-the-same-open-response",
-  "sourceHeadCommitId": "repository.headCommitId-from-the-same-open-response",
-  "entryPath": "src/client/index.tsx",
-  "version": "v2",
-  "files": [
-    {
-      "path": "src/client/index.tsx",
-      "content": "import { Summary } from './Summary';\nctx.render(<Summary />);\n",
-      "language": "typescriptreact",
-      "mode": "100644"
-    },
-    {
-      "path": "src/client/Summary.tsx",
-      "content": "export function Summary() {\n  return <div>Summary</div>;\n}\n",
-      "language": "typescriptreact",
-      "mode": "100644"
-    },
-    {
-      "path": "src/client/entry.json",
-      "content": "{\n  \"key\": \"sales-summary\",\n  \"settingsSchema\": { \"type\": \"object\", \"properties\": {} }\n}\n",
-      "language": "json",
-      "mode": "100644"
-    },
-    {
-      "path": ".nocobase/runjs-source.json",
-      "content": "managed-content-copied-unchanged-from-open",
-      "language": "json",
-      "mode": "100644"
-    }
-  ],
-  "destination": {
-    "type": "existing",
-    "repoId": "repoId-selected-from-light-extension-repos-list"
-  },
-  "entryName": "sales-summary",
-  "entryTitle": "Sales summary"
+  "type": "existing",
+  "repoId": "repoId-selected-from-light-extension-repos-list"
 }
 ```
 
-```bash
-nb api light-extensions move-source --body-file /tmp/light-move-source.json -j
-```
+## New destination
 
-## New Repository request
-
-Use a new Repository name plus optional title and description supplied or approved by the user:
+Use this for every first move without an explicit or already-known Repository. Derive a business-meaningful identity from
+the implementation purpose; do not select an arbitrary existing Repository:
 
 ```json
 {
-  "idempotencyKey": "move-source-v1-sha256-of-the-complete-new-request",
-  "locator": {
-    "kind": "flowModel.step",
-    "modelUid": "modelUid-from-one-open-response",
-    "flowKey": "flowKey-from-the-same-open-response",
-    "stepKey": "stepKey-from-the-same-open-response",
-    "paramPath": ["paramPath", "from", "the-same-open-response"]
-  },
-  "expectedOwnerFingerprint": "ownerFingerprint-from-the-same-open-response",
-  "sourceRepoId": "repository.repoId-or-id-from-the-same-open-response",
-  "sourceHeadCommitId": "repository.headCommitId-from-the-same-open-response",
-  "entryPath": "src/client/index.tsx",
-  "version": "v2",
-  "files": [
-    {
-      "path": "src/client/index.tsx",
-      "content": "import { Summary } from './Summary';\nctx.render(<Summary />);\n",
-      "language": "typescriptreact",
-      "mode": "100644"
-    },
-    {
-      "path": "src/client/Summary.tsx",
-      "content": "export function Summary() {\n  return <div>Summary</div>;\n}\n",
-      "language": "typescriptreact",
-      "mode": "100644"
-    },
-    {
-      "path": "src/client/entry.json",
-      "content": "{\n  \"key\": \"sales-summary\",\n  \"settingsSchema\": { \"type\": \"object\", \"properties\": {} }\n}\n",
-      "language": "json",
-      "mode": "100644"
-    },
-    {
-      "path": ".nocobase/runjs-source.json",
-      "content": "managed-content-copied-unchanged-from-open",
-      "language": "json",
-      "mode": "100644"
-    }
-  ],
-  "destination": {
-    "type": "new",
-    "name": "sales-tools",
-    "title": "Sales tools",
-    "description": "Reusable sales surfaces"
-  },
-  "entryName": "sales-summary",
-  "entryTitle": "Sales summary"
+  "type": "new",
+  "name": "sales-tools",
+  "title": "Sales tools",
+  "description": "Reusable sales surfaces"
 }
 ```
+
+Write the completed common body to `/tmp/light-move-source.json`, insert exactly one destination fragment, derive the key
+from that complete request, and run:
 
 ```bash
 nb api light-extensions move-source --body-file /tmp/light-move-source.json -j
@@ -398,6 +305,7 @@ it field-by-field:
 
 ```json
 {
+  "idempotencyKey": "move-to-inline-v1-sha256-of-the-complete-request",
   "locator": {
     "kind": "flowModel.step",
     "modelUid": "modelUid-from-the-current-bound-Host",
@@ -437,11 +345,20 @@ it field-by-field:
 nb api light-extensions move-to-inline --body-file /tmp/light-move-inline.json -j
 ```
 
-`moveToInline` does not accept or promise an `idempotencyKey`. On HTTP 200 record `data.runJSRepoId`, `data.commitId`,
-`data.ownerFingerprint`, `data.code`, `data.version`, `data.entryPath`, optional `data.filesHash`, and `data.sourceRef`.
-Re-read the Host/reference and verify Inline source mode, the absence of the old binding/reference for that Host, and
-the new RunJS commit/owner evidence. A failed compile, conflict, or permission check leaves the Host binding/reference
-and both source stores unchanged.
+Derive the required `idempotencyKey` from the complete move-to-inline request excluding only the key, and store the exact
+body with it. Reuse the key only when the entire request is unchanged, after an ambiguous transport result or in-progress
+response. Any body change requires a new key, including locator, Repository/Entry identity, Entry path, kind, version, or files.
+
+On HTTP 200 record `data.runJSRepoId`, `data.commitId`, `data.ownerFingerprint`, `data.code`, `data.version`,
+`data.entryPath`, optional `data.filesHash`, and `data.sourceRef`. A completed replay returns the same first
+`runJSRepoId`, `commitId`, `ownerFingerprint`, and `sourceRef` even after the Host is already Inline, while rechecking
+current Host, Repository, Entry, and RunJS Repository permissions. Re-read the Host/reference and verify Inline source
+mode, the absence of the old binding/reference for that Host, and the new RunJS commit/owner evidence. A failed compile,
+conflict, or permission check leaves the Host binding/reference and both source stores unchanged.
+
+Idempotency does not make the server fetch or lock the latest Light Extension Head. `moveToInline` adds no expected
+Repository Head, Entry compiled commit, Entry version, or files-hash CAS input; the caller must still re-read/pull the
+current Entry and construct the complete reachable file set before the first request.
 
 ## Failure and recovery matrix
 
@@ -456,8 +373,8 @@ Classify failures by action, HTTP status, and `errors[].code`; status alone is i
 | `moveSource` 409 + `LIGHT_EXTENSION_BINDING_OUTDATED` | Run one fresh Inline `open-latest`, rebuild every request field/file and derive a new key. Never replace only the owner fingerprint. |
 | `moveSource` 409 + `LIGHT_EXTENSION_SOURCE_OUTDATED` | Run one fresh Inline `open-latest`, rebuild the complete snapshot and derive a new key. Never replace only the Head. |
 | `moveSource` 409 + `LIGHT_EXTENSION_ENTRY_CONFLICT` / `LIGHT_EXTENSION_REPO_CONFLICT` | Re-run discovery and ask for or derive a non-conflicting user-approved Repository/Entry identity; this is a different request and needs a new key. |
-| `moveSource` 409 + `LIGHT_EXTENSION_IDEMPOTENCY_IN_PROGRESS` | Retry the exact stored request with the same key after a bounded wait. |
-| `moveSource` 409 + `LIGHT_EXTENSION_IDEMPOTENCY_CONFLICT` | Stop: the key was used for a different semantic request. Recover the stored request or create a genuinely new request/key. |
+| either move 409 + `LIGHT_EXTENSION_IDEMPOTENCY_IN_PROGRESS` | Retry the exact stored request with the same key after a bounded wait. |
+| either move 409 + `LIGHT_EXTENSION_IDEMPOTENCY_CONFLICT` | Stop: the key was used for a different semantic request. Recover the stored request or create a genuinely new request/key. |
 | `nb light check` HTTP 207 or 422 | Stop before save, repair diagnostics, and check the new complete snapshot. No Repository Head is advanced. |
 | `nb light save` 409 stale Head | Preserve the reviewed patch outside the dirty target, pull the new Head into a clean workspace, reapply the intended changes path-by-path, then check and review again. Do not edit CLI state or replace only `expectedHeadCommitId`. |
 | validation, Settings, or compile failure (`LIGHT_EXTENSION_VALIDATION_FAILED` / `LIGHT_EXTENSION_SETTINGS_INVALID`) | Repair the complete candidate. No Head, commit, tree, artifact, Host binding, or reference state is advanced. |

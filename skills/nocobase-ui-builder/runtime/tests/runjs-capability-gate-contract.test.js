@@ -76,7 +76,7 @@ test('ordinary failures remain repair or stop conditions', () => {
   assert.match(gate, /never replace tokens alone/i);
 });
 
-test('quick routes preserve JS Page and explicit externalization boundaries', () => {
+test('quick routes preserve JS Page and business reuse boundaries', () => {
   const wholePage = read('references/whole-page-quick.md');
   const localEdit = read('references/local-edit-quick.md');
   const lightExtension = read('references/light-extension-source.md');
@@ -86,7 +86,7 @@ test('quick routes preserve JS Page and explicit externalization boundaries', ()
     assert.match(text, /runjs-capability-gate\.md/i);
   }
   assert.match(wholePage, /JS Page Workspace capability[\s\S]{0,100}ordinary page \+ JS Block/i);
-  assert.match(lightExtension, /explicit Light Extension capability[\s\S]{0,180}Do not silently replace/i);
+  assert.match(lightExtension, /Light Extension capability[\s\S]{0,220}Do not silently replace/i);
   assert.match(checklist, /multi-file Workspace capability is unavailable[\s\S]{0,160}single-file Inline[\s\S]{0,160}no Light Extension Repository/i);
   assert.ok(wholePage.split('\n').length - 1 <= 220, 'whole-page-quick.md must stay within 220 lines');
 });

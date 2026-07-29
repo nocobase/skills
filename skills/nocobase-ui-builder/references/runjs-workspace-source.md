@@ -7,7 +7,7 @@ Before first use, run `nb api run-js-sources capabilities -j`. Require `inlineWo
 its broad owner kind in the independently published arrays. Contract version `1` publishes:
 
 - owner kinds: `js-block`, `js-page`, `js-field`, `js-column`, `js-action`, `js-item`
-- model uses: `JSPageModel`, `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSColumnModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSItemActionModel`, `JSActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, `JSFormActionModel`, `FilterFormJSActionModel`
+- model uses: `JSPageModel`, `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSColumnModel`, `JSItemModel`, `JSItemActionModel`, `JSActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, `JSFormActionModel`, `FilterFormJSActionModel`
 
 The arrays are independent capability lists, not a one-to-one pair mapping. UI Builder maps complete Hosts as follows:
 
@@ -18,7 +18,7 @@ The arrays are independent capability lists, not a one-to-one pair mapping. UI B
 | `js-field` | `JSFieldModel`, `JSEditableFieldModel` |
 | `js-column` | `JSColumnModel` |
 | `js-action` | `JSActionModel`, `JSRecordActionModel`, `JSCollectionActionModel`, `JSFormActionModel`, `FilterFormJSActionModel` |
-| `js-item` | `JSItemModel`, `FormJSFieldItemModel`, `JSItemActionModel` |
+| `js-item` | `JSItemModel`, `JSItemActionModel` |
 
 Treat the live response as authoritative for its `authoringContractVersion` and matrix. Embedded default/assignment,
 linkage, custom variable, workflow JavaScript, chart option/events, and `flowRegistry` RunJS stay single-surface because
@@ -53,8 +53,8 @@ Do not expose secrets, tokens, internal UIDs, arbitrary JS/HTML/SQL, module path
 
 Use the ordinary owner compatibility gate for existing workspaces. Multiple files, imports, hooks, services, size, or
 complexity never trigger Light Extension; do not silently externalize an Inline Workspace for any of those reasons.
-Explicit externalization is a separate user intent; use [light-extension-source.md](./light-extension-source.md) for that
-handoff.
+Shared implementation, single-maintenance, independent Git ownership, or distribution is a separate business intent; use
+[light-extension-source.md](./light-extension-source.md) for that handoff even when the user does not name the transport.
 
 If the user explicitly requested multiple files, missing capability support, a missing canonical locator, or a non-ready
 Workspace is a stop condition. Do not downgrade to `settings.code`, an ordinary JS Block, another Surface, or a Light

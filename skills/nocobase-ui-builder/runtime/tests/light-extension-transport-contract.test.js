@@ -42,13 +42,8 @@ test('uses only published nb transports and body files for migration requests', 
   assert.doesNotMatch(transport, /^```sql\n/gim);
 });
 
-test('documents complete Default, Existing, and New externalization payloads', () => {
-  const requests = [
-    ['Default Repository request', 'default'],
-    ['Existing Repository request', 'existing'],
-    ['New Repository request', 'new'],
-  ].map(([heading, destinationType]) => [extractJsonAfterHeading(heading), destinationType]);
-
+test('documents one canonical moveSource body with only Existing and New destination fragments', () => {
+  const request = extractJsonAfterHeading('Canonical moveSource request');
   const required = [
     'idempotencyKey',
     'locator',
@@ -62,23 +57,28 @@ test('documents complete Default, Existing, and New externalization payloads', (
     'entryName',
     'entryTitle',
   ];
-  for (const [request, destinationType] of requests) {
-    assert.deepEqual(Object.keys(request).sort(), [...required].sort());
-    assert.equal(request.destination.type, destinationType);
-    assert.equal(typeof request.locator, 'object');
-    assert.ok(request.files.length >= 4);
-    assert.ok(request.files.every((file) => file.path && typeof file.content === 'string'));
-    assert.ok(request.files.some((file) => file.path === '.nocobase/runjs-source.json'));
-  }
-  assert.match(transport, /Replace the entire sample `locator` object with the exact[\s\S]{0,180}`data\.locator`/i);
+  assert.deepEqual(Object.keys(request).sort(), [...required].sort());
+  assert.deepEqual(request.destination, {});
+  assert.equal(typeof request.locator, 'object');
+  assert.ok(request.files.length >= 4);
+  assert.ok(request.files.every((file) => file.path && typeof file.content === 'string'));
+  assert.ok(request.files.some((file) => file.path === '.nocobase/runjs-source.json'));
+  assert.match(transport, /Replace the entire sample `locator` object[\s\S]{0,180}exact normalized `data\.locator`/i);
   assert.match(transport, /never fill, remove, or construct[\s\S]{0,80}fields individually/i);
-  assert.equal(requests[1][0].destination.repoId, 'repoId-selected-from-light-extension-repos-list');
-  assert.deepEqual(requests[2][0].destination, {
+  assert.deepEqual(extractJsonAfterHeading('Existing destination'), {
+    type: 'existing',
+    repoId: 'repoId-selected-from-light-extension-repos-list',
+  });
+  assert.deepEqual(extractJsonAfterHeading('New destination'), {
     type: 'new',
     name: 'sales-tools',
     title: 'Sales tools',
     description: 'Reusable sales surfaces',
   });
+  assert.doesNotMatch(transport, /Default Repository request/i);
+  assert.doesNotMatch(transport, /"type"\s*:\s*"default"/i);
+  assert.match(transport, /first move without an explicit or already-known Repository[\s\S]{0,180}business-meaningful/i);
+  assert.match(transport, /Entry's current Repository[\s\S]{0,120}user-selected[\s\S]{0,120}same task/i);
 });
 
 test('requires one Inline snapshot and stable idempotency semantics', () => {
@@ -137,17 +137,20 @@ test('distinguishes Inline delta CAS from Repository Head CAS and managed files'
   assert.match(casSection, /CLI `.nocobase`\/generated local metadata/i);
 });
 
-test('documents move-back from current reachable files without invented idempotency', () => {
+test('documents idempotent move-back from current reachable files without extra caller CAS', () => {
   const request = extractJsonAfterHeading('Move the current Entry back Inline');
   assert.deepEqual(
     Object.keys(request).sort(),
-    ['locator', 'repoId', 'entryId', 'entryPath', 'kind', 'version', 'files'].sort(),
+    ['idempotencyKey', 'locator', 'repoId', 'entryId', 'entryPath', 'kind', 'version', 'files'].sort(),
   );
-  assert.equal('idempotencyKey' in request, false);
+  assert.match(request.idempotencyKey, /^move-to-inline-/);
   assert.ok(request.files.length >= 3);
   assert.match(transport, /complete reachable file set[\s\S]{0,220}every relative\s+import/i);
   assert.match(transport, /Do not use an older pull or omit a\s+transitive relative import/i);
-  assert.match(transport, /`moveToInline` does not accept or promise an `idempotencyKey`/i);
+  assert.match(transport, /Reuse the key only[\s\S]{0,260}entire request is unchanged/i);
+  assert.match(transport, /Any body change requires a new key/i);
+  assert.match(transport, /completed replay returns the same first[\s\S]{0,180}`commitId`[\s\S]{0,160}`sourceRef`/i);
+  assert.match(transport, /adds no expected[\s\S]{0,160}Head[\s\S]{0,160}compiled commit[\s\S]{0,160}CAS input/i);
   for (const field of ['data.runJSRepoId', 'data.commitId', 'data.ownerFingerprint', 'data.sourceRef']) {
     assert.match(transport, new RegExp(field.replaceAll('.', '\\.')));
   }

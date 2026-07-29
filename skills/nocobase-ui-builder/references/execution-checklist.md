@@ -36,12 +36,13 @@ Use this checklist after the matching quick route is already clear. For global r
 - Only a JS Block with confirmed `FLOW_SURFACE_RUNJS_BOOTSTRAP_PROVIDER_UNAVAILABLE` or `RUNJS_SOURCE_KIND_UNSUPPORTED` and a verified Host public write may fall back to `settings.code/settings.version` or direct `changes.code/changes.version`.
 - JS Page Workspace failure stops; public configure writes metadata only, so never substitute an ordinary page + JS Block.
 - 401/403, owner/Repository/base commit 404, error diagnostics, compile/descriptor/import 400, file/base/owner conflict or no-change/archived 409, 413, and network/5xx failures use their real repair/stop paths and never prove unsupported capability.
-- If the user explicitly requested Light Extension, unavailable externalization capability is unfinished work, not permission to downgrade to Inline.
-- For explicit Light Extension reuse or move-back, route through
+- If the user requested shared implementation, single maintenance without copied code, independent Git ownership, or distribution, unavailable Light Extension capability is unfinished work, not permission to downgrade to Inline.
+- For Light Extension reuse or move-back, route through
   [light-extension-roundtrip.md](./light-extension-roundtrip.md). Capture the first move's binding, validate that exact
   Repository/Entry with `list-selectable/get`, and confirm the second Host supports the same Entry kind before writing.
 - Reuse means one Repository, one Entry, and two Host bindings. Do not run a second `moveSource`, copy the Entry, change
   `entry.json.key`, or use a retained pre-externalization fallback as move-back source.
+- Use `existing` only for an explicitly selected or already-known Repository; otherwise create a business-named `new` Repository. Both move directions use a stable idempotency key for exact retries, and any request change requires a new key.
 
 ## 2. Template Decision Gate
 
@@ -134,6 +135,6 @@ Stop instead of guessing when:
 - If readback only proves `jsBlock`, `table`, or `list` content for a requested chart section, say the chart section is unfinished instead of claiming dashboard completion.
 - For an allowed JS Block fallback, state that multi-file Workspace capability is unavailable on the current instance, single-file Inline was used, and no Light Extension Repository was created.
 - For a complete JS Page or JS Block, state that the Host was ready, `save-changes` succeeded with no error diagnostics, a new commit and owner fingerprint were returned, and no Light Extension Repository was automatically created. Do not claim Host Preview unless it was separately run.
-- For explicit Light Extension reuse/move-back, report both Hosts' source modes, bindings, and independent overrides;
+- For Light Extension reuse/move-back, report both Hosts' source modes, bindings, and independent overrides;
   Repository/Entry counts and stable key; old/current Head and commits; reference readback; the moved Host's latest
   reachable Inline source commit; preservation of the other binding/history; and the browser-verification boundary.

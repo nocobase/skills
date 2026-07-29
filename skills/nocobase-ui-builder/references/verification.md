@@ -69,7 +69,7 @@ Host Preview is not required by this source contract and must not be claimed as 
 
 ### Light Extension reuse and move-back evidence
 
-For an explicit multi-Host reuse or move-back request, follow
+For a multi-Host reuse or move-back request, follow
 [light-extension-roundtrip.md](./light-extension-roundtrip.md) and report all of the following:
 
 - before and after `sourceMode`, exact public binding identity, and independent settings override for each Host
@@ -78,6 +78,7 @@ For an explicit multi-Host reuse or move-back request, follow
 - reference readback for the exact Repository/Entry before reuse and after moving one Host back Inline
 - proof that the moved Host used the latest reachable Entry source, cleared only its own binding/reference, and returned
   a new Inline RunJS commit and owner fingerprint
+- the stable move-to-inline idempotency key boundary and, after a completed replay, the same Inline commit, owner fingerprint, and source reference returned by the first success
 - proof that the other Host kept its binding/override and the Repository, Entry, stable key, Head, history, and remaining
   references were preserved
 - the boundary between API/CLI verification and any browser rendering that was actually performed

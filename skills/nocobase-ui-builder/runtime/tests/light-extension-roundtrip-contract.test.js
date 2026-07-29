@@ -48,14 +48,16 @@ test('uses the public Host settings contract and preserves falsy overrides', () 
   assert.match(roundtrip, /Changing Host A's override must not\s+change Host B's override/i);
 });
 
-test('moves one Host from the latest Entry source without affecting the other binding', () => {
+test('moves one Host idempotently from the latest Entry source without affecting the other binding', () => {
   assert.match(roundtrip, /latest reachable dependency closure/i);
   assert.match(roundtrip, /Do not use the retained pre-externalization Inline\s+fallback/i);
   assert.match(roundtrip, /Snapshot freshness is the caller's responsibility/i);
   assert.match(roundtrip, /does not fetch or lock the latest Light Extension Head/i);
   assert.match(roundtrip, /does not accept an expected Head\/compiled commit\s+CAS token/i);
-  assert.match(roundtrip, /`moveToInline` is\s+not idempotent/i);
-  assert.match(roundtrip, /must not contain or promise an `idempotencyKey`/i);
+  assert.match(roundtrip, /stable\s+`idempotencyKey`/i);
+  assert.match(roundtrip, /entire request is unchanged[\s\S]{0,180}require a\s+new key/i);
+  assert.match(roundtrip, /completed replay returns the first `runJSRepoId`[\s\S]{0,180}`ownerFingerprint`[\s\S]{0,120}`sourceRef`/i);
+  assert.match(roundtrip, /does not add an expected Head\/compiled commit CAS input/i);
   assert.match(roundtrip, /clears only Host A's external binding and reference/i);
   assert.match(
     roundtrip,

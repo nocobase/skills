@@ -22,7 +22,7 @@ Collect all of these signals instead of inferring capability from one status cod
 - for a JS Block fallback, current public Host support for `settings.code/settings.version` on create and
   `changes.code/changes.version` on configure
 
-Do not use `nb light` to probe ordinary Inline Workspace capability. It is the explicit Light Extension route. A
+Do not use `nb light` to probe ordinary Inline Workspace capability. It is the reusable Light Extension route. A
 generic 404 is also not proof that a command, resource, or provider is absent: the same action returns 404 when an
 owner, Repository, or base commit cannot be found.
 
@@ -71,5 +71,5 @@ JS Page public configure currently writes page metadata only; it has no public s
 capability is unavailable, stop. A future JS Page fallback requires a public API and tests in the NocoBase product
 repository before this Skill can expose it.
 
-If the user explicitly asked for a light plugin, cross-Host reuse, independent Git ownership, or distribution, an
+If the user asked for one implementation reused across Hosts, maintained once without copied code, independently Git-owned, or distributed, an
 unavailable Light Extension capability means the request is incomplete. Report it; do not silently downgrade to Inline.

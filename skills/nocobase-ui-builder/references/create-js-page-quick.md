@@ -13,6 +13,6 @@ Use this route when the user asks for a new complete JS Page. The visible route 
    not duplicate or improvise them here.
 6. Report Host readiness, Workspace open, Settings schema/defaults, `save-changes` artifact diagnostics, the new commit and owner fingerprint, and that no Light Extension Repository was automatically created. Host Preview is a non-goal for this route and must not be claimed as validation.
 
-Use Light Extension only after the user explicitly asks to externalize, convert to a light plugin, reuse across Hosts, keep an independent Git repository, or distribute the source. If a destination is not named, use the application-level default Repository. See [light-extension-source.md](./light-extension-source.md).
+Use Light Extension when the user wants one implementation reused across Hosts, maintained once without copied code, kept in an independent Git repository, or distributed; the user need not name the transport. Use an Existing Repository only when its identity is explicit or already known, otherwise create a business-named New Repository. See [light-extension-source.md](./light-extension-source.md).
 
 Read [runjs-workspace-source.md](./runjs-workspace-source.md) for the ordinary Workspace contract, then [js-surfaces/index.md](./js-surfaces/index.md) for the code surface and one safe snippet.

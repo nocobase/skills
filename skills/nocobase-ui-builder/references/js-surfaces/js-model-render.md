@@ -12,7 +12,7 @@ Use this surface for JS models whose main job is to render content in a block, f
 - `ctx.render(...)` is required on the directly executed top-level path.
 - Do not wrap all render logic in an uncalled function or callback; move that body to top-level code.
 - Do not rely on top-level `return` for rendering.
-- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, or `JSItemActionModel`.
+- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `JSColumnModel`, or `JSItemActionModel`.
 - When any of those model uses is present in the machine contract and the Host returns a canonical locator, it is eligible for the complete Workspace route; field/item/column placement does not make it embedded.
 - Default UI library policy: render React JSX with Ant Design components from `ctx.libs.antd` / `ctx.libs.antdIcons`.
 - Use external UI libraries only when the requested UI needs capabilities Ant Design does not provide.
