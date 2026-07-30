@@ -7,6 +7,8 @@ Use this checklist after the matching quick route is already clear. For global r
 ## 1. Preflight
 
 - Confirm the task is really about Modern page (v2) UI.
+- Before every other UI Builder preflight step, load and execute `nocobase-portal-manage` for the same request unless a current-request Portal Manager routing outcome is already present. Reuse that outcome instead of recursively invoking Portal Manager after its no-code dispatch.
+- Complete [navigation-targets.md](./navigation-targets.md) Portal preflight: one selected Portal is not enough; require its inventory record to report `portalType === "no-code"`, explicit `capabilities.multiPortal === false` legacy evidence, or Portal Manager's verified legacy Flow Surfaces signature. A sole AI Portal exits UI Builder without writing but immediately continues the same request through its source project; do not ask whether to use it or create a no-code Portal. Missing or unsupported types return to Portal Manage for resolution.
 - Confirm `nb` is available, then run:
   - `nb --help`
 - If runtime/auth is missing, report the blocked nb command before writing.
@@ -16,7 +18,7 @@ Use this checklist after the matching quick route is already clear. For global r
   - localized existing-surface edit
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
-- Determine target layout before the first whole-page draft. Default is desktop/admin `admin-layout-model`; mobile page intent uses `navigation.layoutUid: "mobile-layout-model"`, `navigation.item`, and no `navigation.group`.
+- Determine the target before the first whole-page draft. A confirmed no-code Portal uses its resolved `navigation.portalUid`. Only the proven legacy lane defaults to desktop/admin `admin-layout-model`; legacy mobile intent uses `navigation.layoutUid: "mobile-layout-model"`, `navigation.item`, and no `navigation.group`.
 - Follow [navigation-targets.md](./navigation-targets.md) for duplicate same-title group handling, multi-page shared-group serialization, and duplicate page identity.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).

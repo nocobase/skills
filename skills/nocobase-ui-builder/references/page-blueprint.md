@@ -11,7 +11,7 @@ Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file own
 - `version` stays `"1"`.
 - `mode` is either `"create"` or `"replace"`.
 - `create` creates a new menu item + page.
-- `navigation.layoutUid` and `navigation.portalUid` are optional, mutually exclusive create targets. Omit both for default desktop/admin authoring. Use `layoutUid: "mobile-layout-model"` for mobile intent; use `portalUid` only for an explicitly requested workspace returned by `list-navigation-targets`.
+- `navigation.layoutUid` and `navigation.portalUid` are mutually exclusive create targets. After Portal preflight selects a no-code Portal, `portalUid` is required from its exact `list-navigation-targets` mapping even when the user did not explicitly request a workspace, and `layoutUid` must be omitted. Omit both for desktop/admin only in the legacy lane explicitly proven by `capabilities.multiPortal === false`; that same legacy lane uses `layoutUid: "mobile-layout-model"` for mobile intent.
 - Duplicate-page prevention follows [navigation-targets.md](./navigation-targets.md): page identity is target layout/portal + `navigation.group.routeId` (or the mobile/root slot) + `page.title`. The same group and same title may replace; a different group, layout, or portal with the same title does not merge, reuse, or auto-replace another page.
 - In non-mobile `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. In mobile `create`, `navigation.item` must include the root tab title/icon and no group icon is needed.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
@@ -81,6 +81,7 @@ Payload boundary:
   "version": "1",
   "mode": "create",
   "navigation": {
+    "portalUid": "<resolved-no-code-portal-uid>",
     "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
     "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
@@ -138,7 +139,7 @@ Payload boundary:
 - `version`: currently only `"1"`
 - `mode`: `"create" | "replace"`
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
-- `navigation`: only for `create`; controls target layout/workspace plus menu group/item metadata. Set at most one of `layoutUid` and `portalUid`; omit both for default desktop/admin behavior. For mobile layouts or mobile-backed portals, put the entry title/icon in `navigation.item` and omit `navigation.group`. See [navigation-targets.md](./navigation-targets.md) for target discovery, group reuse, duplicate same-title groups, and duplicate-page identity.
+- `navigation`: only for `create`; controls target Portal/layout plus menu group/item metadata. Set at most one of `layoutUid` and `portalUid`. A selected no-code Portal requires its exactly mapped `portalUid` regardless of whether the user said workspace; omit both only for desktop/admin in the explicitly proven `capabilities.multiPortal === false` legacy lane. For legacy mobile layouts or mobile-backed no-code Portals, put the entry title/icon in `navigation.item` and omit `navigation.group`. See [navigation-targets.md](./navigation-targets.md) for target discovery, group reuse, duplicate same-title groups, and duplicate-page identity.
 - `page`: page-level metadata
 - `defaults`: optional collection-level defaults for generated popup names and large grouped popup field candidates
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions

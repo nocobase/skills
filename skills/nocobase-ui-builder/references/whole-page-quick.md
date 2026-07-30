@@ -32,7 +32,7 @@ Dashboard self-check before first write:
 Do not treat "can render something" as sufficient for dashboard metric sections. Block choice must match the section semantics.
 
 2. Default a normal request to exactly one real tab.
-3. Determine the navigation target before drafting navigation; use [navigation-targets.md](./navigation-targets.md) for the full layout/workspace/group/page-identity matrix. Default creates target desktop/admin `admin-layout-model`; mobile intent uses `navigation.layoutUid: "mobile-layout-model"`. Only explicit workspace intent runs `list-navigation-targets` and sets `navigation.portalUid`; otherwise omit it and do not probe Multi-portal. Never send `portalUid` and `layoutUid` together.
+3. Determine the navigation target through Required Portal Preflight before drafting navigation; use [navigation-targets.md](./navigation-targets.md) for the full Portal/layout/group/page-identity matrix. A selected no-code Portal always runs `list-navigation-targets`, maps the selected Portal exactly, and sets its `navigation.portalUid`, even when the user did not mention a workspace; omit `navigation.layoutUid`. Direct desktop/admin targeting and mobile `navigation.layoutUid: "mobile-layout-model"` are allowed only in the legacy lane proven by `capabilities.multiPortal === false`. Never send `portalUid` and `layoutUid` together.
 4. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
   - You do not need to hand-build a helper envelope; backend authoring validation uses live metadata and returns aggregate errors for hard failures.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
@@ -50,7 +50,7 @@ Do not treat "can render something" as sufficient for dashboard metric sections.
    - If the page asks for comments or record history, use public block types `comments` and `recordHistory` in the first `applyBlueprint`; read [blocks/comments.md](./blocks/comments.md) or [blocks/record-history.md](./blocks/record-history.md). Do not author raw model names or internal `stepParams`.
 6. For non-mobile `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. For mobile creates, `navigation.item.icon` is the page entry icon and no group icon is needed.
 7. If visible duplicate same-title menu groups already exist in the target layout for a non-mobile page, require explicit `navigation.group.routeId` before the write; do not pick one locally or create another same-title group. For mobile pages, omit `navigation.group`.
-8. Page identity follows [navigation-targets.md](./navigation-targets.md): same layout + same group/root + same `page.title` may replace; different group or different layout with the same title is distinct and must not merge, reuse, or auto-replace.
+8. Page identity follows [navigation-targets.md](./navigation-targets.md): same target layout/Portal + same group/root + same `page.title` may replace; a different group or different target layout/Portal with the same title is distinct and must not merge, reuse, or auto-replace.
 9. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
@@ -159,7 +159,7 @@ For artifact-only locator boundary handoffs, use `locator-map.json` with direct 
 
 Keep `liveTargets[].uid` as a non-empty placeholder when live readback has not happened yet, not `null`; it records the source class and still blocks downstream writes until real readback.
 
-The checklist can stay short. It only needs to confirm create vs replace, target layout (`admin-layout-model` by default, `mobile-layout-model` for mobile), navigation decisions from [navigation-targets.md](./navigation-targets.md), one real tab by default, non-empty `tabs[]`, and field truth from live `interface` facts when relevant.
+The checklist can stay short. It only needs to confirm create vs replace, the selected no-code Portal's resolved `navigation.portalUid` or an explicitly proven legacy Admin/Mobile target, navigation decisions from [navigation-targets.md](./navigation-targets.md), one real tab by default, non-empty `tabs[]`, and field truth from live `interface` facts when relevant.
 
 ## Minimal common-case blueprint
 
@@ -186,6 +186,7 @@ The checklist can stay short. It only needs to confirm create vs replace, target
     }
   },
   "navigation": {
+    "portalUid": "<resolved-no-code-portal-uid>",
     "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
     "item": { "title": "Support tickets", "icon": "InboxOutlined" }
   },
@@ -217,7 +218,7 @@ The checklist can stay short. It only needs to confirm create vs replace, target
 }
 ```
 
-For a mobile page, omit `navigation.group` and use:
+For a mobile-backed selected no-code Portal, keep its resolved `navigation.portalUid` and omit both `navigation.layoutUid` and `navigation.group`. Only a legacy mobile page with explicit `capabilities.multiPortal === false` uses:
 
 ```json
 "navigation": {
