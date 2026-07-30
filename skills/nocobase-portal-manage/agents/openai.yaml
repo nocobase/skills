@@ -1,8 +1,8 @@
 interface:
   display_name: "NocoBase Portal Manage"
-  short_description: "Dispatch every NocoBase UI request to one enabled Portal, then route no-code or AI by portalType"
+  short_description: "Primary entry for NocoBase UI and Portal requests"
   default_prompt: >
-    Use $nocobase-portal-manage as the default dispatcher for NocoBase UI authoring and for Portal workspace management.
+    Use $nocobase-portal-manage as the PRIMARY ENTRY and default dispatcher for NocoBase UI authoring and Portal workspace management.
 
     Use it for:
     - every NocoBase page, menu, block, field, action, layout, or reaction authoring request, even when the user does not mention a Portal
