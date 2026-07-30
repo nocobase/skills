@@ -64,9 +64,51 @@ After the CLI result is correct, implement the same request through the Portal's
 ## System settings and i18n
 
 - Reuse the shared System Settings bootstrap and existing i18n runtime.
-- Put application copy into the project's locale resources when localization is enabled.
+- Put application copy into the project's locale resources. For a complete system build, provide at least the Portal's supported source locales instead of leaving user-facing business copy scattered as JSX literals.
 - Use consistent business terminology in menus, titles, buttons, empty states, errors, and confirmations.
 - Do not initialize a second i18next instance inside a feature.
+
+Follow the current template's registration pattern. Application-owned translations normally live in `src/locales/en-US.ts` and `src/locales/zh-CN.ts`, with `src/locales/index.ts` registering the namespace. Keep stable, semantic keys in both bundles:
+
+```ts
+// src/locales/en-US.ts
+export const starter = {
+  "crm.customers.title": "Customers",
+  "crm.customers.empty": "No customers yet",
+} as const;
+
+// src/locales/zh-CN.ts
+export const starter = {
+  "crm.customers.title": "客户",
+  "crm.customers.empty": "暂无客户",
+} as const;
+```
+
+Use Refine's existing translator in components and include a readable fallback:
+
+```tsx
+const translate = useTranslate();
+
+return (
+  <h1>
+    {translate("crm.customers.title", { ns: "starter" }, "Customers")}
+  </h1>
+);
+```
+
+Localize resource navigation through route metadata so the menu and page use the same term:
+
+```tsx
+resource: {
+  meta: {
+    label: "Customers",
+    i18nKey: "crm.customers.title",
+    i18nOptions: { ns: "starter" },
+  },
+}
+```
+
+Follow an installed extension's own namespace when editing or wrapping that extension; do not move its keys into `starter`. Localize menu labels, page titles, field labels, actions, validation, empty/error states, confirmations, notifications, and AI entry/result copy. Keep identifiers, API field names, option values, and route paths out of translation resources.
 
 ## Portal base and assets
 

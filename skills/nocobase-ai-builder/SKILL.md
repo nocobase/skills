@@ -81,27 +81,39 @@ Read [Routing and Access](references/routing-and-access.md) completely whenever 
 
 When a real system is being built, remove template presentation from the application surface: hide or unregister demo navigation and routes at the application layer, replace starter branding and copy, and make the first accessible page useful for the target users. Do not delete installed extension source merely to hide a demo entry.
 
-## 5. Choose and apply a theme
+## 5. Populate representative demo data
+
+For a new or substantially rebuilt system, populate coherent demo records after the data model and core workflows are working. This is part of the build deliverable, not an optional follow-up.
+
+- Create records through real NocoBase APIs or CLI commands; do not hard-code mock business records in frontend components.
+- Cover the primary collections, associations, option values, owners, statuses, and dates needed to make the landing page, lists, details, filters, dashboards, and AI context meaningful.
+- Use recognizable demo identifiers and inspect existing records first so reruns do not create uncontrolled duplicates. Never overwrite or delete existing user data to make room for a demo.
+- Exercise at least one realistic end-to-end workflow in the data, rather than filling every field with unrelated placeholders.
+- If the target contains real business data, record creation is not authorized, or the API rejects the operation, do not silently omit this step. Report the reason and the exact remaining data setup.
+
+## 6. Choose and apply a theme
 
 If the user did not specify a theme, choose a restrained, coherent direction appropriate to the system and continue without blocking. Define theme behavior through application-level semantic tokens and shared layout rules.
 
 If the user wants to choose a theme, direct them to `https://www.shadcn.io/theme` and accept the selected theme name, Registry URL, or generated installation command. Review the working tree and installer diff, integrate the theme with application branding, and avoid blindly overwriting customized `src/components/ui` files. A theme supplies visual foundations; it does not replace business-specific information architecture, content, states, or interactions.
 
-## 6. Evaluate AI interaction opportunities
+## 7. Implement meaningful AI interaction
 
 After the system's core workflows work without AI, review the finished pages and identify interactions where AI can materially reduce effort or improve decisions. Good candidates include natural-language retrieval, summarization, extraction, classification, drafting, explanation, guided analysis, and multi-step assistance grounded in current page or record context.
+
+For a complete AI Portal system build, implement at least one credible, contextual AI interaction. Evaluation or a list of possible ideas alone does not complete this requirement. Choose the best-supported interaction without asking for another confirmation when it does not materially change business behavior or security.
 
 - Inspect the installed AI extensions, existing demos, hooks, components, tool-call renderers, and employee integration examples before designing a new interaction.
 - Prefer contextual entry points close to the relevant page, record, selection, or action. Make the context being shared and the result being produced clear to the user.
 - Preserve a complete non-AI workflow. AI output must not silently bypass validation, ACL, confirmation, or server-side business rules.
 - Reuse existing AI runtime and employee/tool contracts. Use `nocobase-ai-employee` when employee, model, tool, or prompt configuration is required.
-- Add AI interaction only when the use case is credible and supported by the available runtime. Do not add decorative chat buttons or invent unsupported AI capabilities.
+- Do not satisfy the requirement with a decorative chat button or an unsupported capability. If no employee, model, tool contract, or runtime can support a credible interaction, diagnose the missing prerequisite and report the AI portion as incomplete instead of silently skipping it.
 
-## 7. Verify the result
+## 8. Verify the result
 
 Run the project's relevant type check and production build. Run focused existing regression tests when the changed area has them; do not add superficial tests solely to increase test count.
 
-Use browser verification for user-visible work. Validate the actual route under the Portal basename, console errors, navigation, direct URLs, refresh, history, dialogs and drawers, role and ACL states, data states, responsive layout, theme consistency, AI and non-AI paths when present, and removal of template residue.
+Use browser verification for user-visible work. Validate the actual route under the Portal basename, console errors, navigation, direct URLs, refresh, history, dialogs and drawers, role and ACL states, populated demo data, responsive layout, theme consistency, required AI and non-AI paths, and removal of template residue.
 
 Read [Verification](references/verification.md) before completing a substantial page or system build.
 
@@ -130,6 +142,8 @@ Report:
 - important product and technical decisions;
 - changed files and integration points;
 - data, route, and access-control assumptions confirmed from real evidence;
+- representative demo data created, or the explicit reason it could not be created;
+- the contextual AI interaction delivered, or the exact missing runtime prerequisite blocking it;
 - checks and browser scenarios run;
 - anything incomplete or requiring server configuration;
 - optional next steps, without automatically pushing or deploying.

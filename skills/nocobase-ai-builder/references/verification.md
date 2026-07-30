@@ -18,6 +18,7 @@ Validate behavior and product quality, not only compilation.
 - Exercise browser Back and Forward through dialogs, drawers, and nested subpages.
 - Verify close behavior with and without an originating route.
 - Check loading, empty, populated, validation, error, unauthorized, and success states that can be exercised safely.
+- Confirm representative demo records make the primary pages, relationships, filters, dashboards, and contextual AI interaction meaningfully testable.
 - Check allowed and denied roles, route guards, regions, actions, and record controls.
 - Check session expiry and the intended login return path when authentication changed.
 - Check representative desktop and narrow viewports.
@@ -36,5 +37,6 @@ Before reporting completion, ask:
 - Are copy, empty states, confirmations, and errors specific and actionable?
 - Is the theme coherent across navigation, data, forms, overlays, and feedback states?
 - Are template names, sample descriptions, placeholder menus, and irrelevant demo routes gone from the application surface?
+- Does a complete AI Portal include a useful contextual AI interaction with a working non-AI path, rather than only an AI idea or decorative entry point?
 
 If a check cannot be performed, report it explicitly with the reason and the concrete remaining verification step.
