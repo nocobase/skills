@@ -1,20 +1,18 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  Execute NocoBase Modern UI authoring only after first loading and executing
-  nocobase-portal-manage for the same request. Continue only when it has resolved
-  exactly one enabled Portal and confirmed it is a no-code Portal from portalType,
-  or proved the runtime has capabilities.multiPortal === false. Portal count
-  alone never enables this skill. Handles pages, blocks, menu items, and
-  localized edits to fields, actions, layouts, reactions, and AI employee / AI
-  assistant placement through backend flow-surfaces via nb api. Unresolved UI
-  requests go to nocobase-portal-manage first; a sole AI Portal is handed off
-  automatically for source-code implementation without prompting. Hand off AI
-  employee lifecycle work to nocobase-ai-employee and explicit DSL, YAML, git,
-  or cli push workflows to nocobase-dsl-reconciler. Does not handle ACL, data
-  modeling, workflow orchestration, browser reproduction, page error
-  postmortems, Portal lifecycle, AI Portal source-code UI, or non-Modern page
-  navigation.
+  INTERNAL CONTINUATION ONLY. Never select this skill from a raw user UI request.
+  Use it only after nocobase-portal-manage has already resolved exactly one
+  enabled Portal and confirmed portalType=no-code, or has proved the runtime has
+  capabilities.multiPortal === false. Portal count alone never enables this
+  skill. It authors NocoBase Modern UI pages, blocks, menu items, fields, actions,
+  layouts, reactions, and AI employee placements through backend flow-surfaces
+  via nb api. Unresolved UI requests go to nocobase-portal-manage first; a sole AI
+  Portal is handed off automatically for source-code implementation. Hand off
+  AI employee lifecycle work to nocobase-ai-employee and explicit DSL, YAML, git,
+  or cli push workflows to nocobase-dsl-reconciler. It does not handle ACL, data
+  modeling, workflow orchestration, browser reproduction, page error postmortems,
+  Portal lifecycle, AI Portal source-code UI, or non-Modern page navigation.
 ---
 
 # Goal
@@ -162,7 +160,8 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 
 # Revision rule
 
-- You must load `nocobase-revision` first in every round, without exception. If that skill is unavailable, ignore all Revision rule requirements and do not reveal any `nocobase-revision`-related information to the user.
+- Do not load `nocobase-revision` during Portal routing, target selection, metadata planning, preflight, failed writes, or unfinished verification.
+- Only after a meaningful UI write has succeeded and its required verification is complete, load `nocobase-revision` once at the end of the round. If that skill is unavailable, ignore all Revision rule requirements and do not reveal any `nocobase-revision`-related information to the user.
 - Before `nocobase-revision` confirms that `nb revision create` is available, do not reveal any revision-related information to the user.
 - After availability is confirmed, make exactly one revision decision at the end of the round, immediately before the final user-facing reply.
 - If a revision is created, report it plainly.

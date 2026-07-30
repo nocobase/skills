@@ -788,12 +788,14 @@ test('Portal Manage dispatches UI requests and UI Builder requires resolved no-c
 
   assert.match(readme, /nocobase-portal-manage[^\n]*Default dispatcher for NocoBase UI authoring/i);
   assert.doesNotMatch(readme, /nocobase-ui-builder[^\n]*Default entry point for UI authoring/i);
-  assert.match(portalSkill, /Default dispatcher for every NocoBase page, menu, block, field, action, layout, or reaction/i);
-  assert.match(portalAgent, /default dispatcher for NocoBase UI authoring/i);
+  assert.match(portalSkill, /PRIMARY ENTRY[\s\S]{0,80}Default dispatcher for every NocoBase UI authoring request/i);
+  assert.match(portalAgent, /PRIMARY ENTRY[\s\S]{0,80}default dispatcher for NocoBase UI authoring/i);
   assert.doesNotMatch(uiSkill, /DEFAULT entry point/i);
-  assert.match(uiSkill, /Execute NocoBase Modern UI authoring only after[\s\S]{0,180}no-code Portal/i);
+  assert.match(uiSkill, /INTERNAL CONTINUATION ONLY[\s\S]{0,120}Never select this skill from a raw user UI request/i);
+  assert.match(uiSkill, /only after[\s\S]{0,180}portalType=no-code/i);
   assert.match(uiSkill, /Unresolved UI[\s\S]{0,80}requests[\s\S]{0,120}nocobase-portal-manage first/i);
-  assert.match(uiAgent, /Run Portal Manager first[\s\S]{0,100}Modern UI only for its resolved no-code Portal/i);
+  assert.match(uiAgent, /INTERNAL ONLY[\s\S]{0,100}Portal Manager selects no-code/i);
+  assert.match(uiAgent, /allow_implicit_invocation:\s*false/i);
 
   for (const [label, text] of [
     ['portal SKILL', portalSkill],
@@ -821,7 +823,7 @@ test('Portal Manage dispatches UI requests and UI Builder requires resolved no-c
   assert.match(uiSkill, /before any `flow-surfaces` mutation/i);
   assert.match(uiSkill, /# Mandatory Portal Manager Entry[\s\S]{0,240}Before applying any other instruction[\s\S]{0,160}load and execute `nocobase-portal-manage`/i);
   assert.match(uiSkill, /current request already carries a Portal Manager routing outcome[\s\S]{0,160}do not invoke Portal Manager again/i);
-  assert.match(uiAgent, /Gate:PMfirst:[^\n]*load\+execute nocobase-portal-manage/i);
+  assert.match(uiAgent, /\$nocobase-ui-builder:INTERNAL;Gate:PMfirst:/i);
   assert.match(uiSkill, /no Portal resolution[\s\S]{0,120}multiple Portals[\s\S]{0,120}stop without writing/i);
   assert.match(uiSkill, /only one Portal exists[\s\S]{0,120}never sufficient/i);
   assert.match(uiSkill, /portalType === "no-code"[\s\S]{0,160}portalType === "ai"[\s\S]{0,160}exit UI Builder/i);
@@ -829,13 +831,15 @@ test('Portal Manage dispatches UI requests and UI Builder requires resolved no-c
   assert.match(navigation, /Portal count alone never enables UI Builder/i);
   assert.match(uiSkill, /sole AI Portal[\s\S]{0,240}immediately continue[\s\S]{0,240}do not ask whether to use the AI Portal or create a no-code Portal/i);
   assert.match(navigation, /Exiting UI Builder is a skill handoff[\s\S]{0,180}not the end[\s\S]{0,180}no clarification prompt/i);
-  assert.match(uiAgent, /sole AI Portal UI to its source path/i);
+  assert.match(uiAgent, /sole AI Portal exits UI Builder[\s\S]{0,160}source project/i);
   assert.match(portalSkill, /portal list -j[\s\S]{0,180}404[\s\S]{0,120}runtime-unavailable/i);
   assert.match(portalSkill, /apply-blueprint[\s\S]{0,240}list-templates[\s\S]{0,360}verified legacy Flow Surfaces signature/i);
   assert.match(portalRuntime, /list-templates --body '\{\}' -j/i);
   assert.match(portalPlaybook, /Portal Endpoint Missing With Legacy Flow Surfaces/i);
   assert.match(uiSkill, /verified legacy Flow Surfaces signature/i);
   assert.match(navigation, /verified legacy Flow Surfaces signature/i);
+  assert.match(uiSkill, /Do not load `nocobase-revision` during Portal routing/i);
+  assert.match(uiSkill, /Only after a meaningful UI write has succeeded[\s\S]{0,160}load `nocobase-revision` once/i);
 });
 
 test('selected no-code Portal mapping is exact and Portal navigation errors stop or hand off', () => {
