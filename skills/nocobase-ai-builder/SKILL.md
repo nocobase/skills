@@ -63,6 +63,7 @@ For a complete system, include a dedicated role-and-permission task in the Todo 
 
 - Define the actual user roles, memberships, and role-specific responsibilities. If the system genuinely has one undifferentiated role, record that decision explicitly instead of silently omitting permission design.
 - Decide and configure which roles may enter the Portal.
+- When creating a role for the resolved Portal, pass that Portal's uid or exact identity to `nocobase-acl-manage` and treat its explicit Portal entry grant as part of role creation. Verify the role-to-Portal association before continuing.
 - Configure and verify server resource/action/scope/field policies for each role before relying on frontend visibility.
 - Design frontend menu, route, page, region, field, action, and record behavior for allowed and denied users.
 - Use the installed ACL boundaries at the smallest correct scope: `AclPage` for a whole page, `AclRegion` for an independent protected panel, `AclField` for a field or field group, and `CanAccess` or ACL-aware built-in action components for controls and record operations. Do not duplicate their checks with local booleans or hard-coded role comparisons.
@@ -84,9 +85,9 @@ Read [Routing and Access](references/routing-and-access.md) completely whenever 
 
 ## 5. Implement application-owned code
 
-- Put normal business pages and components in application-owned `src` directories, following the project's current organization.
-- Treat `src/extensions` as installed extension source and `src/components/ui` as the shadcn foundation. Do not modify either by default.
-- When adapting an extension or base component, create an application-owned adapter that imports and re-exports, wraps, or composes it. Change upstream-style source only when composition cannot solve the requirement, and keep the diff minimal.
+- Put all application-owned business functionality—including routes, pages, components, hooks, utilities, and translations—in application-owned `src` directories, following the project's current organization. Never create `src/extensions/<business-feature>` for it.
+- Reserve `src/extensions` for installed Registry extension source and treat `src/components/ui` as the shadcn foundation. Do not modify either by default.
+- When reusing an extension or base component, import, re-export, wrap, or compose it from application-owned code. Modify its source only when the task explicitly requires changing that extension or foundation and composition cannot satisfy the requirement; keep the diff minimal.
 - Use React, TypeScript, Refine, React Router, Tailwind, and shadcn Base UI patterns already present in the project.
 - Never introduce Ant Design or Ant Design-based NocoBase client components.
 - Respect Base UI rendering contracts. When a controlled `Select` stores an enum key or record ID, resolve and render its user-facing label in `SelectValue` instead of exposing the raw value.

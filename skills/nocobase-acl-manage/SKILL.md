@@ -46,7 +46,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 | Task | User Outcome | Required Inputs | Optional Inputs |
 |---|---|---|---|
 | `role.audit-all` | list all roles with comparable policy summary | none | `data_source_key`, `output` |
-| `role.create-blank` | create a role with default read-only baseline (single creation mode) | `role_name` | `role_title`, `description`, `hidden`, `allow_configure`, `allow_new_menu` |
+| `role.create-blank` | create a role with default read-only baseline (single creation mode) | `role_name` | `role_title`, `description`, `hidden`, `allow_configure`, `allow_new_menu`, `portal_uid` or `portal_hint` when creating it for a resolved Portal |
 | `role.compare` | explain differences between roles | `role_names[]` | `data_source_key`, `output` |
 
 ## B) Global Role-Mode Domain
@@ -96,7 +96,9 @@ Role creation interaction policy:
 - if user input has no `r_` prefix, normalize to `r_<normalized_name>` and show normalized value in confirmation/readback
 - do not ask users to choose role archetypes (for example, "employee/auditor/manager/custom")
 - if `role_name` is provided, execute creation directly
-- after creation succeeds, move to permission assignment guidance
+- when the request includes the current resolved Portal, resolve it before confirmation; after role creation, immediately grant that role explicit entry to the Portal through `permission.portal.access.set`, then read back both the role and exact Portal association
+- treat a failed Portal grant as partial completion and do not claim the new role is ready for that Portal
+- when no Portal context is available, do not guess or grant access to an unrelated Portal; after creation succeeds, move to permission assignment guidance
 - permission follow-up options: system snippets, desktop routes, Portal entry access, data-source global strategy, data-source resource strategy
 
 Resource permission interaction policy:
