@@ -1,11 +1,11 @@
 ---
 name: nocobase-ai-manager
-description: "Use when users need to prepare or maintain NocoBase AI prerequisites through nb api, including LLM provider discovery, LLM service configuration, runtime refresh, secure credentials, and dependency checks for AI employees or knowledge bases."
+description: "Use when users need to prepare or maintain NocoBase AI prerequisites through nb api, including LLM provider discovery, LLM service configuration, CLI-versus-UI configuration routing, runtime refresh, secure credentials, and dependency checks for AI employees or knowledge bases."
 argument-hint: "[action: inspect|configure|update|delete|verify] [target: llm-provider|llm-service] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools
-version: 1.0.0
-last-reviewed: 2026-07-26
+version: 1.0.1
+last-reviewed: 2026-07-30
 risk-level: high
 ---
 
@@ -18,13 +18,14 @@ Prepare the shared NocoBase AI runtime and LLM configuration required by AI empl
 - Confirm the target `nb` environment, authentication, plugin capability, and generated `ai`/`kb` command surface.
 - Discover LLM providers, provider models, saved services, chat models, and embedding models.
 - Test unsaved provider settings and manage saved LLM services through `nb api ai llm-providers` and `nb api ai llm-services`.
+- Require an explicit CLI-versus-UI choice before creating or changing an LLM service or vector database connection configuration, and verify user-completed UI work before any follow-up operation.
 - Produce a prerequisite readiness result that downstream AI employee and knowledge base skills can consume.
 - Check AI employee and knowledge base references before disabling, replacing, or deleting an LLM service.
 
 # Non-Goals
 
 - Do not maintain AI employee records; hand off to `nocobase-ai-employee-manager`.
-- Do not maintain vector databases, knowledge bases, or documents; hand off to `nocobase-ai-knowledge-base-manager`.
+- Do not write vector database, knowledge base, or document configurations. After the required CLI-versus-UI choice, hand off direct vector database work to `nocobase-ai-knowledge-base-manager`.
 - Do not manage AI tools, skills, settings, roles, employee templates, or move operations.
 - Do not enable or disable plugins directly; use `nocobase-plugin-manage` when plugin state must change.
 - Do not use curl, direct database mutation, hidden actions, or values copied from secret-bearing responses.
@@ -45,6 +46,9 @@ Rules:
 - If a required input is missing or a target is ambiguous, stop mutation and ask clarification.
 - If the user says "you decide", inspect the current environment only; do not create, update, disable, or delete anything.
 - Never invent API keys, base URLs, model names, service names, or hidden identifiers.
+- Before creating or changing an LLM service or vector database connection configuration, explicitly ask whether the user wants direct CLI parameters or the UI flow. Never choose a mode by default.
+- For the UI flow, use only documented `--ui` flags and optional provider selection. Never include request-body fields, secrets, or credentials in a UI command.
+- After opening a UI flow, stop and wait for the user to report completion. Independently verify the resulting configuration before any next operation; see [UI-mode workflow](references/ui-mode.md).
 - Reject `enabledModels.mode=recommended` and any create/update payload containing `modelOptions`.
 - For `nb api ai llm-services create/update`, `--enabled-models` may contain **only large-language/chat models**. Never include an embedding model in `enabledModels`.
 - Discover embedding models separately and pass the selected embedding model only to knowledge base configuration such as `nb api kb create/update --embedding-model`.
@@ -56,6 +60,7 @@ Rules:
 - Max clarification rounds: `2`.
 - Max questions per round: `3`.
 - Before mutation, confirm environment, exact service name, provider, intended models, enabled state, secret source, and dependency impact.
+- Before creating or changing an LLM service or vector database connection configuration, ask the user to choose direct CLI parameters or UI creation/editing. For UI mode, do not continue after opening the page until the user explicitly reports completion, then perform independent readback verification.
 - Before delete, disable, or provider/model replacement, inspect references from knowledge bases and AI employees.
 - For every LLM service delete, show the exact service name, environment, dependencies, and irreversibility, then obtain a fresh secondary confirmation immediately before `destroy`. A prior request, plan approval, or batch cleanup confirmation does not count.
 - If `nb env update <env> --verbose` or required help commands fail, stop and report the missing runtime/plugin capability.
@@ -65,21 +70,25 @@ Rules:
 
 1. Run `nb env list` and confirm the selected environment; inspect `nb env info <env>` when identity or API base URL is unclear.
 2. Run `nb env update <env> --verbose`, then verify `nb api ai --help`, `nb api ai llm-providers --help`, and `nb api ai llm-services --help`.
-3. Read the [command map](references/command-map.md) and select only a documented command.
-4. Inspect providers with `list-llm-providers`; classify discovered models by type. Only large-language/chat models are eligible for `llm-services create/update --enabled-models`.
-5. Discover embedding models separately for downstream knowledge base use; never add them to `enabledModels`. For new or changed provider settings, create a protected JSON body file and run `test-flight` with a chat model before saving.
-6. Query by exact service name. If absent, create; if present and equivalent, report satisfied; if different, show safe-field differences and ask update or skip.
-7. Before disable, provider/model replacement, or delete, inspect `nb api kb list` and `nb api ai employees list` for references.
-8. If deleting, display the exact LLM service and impact, obtain fresh secondary confirmation, then execute that one `llm-services destroy`. Otherwise execute one requested mutation at a time. Suppress secret-bearing response bodies and never echo `options`.
-9. Read back through the safe provider service list or a field-limited `llm-services` read; compare `name`, `title`, `provider`, `enabled`, and `enabledModels`.
-10. Return the prerequisite readiness contract: environment, service name, provider, chat models configured in `enabledModels`, separately discovered embedding models for knowledge bases, and unresolved dependencies.
-11. Clean protected temporary files on success, failure, interruption, or rollback.
+3. Read the [command map](references/command-map.md) and [UI-mode workflow](references/ui-mode.md), then select only a documented command.
+4. Before creating or changing an LLM service or vector database connection configuration, ask the user to choose direct CLI parameters or UI creation/editing. Do not infer a choice.
+5. If the user selects UI mode, run the documented `--ui` command with at most its optional provider flag, then stop. Do not pass body flags or secrets. Wait for the user to report that they finished in the UI, independently verify the safe fields, and only then continue.
+6. If the user selects direct CLI parameters for a vector database connection configuration, hand off to `nocobase-ai-knowledge-base-manager`. For direct LLM service configuration, continue with the remaining workflow.
+7. Inspect providers with `list-llm-providers`; classify discovered models by type. Only large-language/chat models are eligible for `llm-services create/update --enabled-models`.
+8. Discover embedding models separately for downstream knowledge base use; never add them to `enabledModels`. For new or changed provider settings, create a protected JSON body file and run `test-flight` with a chat model before saving.
+9. Query by exact service name. If absent, create; if present and equivalent, report satisfied; if different, show safe-field differences and ask update or skip.
+10. Before disable, provider/model replacement, or delete, inspect `nb api kb list` and `nb api ai employees list` for references.
+11. If deleting, display the exact LLM service and impact, obtain fresh secondary confirmation, then execute that one `llm-services destroy`. Otherwise execute one requested mutation at a time. Suppress secret-bearing response bodies and never echo `options`.
+12. Read back through the safe provider service list or a field-limited `llm-services` read; compare `name`, `title`, `provider`, `enabled`, and `enabledModels`.
+13. Return the prerequisite readiness contract: environment, service name, provider, chat models configured in `enabledModels`, separately discovered embedding models for knowledge bases, and unresolved dependencies.
+14. Clean protected temporary files on success, failure, interruption, or rollback.
 
 # Reference Loading Map
 
 | Reference | Use When | Notes |
 |---|---|---|
 | [Command map](references/command-map.md) | Checking exact supported commands and excluded operations. | Covers runtime refresh, provider discovery, and LLM service CRUD. |
+| [UI-mode workflow](references/ui-mode.md) | Opening or verifying an LLM service or vector database configuration in the UI. | Defines `--ui`, provider defaults, user-completion wait, and readback requirements. |
 | [LLM service workflow](references/llm-services.md) | Testing, creating, updating, disabling, deleting, or verifying an LLM service. | Includes allowed fields, payload shapes, idempotency, and dependency checks. |
 | [Security and troubleshooting](references/security-and-troubleshooting.md) | Handling credentials or recovering from runtime, auth, provider, validation, or dependency errors. | Defines protected files, safe output, cleanup, and error handling. |
 | [AI employee manager](../nocobase-ai-employee-manager/SKILL.md) | The prerequisite is ready and employee maintenance should begin. | Downstream skill dependency. |
@@ -110,6 +119,8 @@ Rollback guidance:
 
 - Target environment, API base URL, and authentication are confirmed.
 - Runtime refresh completed and required `ai` commands exist.
+- Before every LLM service or vector database connection create/update, the user explicitly selected direct CLI parameters or UI mode.
+- For UI mode, the user reported completion and independent safe-field readback passed before any next operation.
 - Provider and requested model types are actually discoverable.
 - Unsaved or changed provider settings pass `test-flight`.
 - LLM payload contains only `name`, `title`, `provider`, `options`, `enabledModels`, and `enabled`.
@@ -126,16 +137,18 @@ Rollback guidance:
 # Minimal Test Scenarios
 
 1. Inspect-only: refresh runtime and list providers and saved services without mutation.
-2. Configure: test unsaved settings, create a service whose `enabledModels` contains only chat models, then verify chat models and separately discover embedding models for KB use.
-3. Missing input: omit provider credentials or service name and verify the clarification gate blocks mutation.
-4. Auth/capability failure: runtime refresh or `ai` help fails and the skill stops with an actionable handoff.
-5. High-risk case: attempt to delete any LLM service, including an unused test service, and verify a fresh secondary confirmation is required immediately before `destroy`.
+2. UI mode: open an LLM service or vector database configuration flow, wait for explicit user completion, then perform independent safe-field readback before follow-up.
+3. Configure: test unsaved settings, create a service whose `enabledModels` contains only chat models, then verify chat models and separately discover embedding models for KB use.
+4. Missing input: omit provider credentials or service name and verify the clarification gate blocks mutation.
+5. Auth/capability failure: runtime refresh or `ai` help fails and the skill stops with an actionable handoff.
+6. High-risk case: attempt to delete any LLM service, including an unused test service, and verify a fresh secondary confirmation is required immediately before `destroy`.
 
 # Output Contract
 
 Final response must include:
 
 - target environment and requested action;
+- selected direct-CLI or UI flow and, for UI flow, the user's completion report plus independent readback result;
 - runtime/help capability checked;
 - providers, service names, and model identifiers discovered;
 - commands executed without secret values;
@@ -147,6 +160,7 @@ Final response must include:
 
 - [NocoBase official documentation](https://docs.nocobase.com/): use when checking current NocoBase AI plugin and CLI behavior. [verified: 2026-07-26]
 - [Command map](references/command-map.md): use for the supported `nb api ai` command surface.
+- [UI-mode workflow](references/ui-mode.md): use for `--ui` commands, provider defaults, and post-UI verification.
 - [LLM service workflow](references/llm-services.md): use for provider discovery, connectivity testing, CRUD, dependencies, and verification.
 - [Security and troubleshooting](references/security-and-troubleshooting.md): use for secret handling, safe output, cleanup, and error recovery.
 - [AI employee manager](../nocobase-ai-employee-manager/SKILL.md): use after LLM prerequisites are ready and employee maintenance is requested.
