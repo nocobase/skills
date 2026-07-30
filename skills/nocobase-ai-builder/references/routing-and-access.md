@@ -22,9 +22,22 @@ Give every meaningful surface a stable route:
 
 Do not use local `open` state as the only identity for a business detail, editor, or other shareable surface.
 
+## Refine resource actions and presentation
+
+`resourceAction` assigns a nested path to the parent Refine resource's `create`, `edit`, or `show` URL. It does not submit data, apply ACL, close navigation, or select a visual surface.
+
+| Intended result | Required pattern |
+|---|---|
+| Keep the list and open an overlay | Use the default automatic resource outlet; the action element itself must render `RouteDrawer` or `RouteDialog`. |
+| Replace the list with a full page | Set `outlet: "manual"` on the resource route and use an application-owned layout that renders or consumes `useOutlet()`. |
+| Custom provider, boundary, or nested layer | Use `outlet: "manual"` and place the outlet at the required boundary. |
+
+Never put a plain full-page form or detail component directly in an automatic `resourceAction` outlet; React Router will append it below the list. Inspect `src/extensions/nocobase-users-example/app-routes.tsx` and its create, edit, and show components for the complete automatic drawer pattern. Keep the action's `CanAccess`, close lifecycle, and unsaved-change guard with the route surface.
+
 ## Navigation
 
 - Every visible leaf item must have a real route and renderable page.
+- Every page intended for sidebar navigation must also declare a Refine `resource` with appropriate menu metadata; defining only `element` and `path` creates a reachable route, not a menu item.
 - In a compatible Portal Template, define application-owned business routes once in `src/routes.tsx` with `defineAppRoutes`. Add a `resource` entry when the route belongs in Refine navigation, and mark create, edit, or show children with `resourceAction`; let the route runtime derive both the Refine resource paths and React Router routes.
 - Put route-level role constraints in `access.roles`. Nested routes inherit parent constraints. Do not repeat the same roles in Resource metadata or a manually written route guard; the runtime applies the complete route access chain to menu visibility and direct URL access.
 - Use a group only when it contains useful visible children.
@@ -32,6 +45,7 @@ Do not use local `open` state as the only identity for a business detail, editor
 - Keep labels, icons, ordering, selected state, and collapsed behavior consistent.
 - Build the menu around user tasks, not every backend collection.
 - Filter inaccessible leaves and then remove groups with no remaining visible children.
+- Compare the planned page inventory with the rendered sidebar for representative roles before completion; do not leave a primary workspace, dashboard, or business page discoverable only by manually entering its URL.
 - When replacing the starter application, set `registryRoutesEnabled` to `false` in `src/routes.tsx`. This unregisters Registry-contributed main routes, Refine resources, and navigation while retaining installed extension source, providers, authentication adapters, and the `/dev` showcases. Define the real application's routes in the same file.
 
 ## Access-control layers

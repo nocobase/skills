@@ -14,6 +14,7 @@ Validate behavior and product quality, not only compilation.
 - Open the application under the real Portal basename.
 - Inspect the console and failed network requests.
 - Navigate through every new menu entry.
+- Compare the intended page inventory with the rendered sidebar for each representative role; routes intended for navigation must not be URL-only.
 - Open each new route directly and refresh it.
 - Exercise browser Back and Forward through dialogs, drawers, and nested subpages.
 - Verify close behavior with and without an originating route.
@@ -22,6 +23,7 @@ Validate behavior and product quality, not only compilation.
 - Check allowed and denied roles, route guards, regions, actions, and record controls.
 - Check session expiry and the intended login return path when authentication changed.
 - Check representative desktop and narrow viewports.
+- Exercise controlled selects whose stored values differ from their labels and confirm the trigger shows readable localized labels before and after reload.
 - Check theme contrast, typography, density, overflow, focus visibility, and light/dark behavior when supported.
 
 ## Product-quality review

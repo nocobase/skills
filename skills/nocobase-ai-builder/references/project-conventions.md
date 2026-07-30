@@ -31,6 +31,8 @@ Treat `src/extensions` and `src/components/ui` as replaceable upstream-style lay
 5. Modify the original only when the requirement cannot be met through composition.
 6. If an original must change, compare upstream behavior, preserve its public contract, and keep the patch narrow.
 
+For controlled Base UI selects, treat the stored value and displayed label as separate data. When values are enum keys or record IDs, resolve the current option and render its localized, user-facing label inside `SelectValue`; do not assume the trigger will derive `SelectItem` text. Handle the initial empty/loading state and verify the label again after selection and data reload.
+
 Never introduce Ant Design. Use the Portal Template's React and shadcn Base UI stack.
 
 ## Product design responsibility

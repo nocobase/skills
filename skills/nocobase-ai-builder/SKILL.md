@@ -55,13 +55,17 @@ Make reasonable product decisions when details are missing. Ask only when a miss
 
 Do not derive the whole product from a Users or CRUD example. Adapt page composition to the business: a workspace should surface work, an overview should surface actionable signals, a detail page should organize related context, and a form should follow the real workflow.
 
+Treat the starter sidebar as a preset reference rather than a fixed application shell. As a product-design optimization, consider the navigation structure that best fits the system—such as top navigation, sidebar navigation, secondary menus, contextual tabs, or a restrained combination. This is guidance, not a requirement to replace the sidebar. Whichever pattern is chosen, keep navigation understandable and ensure its routes, direct access, responsive layout, and interaction remain usable across supported device sizes.
+
 ## 3. Establish navigation, URLs, and access control
 
 Design navigation and authorization before implementing page internals:
 
 - Every visible leaf menu must lead to a real, accessible route.
+- Every page intended to appear in the sidebar must declare both its route and a Refine `resource`; a route element alone does not create a menu item.
 - Do not create placeholder menu items or empty groups.
 - Dialogs, drawers, details, editors, and meaningful subpages must have independent URLs that support direct open, refresh, sharing, and browser history.
+- Decide whether every create, edit, and show action is a drawer, dialog, or full page before implementing its route. Treat `resourceAction` as Refine path metadata, not as a presentation choice.
 - Plan route, menu, page, region, action, role, resource/action, and record-level access separately.
 - Hiding a control is not sufficient security; NocoBase server ACL remains authoritative.
 
@@ -74,6 +78,7 @@ Read [Routing and Access](references/routing-and-access.md) completely whenever 
 - When adapting an extension or base component, create an application-owned adapter that imports and re-exports, wraps, or composes it. Change upstream-style source only when composition cannot solve the requirement, and keep the diff minimal.
 - Use React, TypeScript, Refine, React Router, Tailwind, and shadcn Base UI patterns already present in the project.
 - Never introduce Ant Design or Ant Design-based NocoBase client components.
+- Respect Base UI rendering contracts. When a controlled `Select` stores an enum key or record ID, resolve and render its user-facing label in `SelectValue` instead of exposing the raw value.
 - Reuse the Portal's API client, data provider, authentication session, ACL runtime, i18n runtime, system settings, basename, and asset URL helpers.
 - Use the NocoBase `query` action for charts, KPIs, and grouped aggregation; do not fetch every list record and derive server-scale analytics in the browser.
 - Cover loading, empty, error, unauthorized, success, destructive confirmation, and responsive states as appropriate.
@@ -113,7 +118,7 @@ For a complete AI Portal system build, implement at least one credible, contextu
 
 Run the project's relevant type check and production build. Run focused existing regression tests when the changed area has them; do not add superficial tests solely to increase test count.
 
-Use browser verification for user-visible work. Validate the actual route under the Portal basename, console errors, navigation, direct URLs, refresh, history, dialogs and drawers, role and ACL states, populated demo data, responsive layout, theme consistency, required AI and non-AI paths, and removal of template residue.
+Use browser verification for user-visible work. Validate the actual route under the Portal basename, console errors, navigation, direct URLs, refresh, history, dialogs and drawers, role and ACL states, populated demo data, responsive layout, theme consistency, required AI and non-AI paths, and removal of template residue. Compare the intended page inventory with the rendered sidebar, confirm that no plain resource-action page is appended below its parent list, and verify that controlled selects display labels rather than stored values.
 
 Read [Verification](references/verification.md) before completing a substantial page or system build.
 
