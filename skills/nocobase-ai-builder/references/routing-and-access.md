@@ -65,6 +65,11 @@ Design each layer explicitly:
 
 Use the Portal's real access components and hooks, including its `CanAccess`-style boundary, page/region guards, resource/action evaluator, and effective-role hook. Inspect their current signatures rather than guessing props.
 
+- Use `AclPage` only when denial applies to the complete page; provide a deliberate denied fallback.
+- Use one `AclRegion` per independently protected panel, and do not start that panel's protected query when access is denied.
+- Use `AclField` around the exact field or field group; choose hidden, read-only, or another safe fallback according to the workflow.
+- Use `CanAccess` or the Portal's ACL-aware Create, Show, Edit, and Delete components for controls and record operations, including record identity when record-level permission applies.
+
 The centralized route `access` field currently covers role constraints. Keep resource/action, region, field, and record checks in their dedicated ACL boundaries close to the protected query or UI.
 
 Avoid scattered checks such as `role === "admin"`. Centralize access intent at navigation, route, page, region, and action boundaries.

@@ -66,7 +66,8 @@ Design navigation and authorization before implementing page internals:
 - Do not create placeholder menu items or empty groups.
 - Dialogs, drawers, details, editors, and meaningful subpages must have independent URLs that support direct open, refresh, sharing, and browser history.
 - Decide whether every create, edit, and show action is a drawer, dialog, or full page before implementing its route. Treat `resourceAction` as Refine path metadata, not as a presentation choice.
-- Plan route, menu, page, region, action, role, resource/action, and record-level access separately.
+- Define the actual user roles and memberships, then plan access from outside in: Portal entry, server resource/action/scope/field permissions, and frontend route, menu, page, region, action, and record behavior.
+- Use the installed ACL boundaries at the smallest correct scope: `AclPage` for a whole page, `AclRegion` for an independent protected panel, `AclField` for a field or field group, and `CanAccess` or ACL-aware built-in action components for controls and record operations. Do not duplicate their checks with local booleans or hard-coded role comparisons.
 - Hiding a control is not sufficient security; NocoBase server ACL remains authoritative.
 
 Read [Routing and Access](references/routing-and-access.md) completely whenever the task adds or changes navigation, routes, dialogs, drawers, subpages, roles, or permissions.
@@ -125,7 +126,7 @@ Read [Verification](references/verification.md) before completing a substantial 
 # Coordination Boundaries
 
 - Use `nocobase-data-modeling` when the requested UI requires creating or changing backend collections or fields, then return here for source implementation.
-- Use `nocobase-acl-manage` when server-side role or resource policy must change; keep frontend access-control implementation in this skill.
+- Use `nocobase-acl-manage` when roles, user-role membership, Portal entry access, or server-side resource policy must change; keep frontend access-control implementation in this skill.
 - Use `nocobase-ai-employee` for AI employee discovery, lifecycle, models, tools, or prompt configuration.
 - Use `nocobase-portal-manage` for Portal create, source sync, dev lifecycle, push, deploy, or destroy operations.
 - Diagnose and report a missing runtime capability rather than replacing NocoBase infrastructure with a parallel local implementation.
