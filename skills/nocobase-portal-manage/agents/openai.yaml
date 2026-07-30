@@ -27,7 +27,7 @@ interface:
     - Without an explicit target: zero enabled Portals stop the UI build and do not create one automatically; exactly one is automatic; multiple Portals must be listed by `name` and `portalType` for explicit user selection.
     - Do not infer a target among multiple Portals from cwd, active files, `portal.config.json`, `localPath`, sync state, title similarity, or Portal type preference.
     - Read no-code versus AI only from the selected record's `portalType`; never infer it from user wording, templates, or source layout.
-    - If `nb portal` is unavailable, `nb api flow-surfaces list-navigation-targets -j` may only check `capabilities.multiPortal`. Use the legacy $nocobase-ui-builder lane only when it explicitly returns `false`; `true`, missing, or unclear results stop with CLI/runtime upgrade guidance.
+    - Treat `nb portal list -j` 404 / Not Found as unavailable Portal runtime support for ordinary UI builds. Check `list-navigation-targets`; `multiPortal=false` enables the legacy lane and `true` stops. If that action is also explicitly absent, continue only when flow-surfaces help exposes apply-blueprint plus list-templates and a structured `list-templates --body '{}' -j` probe succeeds. Never treat auth errors, 5xx, or malformed output as legacy evidence.
     - Use the current configured env unless the user provides an explicit env.
     - For one-portal-per-repository Git workflows, prefer `--git-path .`.
     - For no-code Portal UI, use the $nocobase-ui-builder skill for page, menu, block, field, action, and permission authoring.

@@ -208,12 +208,43 @@ Expected:
 - uses the response only to establish the explicit legacy capability
 - does not claim that navigation targets are complete no-code/AI Portal inventory
 
+### Portal Endpoint Missing With Legacy Flow Surfaces
+
+Setup:
+
+```text
+`nb portal --help` succeeds, but `nb portal list -j` returns 404 / Not Found.
+`list-navigation-targets` is unknown or returns 404 / Not Found.
+`nb api flow-surfaces --help` exposes apply-blueprint and list-templates.
+`nb api flow-surfaces list-templates --body '{}' -j` returns structured success.
+```
+
+Expected:
+
+- treats Portal inventory as runtime-unavailable for this ordinary UI build
+- permits the legacy `nocobase-ui-builder` Admin/Mobile lane
+- does not claim that a Portal was selected or infer a Portal type
+- does not use this fallback for a named Portal or Portal lifecycle operation
+
+### Portal Endpoint Missing Without Core Authoring
+
+Setup:
+
+```text
+Portal inventory and list-navigation-targets are explicitly absent, but apply-blueprint/list-templates help or the structured list-templates read probe fails.
+```
+
+Expected:
+
+- stops ordinary UI authoring
+- does not treat auth errors, 5xx, malformed output, or missing core actions as legacy evidence
+
 ### Missing CLI With Unclear Capability
 
 Setup:
 
 ```text
-`nb portal` is unavailable and list-navigation-targets is missing, fails, omits capabilities.multiPortal, or returns an unclear value.
+`nb portal` is unavailable and list-navigation-targets omits capabilities.multiPortal, returns an unclear value, or fails for anything other than explicit action absence; or its explicit absence is followed by a failed legacy Flow Surfaces probe.
 ```
 
 Expected:

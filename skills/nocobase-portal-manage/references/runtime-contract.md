@@ -35,14 +35,22 @@ If that command fails because `portal` is unknown or unavailable:
 - hand CLI/runtime update or env diagnosis to `nocobase-env-manage`
 - do not emulate Portal operations through direct database edits, Docker commands, private APIs, or wrapper scripts
 
-For an ordinary UI authoring request, the only permitted compatibility check is:
+For an ordinary UI authoring request, first try:
 
 ```bash
 nb api flow-surfaces list-navigation-targets -j
 ```
 
 - If the response explicitly has `capabilities.multiPortal === false`, use the legacy `nocobase-ui-builder` lane.
-- If it returns `true`, omits the capability, is unclear, the command is missing, or it fails, stop and recommend upgrading or diagnosing the CLI/runtime through `nocobase-env-manage`.
+- If it returns `true`, stop.
+- If the action is explicitly unknown or returns `404` / `Not Found`, run the verified legacy Flow Surfaces probe:
+
+```bash
+nb api flow-surfaces --help
+nb api flow-surfaces list-templates --body '{}' -j
+```
+
+Continue in the legacy lane only when help exposes both `apply-blueprint` and `list-templates`, and the read probe returns a structured success response. This combination proves that the runtime predates Portal target discovery while still exposing the Flow Surfaces authoring path. Auth errors, `5xx`, malformed output, a missing core action, or a failed read probe stop.
 - Do not use returned navigation targets as Portal inventory or infer no-code versus AI Portal from them.
 
 ## UI Target Resolution
@@ -56,6 +64,8 @@ nb portal list -j
 ```
 
 Count only records where `enabled === true`.
+
+If the CLI command exists but this call returns explicit endpoint absence (`404` / `Not Found`), treat Portal inventory as runtime-unavailable for ordinary UI authoring and use Capability Detection above. Do not apply that fallback to a user-specified Portal or to Portal lifecycle/source/deploy tasks. Auth failures, `5xx`, and malformed output are real failures, not legacy signals.
 
 - Explicit target: match `name` exactly across structured records. Continue only when exactly one record matches and it has `enabled === true`; a missing, disabled, or non-unique match must stop without substitution.
 - No explicit target and zero enabled records: stop the ordinary UI build and tell the user to explicitly create a Portal first. Do not create one automatically.

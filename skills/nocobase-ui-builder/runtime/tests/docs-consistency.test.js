@@ -792,8 +792,8 @@ test('Portal Manage dispatches UI requests and UI Builder requires resolved no-c
   assert.match(portalAgent, /default dispatcher for NocoBase UI authoring/i);
   assert.doesNotMatch(uiSkill, /DEFAULT entry point/i);
   assert.match(uiSkill, /Execute NocoBase Modern UI authoring only after[\s\S]{0,180}no-code Portal/i);
-  assert.match(uiSkill, /every unresolved NocoBase page\/UI request[\s\S]{0,120}nocobase-portal-manage/i);
-  assert.match(uiAgent, /Execute Modern UI only for one resolved no-code Portal/i);
+  assert.match(uiSkill, /Unresolved UI[\s\S]{0,80}requests[\s\S]{0,120}nocobase-portal-manage first/i);
+  assert.match(uiAgent, /Run Portal Manager first[\s\S]{0,100}Modern UI only for its resolved no-code Portal/i);
 
   for (const [label, text] of [
     ['portal SKILL', portalSkill],
@@ -819,15 +819,36 @@ test('Portal Manage dispatches UI requests and UI Builder requires resolved no-c
   }
 
   assert.match(uiSkill, /before any `flow-surfaces` mutation/i);
+  assert.match(uiSkill, /# Mandatory Portal Manager Entry[\s\S]{0,240}Before applying any other instruction[\s\S]{0,160}load and execute `nocobase-portal-manage`/i);
+  assert.match(uiSkill, /current request already carries a Portal Manager routing outcome[\s\S]{0,160}do not invoke Portal Manager again/i);
+  assert.match(uiAgent, /Gate:PMfirst:[^\n]*load\+execute nocobase-portal-manage/i);
   assert.match(uiSkill, /no Portal resolution[\s\S]{0,120}multiple Portals[\s\S]{0,120}stop without writing/i);
-  assert.match(uiSkill, /selected an AI Portal[\s\S]{0,120}stop UI Builder[\s\S]{0,160}source-code implementation path/i);
-  assert.match(boundary, /No Portal, multiple unselected Portals, or an AI Portal[\s\S]{0,120}stop UI Builder/i);
+  assert.match(uiSkill, /only one Portal exists[\s\S]{0,120}never sufficient/i);
+  assert.match(uiSkill, /portalType === "no-code"[\s\S]{0,160}portalType === "ai"[\s\S]{0,160}exit UI Builder/i);
+  assert.match(boundary, /one Portal whose `portalType` is AI, missing, or unsupported[\s\S]{0,160}stop UI Builder/i);
+  assert.match(navigation, /Portal count alone never enables UI Builder/i);
+  assert.match(uiSkill, /sole AI Portal[\s\S]{0,240}immediately continue[\s\S]{0,240}do not ask whether to use the AI Portal or create a no-code Portal/i);
+  assert.match(navigation, /Exiting UI Builder is a skill handoff[\s\S]{0,180}not the end[\s\S]{0,180}no clarification prompt/i);
+  assert.match(uiAgent, /sole AI Portal UI to its source path/i);
+  assert.match(portalSkill, /portal list -j[\s\S]{0,180}404[\s\S]{0,120}runtime-unavailable/i);
+  assert.match(portalSkill, /apply-blueprint[\s\S]{0,240}list-templates[\s\S]{0,360}verified legacy Flow Surfaces signature/i);
+  assert.match(portalRuntime, /list-templates --body '\{\}' -j/i);
+  assert.match(portalPlaybook, /Portal Endpoint Missing With Legacy Flow Surfaces/i);
+  assert.match(uiSkill, /verified legacy Flow Surfaces signature/i);
+  assert.match(navigation, /verified legacy Flow Surfaces signature/i);
 });
 
 test('selected no-code Portal mapping is exact and Portal navigation errors stop or hand off', () => {
   const navigation = read('references/navigation-targets.md');
   const uiSkill = read('SKILL.md');
   const uiAgent = read('agents/openai.yaml');
+  const wholePageQuick = read('references/whole-page-quick.md');
+  const pageIntent = read('references/page-intent.md');
+  const pageBlueprint = read('references/page-blueprint.md');
+  const normativeContract = read('references/normative-contract.md');
+  const runtimePlaybook = read('references/runtime-playbook.md');
+  const toolShapes = read('references/tool-shapes.md');
+  const verification = read('references/verification.md');
 
   assert.match(navigation, /target\.kind\s*===\s*"portal"/i);
   assert.match(navigation, /target\.routeName\s*===\s*selectedPortal\.name/i);
@@ -838,6 +859,30 @@ test('selected no-code Portal mapping is exact and Portal navigation errors stop
   assert.match(navigation, /backing `layoutUid`[\s\S]{0,80}not Portal identity/i);
   assert.match(navigation, /mobile-backed no-code Portal[\s\S]{0,100}`navigation\.portalUid`/i);
   assert.match(navigation, /whole-page create[\s\S]{0,120}`navigation\.portalUid`[\s\S]{0,180}`admin-layout-model` as a fallback/i);
+
+  for (const [label, text] of [
+    ['whole-page quick', wholePageQuick],
+    ['page intent', pageIntent],
+    ['page blueprint', pageBlueprint],
+    ['normative contract', normativeContract],
+    ['runtime playbook', runtimePlaybook],
+    ['tool shapes', toolShapes],
+    ['verification', verification],
+  ]) {
+    assert.match(text, /selected no-code Portal/i, `${label} should name the selected no-code Portal path`);
+    assert.match(text, /navigation\.portalUid/i, `${label} should require the resolved no-code Portal target`);
+    assert.match(text, /capabilities\.multiPortal === false/i, `${label} should require explicit legacy evidence`);
+    assert.match(text, /(?:desktop\/admin|Admin\/Mobile|mobile intent|legacy mobile|mobile-layout-model)/i, `${label} should document the direct-layout legacy case`);
+    assert.doesNotMatch(text, /Only explicit workspace intent|only for an explicitly requested workspace|Omit both (?:target fields )?for default desktop\/admin|Default creates target desktop\/admin/i, `${label} should not preserve the pre-Portal default`);
+  }
+
+  for (const [label, text] of [
+    ['whole-page quick', wholePageQuick],
+    ['page blueprint', pageBlueprint],
+    ['tool shapes', toolShapes],
+  ]) {
+    assert.match(text, /"portalUid": "<resolved-no-code-portal-uid>"/i, `${label} primary create payload should target the selected no-code Portal`);
+  }
 
   for (const ruleId of [
     'navigation-portal-type-unsupported',
@@ -2027,7 +2072,7 @@ test('same-group same-title page docs require replace and cross-group isolation'
   assert.match(wholePageQuick, /navigation-targets\.md[\s\S]{0,160}page-identity matrix/i);
   assert.match(
     wholePageQuick,
-    /same layout[\s\S]{0,80}same group[\s\S]{0,80}same `?page\.title`?[\s\S]{0,80}replace[\s\S]{0,160}different group[\s\S]{0,160}(?:must not|do not|not)[\s\S]{0,80}(?:merge|replace)/i,
+    /same target layout\/Portal[\s\S]{0,80}same group[\s\S]{0,80}same `?page\.title`?[\s\S]{0,80}replace[\s\S]{0,160}different group[\s\S]{0,160}(?:must not|do not|not)[\s\S]{0,80}(?:merge|replace)/i,
     'whole-page-quick should keep same-group replacement and cross-group isolation visible',
   );
 
@@ -2035,7 +2080,7 @@ test('same-group same-title page docs require replace and cross-group isolation'
   assert.match(pageIntent, /navigation-targets\.md/i);
   assert.match(
     pageIntent,
-    /same layout[\s\S]{0,80}same group\/root[\s\S]{0,80}same page title[\s\S]{0,80}replace[\s\S]{0,160}different group or layout[\s\S]{0,100}must not[\s\S]{0,80}(?:merge|replace)/i,
+    /same target layout\/Portal[\s\S]{0,80}same group\/root[\s\S]{0,80}same page title[\s\S]{0,80}replace[\s\S]{0,160}different group or target layout\/Portal[\s\S]{0,100}must not[\s\S]{0,80}(?:merge|replace)/i,
     'page-intent should keep same-group replacement and cross-group isolation visible',
   );
 });

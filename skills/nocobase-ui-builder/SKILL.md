@@ -1,12 +1,15 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  Execute NocoBase Modern UI authoring only after nocobase-portal-manage has
-  resolved exactly one enabled no-code Portal, or proved the runtime has
-  capabilities.multiPortal === false. Handles pages, blocks, menu items, and
+  Execute NocoBase Modern UI authoring only after first loading and executing
+  nocobase-portal-manage for the same request. Continue only when it has resolved
+  exactly one enabled Portal and confirmed it is a no-code Portal from portalType,
+  or proved the runtime has capabilities.multiPortal === false. Portal count
+  alone never enables this skill. Handles pages, blocks, menu items, and
   localized edits to fields, actions, layouts, reactions, and AI employee / AI
   assistant placement through backend flow-surfaces via nb api. Unresolved UI
-  requests and AI Portal UI go to nocobase-portal-manage first. Hand off AI
+  requests go to nocobase-portal-manage first; a sole AI Portal is handed off
+  automatically for source-code implementation without prompting. Hand off AI
   employee lifecycle work to nocobase-ai-employee and explicit DSL, YAML, git,
   or cli push workflows to nocobase-dsl-reconciler. Does not handle ACL, data
   modeling, workflow orchestration, browser reproduction, page error
@@ -26,9 +29,19 @@ description: >-
 - Treat one user request that spans several pages as ordered single-page runs. When multiple pages share the same `navigation.group.title`, serialize them: the first page resolves the title and captures `routeId`; later pages use that `routeId`, never title-only creation, and concurrent title-only shared-group creates are forbidden.
 - Whole-page navigation target rules live in [navigation-targets.md](./references/navigation-targets.md): a resolved no-code Portal requires exact `kind: "portal"` plus `routeName` discovery and `navigation.portalUid`; direct Admin/Mobile layout targeting is legacy-only when `capabilities.multiPortal === false`; duplicate same-title non-mobile groups require explicit `routeId`; shared title-only group creates must be serialized.
 
+# Mandatory Portal Manager Entry
+
+Before applying any other instruction in this skill, load and execute `nocobase-portal-manage` for the same user request and follow its Ordinary UI Build Workflow. Do not start a quick route, inspect UI Builder navigation targets, or make a `flow-surfaces` call first.
+
+- If the current request already carries a Portal Manager routing outcome, consume it and do not invoke Portal Manager again. This prevents a no-code dispatch back to UI Builder from looping.
+- A valid outcome is exactly one selected enabled Portal with its exact `name` and `portalType`, explicit legacy evidence that `capabilities.multiPortal === false`, or Portal Manager's verified legacy Flow Surfaces signature (Portal target discovery absent while core `apply-blueprint` and structured read capability are present).
+- `portalType === "no-code"`: continue this skill with the selected Portal context.
+- `portalType === "ai"`: leave this skill and continue the same request on Portal Manager's AI Portal source-code path without asking the user again.
+- Zero enabled Portals, multiple unselected Portals, or a missing/unsupported type remain Portal Manager outcomes; do not bypass them inside UI Builder.
+
 # Router
 
-- Portal-first boundary: every unresolved NocoBase page/UI request goes first to `nocobase-portal-manage`, even when the user does not mention a Portal. Continue here only with exactly one selected no-code Portal or explicit evidence that `capabilities.multiPortal === false`; an AI Portal remains on Portal Manage's source-code path.
+- Portal-first boundary: Mandatory Portal Manager Entry is the only entry to this router. Exactly one enabled Portal may be selected automatically, but count alone is not admission: continue here only when Portal Manager reports that selected record's `portalType` is exactly `no-code`, or with explicit evidence that `capabilities.multiPortal === false`. A sole AI Portal exits this skill without a `flow-surfaces` write, then immediately continues the same request on Portal Manager's source-code implementation path; do not ask whether to use the AI Portal or create a no-code Portal. A missing or unsupported `portalType` returns to Portal Manager for resolution without falling back to Admin.
 - whole-page authoring goes through backend `applyBlueprint`, `nb api flow-surfaces apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
 - AI employee / AI assistant action authoring stays inside whole-page or localized `flow-surfaces` writes; read [ai-employee-actions.md](./references/ai-employee-actions.md) when the request mentions AI employee placement, AI analysis buttons, AI assistants, or AI task reconfiguration. Use `nocobase-ai-employee` first only when the request needs employee discovery, matching, creation, prompt/model/skill/tool configuration, or a lifecycle decision beyond binding an existing visible username.
 - Dashboard / KPI / overview routing: [dashboard-routing.md](./references/dashboard-routing.md)
@@ -48,11 +61,13 @@ description: >-
 
 Complete this gate before any `flow-surfaces` mutation, including whole-page and localized writes:
 
-1. If the current request has no Portal resolution, or multiple Portals remain unselected, stop without writing and hand the request to `nocobase-portal-manage`.
-2. If Portal Manage selected an AI Portal, stop UI Builder and continue on Portal Manage's source-code implementation path.
-3. If Portal Manage selected a no-code Portal, require a non-empty selected Portal `name`, then resolve a non-empty `navigation.portalUid` exactly as documented in [navigation-targets.md](./references/navigation-targets.md). A missing or ambiguous mapping stops without writing.
-4. Only explicit `capabilities.multiPortal === false` evidence enables the legacy Admin/Mobile layout lane. A missing, true, failed, or unclear capability result is not legacy evidence.
-5. Multi-portal whole-page create must include the resolved `navigation.portalUid`, omit `navigation.layoutUid`, and never retry against `admin-layout-model`. A mobile-backed no-code Portal still enters through `navigation.portalUid` and then follows the backend's mobile-root rules.
+1. Consume the current-request outcome produced by Mandatory Portal Manager Entry. If it is absent, return to that entry and execute Portal Manager before doing anything else in UI Builder.
+2. If the current request has no Portal resolution, or multiple Portals remain unselected, stop without writing and keep the request in `nocobase-portal-manage`.
+3. If exactly one enabled Portal was selected, require Portal Manager to report the selected record's `portalType`; the fact that only one Portal exists is never sufficient by itself.
+4. Continue UI Builder only when `portalType === "no-code"`. For exactly one Portal with `portalType === "ai"`, exit UI Builder and immediately continue the same build request on Portal Manager's source-code path: locate the selected Portal project, implement, and test there. The original build request already authorizes this handoff; do not ask the user to choose between the AI Portal and creating a no-code Portal, and do not stop the overall task merely because UI Builder exited. For a missing or other unsupported type, exit without writing and return to Portal Manager to choose a compatible skill or implementation path; never fall back to Admin.
+5. For the confirmed no-code Portal, require a non-empty selected Portal `name`, then resolve a non-empty `navigation.portalUid` exactly as documented in [navigation-targets.md](./references/navigation-targets.md). A missing or ambiguous mapping stops without writing.
+6. The legacy Admin/Mobile layout lane requires either explicit `capabilities.multiPortal === false` evidence or Portal Manager's verified legacy Flow Surfaces signature. A merely missing, true, failed, unauthorized, server-error, or unclear capability result is not legacy evidence.
+7. Multi-portal whole-page create must include the resolved `navigation.portalUid`, omit `navigation.layoutUid`, and never retry against `admin-layout-model`. A mobile-backed no-code Portal still enters through `navigation.portalUid` and then follows the backend's mobile-root rules.
 
 Backend Portal navigation errors are stop/handoff signals, not aggregate authoring payload repairs:
 
@@ -137,8 +152,8 @@ Direct non-template whole-page `applyBlueprint` kanban main blocks may explicitl
 
 # Scope & Handoff
 
-- Handle only Modern page (v2) menu/page/tab/popup/content surfaces and the block / field / action / layout / reaction work inside them after one no-code Portal has been resolved, or in a proven `capabilities.multiPortal === false` legacy runtime.
-- Hand off every unresolved page/UI request to `nocobase-portal-manage` before any navigation discovery or mutation. Portal Manage returns only a selected no-code Portal to this skill; AI Portal source-code UI stays there. When `nb portal` is missing, return here only if the capability check explicitly proves `multiPortal === false`.
+- Handle only Modern page (v2) menu/page/tab/popup/content surfaces and the block / field / action / layout / reaction work inside them after one selected Portal has been explicitly confirmed with `portalType === "no-code"`, or in a proven `capabilities.multiPortal === false` legacy runtime. A single Portal with an unconfirmed or non-no-code type is out of scope.
+- Hand off every unresolved page/UI request to `nocobase-portal-manage` before any navigation discovery or mutation. Portal Manage returns only a selected no-code Portal to this skill. When the sole selected Portal is AI, leave UI Builder but keep executing the original request through Portal Manage's source project without asking for confirmation or offering to create a no-code Portal. When `nb portal` is missing, return here only if the capability check explicitly proves `multiPortal === false`.
 - For partial-match or boundary-report tasks, keep the Modern-page slice narrow and write the handoff report directly from this boundary list. Do not inspect runtime or scripts unless the request is explicitly about those mechanics.
 - Hand off ACL / route permissions / role permissions to `nocobase-acl-manage`.
 - Hand off collection / field / relation authoring to `nocobase-data-modeling`.

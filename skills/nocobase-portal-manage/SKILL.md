@@ -50,7 +50,9 @@ Dispatch all ordinary NocoBase UI authoring to one explicitly resolved Portal an
 - Do not infer a target among multiple Portals from cwd, active files, a nearby or recent `portal.config.json`, `localPath`, sync state, title similarity, or Portal type preference.
 - Determine the selected Portal's implementation path only from its `portalType`; do not infer type from the request, template, source tree, or local workspace.
 - Use `portal.config.json`, `localPath`, and other local workspace information only after an AI Portal is selected, and only to locate its source project.
-- When `nb portal` is unavailable, do not use `flow-surfaces list-navigation-targets` as Portal inventory or infer no-code versus AI. Run `nb api flow-surfaces list-navigation-targets -j` only to inspect `capabilities.multiPortal`: legacy UI Builder fallback is allowed only when it explicitly returns `false`; `true`, a missing command, or an unclear result must stop with CLI/runtime upgrade guidance.
+- Treat `nb portal` as runtime-unavailable when the command is unknown or when `nb portal list -j` returns the explicit endpoint-absence signatures `404` / `Not Found`. For ordinary UI authoring only, this enters the legacy capability probe below; Portal lifecycle/source/deploy operations remain blocked.
+- When Portal inventory is runtime-unavailable, do not use `flow-surfaces list-navigation-targets` as Portal inventory or infer no-code versus AI. Run `nb api flow-surfaces list-navigation-targets -j` only to inspect `capabilities.multiPortal`: `false` enables the legacy UI Builder lane and `true` stops.
+- Older pre-Portal runtimes may not expose `list-navigation-targets`. When that action is explicitly unknown or returns `404` / `Not Found`, and the user did not name a Portal, allow the legacy UI Builder lane only after both checks succeed: `nb api flow-surfaces --help` exposes `apply-blueprint` and `list-templates`, and `nb api flow-surfaces list-templates --body '{}' -j` returns a structured success response. This is the verified legacy Flow Surfaces signature. Auth errors, `5xx`, malformed output, a missing core action, or a failed read probe must stop; never reinterpret them as legacy evidence.
 - Use the current configured CLI env unless the user provides an explicit env.
 - When passing an explicit env that may differ from the current env, include `--yes` only when the user requested non-interactive execution or explicitly confirmed the target env.
 - Before `destroy`, require explicit confirmation from the user.
@@ -117,9 +119,9 @@ Use this path for every ordinary NocoBase page, menu, block, field, action, layo
 2. Detect Portal CLI support with `nb portal --help` or equivalent command-help output.
 3. If `nb portal` is unavailable:
    - For create/config/pull/push/deploy/dev/destroy/list/info requests, stop and report the missing CLI capability; recommend `nocobase-env-manage` for CLI/runtime upgrade or environment diagnosis.
-   - For ordinary UI authoring, call `nb api flow-surfaces list-navigation-targets -j` only as a capability check. If and only if `capabilities.multiPortal` is explicitly `false`, use the `nocobase-ui-builder` legacy lane. If it is `true`, missing, unclear, or the command fails, stop and recommend a CLI/runtime upgrade.
+   - For ordinary UI authoring, call `nb api flow-surfaces list-navigation-targets -j` only as a capability check. If `capabilities.multiPortal` is explicitly `false`, use the `nocobase-ui-builder` legacy lane. If it is `true`, stop. If the action is explicitly unknown or returns `404` / `Not Found`, use the verified legacy Flow Surfaces probe defined in Hard Rules; continue only when that full probe succeeds. Other missing, unclear, or failed results stop with CLI/runtime guidance.
    - Never treat navigation targets as no-code/AI Portal inventory.
-4. Inspect structured Portal inventory with `nb portal list -j` when the command surface is available, and retain only records where `enabled === true`.
+4. Inspect structured Portal inventory with `nb portal list -j` when the command surface is available, and retain only records where `enabled === true`. If this inventory call returns explicit endpoint absence (`404` / `Not Found`), treat Portal inventory as runtime-unavailable and apply step 3 for ordinary UI authoring; do not do so for auth errors, `5xx`, or malformed output.
 5. Resolve the target Portal:
    - If the user supplied a Portal name, require exactly one record whose `name` is an exact match and whose `enabled` value is `true`. A missing, disabled, or non-unique match stops the build.
    - If no Portal was supplied and zero enabled Portals exist, stop and tell the user to explicitly create a Portal first. Do not create one automatically.
@@ -227,7 +229,7 @@ Rollback guidance:
 10. Explicit missing, disabled, or non-unique Portal names stop without substitution.
 11. App start/update request is handed off to `nocobase-env-manage`.
 12. Missing `nb portal` blocks lifecycle/source/deploy actions with a clear CLI capability report and does not use private API fallbacks.
-13. Missing `nb portal` permits the legacy UI Builder lane only when `list-navigation-targets` explicitly returns `capabilities.multiPortal: false`; `true` or an unclear result stops.
+13. Missing Portal runtime support permits the legacy UI Builder lane when `list-navigation-targets` explicitly returns `capabilities.multiPortal: false`, or when the action is explicitly absent and the verified legacy Flow Surfaces signature succeeds. `true`, auth errors, `5xx`, malformed output, or a failed core probe stop.
 
 # Output Contract
 

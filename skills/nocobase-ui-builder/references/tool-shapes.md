@@ -429,6 +429,7 @@ nb request body:
   "version": "1",
   "mode": "create",
   "navigation": {
+    "portalUid": "<resolved-no-code-portal-uid>",
     "group": { "routeId": 12 },
     "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
@@ -471,7 +472,7 @@ nb request body:
 }
 ```
 
-For mobile creates, set `navigation.layoutUid: "mobile-layout-model"`, put the visible entry title/icon in `navigation.item`, and omit `navigation.group`. For an explicitly requested workspace returned by `list-navigation-targets`, set `navigation.portalUid` instead of `layoutUid`; mobile-backed portals also omit `navigation.group`. Omit both target fields for default desktop/admin behavior. For non-mobile creates, duplicate same-title group handling, `navigation.group.routeId` precedence, and duplicate-page identity follow [navigation-targets.md](./navigation-targets.md). If an existing group's metadata must change, use low-level `update-menu` instead.
+A selected no-code Portal always sets the `navigation.portalUid` returned by its exact `list-navigation-targets` mapping, even when the user did not explicitly request a workspace, and omits `layoutUid`; mobile-backed no-code Portals also omit `navigation.group`. Only the legacy lane explicitly proven by `capabilities.multiPortal === false` may omit both target fields for desktop/admin or set `navigation.layoutUid: "mobile-layout-model"` for mobile intent; legacy mobile puts the visible entry title/icon in `navigation.item` and omits `navigation.group`. For non-mobile creates, duplicate same-title group handling, `navigation.group.routeId` precedence, and duplicate-page identity follow [navigation-targets.md](./navigation-targets.md). If an existing group's metadata must change, use low-level `update-menu` instead.
 
 When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
 

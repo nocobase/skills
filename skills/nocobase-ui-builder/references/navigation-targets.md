@@ -4,14 +4,18 @@ Use this file when whole-page `create` work needs menu placement, layout/workspa
 
 ## Required Portal Preflight
 
-Before any `flow-surfaces` mutation, require one of these Portal Manage outcomes:
+Before any `flow-surfaces` mutation, load and execute `nocobase-portal-manage` for the same request unless a current-request Portal Manager routing outcome already exists. Reuse an existing outcome to avoid a no-code dispatch loop. Then require one of these outcomes:
 
-- Exactly one selected no-code Portal with a non-empty `name`: continue to [Selected No-Code Portal Mapping](#selected-no-code-portal-mapping).
-- Selected AI Portal: stop UI Builder and return to Portal Manage's source-code implementation path.
+- Exactly one selected Portal whose inventory record has `portalType === "no-code"` and a non-empty `name`: continue to [Selected No-Code Portal Mapping](#selected-no-code-portal-mapping).
+- Exactly one selected Portal with `portalType === "ai"`: exit UI Builder without writing and immediately continue the same request on Portal Manage's source-code implementation path. The original build request authorizes locating, editing, and testing the selected Portal source; do not ask whether to use it or create a no-code Portal.
+- Exactly one selected Portal with a missing or unsupported `portalType`: exit UI Builder without writing and return to Portal Manage to choose another skill or implementation path.
 - No selected Portal or multiple Portals awaiting selection: stop without writing and return to Portal Manage.
 - `capabilities.multiPortal === false`: use the [Legacy Layout Lane](#legacy-layout-lane).
+- Portal Manager's verified legacy Flow Surfaces signature: Portal inventory and `list-navigation-targets` are explicitly absent, while core `apply-blueprint` help and a structured Flow Surfaces read probe succeed; use the [Legacy Layout Lane](#legacy-layout-lane).
 
-No other capability value enables a write. In particular, `multiPortal: true`, a missing value, an unavailable command, or an unclear response must stop.
+Portal count alone never enables UI Builder. The selected inventory record's `portalType` is authoritative; do not infer no-code from there being only one Portal, user wording, navigation targets, cwd, or source layout. No other capability value enables a write. In particular, `multiPortal: true`, a merely missing value, auth or server errors, or an unclear response must stop. An explicitly absent Portal/target-discovery surface is allowed only through Portal Manager's complete verified legacy probe; command absence by itself is never enough.
+
+Exiting UI Builder is a skill handoff, not the end of the user's build task. A sole AI Portal must continue automatically through its source project with no clarification prompt.
 
 ## Selected No-Code Portal Mapping
 
