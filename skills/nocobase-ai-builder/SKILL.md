@@ -57,22 +57,32 @@ Do not derive the whole product from a Users or CRUD example. Adapt page composi
 
 Treat the starter sidebar as a preset reference rather than a fixed application shell. As a product-design optimization, consider the navigation structure that best fits the system—such as top navigation, sidebar navigation, secondary menus, contextual tabs, or a restrained combination. This is guidance, not a requirement to replace the sidebar. Whichever pattern is chosen, keep navigation understandable and ensure its routes, direct access, responsive layout, and interaction remain usable across supported device sizes.
 
-## 3. Establish navigation, URLs, and access control
+## 3. Design and configure roles and permissions
 
-Design navigation and authorization before implementing page internals:
+For a complete system, include a dedicated role-and-permission task in the Todo list or implementation plan. Do not bury it under project inspection, routing, or page implementation.
+
+- Define the actual user roles, memberships, and role-specific responsibilities. If the system genuinely has one undifferentiated role, record that decision explicitly instead of silently omitting permission design.
+- Decide and configure which roles may enter the Portal.
+- Configure and verify server resource/action/scope/field policies for each role before relying on frontend visibility.
+- Design frontend menu, route, page, region, field, action, and record behavior for allowed and denied users.
+- Use the installed ACL boundaries at the smallest correct scope: `AclPage` for a whole page, `AclRegion` for an independent protected panel, `AclField` for a field or field group, and `CanAccess` or ACL-aware built-in action components for controls and record operations. Do not duplicate their checks with local booleans or hard-coded role comparisons.
+- Hiding a control is not sufficient security; NocoBase server ACL remains authoritative.
+
+Use `nocobase-acl-manage` for role, membership, Portal entry, and server ACL changes. Read [Routing and Access](references/routing-and-access.md) completely before implementing frontend permissions, and verify at least one allowed and one denied role or permission state.
+
+## 4. Establish navigation and URLs
+
+Design navigation and URL surfaces before implementing page internals:
 
 - Every visible leaf menu must lead to a real, accessible route.
 - Every page intended to appear in the sidebar must declare both its route and a Refine `resource`; a route element alone does not create a menu item.
 - Do not create placeholder menu items or empty groups.
 - Dialogs, drawers, details, editors, and meaningful subpages must have independent URLs that support direct open, refresh, sharing, and browser history.
 - Decide whether every create, edit, and show action is a drawer, dialog, or full page before implementing its route. Treat `resourceAction` as Refine path metadata, not as a presentation choice.
-- Define the actual user roles and memberships, then plan access from outside in: Portal entry, server resource/action/scope/field permissions, and frontend route, menu, page, region, action, and record behavior.
-- Use the installed ACL boundaries at the smallest correct scope: `AclPage` for a whole page, `AclRegion` for an independent protected panel, `AclField` for a field or field group, and `CanAccess` or ACL-aware built-in action components for controls and record operations. Do not duplicate their checks with local booleans or hard-coded role comparisons.
-- Hiding a control is not sufficient security; NocoBase server ACL remains authoritative.
 
 Read [Routing and Access](references/routing-and-access.md) completely whenever the task adds or changes navigation, routes, dialogs, drawers, subpages, roles, or permissions.
 
-## 4. Implement application-owned code
+## 5. Implement application-owned code
 
 - Put normal business pages and components in application-owned `src` directories, following the project's current organization.
 - Treat `src/extensions` as installed extension source and `src/components/ui` as the shadcn foundation. Do not modify either by default.
@@ -87,7 +97,7 @@ Read [Routing and Access](references/routing-and-access.md) completely whenever 
 
 When a real system is being built, remove template presentation from the application surface: hide or unregister demo navigation and routes at the application layer, replace starter branding and copy, and make the first accessible page useful for the target users. Do not delete installed extension source merely to hide a demo entry.
 
-## 5. Populate representative demo data
+## 6. Populate representative demo data
 
 For a new or substantially rebuilt system, populate coherent demo records after the data model and core workflows are working. This is part of the build deliverable, not an optional follow-up.
 
@@ -97,25 +107,26 @@ For a new or substantially rebuilt system, populate coherent demo records after 
 - Exercise at least one realistic end-to-end workflow in the data, rather than filling every field with unrelated placeholders.
 - If the target contains real business data, record creation is not authorized, or the API rejects the operation, do not silently omit this step. Report the reason and the exact remaining data setup.
 
-## 6. Choose and apply a theme
+## 7. Choose and apply a theme
 
 If the user did not specify a theme, choose a restrained, coherent direction appropriate to the system and continue without blocking. Define theme behavior through application-level semantic tokens and shared layout rules.
 
 If the user wants to choose a theme, direct them to `https://www.shadcn.io/theme` and accept the selected theme name, Registry URL, or generated installation command. Review the working tree and installer diff, integrate the theme with application branding, and avoid blindly overwriting customized `src/components/ui` files. A theme supplies visual foundations; it does not replace business-specific information architecture, content, states, or interactions.
 
-## 7. Implement meaningful AI interaction
+## 8. Implement meaningful AI interaction
 
 After the system's core workflows work without AI, review the finished pages and identify interactions where AI can materially reduce effort or improve decisions. Good candidates include natural-language retrieval, summarization, extraction, classification, drafting, explanation, guided analysis, and multi-step assistance grounded in current page or record context.
 
 For a complete AI Portal system build, implement at least one credible, contextual AI interaction. Evaluation or a list of possible ideas alone does not complete this requirement. Choose the best-supported interaction without asking for another confirmation when it does not materially change business behavior or security.
 
 - Inspect the installed AI extensions, existing demos, hooks, components, tool-call renderers, and employee integration examples before designing a new interaction.
+- Before implementing a page-level AI interaction, study the installed Page Context demo and its prompt-generator scenarios. Prefer an existing pattern—manual page-element selection, Shortcut task context, conversation preset context, inherited `AIPageContextScope`, Form filler, or a permission-aware custom frontend Tool—and reuse its context and task contracts.
 - Prefer contextual entry points close to the relevant page, record, selection, or action. Make the context being shared and the result being produced clear to the user.
 - Preserve a complete non-AI workflow. AI output must not silently bypass validation, ACL, confirmation, or server-side business rules.
 - Reuse existing AI runtime and employee/tool contracts. Use `nocobase-ai-employee` when employee, model, tool, or prompt configuration is required.
 - Do not satisfy the requirement with a decorative chat button or an unsupported capability. If no employee, model, tool contract, or runtime can support a credible interaction, diagnose the missing prerequisite and report the AI portion as incomplete instead of silently skipping it.
 
-## 8. Verify the result
+## 9. Verify the result
 
 Run the project's relevant type check and production build. Run focused existing regression tests when the changed area has them; do not add superficial tests solely to increase test count.
 
