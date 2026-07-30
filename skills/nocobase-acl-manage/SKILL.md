@@ -1,6 +1,6 @@
 ---
 name: nocobase-acl-manage
-description: Task-driven ACL governance through nb CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
+description: Task-driven ACL governance through nb CLI for role lifecycle, global role mode, permission policy, Portal entry access, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments, including which roles may enter a Portal.
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
@@ -24,7 +24,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 - Tasks are grouped into five domains:
 - role
 - global role mode
-- permission
+- permission, including Portal entry access
 - user
 - risk assessment
 - Every write task follows `plan -> confirm -> apply -> readback`.
@@ -68,6 +68,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 |---|---|---|---|
 | `permission.system-snippets.set` | set role-level system snippets | `role_name`, (`snippet_preset` or `snippets`) | none |
 | `permission.route.desktop.set` | set desktop route permissions for a role | `role_name`, `route_ids[]` | `set_mode` (`set` or `add` or `remove`) |
+| `permission.portal.access.set` | grant or revoke one role's access to an existing Portal | `role_name`, (`portal_uid` or `portal_hint`), `access` | none |
 | `permission.data-source.global.set` | set global strategy actions for all tables in one data source | `role_name`, `global_actions[]` | `data_source_key` |
 | `permission.data-source.resource.set` | set independent actions for one or more collections | `role_name`, (`collection_hint` or `collection_hints[]`), `actions[]` | `data_source_key`, `fields_map`, `scope_map`, `resource_scope` (`all` by default) |
 | `permission.scope.manage` | create/update/list reusable scopes | `scope_task` | `data_source_key`, `scope_id`, `scope_payload` |
@@ -96,7 +97,7 @@ Role creation interaction policy:
 - do not ask users to choose role archetypes (for example, "employee/auditor/manager/custom")
 - if `role_name` is provided, execute creation directly
 - after creation succeeds, move to permission assignment guidance
-- permission follow-up options: system snippets, desktop routes, data-source global strategy, data-source resource strategy
+- permission follow-up options: system snippets, desktop routes, Portal entry access, data-source global strategy, data-source resource strategy
 
 Resource permission interaction policy:
 
@@ -138,6 +139,16 @@ Resource permission interaction policy:
 - `view` action must default to all fields for that collection
 - if user explicitly asks for `all permissions` on a collection, resolve runtime available actions and confirm expanded action set before write
 
+Portal permission interaction policy:
+
+- manage only whether a role may enter an existing custom Portal; do not treat this task as Portal-internal route, menu, page, region, control, or data permission configuration
+- resolve one real enabled Portal with `nb portal list -j` before planning a write; accept a uid, name, path, title, or business hint, but require disambiguation when matches are not unique
+- use the official `roles.multiPortals:list/add/remove` association actions exposed as `nb api acl roles multi-portals ...`; do not write the `rolesMultiPortals` through table directly
+- Portal access for a union role is allowed when any effective role has the explicit Portal grant; `root` can enter all enabled Portals
+- `allowNewMultiPortal` is a separate future-Portal default policy and is not evidence that a role can enter a specific existing Portal
+- after a write, read back the role's Portal association and verify the exact Portal uid is present or absent
+- if the Multi-portal capability or `roles multi-portals` runtime commands are unavailable, stop with capability guidance; do not emulate Portal grants in another collection
+
 # Input Contract
 
 | Input | Required | Default | Validation | Clarification Question |
@@ -148,6 +159,8 @@ Resource permission interaction policy:
 | `collection_hint` / `collection_hints[]` | conditional | none | required for `permission.data-source.resource.set`; business name/keyword input is allowed | "Which business table(s) should be configured?" |
 | `resolved_collection_names[]` | conditional | runtime resolved | required before write for `permission.data-source.resource.set`; each collection must exist in selected data source | "I found these matching collections. Which should be used?" |
 | `actions[]` | conditional | none | required for `permission.data-source.resource.set` | "Which actions should be granted on these collections?" |
+| `portal_uid` / `portal_hint` | conditional | none | required for Portal permission tasks; must resolve to one enabled custom Portal | "Which Portal should this role access?" |
+| `access` | conditional | none | `allow` or `deny` for `permission.portal.access.set` | "Should this role be allowed or denied entry to the Portal?" |
 | `resource_scope` | no | `all` | one of `all` / `own` / `custom(scope_id or scope_filter)` | "Which data scope should be used? Default is all; choose own/custom only when needed." |
 | `data_source_key` | no | `main` | must exist at runtime | "Which data source key should be used? (default: main)" |
 | `strict_mode` | no | `safe` | `safe` or `fast` | "Use safe mode with full readback?" |
@@ -176,6 +189,7 @@ Default behavior when user says `you decide`:
 - for `permission.data-source.resource.set`, if actions are incomplete, ask follow-up questions before write
 - for `permission.data-source.resource.set`, if scope is omitted, apply default `all` and require confirmation before write
 - for `permission.data-source.resource.set`, if custom scope is requested but scope id/key is unresolved, ask follow-up questions before write
+- for Portal writes, do not continue until one enabled custom Portal is resolved
 - for `permission.data-source.resource.set`, if user has not confirmed the final write plan, do not write
 - if user asks to set role mode for a specific role, clarify and normalize to global mode change
 - if task implies writes and target identity is missing, stop and ask first
@@ -223,6 +237,11 @@ Default behavior when user says `you decide`:
 - for collection/field resolution, prefer `nb api resource list --resource collections --filter '{}' --appends fields -j` as primary metadata source
 - for `roles desktop-routes add`, request body must be JSON array of numeric route ids
 - never execute write commands with uncertain, unresolved, or type-mismatched parameters
+- Portal permission command guard:
+- discover Portals through `nb portal list -j`
+- require `nb api acl roles multi-portals list|add|remove` to resolve from the current runtime Swagger cache
+- pass only the resolved Portal uid to `add` or `remove`; do not pass a title, path, or guessed uid
+- perform a current-association read before the write and an immediate readback after it; an already-satisfied allow/deny request is a no-op
 - lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
 - run execution guard sequence before ACL writes:
 - `nb env list`
@@ -259,6 +278,7 @@ Default behavior when user says `you decide`:
 - verify target data changed as requested
 - include concise evidence blocks
 - for independent resource permissions, use `nb api acl roles data-source-resources get ... --appends actions` when verifying action-level scope/fields
+- for Portal entry access, read back the exact `roleName + multiPortalUid` grant and distinguish explicit access from `allowNewMultiPortal`
 
 6. Risk and boundary reporting.
 - return high-impact notes even on success
@@ -328,6 +348,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - `roles data-source-resources get|update` locator is explicit (`filterByTk` or `data-source-key + name`) before execution
 - collection/field metadata is resolved through `resource collections` read path; `roles data-sources-collections list` is compatibility-only for role-facing view
 - `roles desktop-routes add` uses JSON array body with numeric route ids
+- Portal access writes resolve one enabled Portal, use exact role/Portal keys, and have immediate readback
 - no write executes with uncertain or type-mismatched parameters
 - global role-mode tasks do not require `role_name`
 - boundary messages are clear and actionable
@@ -350,6 +371,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 14. `risk.assess-role` should return score + evidence + recommendations.
 15. Full-field default should preserve system fields in readback when metadata includes them.
 16. Wrong base-dir or missing runtime command cache must fail-closed with boundary message, not ad-hoc script fallback.
+17. `permission.portal.access.set` should grant and revoke one explicit role/Portal relation with readback.
 
 # Reference Loading Map
 
@@ -361,6 +383,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 | [references/result-format-v1.md](references/result-format-v1.md) | output rendering | includes risk cards and capability path |
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
 | [references/independent-permissions.md](references/independent-permissions.md) | resource-level permission writes | `usingActionsConfig + actions + fields + scope` complete-write policy |
+| [references/portal-access.md](references/portal-access.md) | granting or revoking entry to an existing Portal | official role/Portal association commands and readback |
 | [tests/capability-test-plan.md](tests/capability-test-plan.md) | capability matrix | aligned with v2 domains |
 | [tests/test-playbook.md](tests/test-playbook.md) | acceptance regression | prompt-first TC01, TC02, TC04-TC20 with runtime evidence commands |
 | [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
@@ -374,6 +397,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - [Result Format v1](references/result-format-v1.md)
 - [ACL Configuration Details](references/configuration.md)
 - [Table Independent Permissions](references/independent-permissions.md)
+- [Portal Access](references/portal-access.md)
 - [ACL Capability Test Plan](tests/capability-test-plan.md)
 - [ACL Test Playbook](tests/test-playbook.md)
 - [ACL Refactor Plan v2](references/refactor-plan-v2.md)
