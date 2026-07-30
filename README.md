@@ -19,10 +19,11 @@ NocoBase CLI automatically installs Skills during initialization (`nb init`), so
 | `nocobase-ai-knowledge-base-manager` | Maintain vector databases, knowledge bases, documents, retrieval tests, and employee KB bindings through `nb api kb`.             |
 | `nocobase-data-modeling`   | Create and manage data models — collections, fields, relations, and view-backed schemas.                                                   |
 | `nocobase-ui-builder`      | Execute no-code UI authoring after `nocobase-portal-manage` resolves exactly one enabled no-code Portal.                             |
+| `nocobase-ai-builder`      | Design, implement, and verify polished source-code applications for every selected AI Portal.                                            |
 | `nocobase-prototype-repro` | **Opt-in** reproduce a given HTML/image prototype as a faithful NocoBase app — region→native-block map + a screenshot-vs-prototype loop.   |
-| `nocobase-portal-manage`   | **Default dispatcher for NocoBase UI authoring** — resolve every page, menu, block, field, action, layout, or reaction request with `nb portal list -j`, then route by `portalType` to no-code UI Builder or AI Portal source. Multiple Portals require explicit selection; missing Portal CLI falls back only when `capabilities.multiPortal` is explicitly `false`. |
+| `nocobase-portal-manage`   | **Default dispatcher for NocoBase UI authoring** — resolve every page, menu, block, field, action, layout, or reaction request with `nb portal list -j`, then route by `portalType` to the required Portal builder. Multiple Portals require explicit selection; missing Portal CLI falls back only when `capabilities.multiPortal` is explicitly `false`. |
 | `nocobase-workflow-manage` | Create, edit, enable, diagnose, and manage NocoBase workflows — triggers, node chains, versions, and execution troubleshooting.            |
-| `nocobase-acl-manage`      | Manage roles, permission policies, user-role membership, global role mode, and risk assessment.                                            |
+| `nocobase-acl-manage`      | Manage roles, permission policies, Portal entry access, user-role membership, global role mode, and risk assessment.                      |
 | `nocobase-dsl-reconciler`  | **Opt-in** YAML-DSL path for building whole NocoBase applications from spec files committed to git. Use only when explicitly requested.    |
 | `nocobase-plugin-manage`   | List, enable, and disable NocoBase plugins via `nb pm` commands.                                                                           |
 | `nocobase-publish-manage`  | Cross-environment release operations — backup & restore, and migration via `nb` CLI.                                                       |
