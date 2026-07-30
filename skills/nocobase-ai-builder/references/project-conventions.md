@@ -6,6 +6,7 @@ Follow the current project's structure instead of imposing a new architecture. T
 
 ```text
 src/
+├── routes.tsx               # Application-owned route and navigation definitions
 ├── pages/                  # Business pages
 ├── components/             # Application and business components
 ├── hooks/                  # Application hooks
