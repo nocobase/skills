@@ -31,13 +31,12 @@ Allowed:
 
 ```json
 {
-  "orderCode": "ORDER-{{$context.data.id}}",
-  "summary": "{{$context.data.type}}-{{$context.data.status}}",
+  "title": "Order: {{$context.data.title}}",
   "amount": "{{$context.data.amount}}"
 }
 ```
 
-In this example, `orderCode` and `summary` must be `string` fields. Assuming `amount` is a numeric field, its variable remains the complete assigned value.
+In this example, `title` must be a `string` field. Assuming `amount` is a numeric field, its variable remains the complete assigned value.
 
 Forbidden for a non-string field:
 

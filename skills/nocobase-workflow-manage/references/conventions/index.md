@@ -259,11 +259,11 @@ Allowed:
 ```json
 {
   "orderId": "{{$context.data.id}}",
-  "status": "ORDER-{{$context.data.status}}"
+  "title": "Order: {{$context.data.title}}"
 }
 ```
 
-In this example, `status` must be a `string` field. Assuming `orderId` is not a string field, its variable remains the complete assigned value.
+In this example, `title` must be a `string` field. Assuming `orderId` is not a string field, its variable remains the complete assigned value.
 
 Denied for a non-string field:
 
