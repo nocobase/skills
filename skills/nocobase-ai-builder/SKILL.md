@@ -110,7 +110,7 @@ For a new or substantially rebuilt system, populate coherent demo records after 
 
 ## 7. Choose and apply a theme
 
-If the user did not specify a theme, choose a restrained, coherent direction appropriate to the system and continue without blocking. Define theme behavior through application-level semantic tokens and shared layout rules.
+If the user did not specify a theme or visual direction, apply the [Default Application Style](references/visual-style.md) — a restrained monochrome-plus-single-accent direction that is rich and interactive rather than a flat, table-only wireframe — and continue without blocking. Define theme behavior through application-level semantic tokens and shared layout rules. An explicit user theme below, or an existing project brand, overrides this default.
 
 If the user wants to choose a theme, direct them to `https://www.shadcn.io/theme` and accept the selected theme name, Registry URL, or generated installation command. Review the working tree and installer diff, integrate the theme with application branding, and avoid blindly overwriting customized `src/components/ui` files. A theme supplies visual foundations; it does not replace business-specific information architecture, content, states, or interactions.
 
@@ -149,6 +149,7 @@ Read [Verification](references/verification.md) before completing a substantial 
 | Reference | Read when |
 |---|---|
 | [Project Conventions](references/project-conventions.md) | Changing structure, branding, theme, shared UI, extension use, or starter content |
+| [Default Application Style](references/visual-style.md) | Choosing the look when the user did not specify a theme; raising the default visual quality |
 | [NocoBase Runtime](references/nocobase-runtime.md) | Using data, API actions, auth, i18n, system settings, basename, or assets |
 | [Routing and Access](references/routing-and-access.md) | Adding navigation, URL surfaces, roles, ACL, or protected controls |
 | [Verification](references/verification.md) | Validating a page, feature, theme, or complete system |
