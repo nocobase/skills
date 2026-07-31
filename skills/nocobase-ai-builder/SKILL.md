@@ -121,6 +121,7 @@ After the system's core workflows work without AI, review the finished pages and
 For a complete AI Portal system build, implement at least one credible, contextual AI interaction. Evaluation or a list of possible ideas alone does not complete this requirement. Choose the best-supported interaction without asking for another confirmation when it does not materially change business behavior or security.
 
 - Inspect the installed AI extensions, existing demos, hooks, components, tool-call renderers, and employee integration examples before designing a new interaction.
+- Never add, bind, expose, or select developer-category employees for Portal AI interactions. Exclude known developer usernames such as `nathan`, `dara`, `lina`, and `orin` even when they are returned by discovery APIs; use a suitable business employee or create a dedicated one.
 - Before implementing a page-level AI interaction, study the installed Page Context demo and its prompt-generator scenarios. Prefer an existing pattern—manual page-element selection, Shortcut task context, conversation preset context, inherited `AIPageContextScope`, Form filler, or a permission-aware custom frontend Tool—and reuse its context and task contracts.
 - Prefer contextual entry points close to the relevant page, record, selection, or action. Make the context being shared and the result being produced clear to the user.
 - Preserve a complete non-AI workflow. AI output must not silently bypass validation, ACL, confirmation, or server-side business rules.
