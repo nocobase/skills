@@ -250,28 +250,30 @@ Application-level environment variables configured in NocoBase settings.
 
 **Format**: `{{$env.VARIABLE_NAME}}`
 
-### Pure Variables in Field Assignments
+### Variables in Field Assignments
 
-For `params.values` in `create` and `update` nodes, use variables only as the complete assigned value. Do not mix literal text and variables in the same assigned string.
+For `params.values` in `create` and `update` nodes, string template concatenation is allowed only when the target collection field has type `string`. For all other field types, use a variable only as the complete assigned value so that its original data type is preserved.
 
 Allowed:
 
 ```json
 {
   "orderId": "{{$context.data.id}}",
-  "status": "paid"
+  "title": "Order: {{$context.data.title}}"
 }
 ```
 
-Denied:
+In this example, `title` must be a `string` field. Assuming `orderId` is not a string field, its variable remains the complete assigned value.
+
+Denied for a non-string field:
 
 ```json
 {
-  "orderCode": "abc-{{$context.data.id}}"
+  "orderId": "ORDER-{{$context.data.id}}"
 }
 ```
 
-If a field needs a composed string, calculate it in an upstream `calculation`, `script`, `json-query`, or `json-variable-mapping` node, then assign the resulting pure variable, for example `"{{$jobsMapByNodeKey.build_order_code}}"`.
+If a non-string field needs a transformed value, calculate it in an upstream `calculation`, `script`, `json-query`, or `json-variable-mapping` node, then assign the resulting pure variable, for example `"{{$jobsMapByNodeKey.calculate_order_id}}"`.
 
 ### Usage Examples
 
