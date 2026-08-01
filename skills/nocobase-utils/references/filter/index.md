@@ -7,11 +7,22 @@ description: Authoritative reference for NocoBase filter condition structure, op
 
 NocoBase uses a unified filter condition format across all features: block query conditions, data scope settings, ACL permission scopes, workflow node conditions (Query, Update, Delete, Collection Event trigger), and more.
 
+## Contents
+
+- [Critical Rules](#critical-rules)
+- [Top-level Structure](#top-level-structure)
+- [Condition Structure](#condition-structure)
+- [Operators Reference](#operators-reference)
+- [Variable Values](#variable-values)
+- [Complete Examples](#complete-examples)
+
 ## Critical Rules
 
 - **Top-level MUST be a logical wrapper** — every filter object must have `$and` or `$or` as its only root key. Never put field conditions directly at the root.
 - **Every field condition MUST use an explicit comparison operator object.** Do not use shorthand equality such as `{ "fieldA": 123 }`. Even though the server may accept it, the frontend cannot display it correctly. Use `{ "fieldA": { "$eq": 123 } }` instead.
 - **Never invent operator names.** Only use operators from the tables below.
+- **Operator allowlists are field-type-specific.** An operator is valid only when it appears in the table for that field type; its presence in another table does not make it reusable. `$gt`, `$gte`, `$lt`, and `$lte` are number-field operators, not general comparison operators. Date comparisons MUST use an operator from the **Date Fields** table. Never use `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$notIn`, or any other non-date comparison operator on a date field, even if the server accepts it, because the frontend cannot display it.
+- **For a relation path, use the operator group of the terminal field.** For example, `createdBy.id` uses the ID group, while `createdBy.name` uses the string group. A relation in the path does not make other operator groups available.
 - **Operator names are exact strings** with `$` prefix (e.g., `$eq`, `$includes`). Case-sensitive.
 
 ## Top-level Structure
@@ -96,40 +107,65 @@ Both notations traverse the same association path. Use whichever fits the contex
 
 ## Operators Reference
 
-### General Comparison
+The standard frontend has no universal comparison operator group. The following matrix mirrors the built-in v1 and v2 frontend operator groups. For each field, use only the operators in its row. A server-supported operator is still forbidden when it is absent from the frontend row because the UI cannot display it.
 
-| Operator | Applies to | Description | Example value |
-|---|---|---|---|
-| `$eq` | non-date scalar | Equal. If value is an array, behaves as `$in`. | `"active"`, `1`, `null` |
-| `$ne` | non-date scalar | Not equal. If value is an array, behaves as `$notIn`. Null-safe (also matches null). | `"draft"` |
-| `$gt` | number | Greater than | `100` |
-| `$gte` | number | Greater than or equal | `100` |
-| `$lt` | number | Less than | `100` |
-| `$lte` | number | Less than or equal | `100` |
-| `$in` | non-date scalar | Value is in the given array | `["a", "b"]` |
-| `$notIn` | non-date scalar | Value is not in the array. Null-safe (also matches null). | `["x", "y"]` |
+Custom frontend code can override an interface's operators, but that does not authorize an Agent to use operators outside this reference. Unless an operator is explicitly added to the allowlist here, do not use it in a UI-displayable filter.
 
-### Null / Empty
-
-| Operator | Applies to | Description |
+| Frontend field/operator group | Common built-in interfaces | Complete allowed operator list |
 |---|---|---|
-| `$empty` | string, array, any | Is empty (null, `""`, or empty array depending on field type) |
-| `$notEmpty` | string, array, any | Is not empty |
-| `$exists` | relation | Relation record exists (not null) |
-| `$notExists` | relation | Relation record does not exist (null) |
+| String | input, textarea, email, phone, URL, password, color, UUID, Nano ID | `$includes`, `$notIncludes`, `$eq`, `$ne`, `$empty`, `$notEmpty` |
+| Large text | Markdown, rich text | `$includes`, `$notIncludes`, `$eq`, `$ne`, `$empty`, `$notEmpty` |
+| Number | number, integer, percent, Snowflake ID | `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$empty`, `$notEmpty` |
+| Date/datetime | date only, datetime, datetime without timezone, Unix timestamp, created at, updated at | `$dateOn`, `$dateNotOn`, `$dateBefore`, `$dateAfter`, `$dateNotBefore`, `$dateNotAfter`, `$dateBetween`, `$empty`, `$notEmpty` |
+| Time | time | `$eq`, `$neq`, `$empty`, `$notEmpty` |
+| Single select / enum | select, radio group | `$eq`, `$ne`, `$in`, `$notIn`, `$empty`, `$notEmpty` |
+| Array / multi-select | multiple select, checkbox group | `$match`, `$notMatch`, `$anyOf`, `$noneOf`, `$empty`, `$notEmpty` |
+| Boolean | checkbox | `$isTruly`, `$isFalsy`, `$empty`, `$notEmpty` |
+| ID / relation existence | ID, the terminal ID field of a relation path | `$eq`, `$ne`, `$exists`, `$notExists` |
+| Object | fields explicitly assigned the object operator group | `$eq`, `$ne` |
+| Collection | collection selector | `$eq`, `$ne`, `$in`, `$notIn`, `$empty`, `$notEmpty` |
+| Table OID | table OID | `$childIn`, `$childNotIn` |
 
-### String
+### String and Large-text Fields
+
+| Operator | Description | Example value |
+|---|---|---|
+| `$includes` | Contains substring | `"keyword"` |
+| `$notIncludes` | Does not contain substring | `"keyword"` |
+| `$eq` | Equals one scalar value | `"active"` |
+| `$ne` | Does not equal one scalar value | `"draft"` |
+| `$empty` | Is null or an empty string | *(no value needed)* |
+| `$notEmpty` | Is neither null nor an empty string | *(no value needed)* |
+
+> `$startsWith`, `$notStartsWith`, `$endWith`, and `$notEndWith` are supported by the database but are not registered in the standard frontend operator groups. Do not use them in UI-displayable filters.
+
+### Number Fields
+
+These eight operators are the complete standard frontend allowlist for number fields. `$gt`, `$gte`, `$lt`, and `$lte` are not general-purpose comparison operators and MUST NOT be used for dates, strings, or any other field type.
 
 | Operator | Applies to | Description | Example value |
 |---|---|---|---|
-| `$includes` | string | Contains substring (case-insensitive on PG) | `"keyword"` |
-| `$notIncludes` | string | Does not contain substring | `"keyword"` |
-| `$startsWith` | string | Starts with prefix (case-insensitive on PG) | `"prefix"` |
-| `$notStartsWith` | string | Does not start with prefix | `"prefix"` |
-| `$endWith` | string | Ends with suffix (case-insensitive on PG) | `"suffix"` |
-| `$notEndWith` | string | Does not end with suffix | `"suffix"` |
+| `$eq` | number only | Equal | `100` |
+| `$ne` | number only | Not equal | `100` |
+| `$gt` | number only | Greater than | `100` |
+| `$gte` | number only | Greater than or equal | `100` |
+| `$lt` | number only | Less than | `100` |
+| `$lte` | number only | Less than or equal | `100` |
+| `$empty` | number only | Is null | *(no value needed)* |
+| `$notEmpty` | number only | Is not null | *(no value needed)* |
 
-> All string operators also accept an array of values — any match (OR logic) for `$includes`/`$startsWith`/`$endWith`, all-must-not-match (AND logic) for their negations.
+### Single-select / Enum and Collection Fields
+
+| Operator | Description | Example value |
+|---|---|---|
+| `$eq` | Equals one option | `"active"` |
+| `$ne` | Does not equal one option | `"draft"` |
+| `$in` | Is any of the options | `["a", "b"]` |
+| `$notIn` | Is none of the options | `["x", "y"]` |
+| `$empty` | Is empty | *(no value needed)* |
+| `$notEmpty` | Is not empty | *(no value needed)* |
+
+> `$in` and `$notIn` are not general scalar operators. In the standard frontend they belong to the single-select/enum and collection groups. Multi-select and array fields use `$anyOf` and `$noneOf` instead.
 
 ### Array / Multi-select Fields
 
@@ -139,8 +175,10 @@ Both notations traverse the same association path. Use whichever fits the contex
 | `$notMatch` | array | Array does not exactly match | `["a", "b"]` |
 | `$anyOf` | array | Array contains at least one of the given values | `["a", "b"]` |
 | `$noneOf` | array | Array contains none of the given values. Null-safe. | `["a", "b"]` |
-| `$arrayEmpty` | array | Array is empty or null | *(no value needed)* |
-| `$arrayNotEmpty` | array | Array is not empty | *(no value needed)* |
+| `$empty` | array | Array is empty or null | *(no value needed)* |
+| `$notEmpty` | array | Array is not empty | *(no value needed)* |
+
+> `$arrayEmpty` and `$arrayNotEmpty` are database operators, not standard frontend operators. Use `$empty` and `$notEmpty` so the condition remains displayable.
 
 ### Boolean Fields
 
@@ -148,10 +186,14 @@ Both notations traverse the same association path. Use whichever fits the contex
 |---|---|---|---|
 | `$isTruly` | boolean | Is truthy (`true`). Pass `true` to test for true; pass `false` to invert. | `true` |
 | `$isFalsy` | boolean | Is falsy (`false` or null). Pass `true` to test for falsy; pass `false` to invert. | `true` |
+| `$empty` | boolean | Is null | *(no value needed)* |
+| `$notEmpty` | boolean | Is not null | *(no value needed)* |
 
 ### Date Fields
 
 Date fields use only the comparison operators listed below. These operators accept either an ISO date string or a named shortcut string (e.g., `"today"`, `"thisWeek"`, `"lastMonth"`).
+
+> **Strict allowlist:** For a date or datetime comparison, choose one of the seven date comparison operators in this table. Do not create or reuse any comparison operator not listed here. Semantically similar generic operators such as `$lt` and `$gte` are forbidden because the filter UI cannot display them. Use `$dateBefore` and `$dateNotBefore`, respectively.
 
 | Operator | Description |
 |---|---|
@@ -162,6 +204,51 @@ Date fields use only the comparison operators listed below. These operators acce
 | `$dateAfter` | Date is after the given date/period |
 | `$dateNotAfter` | Date is not after (≤) the given date/period |
 | `$dateBetween` | Date falls within the given range (array of two date values) |
+| `$empty` | Date is null |
+| `$notEmpty` | Date is not null |
+
+```json
+// ❌ Wrong — generic comparison operators are not displayable for date fields
+{ "$and": [ { "createdAt": { "$lt": "2024-12-31" } } ] }
+{ "$and": [ { "createdAt": { "$gte": "2024-01-01" } } ] }
+
+// ✅ Correct — use only operators from the Date Fields table
+{ "$and": [ { "createdAt": { "$dateBefore": "2024-12-31" } } ] }
+{ "$and": [ { "createdAt": { "$dateNotBefore": "2024-01-01" } } ] }
+```
+
+### Time Fields
+
+| Operator | Description | Example value |
+|---|---|---|
+| `$eq` | Equal | `"09:30:00"` |
+| `$neq` | Not equal | `"09:30:00"` |
+| `$empty` | Is null | *(no value needed)* |
+| `$notEmpty` | Is not null | *(no value needed)* |
+
+> The frontend time operator is exactly `$neq`. Do not replace it with `$ne` when authoring a UI-displayable time condition.
+
+### ID / Relation-existence Fields
+
+| Operator | Description | Example value |
+|---|---|---|
+| `$eq` | ID equals one value | `1` |
+| `$ne` | ID does not equal one value | `1` |
+| `$exists` | The relation represented by the terminal ID exists | *(no value needed)* |
+| `$notExists` | The relation represented by the terminal ID does not exist | *(no value needed)* |
+
+The ID group does not expose `$in`, `$notIn`, `$empty`, or `$notEmpty` in the standard frontend.
+
+### Object Fields
+
+The object operator group exposes only `$eq` and `$ne`. Do not use string, number, membership, or empty operators unless the field interface explicitly overrides its frontend operator list.
+
+### Table OID Fields
+
+| Operator | Description | Example value |
+|---|---|---|
+| `$childIn` | Is any of the child collections | `["collectionA", "collectionB"]` |
+| `$childNotIn` | Is none of the child collections | `["collectionA", "collectionB"]` |
 
 ---
 
@@ -248,6 +335,6 @@ Available variable paths depend on the context:
 
 ### Null / existence check
 ```json
-{ "$and": [ { "assignee": { "$exists": true } } ] }
+{ "$and": [ { "assignee": { "id": { "$exists": true } } } ] }
 { "$and": [ { "description": { "$notEmpty": true } } ] }
 ```
