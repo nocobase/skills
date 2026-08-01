@@ -18,6 +18,9 @@ Validate behavior and product quality, not only compilation.
 - Open each new route directly and refresh it.
 - Exercise browser Back and Forward through dialogs, drawers, and nested subpages.
 - Verify close behavior with and without an originating route.
+- Open reused create, edit, show, and related-content surfaces from every supported host. Confirm each URL remains under the host that opened it and lower route layers stay mounted.
+- Start from a host URL with representative filters, pagination, tab state, query parameters, and a hash. Open and close the child surface and confirm the complete host URL is restored.
+- Open or refresh a contextual child URL without navigation state and confirm close falls back to the immediate safe parent route.
 - Check loading, empty, populated, validation, error, unauthorized, and success states that can be exercised safely.
 - Confirm representative demo records make the primary pages, relationships, filters, dashboards, and contextual AI interaction meaningfully testable.
 - Check allowed and denied roles, route guards, regions, actions, and record controls.

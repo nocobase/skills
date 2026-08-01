@@ -40,6 +40,8 @@ Read [Project Conventions](references/project-conventions.md) before editing app
 
 ## 2. Design the system before coding
 
+At the start of system design, explicitly ask whether the user wants internationalization. If yes, confirm the primary locale and required additional locales; if the request already specifies them, do not ask again.
+
 Create a compact internal product brief from the user's request:
 
 - system purpose and working title;
@@ -80,6 +82,8 @@ Design navigation and URL surfaces before implementing page internals:
 - Do not create placeholder menu items or empty groups.
 - Dialogs, drawers, details, editors, and meaningful subpages must have independent URLs that support direct open, refresh, sharing, and browser history.
 - Decide whether every create, edit, and show action is a drawer, dialog, or full page before implementing its route. Treat `resourceAction` as Refine path metadata, not as a presentation choice.
+- Register only one canonical `resourceAction` path for each resource create, edit, or show action. When the same surface opens from another list, detail, or workflow host, reuse its business content through an ordinary relative child route owned by that host; do not navigate to the canonical absolute URL and replace the current workflow.
+- Preserve the complete originating URL, including search and hash, when opening a contextual child surface. Closing must restore that URL when known and use the resolved parent route as the direct-entry fallback.
 
 Read [Routing and Access](references/routing-and-access.md) completely whenever the task adds or changes navigation, routes, dialogs, drawers, subpages, roles, or permissions.
 
