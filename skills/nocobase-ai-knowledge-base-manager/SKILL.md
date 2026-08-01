@@ -1,10 +1,10 @@
 ---
 name: nocobase-ai-knowledge-base-manager
 description: "Use when users need to check Professional+ knowledge-base capability, consent to enabling an installed-disabled KB plugin, or manage NocoBase vector databases, Local/Readonly/External knowledge bases, documents, retrieval tests, and binding preparation through nb api kb."
-argument-hint: "[action: preflight|inspect|create|update|upload|revectorize|test|prepare-binding|delete] [target: capability|vector-db|knowledge-base|document|employee] [env?: name]"
+argument-hint: "[action: preflight|inspect|create|update|upload|revectorize|test|prepare-binding|delete] [target: capability|vector-db|knowledge-base|document|employee] [mode?: direct-cli|ui] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools
-version: 2.0.1
+version: 2.0.2
 last-reviewed: 2026-08-01
 risk-level: high
 ---
@@ -52,7 +52,8 @@ Provide an edition-aware, capability-first workflow for NocoBase AI knowledge ba
 | `env` | no | current env from `nb env list` | configured, reachable, authenticated | "Which NocoBase CLI environment should I target?" |
 | `identifier` | update/upload/revectorize/test/prepare-binding/delete: yes | none | exact vector key, KB key/id, document id, or employee username | "What is the exact target identifier?" |
 | `knowledgeBaseType` | create: yes | recommend `LOCAL`; never mutate on recommendation alone | one of `LOCAL/READONLY/EXTERNAL` | "Should NocoBase manage documents (Local), read external PGVector data (Readonly), or use an external provider?" |
-| `payload` | create/update/test/prepare-binding: yes | documented product defaults only when user accepts them | type-specific allowed fields and ranges | "Which vector, KB, retrieval, or binding values should be used?" |
+| `configurationMode` | vector-db create/update: yes | none; never choose implicitly | one of `direct-cli/ui` | "Should this vector database connection use direct CLI parameters or the NocoBase UI flow?" |
+| `payload` | direct-CLI create/update or test/prepare-binding: yes | documented product defaults only when user accepts them | type-specific allowed fields and ranges | "Which vector, KB, retrieval, or binding values should be used?" |
 | `file` | upload: yes | none | readable supported file or ZIP; KB must be `LOCAL` | "Which file should be uploaded to which Local knowledge base?" |
 | `pluginEnableConsent` | required when a required plugin is `installed-disabled` | none; never assume consent | explicit approval for exact package name(s) and environment | "The required plugin is installed but disabled in `<env>`. Should I enable `<package>` now and continue the knowledge-base preflight?" |
 | `confirmation` | high-risk action: yes | none | fresh exact-target confirmation after impact is shown | "Confirm this exact destructive or dependency-changing operation?" |
@@ -63,7 +64,8 @@ Rules:
 - For every KB-intent request, state the minimum edition requirement before capability probing.
 - If the user says "you decide", run preflight/inspection and recommend `LOCAL` for normal managed-document use; do not create or mutate.
 - Resolve identifiers from real list/get results; never guess IDs or keys.
-- Do not silently convert create into update.
+- Before creating or changing a vector database connection, require an explicit `direct-cli` or `ui` choice; do not choose for the user.
+- For `ui`, use the AI manager's documented UI-mode workflow, stop for user completion, and independently verify safe vector database fields before continuing.
 - Do not stop at a manual-enable instruction when a required plugin is installed but disabled and plugin management is available; ask for consent and execute the enablement after approval.
 - If enablement is declined, stop before KB mutation and report that the plugin remains disabled.
 - Ordinary upload success, ZIP task submission, re-vectorization acceptance, hit-test results, and completion are distinct outcomes.
@@ -76,7 +78,7 @@ Rules:
 - Before enabling a required plugin, show the exact environment and package name(s), explain that plugin runtime state will change, and require explicit user consent.
 - Consent to enable one package does not authorize enabling any other package; include `@nocobase/plugin-ai` in the same request only when it is also installed-disabled and required.
 - After consent, use `nocobase-plugin-manage` in safe mode, require plugin-list readback, refresh the environment, and re-run KB API/ACL checks. If consent is declined or enablement fails, stop before KB mutation.
-- Before mutation, confirm environment, target type, exact identifier, KB type, type-specific fields, dependencies, and secret source.
+- Before vector database create/update, require `configurationMode`. For `ui`, hand off to `nocobase-ai-manager` only after KB capability passes; for `direct-cli`, continue in this skill.
 - Before `skipTableExistedCheck=true`, require the server's `TABLE_ALREADY_EXISTS` response plus explicit table-reuse confirmation.
 - Before immutable-field or vector dependency changes, stop or show the exact migration/retrieval impact and obtain confirmation as applicable.
 - Before every vector database, KB, or document delete, show exact target, environment, dependencies, data impact, and rollback limits, then obtain fresh confirmation immediately before that one destroy.
@@ -91,7 +93,7 @@ Rules:
 5. Inspect current vector databases, knowledge bases, documents, storage, and requested employee context; read the [command map](references/command-map.md).
 6. Select the KB type. Recommend `LOCAL` for normal managed documents; use `READONLY` only for externally maintained PGVector data and `EXTERNAL` only when a provider exists.
 7. For `LOCAL`/`READONLY`, run `nocobase-ai-manager` and consume an enabled service, chat-only saved model configuration, and separately discovered embedding model. For `LOCAL`, also resolve file storage.
-8. For PGVector work, follow [vector database workflow](references/vector-databases.md): provider discovery, protected connection test, create/update, table-reuse guard, dependency impact, and safe readback.
+8. For PGVector create/update, first require a `direct-cli` or `ui` choice. In `ui` mode, hand off to `nocobase-ai-manager` after capability passes, stop for user completion, and consume its independent safe-field readback. In `direct-cli` mode, follow [vector database workflow](references/vector-databases.md): provider discovery, protected connection test, create/update, table-reuse guard, dependency impact, and safe readback.
 9. For KB create/update, follow [knowledge bases and documents](references/knowledge-bases-and-documents.md): type fields, immutable key/storage rules, segment defaults, vector-change impact, one write, and readback.
 10. For upload, validate Local type and file constraints, perform one multipart upload, then report accepted automatic background processing without polling or completion claims.
 11. Run document `vectorization` only for an independently requested retry/rebuild. Run hit test only when explicitly requested; neither is an automatic upload follow-up.
@@ -152,7 +154,8 @@ Rollback guidance:
 - Target KB type and all conditional fields are valid.
 - KB key and Local storage immutability are enforced.
 - Segment options satisfy `chunkOverlap < chunkSize`.
-- PGVector connection test succeeds before create/update.
+- Every vector database create/update had an explicit `direct-cli` or `ui` choice; UI mode paused for user completion and passed independent safe-field readback.
+- PGVector connection test succeeds before direct-CLI create/update.
 - Existing-table reuse occurs only after `TABLE_ALREADY_EXISTS` and explicit confirmation.
 - Every vector/KB create or update has safe readback.
 - Upload result is reported as accepted/queued, not completed; supported file/PDF/ZIP constraints were checked.
@@ -171,10 +174,11 @@ Rollback guidance:
 4. Explicit entitlement block: commercial plugin list excludes the KB package and no mutation occurs.
 5. Unknown entitlement but operational plugin: runtime capability succeeds, edition remains unverified, and safe KB work may continue with the Professional+ disclosure.
 6. Local happy path: prepare storage/LLM/embedding/PGVector, create KB, upload a supported file, and report automatic background processing without polling.
-7. Invalid update: attempt to change KB key or Local storage and verify the write is refused with migration guidance.
-8. Employee bind: prepare a valid handoff, then delegate the final switch/prompt/retrieval write to the employee manager.
-9. Auth/capability failure: distinguish 401/403 from license/plugin absence and stop before mutation.
-10. High-risk cleanup: require independent fresh confirmation before each document, KB, and vector database delete.
+7. Vector UI mode: after capability passes, hand off the UI flow to the AI manager, wait for explicit user completion, and verify the vector database safe fields before KB work continues.
+8. Invalid update: attempt to change KB key or Local storage and verify the write is refused with migration guidance.
+9. Employee bind: prepare a valid handoff, then delegate the final switch/prompt/retrieval write to the employee manager.
+10. Auth/capability failure: distinguish 401/403 from license/plugin absence and stop before mutation.
+11. High-risk cleanup: require independent fresh confirmation before each document, KB, and vector database delete.
 
 # Output Contract
 
@@ -183,6 +187,7 @@ Final response must include:
 - target environment, requested action, resource type, and identifiers;
 - minimum edition statement and package name;
 - entitlement, plugin pre-state, enablement consent/result, plugin post-state, runtime/API capability, and ACL evidence;
+- selected vector database `direct-cli` or `ui` mode and UI completion/readback when applicable;
 - prerequisite LLM/embedding/storage/vector results consumed;
 - commands executed without secret values;
 - safe-field readback for configuration writes;

@@ -78,6 +78,8 @@ nb api kb vector-databases update
 nb api kb vector-databases destroy
 ```
 
+Before vector database create/update, ask the user to choose `direct-cli` or `ui`. For `ui`, hand off to `nocobase-ai-manager` after KB capability passes; it opens only the documented `--ui` form, pauses for user completion, and independently verifies safe fields. Use the commands above directly only for `direct-cli`.
+
 ## Knowledge Bases
 
 Knowledge-base CRUD is directly under `kb`; do not add a `knowledge-bases` segment.

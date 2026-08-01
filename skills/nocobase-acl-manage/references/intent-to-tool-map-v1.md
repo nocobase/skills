@@ -65,6 +65,9 @@ Prefer `-j` for all readback and verification steps.
 | `acl roles destroy` | `--filter-by-tk <roleName>` | none | Deletes role |
 | `acl roles check` | none | none | Returns current user's role context + global roleMode |
 | `acl roles set-system-role-mode` | `--role-mode <default|allow-use-union|only-use-union>` | none | Global setting, not per-role |
+| `acl roles multi-portals list` | `--role-name <name>` | none | Lists existing custom Portals explicitly granted to the role |
+| `acl roles multi-portals add` | `--role-name <name>`, `--values '["<portal_uid>"]'` | none | Grants entry to resolved Portal uids |
+| `acl roles multi-portals remove` | `--role-name <name>`, `--values '["<portal_uid>"]'` | none | Revokes entry to resolved Portal uids |
 | `acl roles data-sources-collections list` | `--role-name <name>`, `--data-source-key <key>` | `--page`, `--page-size`, `--filter` | Prefer `--data-source-key`; `--filter` is compatibility only |
 | `acl roles data-source-resources get` | `--role-name <name>`, (`--filter-by-tk <id>` or `--data-source-key <key> --name <coll>`) | `--filter`, `--appends actions` | Prefer explicit locator (`filterByTk` or `data-source-key + name`); for action-level readback use `--appends actions` |
 | `acl roles data-source-resources create` | `--role-name <name>`, (`--body <json>` or `--body-file <path>`) | none | Prefer `--body-file`; payload must include `name`, `dataSourceKey`, `usingActionsConfig`, `actions` |
@@ -105,6 +108,9 @@ Prefer `-j` for all readback and verification steps.
 | `roles_desktop_routes_set` | `nb api acl roles desktop-routes set --role-name <name> --body-file <path>` | `roles.*desktop.*routes.*set` |
 | `roles_desktop_routes_add` | `nb api acl roles desktop-routes add --role-name <name> --body-file <path>` | `roles.*desktop.*routes.*add` |
 | `roles_desktop_routes_remove` | `nb api acl roles desktop-routes remove --role-name <name> --body-file <path>` | `roles.*desktop.*routes.*remove` |
+| `roles_multi_portals_list` | `nb api acl roles multi-portals list --role-name <name>` | `roles.*multi.*portals.*list` |
+| `roles_multi_portals_add` | `nb api acl roles multi-portals add --role-name <name> --values '["<portal_uid>"]'` | `roles.*multi.*portals.*add` |
+| `roles_multi_portals_remove` | `nb api acl roles multi-portals remove --role-name <name> --values '["<portal_uid>"]'` | `roles.*multi.*portals.*remove` |
 | `roles_resources_scopes_list` | `nb api acl roles resources-scopes list --role-name <name> --data-source-key <key>` | `roles.*resources.*scopes.*list` |
 | `roles_resources_scopes_get` | `nb api acl roles resources-scopes get --role-name <name> --data-source-key <key> --filter-by-tk <id>` | `roles.*resources.*scopes.*get` |
 | `data_sources_roles_resources_scopes_list` | `nb api acl data-sources roles-resources-scopes list --data-source-key <key>` | `data.*sources.*roles.*resources.*scopes.*list` |
@@ -177,6 +183,16 @@ Important: this is global configuration, not a per-role field.
 
 1. choose one write command by intent: `set` or `add` or `remove`
 2. `roles_desktop_routes_list` readback
+
+### `permission.portal.access.set`
+
+1. resolve one enabled custom Portal with `nb portal list -j`
+2. `roles_get` to confirm the target role
+3. `roles_multi_portals_list` pre-write state
+4. `roles_multi_portals_add` for `access=allow`, or `roles_multi_portals_remove` for `access=deny`
+5. `roles_multi_portals_list` readback; verify the exact Portal uid is present or absent
+
+Do not use the `rolesMultiPortals` through table as a write fallback. See [Portal Entry Access](portal-access.md).
 
 ### `permission.data-source.global.set`
 

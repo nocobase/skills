@@ -2,15 +2,56 @@
 
 Use this file when whole-page `create` work needs menu placement, layout/workspace targeting, page identity, or route readback decisions.
 
-## Target Layout
+## Required Portal Preflight
 
-- Default whole-page creates target desktop/admin layout `admin-layout-model`; omit `navigation.layoutUid` for that default.
-- When the user does not specify a workspace, do not probe Multi-portal and omit `navigation.portalUid`.
-- Mobile page intent (`移动端页面`, `手机端`, `mobile page`, `mobile layout`) targets `mobile-layout-model`.
-- For mobile creates, set `navigation.layoutUid: "mobile-layout-model"`, put the visible root tab title/icon in `navigation.item`, and omit `navigation.group`.
-- Mobile creates are root mobile tab pages. Do not invent or reuse a shared menu group for them.
+Before any `flow-surfaces` mutation, load and execute `nocobase-portal-manage` for the same request unless a current-request Portal Manager routing outcome already exists. Reuse an existing outcome to avoid a no-code dispatch loop. Then require one of these outcomes:
 
-Mobile create navigation:
+- Exactly one selected Portal whose inventory record has `portalType === "no-code"` and a non-empty `name`: continue to [Selected No-Code Portal Mapping](#selected-no-code-portal-mapping).
+- Exactly one selected Portal with `portalType === "ai"`: exit UI Builder without writing and immediately continue the same request on Portal Manage's source-code implementation path. The original build request authorizes locating, editing, and testing the selected Portal source; do not ask whether to use it or create a no-code Portal.
+- Exactly one selected Portal with a missing or unsupported `portalType`: exit UI Builder without writing and return to Portal Manage to choose another skill or implementation path.
+- No selected Portal or multiple Portals awaiting selection: stop without writing and return to Portal Manage.
+- `capabilities.multiPortal === false`: use the [Legacy Layout Lane](#legacy-layout-lane).
+- Portal Manager's verified legacy Flow Surfaces signature: Portal inventory and `list-navigation-targets` are explicitly absent, while core `apply-blueprint` help and a structured Flow Surfaces read probe succeed; use the [Legacy Layout Lane](#legacy-layout-lane).
+
+Portal count alone never enables UI Builder. The selected inventory record's `portalType` is authoritative; do not infer no-code from there being only one Portal, user wording, navigation targets, cwd, or source layout. No other capability value enables a write. In particular, `multiPortal: true`, a merely missing value, auth or server errors, or an unclear response must stop. An explicitly absent Portal/target-discovery surface is allowed only through Portal Manager's complete verified legacy probe; command absence by itself is never enough.
+
+Exiting UI Builder is a skill handoff, not the end of the user's build task. A sole AI Portal must continue automatically through its source project with no clarification prompt.
+
+## Selected No-Code Portal Mapping
+
+For the no-code Portal already selected by Portal Manage, run:
+
+```bash
+nb api flow-surfaces list-navigation-targets -j
+```
+
+Filter targets by both conditions:
+
+```text
+target.kind === "portal"
+target.routeName === selectedPortal.name
+```
+
+Require exactly one match and a non-empty `target.portalUid` or `target.uid`. Set `navigation.portalUid` to that Portal identifier and omit `navigation.layoutUid`.
+
+- Ignore `targets[].default`; it never selects or substitutes a Portal.
+- Ignore every `kind: "layout"` target.
+- Ignore the matched Portal target's backing `layoutUid`; it is not Portal identity.
+- Missing, duplicate, or empty-UID matches stop without writing and return to Portal Manage for target inspection.
+- A mobile-backed no-code Portal still enters through `navigation.portalUid`, then follows the existing mobile root rule and omits `navigation.group`.
+- A desktop-backed no-code Portal follows non-mobile group rules inside that Portal.
+
+Multi-portal whole-page create must include this exact `navigation.portalUid`. It must not omit Portal navigation, set `navigation.layoutUid`, or use `admin-layout-model` as a fallback.
+
+## Legacy Layout Lane
+
+Use direct layout targeting only when `list-navigation-targets` explicitly returns `capabilities.multiPortal === false`.
+
+- Desktop/admin whole-page creates target `admin-layout-model`; omit `navigation.layoutUid` for that default.
+- Mobile intent targets `mobile-layout-model`. Set `navigation.layoutUid: "mobile-layout-model"`, put the root tab title/icon in `navigation.item`, and omit `navigation.group`.
+- `navigation.portalUid` and `navigation.layoutUid` remain mutually exclusive.
+
+Legacy mobile create navigation:
 
 ```json
 {
@@ -21,15 +62,14 @@ Mobile create navigation:
 }
 ```
 
-## Explicit Workspace Target
+## Portal Navigation Error Handoff
 
-- When the user explicitly names a workspace or asks to discover navigation targets, run `nb api flow-surfaces list-navigation-targets -j`.
-- This same discovery path is the compatibility fallback after `nocobase-portal-manage` reports that the installed CLI does not expose `nb portal`, but only for no-code Modern UI workspace/page authoring.
-- Match exact `targets[].uid` first, then one unique exact `targets[].title`. Missing or duplicate matches require user confirmation; never auto-create a workspace.
-- If `capabilities.multiPortal` is false, report that the optional capability is unavailable only for the workspace-specific request.
-- For `kind: "portal"`, set `navigation.portalUid` from the returned target and omit `navigation.layoutUid`. For layout targets, keep the existing `layoutUid` rules; default Admin omits both.
-- `navigation.portalUid` and `navigation.layoutUid` are mutually exclusive.
-- A mobile-backed portal follows mobile root rules and ignores `navigation.group`; a desktop-backed portal follows non-mobile group rules inside that portal.
+These single navigation errors identify a wrong target or implementation path. Do not put them into the aggregate authoring `errors[]` payload-repair loop:
+
+- `navigation-portal-type-unsupported`: stop same-write retries, never switch to Admin, and continue through the selected AI Portal source path.
+- `navigation-portal-selection-required`: stop all writes and ask the user to select a Portal through Portal Manage.
+- `navigation-portal-not-found`: stop and ask the user to create or inspect the Portal through Portal Manage.
+- `navigation-admin-layout-not-portal-target`: rerun Portal resolution; do not change the payload to keep writing to Admin.
 
 ## Non-mobile Group Resolution
 
@@ -56,7 +96,7 @@ Mobile create navigation:
 
 - Non-mobile page identity is `(target layout or portal, navigation.group.routeId, page.title)` after any unique group-title resolution.
 - Mobile page identity is `(mobile layout or mobile-backed portal, root, page.title)`.
-- The target layout is explicit `navigation.layoutUid` when present; otherwise it is the resolved group's inherited layout for explicit `routeId`, or `admin-layout-model` for root/default creates.
+- In the legacy lane, the target layout is explicit `navigation.layoutUid` when present; otherwise it is the resolved group's inherited layout for explicit `routeId`, or `admin-layout-model` for root/default creates.
 - A custom workspace target is explicit `navigation.portalUid`; portal identity is never inferred from its backing `layoutUid`.
 - Same target layout/portal + same group/root + same page title may be prepared as `replace` with `target.pageSchemaUid`.
 - Different group, layout, or portal with the same page title is a distinct page; do not merge, reuse, or auto-replace it.

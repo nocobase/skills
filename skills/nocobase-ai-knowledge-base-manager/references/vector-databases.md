@@ -1,5 +1,6 @@
 # Vector Database Workflow
 
+This direct write workflow applies only after the user explicitly selects `direct-cli`. For `ui`, hand off to `nocobase-ai-manager`, stop for user completion, and consume independent safe-field readback before continuing.
 ## Supported PGVector Contract
 
 Current built-in support:

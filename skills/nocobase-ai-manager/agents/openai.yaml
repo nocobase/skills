@@ -4,12 +4,15 @@ interface:
   default_prompt: >
     Use $nocobase-ai-manager to inspect and maintain NocoBase LLM providers and saved services,
     classify chat versus embedding models, protect credentials, test changed provider settings,
-    verify every write, and return separate core-AI and conditional knowledge-base prerequisite
-    readiness. Never place embedding models in a saved service's enabledModels. Require an
-    available capability result from $nocobase-ai-knowledge-base-manager before preparing KB
-    prerequisites, and block disruptive service changes when KB dependency visibility is unknown.
-    Hand all employee writes to $nocobase-ai-employee-manager. Require fresh exact-target
-    confirmation immediately before every LLM service deletion.
+    and verify every write. Before creating or changing an LLM service or vector database connection,
+    require an explicit direct-CLI-versus-UI choice. In UI mode, use only documented --ui flags, stop
+    for user completion, and independently read back safe fields. Return separate core-AI and
+    conditional knowledge-base prerequisite readiness. Never place embedding models in a saved
+    service's enabledModels. Require an available capability result from
+    $nocobase-ai-knowledge-base-manager before preparing KB prerequisites, and block disruptive
+    service changes when KB dependency visibility is unknown. Hand all employee writes to
+    $nocobase-ai-employee-manager. Require fresh exact-target confirmation immediately before
+    every LLM service deletion.
 
 policy:
   allow_implicit_invocation: true

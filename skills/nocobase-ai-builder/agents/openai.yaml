@@ -1,0 +1,4 @@
+interface:
+  display_name: "NocoBase AI Builder"
+  short_description: "Build polished source-code applications for NocoBase AI Portals"
+  default_prompt: "Use $nocobase-ai-builder to design, implement, and verify this NocoBase AI Portal application."

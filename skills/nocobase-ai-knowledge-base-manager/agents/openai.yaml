@@ -10,8 +10,10 @@ interface:
     ask whether to enable it, and after explicit approval use $nocobase-plugin-manage with post-state
     verification; do not merely tell the user to enable it manually. Refresh runtime metadata and
     re-check KB API and ACL after enablement. Stop before all KB resource mutations unless runtime
-    capability is available. After the gate, manage PGVector, Local/Readonly/External knowledge
-    bases, documents, independent retries, and hit tests with safe readback and asynchronous upload
+    capability is available. Before vector database create/update, require a direct-CLI-versus-UI
+    choice. For UI mode, hand off to $nocobase-ai-manager, wait for user completion, and consume
+    independent safe-field readback. After the gate, manage PGVector, Local/Readonly/External
+    knowledge bases, documents, independent retries, and hit tests with safe readback and asynchronous
     boundaries. Prepare employee binding inputs including knowledgeBasePrompt with
     {knowledgeBaseData}, but delegate the final employee write to $nocobase-ai-employee-manager.
     Use $nocobase-ai-manager only after capability passes for LLM and embedding readiness.

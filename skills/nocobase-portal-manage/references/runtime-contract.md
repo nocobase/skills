@@ -2,12 +2,14 @@
 
 ## Purpose
 
-Map Portal management intent to direct `nb portal` commands.
+Map ordinary NocoBase UI authoring to one selected Portal and Portal management intent to direct `nb portal` commands.
 
 ## Table Of Contents
 
 - [Env Flags](#env-flags)
 - [Capability Detection](#capability-detection)
+- [UI Target Resolution](#ui-target-resolution)
+- [Implementation Routing](#implementation-routing)
 - [Command Map](#command-map)
 - [Readback](#readback)
 - [Failure Reporting](#failure-reporting)
@@ -33,14 +35,61 @@ If that command fails because `portal` is unknown or unavailable:
 - hand CLI/runtime update or env diagnosis to `nocobase-env-manage`
 - do not emulate Portal operations through direct database edits, Docker commands, private APIs, or wrapper scripts
 
-For natural no-code UI requests that merely need a Modern UI workspace/page target, the caller may fall back to `nocobase-ui-builder`; that skill can use `nb api flow-surfaces list-navigation-targets -j` when the backend supports explicit workspace targets.
+For an ordinary UI authoring request, first try:
+
+```bash
+nb api flow-surfaces list-navigation-targets -j
+```
+
+- If the response explicitly has `capabilities.multiPortal === false`, use the legacy `nocobase-ui-builder` lane.
+- If it returns `true`, stop.
+- If the action is explicitly unknown or returns `404` / `Not Found`, run the verified legacy Flow Surfaces probe:
+
+```bash
+nb api flow-surfaces --help
+nb api flow-surfaces list-templates --body '{}' -j
+```
+
+Continue in the legacy lane only when help exposes both `apply-blueprint` and `list-templates`, and the read probe returns a structured success response. This combination proves that the runtime predates Portal target discovery while still exposing the Flow Surfaces authoring path. Auth errors, `5xx`, malformed output, a missing core action, or a failed read probe stop.
+- Do not use returned navigation targets as Portal inventory or infer no-code versus AI Portal from them.
+
+## UI Target Resolution
+
+Every ordinary NocoBase page, menu, block, field, action, layout, or reaction request enters this resolution flow, even if the user does not mention a Portal.
+
+When `nb portal` is available, fetch structured inventory:
+
+```bash
+nb portal list -j
+```
+
+Count only records where `enabled === true`.
+
+If the CLI command exists but this call returns explicit endpoint absence (`404` / `Not Found`), treat Portal inventory as runtime-unavailable for ordinary UI authoring and use Capability Detection above. Do not apply that fallback to a user-specified Portal or to Portal lifecycle/source/deploy tasks. Auth failures, `5xx`, and malformed output are real failures, not legacy signals.
+
+- Explicit target: match `name` exactly across structured records. Continue only when exactly one record matches and it has `enabled === true`; a missing, disabled, or non-unique match must stop without substitution.
+- No explicit target and zero enabled records: stop the ordinary UI build and tell the user to explicitly create a Portal first. Do not create one automatically.
+- No explicit target and exactly one enabled record: select it automatically.
+- No explicit target and multiple Portals: list each enabled record's `name` and `portalType`, then require explicit user selection before any write.
+
+Do not infer a selection from cwd, active files, the nearest or most recent `portal.config.json`, `localPath`, sync state, title similarity, source directories, or a preference for the first no-code Portal. Explicit `action=create` remains a separate lifecycle request and is not blocked by the zero-Portal UI-build rule.
+
+## Implementation Routing
+
+Read the selected structured record's `portalType`; it is the only authority for implementation routing.
+
+- `no-code`: hand the selected Portal to `nocobase-ui-builder` for UI authoring.
+- `ai`: locate that already selected Portal's source project with `nb portal info <portal>`, `localPath`, `portal.config.json`, or local workspace information, then implement and test the requested UI there. The UI build request itself authorizes these source changes; do not request a second "modify source" authorization.
+- Missing or unsupported `portalType`: stop; do not infer a type from user language, template structure, cwd, or source files.
+
+Local source metadata is a post-selection locator only. It must not participate in choosing among multiple Portals.
 
 ## Command Map
 
 ### list
 
 ```bash
-nb portal list
+nb portal list -j
 ```
 
 ### info
@@ -126,7 +175,7 @@ nb portal info <portal>
 If `info` is unavailable or fails for command-surface reasons, use:
 
 ```bash
-nb portal list
+nb portal list -j
 ```
 
 ## Failure Reporting

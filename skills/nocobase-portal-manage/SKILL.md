@@ -1,6 +1,6 @@
 ---
 name: nocobase-portal-manage
-description: "Use when users need to build, modify, inspect, create, configure, sync, push, pull, deploy, develop, diagnose, or destroy NocoBase portals, including named or classed Portal UI requests such as customer, supplier, admin, custom, or AI Portal pages. For natural Portal UI requests, first detect whether the installed CLI supports `nb portal`; when available, run `nb portal list` and identify whether the target is a no-code Portal or an AI Portal. If `nb portal` is unavailable, degrade gracefully: lifecycle/source/deploy actions are blocked with the missing CLI capability, while no-code Modern UI workspace authoring may fall back to `nocobase-ui-builder` and `flow-surfaces list-navigation-targets`. Use direct `nb portal` commands for Portal lifecycle, source storage, sync, and deployment operations whenever the command surface exists."
+description: "PRIMARY ENTRY. Default dispatcher for every NocoBase UI authoring request, including pages, menus, blocks, fields, actions, layouts, reactions, KPI interfaces, dashboards, and charts, even when the user does not mention a Portal. Resolve an enabled Portal from structured `nb portal list -j` output before loading any downstream UI implementation skill: exact `name` when specified; otherwise zero stops, exactly one is automatic, and multiple Portals require explicit selection. Read the type only from `portalType`; explicitly invoke `nocobase-ui-builder` only for a resolved no-code Portal and require `nocobase-ai-builder` for AI Portal source development. Also use direct `nb portal` commands for explicit Portal lifecycle, source storage, sync, deployment, diagnosis, and destroy tasks."
 argument-hint: "[action: build|list|info|create|config|pull|push|deploy|dev|destroy|diagnose] [portal?] [env?: name]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
@@ -11,14 +11,14 @@ risk-level: medium
 
 # Goal
 
-Manage NocoBase Portal workspaces and route Portal UI build requests to the correct implementation path, preserving env selection, source storage configuration, and clear readback after changes.
+Dispatch all ordinary NocoBase UI authoring to one explicitly resolved Portal and manage Portal workspaces, preserving env selection, source storage configuration, and clear readback after changes.
 
 # Scope
 
 - Inspect Portal inventory and details.
-- Start natural Portal UI build requests by resolving the target env, Portal, and Portal type.
+- Start every ordinary NocoBase page, menu, block, field, action, layout, and reaction request by resolving the target env and Portal.
 - Use the `nocobase-ui-builder` skill to build no-code Portal UI.
-- Route AI Portal UI building to the corresponding Portal source directory.
+- Use the `nocobase-ai-builder` skill for AI Portal source development after locating the corresponding Portal source directory.
 - Create Portal workspaces from templates.
 - Configure Portal source storage, including Git repo, branch, and path.
 - Pull and push Portal source between local workspace, NocoBase storage, and Git source storage.
@@ -29,10 +29,11 @@ Manage NocoBase Portal workspaces and route Portal UI build requests to the corr
 # Non-Goals
 
 - Do not directly author no-code Modern UI pages, blocks, menus, reactions, or page content inside this skill; use the `nocobase-ui-builder` skill while preserving Portal env and workspace context.
-- Do not use `nocobase-ui-builder` for AI Portal source-code UI implementation; work in the corresponding Portal source directory after resolving it from Portal info or local workspace state.
+- Do not implement AI Portal source changes directly inside this skill; resolve the source directory and hand the same request to `nocobase-ai-builder`.
 - Do not manage app runtime lifecycle, CLI self-update, env setup, or installed skills update; hand off to `nocobase-env-manage`.
 - Do not manage backup restore or migration publishing; hand off to `nocobase-publish-manage`.
-- Do not directly edit Portal source files unless the user explicitly asks for code changes.
+- Do not infer Portal type from user wording, templates, source layout, current directory, or local files; use the selected record's `portalType` only.
+- Once an AI Portal is selected for an ordinary UI build, that build request authorizes implementing and testing the change in its source project; do not ask for separate source-code authorization.
 - Do not mutate databases or NocoBase internals outside the public `nb portal` command surface.
 - Do not run wrapper scripts, Docker fallback commands, or direct SQL as a substitute for `nb portal`.
 - Do not treat the absence of `nb portal` as permission to emulate Portal lifecycle, source storage, sync, deploy, or destroy operations through private APIs.
@@ -42,8 +43,17 @@ Manage NocoBase Portal workspaces and route Portal UI build requests to the corr
 - Before executing any `nb portal ...` command, confirm the installed CLI exposes the Portal command surface with `nb portal --help`, `nb --help`, or an equivalent local command-help check.
 - Use direct `nb portal` commands for Portal lifecycle, source storage, sync, deploy, and diagnosis operations when that command surface exists.
 - If `nb portal` is unavailable, report lifecycle/source/deploy/destroy tasks as blocked by the installed CLI version and hand CLI update/env work to `nocobase-env-manage`; do not switch transports.
-- For any natural UI request that mentions `portal`, names a Portal, mentions a Portal class such as customer / supplier / admin / custom / AI Portal, or asks to build/change a page inside a Portal, inspect Portal inventory with `nb portal list` before using `flow-surfaces list-navigation-targets`, `apply-blueprint`, or any source-code edit path when `nb portal` is available.
-- When `nb portal` is unavailable and the request can reasonably be handled as no-code Modern UI workspace/page authoring, hand off to `nocobase-ui-builder` and allow its `flow-surfaces list-navigation-targets` compatibility path. State that AI Portal source-code routing and Portal lifecycle features could not be resolved without `nb portal`.
+- Treat this skill as the entry point for every ordinary NocoBase UI authoring request, even if it does not contain the word "Portal".
+- Before any ordinary UI authoring write, inspect structured Portal inventory with `nb portal list -j`; count only records where `enabled === true`.
+- When the user specifies a Portal, match its CLI `name` exactly across structured records. Continue only when exactly one record matches and it has `enabled === true`; a missing, disabled, or non-unique match must stop without substitution.
+- When the user does not specify a Portal: zero enabled Portals must stop the UI build without automatically creating one; exactly one is selected automatically; multiple Portals must be listed by `name` and `portalType` for explicit user selection.
+- Do not infer a target among multiple Portals from cwd, active files, a nearby or recent `portal.config.json`, `localPath`, sync state, title similarity, or Portal type preference.
+- Determine the selected Portal's implementation path only from its `portalType`; do not infer type from the request, template, source tree, or local workspace.
+- Use `portal.config.json`, `localPath`, and other local workspace information only after an AI Portal is selected, and only to locate its source project before invoking `nocobase-ai-builder`.
+- When the selected record has `portalType === "ai"`, loading and executing `nocobase-ai-builder` is mandatory. Pass the resolved Portal name, environment, local source path, and original user request; do not substitute an ad hoc source-edit workflow.
+- Treat `nb portal` as runtime-unavailable when the command is unknown or when `nb portal list -j` returns the explicit endpoint-absence signatures `404` / `Not Found`. For ordinary UI authoring only, this enters the legacy capability probe below; Portal lifecycle/source/deploy operations remain blocked.
+- When Portal inventory is runtime-unavailable, do not use `flow-surfaces list-navigation-targets` as Portal inventory or infer no-code versus AI. Run `nb api flow-surfaces list-navigation-targets -j` only to inspect `capabilities.multiPortal`: `false` enables the legacy UI Builder lane and `true` stops.
+- Older pre-Portal runtimes may not expose `list-navigation-targets`. When that action is explicitly unknown or returns `404` / `Not Found`, and the user did not name a Portal, allow the legacy UI Builder lane only after both checks succeed: `nb api flow-surfaces --help` exposes `apply-blueprint` and `list-templates`, and `nb api flow-surfaces list-templates --body '{}' -j` returns a structured success response. This is the verified legacy Flow Surfaces signature. Auth errors, `5xx`, malformed output, a missing core action, or a failed read probe must stop; never reinterpret them as legacy evidence.
 - Use the current configured CLI env unless the user provides an explicit env.
 - When passing an explicit env that may differ from the current env, include `--yes` only when the user requested non-interactive execution or explicitly confirmed the target env.
 - Before `destroy`, require explicit confirmation from the user.
@@ -73,7 +83,7 @@ Manage NocoBase Portal workspaces and route Portal UI build requests to the corr
 | Input | Required | Default | Validation | Clarification Question |
 |---|---|---|---|---|
 | `action` | yes | inferred | one of `build/list/info/create/config/pull/push/deploy/dev/destroy/diagnose` | "Which Portal action should I run?" |
-| `portal` | except `list` | none | valid Portal slug/name accepted by CLI | "Which Portal should I target?" |
+| `portal` | lifecycle actions except `list`; optional for `build` | the only enabled Portal for `build` | exact CLI `name` | "Which Portal should I target?" |
 | `runtime_env_name` | no | current env | configured CLI env name | "Which env should I target?" |
 | `template` | create only | CLI default | npm package, local path, or `file://` URL | "Which Portal template should I use?" |
 | `title` | create only | generated from slug | non-empty string | "What display title should this Portal use?" |
@@ -102,28 +112,30 @@ Rules:
 
 # Workflow
 
-## Natural Portal UI Build Workflow
+## Ordinary UI Build Workflow
 
-Use this path when the user asks to build, modify, or continue a Portal UI in natural language, such as "搭一个客户门户", "做一个供应商 Portal", "改 AI Portal 首页", "admin portal 里建页面", "合作伙伴 portal 加页面", "给外部客户做订单查询", or "在 Portal 里加一个工单页面".
+Use this path for every ordinary NocoBase page, menu, block, field, action, layout, or reaction request, including requests that never say "Portal".
 
 1. Inspect the current env with `nb env current` and `nb env info`.
 2. Detect Portal CLI support with `nb portal --help` or equivalent command-help output.
 3. If `nb portal` is unavailable:
-   - For explicit AI Portal/source-code requests, report that AI Portal source resolution requires a CLI with `nb portal` support unless a local Portal source directory is already obvious from the current workspace.
    - For create/config/pull/push/deploy/dev/destroy/list/info requests, stop and report the missing CLI capability; recommend `nocobase-env-manage` for CLI/runtime upgrade or environment diagnosis.
-   - For likely no-code Modern UI Portal/workspace page requests, hand off to `nocobase-ui-builder`; it may use `flow-surfaces list-navigation-targets` to find an explicit workspace target and set `navigation.portalUid` when the backend supports it.
-4. Inspect Portal inventory with `nb portal list` when the command surface is available.
+   - For ordinary UI authoring, call `nb api flow-surfaces list-navigation-targets -j` only as a capability check. If `capabilities.multiPortal` is explicitly `false`, use the `nocobase-ui-builder` legacy lane. If it is `true`, stop. If the action is explicitly unknown or returns `404` / `Not Found`, use the verified legacy Flow Surfaces probe defined in Hard Rules; continue only when that full probe succeeds. Other missing, unclear, or failed results stop with CLI/runtime guidance.
+   - Never treat navigation targets as no-code/AI Portal inventory.
+4. Inspect structured Portal inventory with `nb portal list -j` when the command surface is available, and retain only records where `enabled === true`. If this inventory call returns explicit endpoint absence (`404` / `Not Found`), treat Portal inventory as runtime-unavailable and apply step 3 for ordinary UI authoring; do not do so for auth errors, `5xx`, or malformed output.
 5. Resolve the target Portal:
-   - If exactly one Portal exists, use it by default.
-   - If no Portal exists and the request is a new-build request, create a Portal only after resolving the minimum create inputs such as slug/title and Portal type.
-   - If no Portal exists and the user did not ask to create one, ask whether to create a new Portal.
-   - If multiple Portals exist, infer the target from the user's words, active/local Portal workspace, recent `portal.config.json`, current working directory, or unique name/title match.
-   - If multiple Portals still remain possible, ask one concise Portal-selection question and include the available Portal names.
-6. Determine whether the target is a no-code Portal or an AI Portal from the user's words, Portal info, template/source metadata, or local workspace structure.
+   - If the user supplied a Portal name, require exactly one record whose `name` is an exact match and whose `enabled` value is `true`. A missing, disabled, or non-unique match stops the build.
+   - If no Portal was supplied and zero enabled Portals exist, stop and tell the user to explicitly create a Portal first. Do not create one automatically.
+   - If no Portal was supplied and exactly one enabled Portal exists, select it automatically.
+   - If no Portal was supplied and multiple Portals exist, list each `name` and `portalType`, ask for an explicit selection, and do no UI write.
+   - Do not infer the target from cwd, active files, `portal.config.json`, `localPath`, sync state, title similarity, or type preference.
+6. Read the selected record's `portalType`. It is the only source for no-code versus AI routing.
 7. If it is a no-code Portal, use the `nocobase-ui-builder` skill for page, menu, block, field, action, and permission authoring.
-8. If it is an AI Portal, locate the corresponding Portal source directory from `nb portal info <portal>`, `portal.config.json`, or the local Portal workspace, then edit and test the UI in that directory.
-9. If the Portal type is ambiguous, ask one concise question: "这是 no-code portal 还是 ai portal?"
+8. If it is an AI Portal, use `nb portal info <portal>`, its `localPath`, `portal.config.json`, or local workspace state only to locate the already selected Portal's source project. Then load and execute `nocobase-ai-builder` with the resolved Portal name, environment, source path, and original request. The original request authorizes implementation and verification; do not ask for separate code-edit authorization.
+9. If `portalType` is absent or unsupported, stop instead of guessing.
 10. After UI changes, use this skill for `nb portal dev`, `nb portal push`, or `nb portal deploy` only when requested or naturally needed for verification/readback and only when `nb portal` is available.
+
+Explicit `action=create` requests continue through the Portal Command Workflow. The zero-Portal stop above applies only to ordinary UI builds and must not suppress an explicit lifecycle request to create a Portal.
 
 ## Portal Command Workflow
 
@@ -134,7 +146,7 @@ Use this path when the user asks to build, modify, or continue a Portal UI in na
 5. If `nb portal` is unavailable, stop without fallback mutation and report the missing command surface plus the next `nocobase-env-manage` handoff.
 6. Ask only for missing required inputs or required confirmations.
 7. Execute the direct `nb portal` command.
-8. For write actions except `dev`, read back with `nb portal info <portal>` when available; otherwise use `nb portal list`.
+8. For write actions except `dev`, read back with `nb portal info <portal>` when available; otherwise use `nb portal list -j`.
 9. For `push`, report whether source changes were committed or the CLI reported no changes.
 10. For failures, return the failed command, key CLI output, likely cause, and one next command.
 
@@ -150,10 +162,10 @@ Use this path when the user asks to build, modify, or continue a Portal UI in na
 - Use `dev` for "启动 portal dev", "local portal development".
 - Use `destroy` only for explicit delete/destroy intent.
 - Use `diagnose` when the user provides an error log or asks why a Portal command failed.
-- Use `build` for natural UI requests such as "搭 portal", "客户门户", "供应商 portal", "admin portal 里建页面", "合作伙伴 portal 加页面", "AI Portal 页面", "portal UI", "订单查询页面", "提交工单", "会员中心", or "外部用户页面".
-- When a UI request omits the Portal name, inspect env and Portal inventory first; use the only Portal by default, infer from local context when possible, and ask only if multiple targets remain plausible.
+- Use `build` for every ordinary NocoBase page, menu, block, field, action, layout, or reaction request, whether or not it mentions a Portal.
+- When a UI request omits the Portal name, inspect structured env inventory first: zero stops, exactly one is automatic, and multiple require explicit selection.
 - For no-code Portal build requests, use the `nocobase-ui-builder` skill for UI authoring.
-- For AI Portal build requests, locate the Portal source directory and implement UI changes there.
+- For AI Portal build requests, locate the Portal source directory and execute `nocobase-ai-builder` there.
 
 # Reference Loading Map
 
@@ -195,26 +207,30 @@ Rollback guidance:
 - Required confirmations are collected before destructive or overwrite actions.
 - Git source storage commands include a full remote URL when required.
 - Default Git path uses `.` for one-Portal-per-repository workflows.
-- Write actions have readback with `nb portal info` or `nb portal list`.
-- Natural UI build requests resolve no-code Portal vs AI Portal before choosing an implementation path.
+- Write actions have readback with `nb portal info` or `nb portal list -j`.
+- Ordinary UI build requests use `nb portal list -j`, filter `enabled === true`, and resolve exactly one Portal before choosing an implementation path.
+- Explicit Portal names match `name` exactly; multiple Portals never use local context for selection.
+- Portal type comes only from `portalType`.
 - No-code Portal UI authoring uses the `nocobase-ui-builder` skill.
-- AI Portal UI authoring happens in the corresponding Portal source directory.
+- AI Portal UI authoring uses `nocobase-ai-builder` in the corresponding Portal source directory.
 - Failure output includes the failed command and relevant CLI lines.
 - Final answer reports commands, result, readback status, assumptions, and remaining risks.
 
 # Minimal Test Scenarios
 
-1. `list` uses `nb portal list` and does not ask for a Portal name.
+1. `list` uses `nb portal list -j` and does not ask for a Portal name.
 2. `config` with Git storage requires `git_repo` and defaults `git_path` to `.`.
 3. `push` with an empty Git repository reports branch creation support or actionable recovery.
 4. `pull --force` blocks until explicit confirmation.
 5. `destroy` blocks until explicit confirmation.
-6. No-code Portal UI page authoring request uses the `nocobase-ui-builder` skill.
-7. AI Portal UI page authoring request resolves and edits the corresponding Portal source directory.
-8. Ambiguous Portal UI request asks whether the target is no-code Portal or AI Portal when it cannot be inferred.
-9. App start/update request is handed off to `nocobase-env-manage`.
-10. Missing `nb portal` blocks lifecycle/source/deploy actions with a clear CLI capability report and does not use private API fallbacks.
-11. Missing `nb portal` still allows likely no-code Modern UI Portal/workspace page authoring to proceed through `nocobase-ui-builder` when `flow-surfaces list-navigation-targets` can resolve the target.
+6. Zero enabled Portals stop ordinary UI authoring without implicit creation.
+7. Exactly one no-code Portal uses the `nocobase-ui-builder` skill.
+8. Exactly one AI Portal resolves its source directory and invokes `nocobase-ai-builder` with the original request.
+9. Multiple Portals list `name` and `portalType` and require explicit selection without cwd or local-file inference.
+10. Explicit missing, disabled, or non-unique Portal names stop without substitution.
+11. App start/update request is handed off to `nocobase-env-manage`.
+12. Missing `nb portal` blocks lifecycle/source/deploy actions with a clear CLI capability report and does not use private API fallbacks.
+13. Missing Portal runtime support permits the legacy UI Builder lane when `list-navigation-targets` explicitly returns `capabilities.multiPortal: false`, or when the action is explicitly absent and the verified legacy Flow Surfaces signature succeeds. `true`, auth errors, `5xx`, malformed output, or a failed core probe stop.
 
 # Output Contract
 

@@ -46,7 +46,7 @@ Only choose AI employee when model judgment materially reduces ambiguity or give
 
 3. **Discover existing AI employees**
    - Prefer user-visible employees with `aiEmployees:listByUser`.
-   - If using admin list data, filter to `enabled=true`, `deprecated=false`, and role-visible rows. Avoid `category="developer"` unless the user is configuring developer-facing builder work.
+   - For business and AI Portal surfaces, filter to `enabled=true`, `deprecated=false`, role-visible rows with `category!="developer"`. Reject known developer usernames `nathan`, `dara`, `lina`, and `orin` even when category metadata is missing or stale.
    - Match by role, position, bio, existing tools, and `modelSettings`.
    - Read `references/ai-employee-api.md` only when you need concrete resource names, fields, or payload shapes.
 
@@ -56,9 +56,10 @@ Only choose AI employee when model judgment materially reduces ambiguity or give
    - For new employees, keep `bio` human-facing and put operational behavior in `about`.
    - For new employees, validate the create payload has `avatar` set to a supported avatar seed before calling `aiEmployees:create`.
    - If `avatar` is missing, empty, null, or unsupported, set it to the default supported seed `nocobase-015-male`.
-   - Do not create developer-category employees for business users unless explicitly requested.
+   - Never create a developer-category employee for a business or AI Portal interaction.
 
 5. **Bind the employee to the block**
+   - Before binding, read the selected employee and refuse any `category="developer"` employee or known developer username. Developer employees belong only to their dedicated NocoBase builder/editor surfaces; do not add, expose, or select them for user-facing Portal interactions.
    - Use `nocobase-ui-builder` and its AI employee action reference.
    - Use public action shape only: `type: "aiEmployee"` with `settings.username`, `settings.auto`, `settings.workContext`, `settings.tasks`, `settings.style`.
    - Do not write raw `props`, `stepParams`, `flowModels`, or database rows.
@@ -66,21 +67,20 @@ Only choose AI employee when model judgment materially reduces ambiguity or give
 
 6. **Verify**
    - Read back or inspect the target surface through `nocobase-ui-builder` when a write occurred.
-   - Verify the AI action points at the intended username and has the intended task message.
+   - Verify the AI action points at the intended non-developer username and has the intended task message.
    - If a new employee was created, verify it appears in `aiEmployees:listByUser` for the intended role, and verify its `avatar` is non-empty and still one of the supported avatar seeds. Explain any role/ACL follow-up if it is not visible.
 
 ## Employee Matching Rules
 
-Prefer built-ins when they fit:
+Prefer business built-ins when they fit:
 
 - `atlas`: route a broad request to other employees or coordinate sub-agents.
 - `dex`: extract, clean, structure, or fill forms from messy text.
 - `viz`: analyze data and produce insights or reports.
 - `ellis`: understand, summarize, and draft email replies.
-- `lexi` / `lina`: translation and localization, with `lina` usually developer-facing.
-- `nathan`: frontend code authoring or JS/code-editor work; developer-facing.
+- `lexi`: translation and localization for business users.
 
-Create a dedicated employee when the task needs domain-specific behavior, a constrained model set, dedicated custom workflow tools, or a role/persona that should be exposed to business users.
+Never use a developer employee in a business or AI Portal surface. This includes any employee with `category="developer"` and the known usernames `nathan`, `dara`, `lina`, and `orin`. Create a dedicated business employee when the task needs domain-specific behavior, a constrained model set, dedicated custom workflow tools, or a role/persona that should be exposed to business users.
 
 ## Avatar Payload Rules
 

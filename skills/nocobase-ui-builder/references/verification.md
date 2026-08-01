@@ -27,7 +27,7 @@ A page-blueprint draft is good when:
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
 - if duplicate same-title menu groups existed, the summary/readback states that explicit `routeId` was required before write and no extra same-title group was created unless the user explicitly asked for one
-- if the request was for a mobile page, the summary/readback states `navigation.layoutUid: "mobile-layout-model"` and reports the route under the mobile base path such as `/mobile/<pageSchemaUid>`, not `/admin/<pageSchemaUid>`
+- if the request was for a mobile page under a selected no-code Portal, the summary/readback states its resolved `navigation.portalUid`, confirms `navigation.layoutUid` and `navigation.group` were omitted, and reports the mobile base route such as `/mobile/<pageSchemaUid>`, not `/admin/<pageSchemaUid>`; only explicit `capabilities.multiPortal === false` legacy readback expects `navigation.layoutUid: "mobile-layout-model"`
 - canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
 - low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
 - destructive blast radius is explicit for replace/delete scenarios

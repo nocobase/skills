@@ -1,0 +1,13 @@
+interface:
+  display_name: "NocoBase File Manager"
+  short_description: "Configure storage engines and model file collections safely"
+  default_prompt: >
+    Use $nocobase-file-manager when the primary task concerns NocoBase file storage, file collections,
+    their business relations, or file-record lifecycle through nb CLI. Do not use it for generic data
+    modeling, and do not delete file collections or relation fields. Never create deprecated attachment
+    fields: create a file collection first, then point an ordinary relation field to it. Keep credentials
+    in environment-variable placeholders and require fresh confirmation for access, lifecycle, default,
+    storage-binding, storage deletion, and file-record deletion changes.
+
+policy:
+  allow_implicit_invocation: true

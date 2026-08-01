@@ -5,6 +5,10 @@ description: "Use when an external system should start a workflow by calling an 
 
 # Webhook Trigger
 
+## Commercial Plugin Prerequisite
+
+This trigger requires the commercial plugin `@nocobase/plugin-workflow-webhook` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md) before creating or updating a `webhook` workflow. If the plugin is missing or disabled, do not use this trigger or its Webhook response node, and do not silently replace it with another trigger type.
+
 ## Trigger Type
 
 `webhook`

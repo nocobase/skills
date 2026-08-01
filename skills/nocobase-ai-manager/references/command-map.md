@@ -5,6 +5,7 @@
 - [Environment and Runtime](#environment-and-runtime)
 - [Provider Discovery and Testing](#provider-discovery-and-testing)
 - [Saved LLM Service CRUD](#saved-llm-service-crud)
+- [UI Configuration Mode](#ui-configuration-mode)
 - [Dependency Reads](#dependency-reads)
 - [Capability Boundary](#capability-boundary)
 - [Excluded Surface](#excluded-surface)
@@ -58,6 +59,21 @@ nb api ai llm-services destroy
 Use `--filter-by-tk <service-name>` for get, update, and destroy only when help confirms it. Prefer field-limited reads or `list-llm-services` so provider `options` are not printed.
 
 Every `destroy` requires a fresh exact-target secondary confirmation immediately before execution, including rollback and cleanup deletes.
+
+## UI Configuration Mode
+
+Before creating or changing an LLM service or vector database connection, ask the user to choose direct CLI parameters or UI mode. Confirm current help exposes `--ui`; do not infer support.
+
+```bash
+nb api ai llm-services create --ui
+nb api ai llm-services create --ui --provider <provider>
+nb api ai llm-services update --filter-by-tk <service-name> --ui
+nb api kb vector-databases create --ui
+nb api kb vector-databases create --ui --provider PGVector
+nb api kb vector-databases update --filter-by-tk <vector-database-id> --ui
+```
+
+UI commands may contain only `--ui`, exact target identifiers, and documented optional provider selection. Do not add body flags, connection properties, credentials, or secrets. After opening the form, stop until the user reports completion, then independently read back safe fields. Direct vector database writes belong to `nocobase-ai-knowledge-base-manager` after its capability gate.
 
 ## Dependency Reads
 

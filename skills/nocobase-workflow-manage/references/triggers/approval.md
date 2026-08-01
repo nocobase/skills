@@ -5,6 +5,12 @@ description: "Use when users need to initiate an approval application and drive 
 
 # Approval Events
 
+## Commercial Plugin Prerequisite
+
+This trigger requires the commercial plugin `@nocobase/plugin-workflow-approval` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md) before creating or updating an `approval` workflow. If the plugin is missing or disabled, do not use this trigger or any approval surface operation.
+
+When the user explicitly asks for approval, never substitute a `manual` node or another simplified human-review flow. Stop and report that the Approval plugin must be activated, then continue only after activation is verified.
+
 Approval is a multi-surface subsystem (trigger + node + initiator/approver UI + notifications + UID-anchored schema). This page only covers the `approval` trigger schema. Cross-cutting topics live under [../approval/](../approval/index.md).
 
 Important: configuring this trigger is not enough to produce a usable approval workflow. After saving an `approval` trigger, build the trigger-bound initiator surface with `flowSurfaces:applyApprovalBlueprint(surface="initiator", workflowId=...)`, then read it back and verify the surface contains `ApplyFormModel` and the default `ApplyFormSubmitModel`. Bind this v2 surface through `workflow.config.approvalUid`; do not use the legacy v1 `applyForm` field. A non-empty `approvalUid` without a FlowModel tree still renders as an empty initiator popup.
