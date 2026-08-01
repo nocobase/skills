@@ -2,7 +2,7 @@
 
 ## Protected Temporary Files
 
-For any secret-bearing JSON body:
+For secret-bearing JSON:
 
 ```bash
 umask 077
@@ -10,20 +10,20 @@ BODY_FILE="$(mktemp)"
 trap 'rm -f "$BODY_FILE"' EXIT INT TERM
 ```
 
-Write the JSON without printing it, execute with `--body-file "$BODY_FILE"`, then remove the file. Confirm permissions are owner-only when the platform supports it.
+Write JSON without printing it, execute with `--body-file "$BODY_FILE"`, verify owner-only permissions when supported, and remove the file on every exit path.
 
 Never put real secrets in:
 
 - skill documentation or examples;
-- shell command summaries;
-- final responses;
+- shell arguments that appear in history/process listings when a body file is supported;
 - query strings;
+- command summaries or final responses;
 - committed files;
-- debugging output or pasted full API responses.
+- debugging output or copied full API responses.
 
 ## Safe Output
 
-Default LLM output fields:
+Default safe service fields:
 
 ```text
 name,title,provider,enabled,enabledModels
@@ -38,26 +38,31 @@ access tokens
 full secret-bearing response bodies
 ```
 
-`modelOptions` may appear in reads in some versions. Treat it as read-only and never use it to build an update payload.
+`modelOptions` may appear in reads in some versions. Treat it as read-only and never include it in writes.
 
-## Error Handling
+## Capability and Dependency Failures
 
 | Symptom | Action |
 |---|---|
-| `Unknown command: api ai` | Run `nb env update <env> --verbose`; verify AI and API Documentation capability; hand plugin changes to `nocobase-plugin-manage`. |
-| 401/403 | Stop; verify env authentication, token, role, and ACL. Do not retry with guessed credentials. |
-| Provider/model missing | Refresh runtime, rediscover provider models, and verify provider configuration and model type. |
-| `test-flight` fails | Do not save; report provider response safely and ask for corrected settings. |
-| Validation rejects a flag | Read real `--help`; remove unsupported or forbidden fields rather than switching to hidden APIs. |
-| Referenced delete fails | Preserve the service; list dependencies and plan migration/unbinding. |
-| Timeout or 5xx | Treat result as unconfirmed; perform a safe read before deciding whether a mutation happened. |
+| `Unknown command: api ai` | Run `nb env update <env> --verbose`; verify the base AI plugin and API documentation capability; hand plugin changes to plugin management. |
+| KB consumer has no capability result | Return to `nocobase-ai-knowledge-base-manager`; do not discover/configure KB prerequisites as if the commercial gate passed. |
+| `nb api kb` unavailable during a disruptive LLM change | Mark KB dependencies `unknown` and block the disruptive change. Do not infer Community Edition and do not assume an empty dependency set. |
+| `nb license status` says not implemented | Ignore it for readiness. Knowledge-base entitlement is handled by the KB manager through supported evidence. |
+| 401/403 | Stop; verify environment auth, token, role, and ACL. Do not retry with guessed credentials. |
+| Provider/model missing | Refresh runtime, rediscover provider models, and verify model type. |
+| `test-flight` fails | Do not save; report the provider error without secrets and request corrected settings. |
+| Validation rejects a flag | Read current help and remove unsupported fields; do not switch to hidden APIs. |
+| Timeout or 5xx | Treat mutation state as unknown and perform one safe readback before deciding whether to retry. |
+
+Do not collapse edition, entitlement, plugin enablement, API capability, ACL, and provider errors into one generic "plugin unavailable" message.
 
 ## Rollback Boundaries
 
-- Create: deleting a newly created service after verification failure still requires a fresh explicit secondary confirmation immediately before `destroy`.
-- Update: restore a safe snapshot, but credentials must be re-supplied by the user.
-- Delete: automatic restoration is impossible without the complete original configuration and secrets.
-- Partial multi-object work: record successful objects and do not delete unrelated pre-existing resources.
+- Create: deleting a newly created service after verification failure requires a separate fresh confirmation.
+- Update: restore the safe snapshot, but the user must re-supply credentials.
+- Disable: restore the previous enabled state only after dependency and impact checks.
+- Delete: automatic restoration is impossible without the original complete configuration and secrets.
+- Partial multi-object work: record successful objects and never delete unrelated pre-existing resources.
 
 ## Cleanup Check
 
@@ -65,6 +70,7 @@ Before finishing:
 
 - temporary body files are removed;
 - no secret appears in command/output summaries;
-- readback result is safe-field only;
-- dependency and rollback status are explicit;
-- downstream skills receive identifiers, not secrets.
+- readback is safe-field only;
+- core-AI and KB-prerequisite status are separated;
+- employee and KB dependency visibility is explicit;
+- rollback limits and downstream handoffs are explicit.
