@@ -99,6 +99,7 @@ Read [Routing and Access](references/routing-and-access.md) completely whenever 
 - Use the NocoBase `query` action for charts, KPIs, and grouped aggregation; do not fetch every list record and derive server-scale analytics in the browser.
 - Cover loading, empty, error, unauthorized, success, destructive confirmation, and responsive states as appropriate.
 - Use semantic tokens and shared composition. Avoid one-off colors, arbitrary dimensions, excessive `className`, and unnecessary rewrites of shadcn defaults.
+- Preserve the template's root and page error boundaries. Use the installed `NocoBaseErrorBoundary` at `region` scope for independently recoverable renderers such as charts, AI output, or third-party widgets; do not recreate error-boundary infrastructure in business code.
 
 When a real system is being built, remove template presentation from the application surface: hide or unregister demo navigation and routes at the application layer, replace starter branding and copy, and make the first accessible page useful for the target users. Do not delete installed extension source merely to hide a demo entry.
 

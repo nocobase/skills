@@ -22,6 +22,8 @@ Validate behavior and product quality, not only compilation.
 - Start from a host URL with representative filters, pagination, tab state, query parameters, and a hash. Open and close the child surface and confirm the complete host URL is restored.
 - Open or refresh a contextual child URL without navigation state and confirm close falls back to the immediate safe parent route.
 - Check loading, empty, populated, validation, error, unauthorized, and success states that can be exercised safely.
+- For changed high-risk renderers, trigger a representative render failure and confirm the nearest root, page, or region boundary contains it without blanking unrelated UI.
+- Confirm boundary diagnostics are visible and copyable, navigation or retry recovers as designed, and copied output excludes tokens, request headers, credentials, and URL query values.
 - Confirm representative demo records make the primary pages, relationships, filters, dashboards, and contextual AI interaction meaningfully testable.
 - Check allowed and denied roles, route guards, regions, actions, and record controls.
 - Check session expiry and the intended login return path when authentication changed.

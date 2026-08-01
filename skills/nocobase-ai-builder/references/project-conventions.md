@@ -35,6 +35,12 @@ For controlled Base UI selects, treat the stored value and displayed label as se
 
 Never introduce Ant Design. Use the Portal Template's React and shadcn Base UI stack.
 
+## Error containment
+
+Keep the template's root boundary for bootstrap and provider failures and its page boundary for routed content. Inspect `/dev/error-boundary` when deciding containment behavior. Use the installed `NocoBaseErrorBoundary` with `variant="region"` only when an independently recoverable renderer—such as a chart, AI result, plugin surface, or third-party widget—can fail without invalidating the surrounding page. Do not wrap every component.
+
+Keep expected API, validation, empty, and unauthorized failures in their owning page or region state. When an event or asynchronous operation makes a protected renderer unusable, forward it with the installed `useErrorBoundary().showBoundary(error)` instead of relying on an unhandled rejection. Every boundary fallback must retain the shared copyable diagnostic output; customize it through props or application-owned composition rather than editing `src/extensions/nocobase-error-boundary`.
+
 ## Product design responsibility
 
 When requirements are incomplete, infer a coherent product rather than emitting generic scaffolding. Establish:
