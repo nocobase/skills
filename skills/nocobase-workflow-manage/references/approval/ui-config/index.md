@@ -5,6 +5,10 @@ description: Routing entry for approval initiator, approver, and task-card surfa
 
 # Approval UI Authoring
 
+## Commercial Plugin Prerequisite
+
+Approval UI authoring requires the commercial plugin `@nocobase/plugin-workflow-approval` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../../commercial-plugin-gate.md) before calling any approval `flowSurfaces` operation. If the plugin is missing or disabled, do not author an approval surface and do not replace the requested approval with a generic form or `manual` node.
+
 Use this topic when the user wants to configure a workflow approval trigger UI, approval node processing UI, or approval task card through `flowSurfaces`.
 
 This folder is the canonical source for approval UI route selection. Keep transport choice separate:
