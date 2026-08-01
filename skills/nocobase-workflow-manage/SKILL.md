@@ -45,6 +45,18 @@ CLI usage rules:
 4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`.
    - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](./references/conventions/index.md#the-collection-field-in-trigger-and-node-configuration) whenever a workflow trigger or node configuration depends on `collection`.
 
+## Commercial Plugin Capability Gate
+
+Approval, Webhook, and Subflow are commercial capabilities. Before using any of them, inspect the target application's plugin state through [`nocobase-plugin-manage`](../nocobase-plugin-manage/SKILL.md) and require the matching plugin to be installed and `enabled=true`:
+
+- Approval trigger, approval node, and approval surfaces: `@nocobase/plugin-workflow-approval`
+- Webhook trigger and Webhook response node: `@nocobase/plugin-workflow-webhook`
+- Call Workflow (`subflow`) node: `@nocobase/plugin-workflow-subflow`
+
+If the required plugin is missing or disabled, do not create or mutate the corresponding trigger, node, or approval surface. Stop that authoring path and tell the user which exact commercial plugin must be activated. Continue only after plugin activation is verified through readback. Full rules: [Commercial workflow plugin gate](references/commercial-plugin-gate.md).
+
+When the user explicitly requests approval functionality, never substitute a `manual` node or another simplified human-review design. If the Approval plugin is unavailable, report the prerequisite instead of changing the requested semantics.
+
 ## Clarification and Mutation Preconditions
 
 - Max clarification rounds: `2`
@@ -149,6 +161,7 @@ Consult [Workflow HTTP API index](references/http-api/index.md) only when you ne
 11. **Resolve collection names by inspection, not guesswork** — follow the [Collection Resolution Gate](#collection-resolution-gate) for any collection-bound trigger or node config that requires `collection`.
 12. **Use `applyApprovalBlueprint` for first-time or whole-surface approval setup** — do not bootstrap a brand-new approval surface with `compose`.
 13. **Do not invent `approvalUid` or `taskCardUid`** — for localized approval edits, resolve the bound root from workflow or node config first.
+14. **Never use an inactive commercial workflow capability** — Approval, Webhook, and Subflow require their matching commercial plugins to be installed and enabled in the target app. Do not mutate those types until activation is verified, and never replace an explicitly requested approval with a `manual` node.
 
 # Orchestration Process
 
@@ -229,6 +242,7 @@ After completing any workflow operation, verify:
 7. For edits on frozen versions: the new revision `id` is being used, not the old one
 8. For approval UI edits: the bound workflow or node config points at the expected `approvalUid` or `taskCardUid`, and the FlowModel readback matches the intended route
 9. Raw JSON from custom-action custom context, Webhook, SQL, HTTP, or similar sources is followed by a configured JSON modeling node, and later nodes reference only the modeled output fields
+10. Any Approval, Webhook, or Subflow capability used in the workflow has its required commercial plugin installed and `enabled=true`; explicit approval requests were not downgraded to `manual`
 
 # Plugin version control revision rule
 
@@ -240,6 +254,7 @@ After completing any workflow operation, verify:
 
 # References
 
+- [Commercial workflow plugin gate](references/commercial-plugin-gate.md): mandatory preflight for Approval, Webhook, and Subflow capabilities; includes exact plugin packages and the no-fallback rule for approval.
 - [Approval UI authoring index](references/approval/ui-config/index.md): use when the task is about approval initiator, approver, or task-card surfaces bound to workflow or approval-node config.
 - [Approval surfaces reference](references/approval/ui-config/surfaces.md): use when authoring or editing any approval block, action, or field — covers the per-surface FlowModel tree, every owner config knob, the singleton action map, the full `configure` payload schemas (`approvalReturn`, `assigneesScope`, `confirm`, `assignValues`, `fieldComponent`), and the scenario → operation table.
 - [Workflow architecture and data model](references/modeling/index.md): use when understanding the overall model structure, revision rules, status codes, or variable groups.

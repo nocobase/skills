@@ -5,6 +5,12 @@ description: "Use only inside approval-trigger workflows when human approvers mu
 
 # Approval
 
+## Commercial Plugin Prerequisite
+
+This node requires the commercial plugin `@nocobase/plugin-workflow-approval` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md) before creating or updating an `approval` node or its approval surfaces. If the plugin is missing or disabled, do not use this node.
+
+When the user explicitly asks for approval, never substitute a `manual` node or another simplified human-review flow. Stop and report that the Approval plugin must be activated, then continue only after activation is verified.
+
 This page only covers the `approval` node schema. Cross-cutting topics (notifications, UID-backed config, UI authoring) live under [../approval/](../approval/index.md).
 
 ## Node Type

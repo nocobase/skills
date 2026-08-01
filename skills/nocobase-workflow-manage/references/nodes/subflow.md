@@ -5,6 +5,10 @@ description: "Use when a workflow should reuse another workflow as a subroutine,
 
 # Call Workflow
 
+## Commercial Plugin Prerequisite
+
+This node requires the commercial plugin `@nocobase/plugin-workflow-subflow` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md) before creating or updating a `subflow` node. If the plugin is missing or disabled, do not use this node and do not silently replace it by copying the target workflow's nodes into the caller.
+
 ## Node Type
 
 `subflow`
