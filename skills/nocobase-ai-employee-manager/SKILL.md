@@ -1,106 +1,105 @@
 ---
 name: nocobase-ai-employee-manager
-description: "Use when users need to inspect, create, update, enable, bind, verify, or safely delete NocoBase AI employees through nb api ai employees after AI prerequisites are ready."
-argument-hint: "[action: inspect|create|update|bind|delete|verify] [employee: username] [env?: name]"
+description: "Use when users need to inspect, create, update, enable, configure answer sources, verify, or safely delete NocoBase AI employees through nb api ai employees."
+argument-hint: "[action: inspect|create|update|bind|unbind|delete|verify] [employee: username] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools
-version: 1.0.0
-last-reviewed: 2026-07-26
+version: 2.0.0
+last-reviewed: 2026-08-01
 risk-level: high
 ---
 
 # Goal
 
-Maintain NocoBase AI employee records through the supported `nb api ai employees` command surface after `nocobase-ai-manager` has prepared and verified the required LLM services and models.
-
-# Required Dependency
-
-- Invoke or load [`nocobase-ai-manager`](../nocobase-ai-manager/SKILL.md) before employee mutation.
-- Consume its readiness result: target environment, saved LLM service name, enabled chat models, and unresolved dependencies.
-- If model prerequisites are missing or unverified, stop employee mutation and return to `nocobase-ai-manager`.
-- For knowledge-base-centric setup or document work, coordinate with `nocobase-ai-knowledge-base-manager`.
+Own all supported AI employee record writes through `nb api ai employees`, using prerequisite-aware model validation, edition-aware knowledge-base handoffs, exact-field updates, independent readback, and explicit protection for built-in or business-critical employees.
 
 # Scope
 
-- Inspect AI employees and resolve an exact `username`.
+- Inspect employees and resolve one exact stable `username`.
 - Create, update, enable, disable, verify, and safely delete custom AI employees.
-- Configure the writable profile fields, model restrictions, and knowledge base binding supported by `nb api ai employees`.
-- Validate model and knowledge base references before writes.
-- Preserve built-in employee protection and perform independent readback after configuration changes.
+- Configure supported profile fields and dedicated chat-model restrictions.
+- Own the final employee write for knowledge-base enablement, prompt, retrieval settings, binding, and unbinding.
+- Validate every model reference through `nocobase-ai-manager`.
+- Validate every knowledge-base capability and key through `nocobase-ai-knowledge-base-manager` before employee binding.
+- Preserve built-in identity/delete protection and perform independent readback after writes.
 
 # Non-Goals
 
-- Do not configure LLM providers or saved LLM services; use `nocobase-ai-manager`.
-- Do not create vector databases, knowledge bases, or documents; use `nocobase-ai-knowledge-base-manager`.
+- Do not configure LLM providers or saved services; use `nocobase-ai-manager`.
+- Do not determine knowledge-base edition entitlement or create vector databases, knowledge bases, or documents; use `nocobase-ai-knowledge-base-manager`.
+- Do not silently remove a requested knowledge-base binding when the environment lacks Professional+ capability.
 - Do not manage AI tools, skills, role visibility, global AI settings, employee templates, move operations, or per-user prompts.
-- Do not write `builtIn`, `category`, `deprecated`, `chatSettings`, `dataSourceSettings`, or `skillSettings`.
-- Do not place AI employee actions on Modern UI surfaces; use `nocobase-ai-employee` and `nocobase-ui-builder` for that broader workflow.
+- Do not write protected internal fields or place employee actions on UI surfaces.
 
 # Input Contract
 
 | Input | Required | Default | Validation | Clarification Question |
 |---|---|---|---|---|
-| `action` | yes | `inspect` | one of `inspect/create/update/bind/delete/verify` | "Which employee action should I perform?" |
-| `env` | no | readiness env from `nocobase-ai-manager` | configured, reachable, authenticated | "Which NocoBase CLI environment should I target?" |
-| `username` | update/bind/delete/get: yes | none | exact stable username resolved uniquely | "What is the exact AI employee username?" |
-| `profile` | create/update: yes | none | writable fields only; required create fields present | "Which nickname, role text, avatar, prompts, and enabled state should be used?" |
-| `modelSettings` | create/update: conditional | disabled when omitted | references an enabled saved service and chat model | "Should this employee use a dedicated LLM service/model?" |
-| `knowledgeBase` | bind: yes | disabled when omitted | existing enabled keys; valid `topK` and score string | "Which knowledge base keys and retrieval settings should be bound?" |
-| `confirmation` | every delete and other high-risk action: yes | none | explicit secondary confirmation after the exact employee and impact are shown; the original request is not sufficient | "Confirm deletion of this exact AI employee?" |
+| `action` | yes | `inspect` | one of `inspect/create/update/bind/unbind/delete/verify` | "Which employee action should I perform?" |
+| `env` | no | current env from `nb env list` | configured, reachable, authenticated | "Which NocoBase CLI environment should I target?" |
+| `username` | create/update/bind/unbind/delete/verify: yes; inspect: optional | none | exact stable username resolved uniquely when supplied | "What is the exact AI employee username?" |
+| `profile` | create/update: conditional | preserve existing values | writable fields only; required create fields present | "Which supported profile fields should change?" |
+| `modelSettings` | create/update: conditional | preserve existing or disabled when omitted on create | enabled saved service and chat model only | "Should this employee use a dedicated LLM service and chat model?" |
+| `knowledgeBasePrompt` | bind: yes | preserve existing; otherwise product-style default | non-empty and contains `{knowledgeBaseData}` | "What prompt should wrap retrieved knowledge-base content?" |
+| `knowledgeBase` | bind: yes | `topK=3`, `score="0.6"` when user leaves values open | enabled existing keys; `topK` 1..100; score 0..1 stored as string | "Which knowledge bases and retrieval settings should be bound?" |
+| `confirmation` | high-risk action: yes | none | fresh confirmation after exact employee and impact are shown | "Confirm this exact employee availability or answer-source change?" |
 
 Rules:
 
 - If required input or dependency readiness is missing, stop mutation and ask clarification.
 - If the user says "you decide", inspect and recommend reuse candidates only; do not create or change employees.
-- Create payloads require `username`, `nickname`, and a supported `avatar`; default an absent or unsupported avatar to `nocobase-015-male`.
-- Reject all six forbidden write fields rather than silently dropping them.
-- Do not silently convert create to update when `username` already exists.
-- Every `nb api ai employees destroy` requires a fresh explicit secondary confirmation immediately before execution, including rollback or cleanup of a newly created custom employee.
+- Create requires `username`, `nickname`, and a supported avatar; default an absent or unsupported avatar to `nocobase-015-male`.
+- Reject forbidden fields rather than silently dropping them.
+- Never silently convert duplicate create into update.
+- Do not run LLM prerequisite work for a simple read-only employee inspection unless model validation is requested.
+- Do not run KB commands until the KB manager has returned `runtimeCapability=available`.
 
 # Mandatory Clarification Gate
 
 - Max clarification rounds: `2`.
 - Max questions per round: `3`.
-- Before mutation, confirm environment, exact username, intended profile values, model references, knowledge base references, and enabled state.
-- Before delete, read the employee and refuse when `builtIn=true`.
-- For every permitted custom employee delete, show the exact username, environment, availability impact, and recreation limits, then obtain a fresh secondary confirmation immediately before `destroy`. A prior request, plan approval, or batch cleanup confirmation does not count.
-- Before disabling or changing model/knowledge base bindings, display the expected user-facing impact.
-- If `nocobase-ai-manager` readiness, runtime help, or reference validation fails, stop before writing.
+- Before mutation, confirm environment, exact username, intended writable fields, enabled state, model references, and any KB binding intent.
+- For model changes, require a current `nocobase-ai-manager` core readiness result.
+- For bind/unbind or any write to `enableKnowledgeBase`, `knowledgeBasePrompt`, or `knowledgeBase`, require a current KB capability/key result from `nocobase-ai-knowledge-base-manager`.
+- If KB capability is blocked, explain the Professional+ restriction and ask whether the user wants a separate employee operation without KB; never downgrade automatically.
+- Before disabling an employee or changing/removing an existing answer source, show the user-facing impact and obtain secondary confirmation.
+- Before delete, read the employee, refuse `builtIn=true`, show exact impact and recreation limits, and obtain fresh confirmation immediately before `destroy`.
 
 # Workflow
 
-1. Run the `nocobase-ai-manager` prerequisite workflow and retain its verified environment, service, and model result.
-2. Refresh runtime if needed and confirm `nb api ai employees --help`; read the [command map](references/command-map.md).
-3. List employees and resolve one exact `username`; for create, check that the username is absent.
-4. Read the [field contract](references/employee-fields.md); validate required fields, avatar, writable boundaries, and value types.
-5. Validate every `modelSettings.models[]` entry against an enabled LLM service and chat model from the prerequisite result.
-6. For knowledge base binding, verify each key with `nb api kb list --filter '{"enabled":true}'` or hand off missing setup to `nocobase-ai-knowledge-base-manager`.
-7. Compare the intended safe fields with the current employee. If already equal, report satisfied; otherwise show the safe-field diff and plan one write.
-8. Use a protected JSON body file for structured payloads; execute one `employees create` or `employees update` command and suppress unnecessary response output.
-9. Read back with `employees get --filter-by-tk <username>` and verify profile, avatar, enabled state, `modelSettings`, `enableKnowledgeBase`, and `knowledgeBase`.
-10. For delete, require `builtIn=false`, display the exact impact, obtain fresh secondary confirmation immediately before this specific `employees destroy`, execute it, then verify the username no longer appears.
-11. Report partial success and rollback limits; clean all temporary files.
+1. Resolve the environment and verify `nb api ai employees --help`; read the [command map](references/command-map.md).
+2. List/get employees and resolve one exact username; for create, prove the username is absent.
+3. Read the [field contract](references/employee-fields.md) and reject unsupported or protected fields.
+4. Run `nocobase-ai-manager` only when creating/changing `modelSettings` or when the requested operation otherwise needs model readiness.
+5. For KB binding, run `nocobase-ai-knowledge-base-manager` preflight first. Require Professional+ capability, enabled exact KB keys, and a binding handoff contract.
+6. Build the complete intended employee safe-field state. For KB enablement include `enableKnowledgeBase`, `knowledgeBasePrompt`, and `knowledgeBase` together.
+7. Compare intended and current safe fields. If equal, report satisfied; otherwise show the safe diff and planned one-record write.
+8. Obtain confirmation for disabling or answer-source changes when required.
+9. Use a protected body file for structured payloads; execute one create/update and suppress unnecessary raw output.
+10. Read back by username and verify every intended writable field, including prompt placeholder and KB retrieval settings.
+11. For delete, require `builtIn=false`, obtain fresh exact-target confirmation immediately before `destroy`, execute once, and verify absence.
+12. Report capability state, partial success, rollback limits, and downstream work separately; remove temporary files.
 
 # Reference Loading Map
 
 | Reference | Use When | Notes |
 |---|---|---|
-| [Command map](references/command-map.md) | Selecting list/get/create/update/destroy commands and supported flags. | Includes exact current command surface and excluded operations. |
-| [Employee fields](references/employee-fields.md) | Building or reviewing employee payloads. | Writable fields, forbidden fields, avatar, model, and knowledge base schemas. |
-| [Employee workflows](references/employee-workflows.md) | Creating, updating, binding, deleting, verifying, or rolling back. | Includes idempotency and dependency checks. |
-| [AI manager](../nocobase-ai-manager/SKILL.md) | Any employee mutation. | Required LLM prerequisite dependency. |
-| [Knowledge base manager](../nocobase-ai-knowledge-base-manager/SKILL.md) | Knowledge base creation, documents, retrieval testing, or KB-centric employee binding. | Collaborating skill. |
-| [AI employee authoring](../nocobase-ai-employee/SKILL.md) | Richer tools/skills/persona selection or UI action placement is needed. | Existing broader authoring skill; outside this CLI manager's write surface. |
+| [Command map](references/command-map.md) | Selecting employee commands and prerequisite handoffs. | Includes exact supported CRUD and exclusions. |
+| [Employee fields](references/employee-fields.md) | Building or reviewing profile, model, or KB payloads. | Defines writable/forbidden fields, prompt, defaults, and ranges. |
+| [Employee workflows](references/employee-workflows.md) | Creating, updating, binding, disabling, deleting, verifying, or rolling back. | Defines ownership and idempotency. |
+| [AI manager](../nocobase-ai-manager/SKILL.md) | A model restriction is created or changed. | Supplies core AI service/chat-model readiness. |
+| [Knowledge base manager](../nocobase-ai-knowledge-base-manager/SKILL.md) | Any KB capability, resource, document, hit-test, or binding preparation is needed. | Supplies Professional+ capability and enabled exact keys. |
 
 # Safety Gate
 
-High-risk actions:
+High-impact actions are the high-risk actions listed below:
 
-- every custom AI employee deletion, including rollback and cleanup deletion;
-- changing or replacing an existing username/identity;
+- every custom employee deletion, including rollback or cleanup deletion;
+- changing username/identity;
 - disabling an employee used by business users;
-- changing model or knowledge base bindings that alter answers;
-- attempting to mutate protected internal fields or delete a built-in employee.
+- changing or removing model and KB answer sources;
+- enabling KB retrieval without an available Professional+ capability result;
+- writing protected internal fields or deleting a built-in employee.
 
 Secondary confirmation template:
 
@@ -108,53 +107,56 @@ Secondary confirmation template:
 
 Rollback guidance:
 
-- If create verification fails, request a separate secondary confirmation immediately before deleting the newly created custom employee.
-- If update verification fails, restore the previously read writable fields and verify again.
-- Never attempt rollback by writing read-only or internal fields returned by the server.
-- If a delete succeeds, restoration requires recreating the custom employee from a previously approved safe snapshot; report that limitation before deletion.
+- Create verification failure: deleting the new custom employee requires a separate fresh confirmation.
+- Update mismatch: restore the previous writable safe-field snapshot and verify again.
+- KB binding mismatch: restore the prior `enableKnowledgeBase`, `knowledgeBasePrompt`, and `knowledgeBase` together.
+- Delete: recreation requires an approved safe snapshot; never claim automatic restoration.
+- Never write read-only/internal fields during rollback.
 
 # Verification Checklist
 
-- `nocobase-ai-manager` prerequisite readiness is complete.
 - Target environment and `employees` command surface are verified.
-- Username is absent for create or uniquely resolved for get/update/delete.
-- Create payload contains `username`, `nickname`, and a supported non-empty `avatar`.
-- Payload contains only writable employee fields.
+- Username is absent for create or uniquely resolved for other actions.
+- Create payload contains username, nickname, and a supported avatar.
+- Payload contains only documented writable employee fields.
 - Every model reference points to an enabled saved service and chat model.
-- Every knowledge base key exists and is enabled before binding.
-- Every create/update has independent `employees get` readback.
-- At least one allowed employee configuration matches the intended safe fields.
-- At least one denied case is preserved: forbidden field, missing model, missing KB, duplicate username, or built-in delete.
-- Every permitted `employees destroy` was preceded by a fresh secondary confirmation for that exact custom employee immediately before execution.
-- `builtIn=true` employees are never deleted.
-- Errors, partial success, rollback results, and remaining handoffs are reported separately.
+- KB writes consumed an available Professional+ capability result.
+- Every bound KB key exists and is enabled.
+- Enabled KB retrieval has a non-empty prompt containing `{knowledgeBaseData}`.
+- KB `topK` is 1..100 and score is a string representing a number from 0 through 1.
+- Every create/update has independent employee readback.
+- Built-in employees are never deleted or identity-mutated.
+- Disabling and answer-source changes received impact confirmation when required.
+- Every permitted `destroy` received fresh exact-target confirmation immediately before execution.
+- At least one allowed configuration and one denied case are preserved.
+- Errors, partial success, rollback, capability blocks, and handoffs are reported separately.
 
 # Minimal Test Scenarios
 
-1. Inspect-only: list employees and read one employee without mutation.
-2. Create/update: create a custom employee with a verified model, then read back all writable fields.
-3. Missing input: omit username, avatar, or prerequisite model readiness and verify mutation is blocked.
-4. Auth/capability failure: `employees` help or API authorization fails and the skill stops with recovery guidance.
-5. High-risk case: attempt to delete a custom employee and verify fresh secondary confirmation is required immediately before `destroy`; attempt a built-in delete and verify refusal.
+1. Inspect-only: list employees and read one employee without invoking unnecessary LLM/KB prerequisite workflows.
+2. Create/update: configure a custom employee with a verified chat model and read back all intended fields.
+3. KB bind: consume an available KB handoff, write prompt plus retrieval settings, and verify all three KB fields.
+4. Edition blocked failure: KB capability is unlicensed/unavailable; no employee KB field is written, and the user is asked whether to continue separately without KB.
+5. Missing/auth failure: omit username or fail employee API authorization and verify mutation stops.
+6. High-risk delete: refuse a built-in delete; delete a custom employee only after fresh confirmation and absence verification.
 
 # Output Contract
 
 Final response must include:
 
 - target environment, requested action, and exact username;
-- prerequisite LLM service/model result consumed;
-- knowledge base keys checked when relevant;
-- commands executed without secret or internal-field values;
-- safe-field readback and allowed/denied validation result;
+- model prerequisite result when used;
+- KB edition/plugin capability and exact keys when relevant;
+- commands executed without secret/internal values;
+- safe-field readback, including `knowledgeBasePrompt` when KB is enabled;
 - confirmation, rollback, partial success, and remaining handoffs;
-- defaults such as the avatar fallback that were applied.
+- defaults such as avatar, `topK`, score, or product-style KB prompt that were applied.
 
 # References
 
-- [NocoBase official documentation](https://docs.nocobase.com/): use when checking current AI employee plugin behavior. [verified: 2026-07-26]
-- [AI manager](../nocobase-ai-manager/SKILL.md): required prerequisite for LLM service and model readiness.
-- [Command map](references/command-map.md): use for the supported `nb api ai employees` commands.
-- [Employee fields](references/employee-fields.md): use for writable schemas, forbidden fields, avatar rules, and binding payloads.
-- [Employee workflows](references/employee-workflows.md): use for CRUD, verification, safety, and rollback.
-- [Knowledge base manager](../nocobase-ai-knowledge-base-manager/SKILL.md): use for KB resources, documents, hit tests, and KB-centric binding.
-- [Existing AI employee skill](../nocobase-ai-employee/SKILL.md): use for broader employee selection, tools/skills, and UI action authoring.
+- [NocoBase official documentation](https://docs.nocobase.com/ai-employees/): use when checking current AI employee behavior. [verified: 2026-08-01]
+- [Command map](references/command-map.md): use for supported employee commands and exclusions.
+- [Employee fields](references/employee-fields.md): use for writable schemas, prompt rules, defaults, and protected fields.
+- [Employee workflows](references/employee-workflows.md): use for CRUD, binding, verification, safety, and rollback.
+- [AI manager](../nocobase-ai-manager/SKILL.md): use for saved service and chat-model readiness.
+- [Knowledge base manager](../nocobase-ai-knowledge-base-manager/SKILL.md): use for Professional+ capability and KB resource readiness.

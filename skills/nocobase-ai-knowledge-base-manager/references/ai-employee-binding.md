@@ -1,70 +1,89 @@
-# AI Employee Knowledge Base Binding
+# AI Employee Knowledge-Base Binding Handoff
 
-Use this workflow only when the employee already exists and the requested change is specifically to bind or unbind knowledge bases. Broader employee lifecycle work belongs to `nocobase-ai-employee-manager`.
+This skill owns capability and KB readiness. `nocobase-ai-employee-manager` owns the final employee record write.
 
 ## Preconditions
 
-1. Resolve the exact employee username with `employees get`.
-2. Verify every knowledge base key exists and is enabled.
-3. Confirm retrieval values:
-   - `topK`: positive integer;
-   - `score`: string in the employee write schema, for example `"0.5"`;
-   - `knowledgeBaseKeys`: non-empty array of exact keys when enabling.
-4. Reject any payload that also contains forbidden/internal employee fields.
+1. Current KB preflight has `runtimeCapability=available`.
+2. Resolve the exact employee username for context; do not write it in this skill.
+3. Verify every requested KB key exists and is enabled.
+4. Confirm retrieval settings:
+   - `topK`: integer 1 through 100; default 3 when user accepts defaults;
+   - `score`: number 0 through 1, represented as a string in the employee write; default `"0.6"`;
+   - `knowledgeBaseKeys`: non-empty exact key array when enabling.
+5. Resolve `knowledgeBasePrompt`:
+   - preserve an existing custom prompt unless explicitly changed;
+   - otherwise use a product-style default;
+   - require the literal `{knowledgeBaseData}` placeholder.
 
-## Bind
+## Binding Handoff Contract
 
-Target fields:
-
-```json
-{
-  "enableKnowledgeBase": true,
-  "knowledgeBase": {
-    "topK": 5,
-    "score": "0.5",
-    "knowledgeBaseKeys": ["product-docs"]
-  }
-}
+```yaml
+employeeKnowledgeBaseBinding:
+  environment: <env>
+  username: <username>
+  capability:
+    requiredEdition: professional+
+    entitlement: licensed | unknown
+    pluginState: installed-enabled
+    runtimeCapability: available
+  enableKnowledgeBase: true
+  knowledgeBasePrompt: |-
+    From knowledge base:
+    {knowledgeBaseData}
+    Answer the user's question using this information.
+  knowledgeBase:
+    topK: 3
+    score: "0.6"
+    knowledgeBaseKeys:
+      - product-docs
+  verifiedEnabledKeys:
+    - product-docs
 ```
 
-Execution pattern:
+Do not include secrets, full KB objects, document content, or hidden identifiers.
 
-```bash
-nb api ai employees update \
-  --filter-by-tk <username> \
-  --enable-knowledge-base \
-  --knowledge-base '{"topK":5,"score":"0.5","knowledgeBaseKeys":["product-docs"]}' \
-  --no-json-output \
-  --env <env> --yes
+## Final Write Ownership
+
+Hand the contract to `nocobase-ai-employee-manager`. That skill must:
+
+1. read the current employee;
+2. show answer-source impact and obtain confirmation;
+3. update `enableKnowledgeBase`, `knowledgeBasePrompt`, and `knowledgeBase` together;
+4. read back all three fields;
+5. verify no unrelated writable field changed.
+
+This KB manager must not perform a second or competing employee update.
+
+## Unbinding Handoff
+
+Prepare:
+
+```yaml
+employeeKnowledgeBaseUnbinding:
+  environment: <env>
+  username: <username>
+  enableKnowledgeBase: false
+  preservePromptAndSettings: true | false
+  expectedImpact: <answer-source impact>
 ```
 
-Prefer a protected body file when combining this change with other structured employee settings.
+The employee manager obtains confirmation and performs the write. Preserve or clear prompt/settings only according to explicit user intent.
 
-## Verify
+## Capability Block
 
-Read back with:
+If capability is unlicensed, disabled, unavailable, denied, or unknown/unusable:
 
-```bash
-nb api ai employees get --filter-by-tk <username> --env <env> --yes
-```
-
-Verify:
-
-- `enableKnowledgeBase=true`;
-- `topK` and `score` match;
-- every intended key appears exactly once;
-- no non-requested writable field changed.
-
-## Unbind
-
-1. Show the employee answer-source impact.
-2. Obtain secondary confirmation.
-3. Set `enableKnowledgeBase=false` and clear or preserve settings according to explicit user intent.
-4. Read back and verify retrieval is disabled.
+- do not return a write-ready binding contract;
+- state the Professional+ requirement and exact evidence;
+- do not write `enableKnowledgeBase=true`;
+- ask whether the user wants a separate employee operation without KB, but do not silently downgrade.
 
 ## Safety
 
-- Do not create missing knowledge bases implicitly.
+- Do not create missing KBs implicitly.
 - Do not bind disabled or ambiguous keys.
-- Do not write `builtIn`, `category`, `deprecated`, `chatSettings`, `dataSourceSettings`, or `skillSettings`.
-- If employee update fails or reads back differently, restore the previous writable binding fields and report partial success.
+- Do not omit `knowledgeBasePrompt`.
+- Do not accept a prompt missing `{knowledgeBaseData}`.
+- Do not claim a bound employee works until employee-manager readback succeeds.
+- If a KB disappears between handoff and employee write, the employee manager must stop and request refreshed readiness.

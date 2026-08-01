@@ -1,16 +1,70 @@
 # Knowledge Base Command Map
 
-## Runtime and Storage
+## Contents
+
+- [Capability Preflight](#capability-preflight)
+- [Storage](#storage)
+- [Vector Databases](#vector-databases)
+- [Knowledge Bases](#knowledge-bases)
+- [Documents](#documents)
+- [LLM and Embedding Handoff](#llm-and-embedding-handoff)
+- [AI Employee Binding Handoff](#ai-employee-binding-handoff)
+- [Excluded Surface](#excluded-surface)
+
+## Capability Preflight
+
+Entitlement, when supported for the managed environment:
+
+```bash
+nb license plugins list --env <env> --yes --json
+```
+
+Installed/enabled plugins:
+
+```bash
+nb plugin list --env <env> --yes
+```
+
+Runtime and generated KB API:
 
 ```bash
 nb env update <env> --verbose
 nb api kb --help --env <env> --yes
 nb api kb vector-databases --help --env <env> --yes
 nb api kb documents --help --env <env> --yes
+```
+
+Do not use `nb license status` as an edition decision. Do not infer edition from `nb env info` or missing KB commands.
+
+When a required plugin is installed but disabled, do not stop with a manual instruction. Show the exact environment and package name, ask whether the user wants it enabled, and after explicit approval use `nocobase-plugin-manage` in safe mode. The direct command executed by that workflow is:
+
+```bash
+nb plugin enable --env <env> --yes @nocobase/plugin-ai-knowledge-base
+```
+
+If the base AI package is also installed-disabled and the user approves both exact packages:
+
+```bash
+nb plugin enable --env <env> --yes @nocobase/plugin-ai @nocobase/plugin-ai-knowledge-base
+```
+
+Then verify and resume capability probing:
+
+```bash
+nb plugin list --env <env> --yes
+nb env update <env> --verbose
+nb api kb --help --env <env> --yes
+```
+
+If consent is declined, enablement fails, or post-state remains disabled, stop before KB mutation. Installation, synchronization, and disablement remain plugin/environment-management operations.
+
+## Storage
+
+```bash
 nb api file-manager storages list --env <env> --yes
 ```
 
-Knowledge base CRUD is directly under `kb`; do not add a `knowledge-bases` segment.
+For Local KBs, use the storage name expected by `storageId`, not an assumed numeric database ID.
 
 ## Vector Databases
 
@@ -24,7 +78,11 @@ nb api kb vector-databases update
 nb api kb vector-databases destroy
 ```
 
+Before vector database create/update, ask the user to choose `direct-cli` or `ui`. For `ui`, hand off to `nocobase-ai-manager` after KB capability passes; it opens only the documented `--ui` form, pauses for user completion, and independently verifies safe fields. Use the commands above directly only for `direct-cli`.
+
 ## Knowledge Bases
+
+Knowledge-base CRUD is directly under `kb`; do not add a `knowledge-bases` segment.
 
 ```bash
 nb api kb list
@@ -46,18 +104,34 @@ nb api kb documents vectorization
 nb api kb documents destroy
 ```
 
-Upload uses multipart `--file` plus `--knowledge-base-key`. It does not use JSON `--body-file` for the file itself. A successful upload automatically starts or queues vectorization; never ask the user whether to run `documents vectorization` afterward. That command is reserved for an independently requested re-vectorization/retry.
+Upload uses multipart `--file` plus `--knowledge-base-key`. It does not put the file in a JSON body. Successful upload starts or queues automatic segmentation/vectorization. `documents vectorization` is reserved for an independently requested retry/rebuild.
 
-All three `destroy` commands above require a fresh explicit secondary confirmation for the exact target immediately before execution. Do not reuse one confirmation across a document, knowledge base, and vector database cleanup sequence.
+Every vector, KB, or document `destroy` requires fresh exact-target confirmation immediately before execution.
 
-## AI Employee Binding
+## LLM and Embedding Handoff
+
+After capability preflight passes, `nocobase-ai-manager` owns saved service readiness and model discovery. Consume:
+
+```text
+coreAI.status=ready
+serviceName
+chatModels
+knowledgeBasePrerequisites.status=ready
+embeddingModels
+```
+
+Never put an embedding identifier into saved-service `enabledModels`.
+
+## AI Employee Binding Handoff
+
+This skill prepares and verifies binding inputs. `nocobase-ai-employee-manager` performs the final write:
 
 ```bash
 nb api ai employees get --filter-by-tk <username>
 nb api ai employees update --filter-by-tk <username>
 ```
 
-The narrow binding write updates `enableKnowledgeBase` and `knowledgeBase` only. Broader profile changes belong to `nocobase-ai-employee-manager`.
+The employee write must cover `enableKnowledgeBase`, `knowledgeBasePrompt`, and `knowledgeBase` together.
 
 ## Excluded Surface
 
@@ -76,4 +150,4 @@ aiKnowledgeBase:confirmVectorStoreChanged
 aiKnowledgeBaseDocs:getUploadStorage
 ```
 
-Use `vector-databases list --filter '{"enabled":true}'`, `file-manager storages list`, and service dependency errors instead of hidden actions.
+Use supported list/get results, product defaults, and server dependency errors instead of hidden actions.

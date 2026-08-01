@@ -1,29 +1,56 @@
 # Knowledge Bases and Documents
 
-## Knowledge Base Types
+## Contents
 
-| Type | Required configuration |
-|---|---|
-| `LOCAL` | `storageId`, `vectorDatabaseKey`, `llmService`, `embeddingModel`; optional `segmentOptions`. |
-| `READONLY` | `vectorDatabaseKey`, `llmService`, `embeddingModel`; no local upload workflow. |
-| `EXTERNAL` | `vectorStoreProvider` and provider-required `vectorStoreProps`. |
+- [Choose the Type](#choose-the-type)
+- [Field and Immutability Contract](#field-and-immutability-contract)
+- [Local Defaults](#local-defaults)
+- [Create](#create)
+- [Update](#update)
+- [Document Upload](#document-upload)
+- [Re-vectorization and Hit Tests](#re-vectorization-and-hit-tests)
+- [Delete and Cleanup](#delete-and-cleanup)
 
-Common fields: `knowledgeBaseType`, `key`, `name`, optional `description`, and `enabled`.
+## Choose the Type
 
-For `LOCAL`, `storageId` is the storage name discovered from `file-manager storages list`, not necessarily the numeric record ID.
+| Type | Use When | Required configuration |
+|---|---|---|
+| `LOCAL` | NocoBase manages documents, segments, vectors, upload, and workflow document operations. Recommended for normal use. | `storageId`, `vectorDatabaseKey`, `llmService`, `embeddingModel`; optional `segmentOptions`. |
+| `READONLY` | An external system maintains documents and PGVector data; NocoBase only retrieves. | `vectorDatabaseKey`, `llmService`, `embeddingModel`; no local upload workflow. |
+| `EXTERNAL` | Another plugin/provider owns documents, vectors, and retrieval logic. | `vectorStoreProvider` plus provider-required `vectorStoreProps`. |
 
-## Local Example
+If the user is unsure, recommend `LOCAL` but do not create until the user approves exact inputs.
+
+The product UI calls the combination of vector database, LLM service, and embedding model a "vector store". The CLI KB payload represents that combination with the three fields directly.
+
+## Field and Immutability Contract
+
+Common create fields:
+
+```text
+knowledgeBaseType
+key
+name
+description
+enabled
+```
+
+Rules:
+
+- `key` is the stable unique identifier and cannot be changed after creation.
+- For `LOCAL`, `storageId` cannot be changed after creation.
+- Reject direct key/storage patch attempts and propose a new KB plus explicit migration instead.
+- `storageId` is the storage name returned by file-manager storage discovery.
+- `EXTERNAL` provider values can contain secrets; protect and suppress `vectorStoreProps[].value`.
+- Validate exact enabled vector database, saved service, and embedding model before Local/Readonly create or vector change.
+
+## Local Defaults
+
+Recommended product defaults when the user accepts them:
 
 ```json
 {
   "knowledgeBaseType": "LOCAL",
-  "key": "product-docs",
-  "name": "Product Docs",
-  "description": "Product documentation",
-  "storageId": "local",
-  "vectorDatabaseKey": "pgvector-main",
-  "llmService": "openai-main",
-  "embeddingModel": "embedding-model",
   "segmentOptions": {
     "enabled": true,
     "chunkSize": 6000,
@@ -33,64 +60,119 @@ For `LOCAL`, `storageId` is the storage name discovered from `file-manager stora
 }
 ```
 
-Validate the LLM service and embedding model through `nocobase-ai-manager` before create/update.
+Validation:
 
-Critical boundary: the LLM service's `enabledModels` contains only large-language/chat models. Discover the embedding model separately and set it only in this knowledge base's `embeddingModel` / `--embedding-model` field.
+```text
+chunkSize >= 1
+chunkOverlap >= 0
+chunkOverlap < chunkSize
+```
 
-## Create and Update
+Changing KB-level defaults affects future uploads or later explicit resegmentation/re-vectorization; it does not prove existing segments were rebuilt.
 
-1. Check exact KB key.
-2. Validate type-specific required fields.
-3. For `EXTERNAL`, protect sensitive `vectorStoreProps[].value` and do not print it.
-4. Create or update once.
-5. Read back by key/id and compare non-secret configuration.
-6. If vector database, LLM service, embedding model, or external store changes, explain retrieval impact and require confirmation.
-7. Run explicit re-vectorization/retry or hit test only when independently requested. Never ask whether to vectorize after upload; upload already triggers automatic vectorization.
+## Create
+
+1. Require current capability preflight with `runtimeCapability=available`.
+2. Prove exact KB key absence.
+3. Confirm type and conditional fields.
+4. For Local/Readonly, consume AI-manager service and separate embedding readiness.
+5. For Local, resolve file storage and enabled PGVector configuration.
+6. For External, list actual providers and validate provider-specific props.
+7. Use a protected body file when structured values contain secrets.
+8. Create once.
+9. Read back by key/id and compare safe fields.
+10. Do not upload, hit-test, or bind automatically unless requested.
+
+## Update
+
+1. Read current safe fields.
+2. Reject attempts to change `key` or Local `storageId`.
+3. Compare the intended safe diff.
+4. If vector database, service, embedding model, or external provider changes, explain that existing documents require re-vectorization for retrieval against the new configuration.
+5. Obtain impact confirmation.
+6. Update once and read back.
+7. Do not invoke hidden vector-store confirmation actions.
+8. Run re-vectorization only as a separately approved action; do not claim retrieval readiness from the configuration write alone.
 
 ## Document Upload
 
-Ordinary file:
+Upload is valid only for `LOCAL` KBs.
+
+Supported ordinary document extensions from the current product documentation:
+
+```text
+txt md json csv xls xlsx pdf doc docx ppt pptx
+```
+
+Preflight:
+
+- file exists and is readable;
+- KB exists, is enabled, and is Local;
+- file extension is supported, or the file is ZIP for batch import;
+- scanned/image-only PDFs require OCR before upload;
+- ZIP and ordinary uploads are subject to file-storage upload limits.
+
+Command pattern:
 
 ```bash
-nb api kb documents upload --knowledge-base-key <key> --file <path> --env <env> --yes
+nb api kb documents upload \
+  --knowledge-base-key <key> \
+  --file <path> \
+  --env <env> --yes
 ```
 
 Completion semantics:
 
-- ordinary file HTTP success: report `upload succeeded` and that automatic vectorization has started or been queued;
-- ZIP HTTP success with `taskId`: report `task submitted`; imported documents will be vectorized automatically by the service;
-- never ask the user whether to vectorize after upload and never suggest manual vectorization as the normal next step;
-- do not poll `indexStatus`, `segmentStatus`, async tasks, ZIP import, or vectorization status;
-- do not claim segmentation, vectorization, indexing, import, or retrieval completion.
+- ordinary file HTTP success: `upload accepted`; automatic segmentation/vectorization started or was queued;
+- ZIP response with task identifier: `import task submitted`; imported documents are processed automatically;
+- do not poll automatically;
+- do not claim segmentation, vectorization, indexing, import, or retrieval completion;
+- never ask whether to vectorize after successful upload.
 
-ZIP filename encoding options, when required and supported by help, are repeatable multipart fields. Do not serialize an array as one JSON string.
+If the user later requests status, perform a separate bounded list/get inspection. Do not convert that into indefinite polling.
 
-## Explicit Re-vectorization or Retry
+## Re-vectorization and Hit Tests
 
-```bash
-nb api kb documents vectorization --knowledge-base-key <key> --id <document-id>
-```
-
-Use this command only when the user independently requests re-vectorization, retry, or rebuilding vectors for an existing document. It is not a post-upload step: upload triggers vectorization automatically, so do not offer or ask to run this command after upload. Report only whether the server accepted or rejected the request; do not claim completion and do not auto-poll.
-
-## Independent Hit Test
+Document re-vectorization:
 
 ```bash
-nb api kb run-hit-test --knowledge-base-key <key> --query <text> --top-k <n> --score <number>
+nb api kb documents vectorization \
+  --knowledge-base-key <key> \
+  --id <document-id>
 ```
 
-A valid response should be an array whose items may include document/segment identity, title/file name, content, score, and metadata. An empty array can mean no current retrieval hit; it does not prove upload failure.
+Use only when independently requested for retry, vector rebuild, or a repaired configuration. Report server acceptance/rejection, not completion.
+
+Hit test:
+
+```bash
+nb api kb run-hit-test \
+  --knowledge-base-key <key> \
+  --query <text> \
+  --top-k <n> \
+  --score <number>
+```
+
+Validate `topK >= 1` and score from 0 through 1. An empty result means no current hit; it does not prove upload failure.
 
 ## Delete and Cleanup
 
 Recommended reverse dependency order:
 
 ```text
-unbind AI employee
+unbind employee
 remove documents
 delete knowledge base
 delete unused vector database
 delete unused LLM service
 ```
 
-Every destructive step requires its own fresh explicit secondary confirmation immediately before execution: each document `destroy`, each knowledge base `destroy`, each vector database `destroy`, and each LLM service `destroy`. The original request, a cleanup-plan approval, or one blanket confirmation cannot authorize multiple deletes. Verify each deletion independently. Accepted asynchronous work may continue and cannot be claimed as rolled back.
+Each destructive step is independent:
+
+1. Resolve exact target and dependencies.
+2. Show target-specific impact and rollback limits.
+3. Obtain fresh confirmation immediately before that one `destroy`.
+4. Execute once.
+5. Verify absence or report dependency protection.
+
+Never reuse one cleanup confirmation across multiple documents or resource types. Accepted background work may continue after related configuration changes and cannot be claimed as rolled back.
