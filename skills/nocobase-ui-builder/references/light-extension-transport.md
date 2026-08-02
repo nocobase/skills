@@ -23,9 +23,15 @@ the business reuse, single-maintenance, Git ownership, and distribution intents 
 
 ## Capability and command crosswalk
 
-Start with the machine contract and require `externalization.available=true`. Also require the current Entry kind and
-destination type to appear in the returned contract. For move-back, require `supportsMoveToInline=true`; both move
-directions also require `supportsIdempotency=true`.
+Start with the machine contract. Contract version `1` publishes:
+
+- entry kinds: `js-block`, `js-page`, `js-field`, `js-action`, `js-item`
+- destination types: `existing`, `new`
+- feature flags: `externalization.available: true`, `externalization.supportsIdempotency: true`,
+  `externalization.supportsMoveToInline: true`
+
+Require each feature flag above, the current Entry kind, and the selected destination type. If the contract reports a
+different version, use that live version instead of assuming these values.
 
 ```bash
 nb api run-js-sources capabilities -j
