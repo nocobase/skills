@@ -19,6 +19,7 @@ Turn a user's business request into a coherent, production-shaped AI Portal appl
 - Use this skill for every development request after a Portal record has been resolved with `portalType === "ai"`.
 - Consume the resolved Portal name, environment, and local source path from `nocobase-portal-manage` when available. Do not resolve a different Portal inside this skill.
 - When the user is already working in a recognizable AI Portal source project, use that project directly unless the request identifies another Portal.
+- Treat `@nocobase/portal-template-default` as the canonical base-template package. Unless the user explicitly narrows the request, upgrading a Portal means safely applying the latest base-template source changes to the user project, together with required `@nocobase/portal-sdk` and installed Registry migrations; it never means only changing package or compatibility versions.
 - Treat the original build request as authorization to edit and verify that Portal source. Do not ask for a second code-edit confirmation.
 - Read the project's `AGENTS.md` and applicable local instructions before changing files.
 - Preserve unrelated worktree changes. Do not push or deploy unless the user requests it.

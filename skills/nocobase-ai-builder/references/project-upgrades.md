@@ -1,9 +1,13 @@
 # Portal Project Upgrades
 
-Upgrade an existing user-owned Portal through a recoverable source merge. Do
-not reinstall a template over the project or change compatibility metadata to
-silence a version check. Treat the user's source, configuration, assets, and
-local customizations as irreplaceable.
+The canonical base template is the `@nocobase/portal-template-default` package.
+In this skill, upgrading a Portal means applying the latest base-template
+changes to the user project through a recoverable source merge, including any
+required `@nocobase/portal-sdk` and installed Registry migrations. Do not
+reinstall a template over the project, reduce the operation to dependency or
+version changes, or change compatibility metadata to silence a version check.
+Treat the user's source, configuration, assets, and local customizations as
+irreplaceable.
 
 ## Classify the upgrade
 
