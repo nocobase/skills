@@ -2,7 +2,8 @@
 
 Upgrade an existing user-owned Portal through a recoverable source merge. Do
 not reinstall a template over the project or change compatibility metadata to
-silence a version check.
+silence a version check. Treat the user's source, configuration, assets, and
+local customizations as irreplaceable.
 
 ## Classify the upgrade
 
@@ -17,39 +18,60 @@ The user application's package version and
 `nocobase.defaultTemplateVersion` are different values. The latter records the
 exact Default Template release whose source has been incorporated.
 
+## Approval and recovery gate
+
+Do not mutate the project until every item below is complete:
+
+1. Inspect whether the project is a Git repository and whether it contains
+   tracked, staged, untracked, or ignored user work.
+2. For a Git project, identify a known recoverable commit and preserve all
+   uncommitted work. If no safe checkpoint exists, ask the user to create one or
+   obtain authorization to create it; do not stash, reset, clean, or discard
+   changes automatically.
+3. For a non-Git project, create a timestamped backup at an explicit path
+   outside the project tree before editing. Include source, configuration,
+   hidden project files, user-owned assets, and local extensions. Exclude only
+   confirmed reproducible caches or build outputs. Preserve permissions, do not
+   expose secrets, and verify that the backup is readable and has the expected
+   files before proceeding. If a verified backup cannot be created, stop.
+4. Prepare a concrete upgrade plan containing current and target Template, SDK,
+   and Registry versions; files and subsystems expected to change; application
+   customizations at risk; migration and conflict strategy; checks to run; and
+   the exact rollback path.
+5. Present the plan and recovery location or Git checkpoint to the user and
+   obtain explicit confirmation. Without confirmation, make no source,
+   dependency, lockfile, or compatibility-metadata changes.
+
 ## Upgrade workflow
 
-1. Inspect the working tree and preserve unrelated changes. Establish a
-   recoverable Git state, but do not commit, push, pull, or deploy unless the
-   user requested it.
-2. Read the migration guide for every skipped Portal SDK major and identify the
+1. Read the migration guide for every skipped Portal SDK major and identify the
    exact target SDK, Default Template, and Registry item versions.
-3. Record the current `nocobase.defaultTemplateVersion`, the resolved Portal SDK
+2. Record the current `nocobase.defaultTemplateVersion`, the resolved Portal SDK
    version, installed Registry source, and application-owned customizations.
-4. Obtain the exact current and target Default Template releases. Compute the
+3. Obtain the exact current and target Default Template releases. Compute the
    base delta from current template to target template and apply it to the user
    project as a three-way merge.
-5. Merge shared runtime and composition changes while preserving
+4. Merge shared runtime and composition changes while preserving
    application-owned routes, pages, components, translations, branding,
    themes, and business behavior. Never replace the whole `src` tree.
-6. Apply documented API replacements to application code and customized
+5. Apply documented API replacements to application code and customized
    Registry source. Do not invent a migration when the required contract is
    absent; report the missing guidance.
-7. Update each installed Registry item independently. Treat
+6. Update each installed Registry item independently. Treat
    `src/extensions/<item>` as user-owned materialized source: auto-merge
    untouched files, review changed files, and never blindly overwrite local
    customizations.
-8. Update `@nocobase/portal-sdk` only after the matching template host changes
+7. Update `@nocobase/portal-sdk` only after the matching template host changes
    are present. Update `nocobase.defaultTemplateVersion` only after the target
    base-template source has actually been merged.
-9. Install dependencies, run `pnpm sdk:check`, run the project's type check and
+8. Install dependencies, run `pnpm sdk:check`, run the project's type check and
    production build, and run focused regressions for affected runtime areas.
-10. Verify the real Portal basename in a browser: authentication and login
+9. Verify the real Portal basename in a browser: authentication and login
     return paths, SSO when relevant, navigation, direct URLs and refresh,
     drawers and dialogs, allowed and denied ACL states, localization, installed
     extensions, and representative business workflows.
-11. Deploy only when requested. Keep the prior commit and production artifact
-    available for rollback.
+10. Deploy only when requested. Keep the prior commit or verified backup and
+    production artifact available for rollback.
 
 ## Safety rules
 
@@ -59,6 +81,11 @@ exact Default Template release whose source has been incorporated.
 - Never overwrite application-owned code with a clean template copy.
 - Never upgrade all Registry items as an undifferentiated bulk replacement.
 - Never discard user changes to resolve a merge conflict.
+- Never use destructive Git or filesystem operations to force an upgrade
+  through. Stop on an ambiguous conflict, preserve both versions, and ask for
+  direction.
+- Never proceed without both a verified recovery path and explicit approval of
+  the upgrade plan.
 - Keep backend schema and data migrations separate; execute them only when the
   target release explicitly requires and documents them.
 

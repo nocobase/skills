@@ -150,10 +150,14 @@ application's own version independent from the exact inherited base release in
 
 Before changing an existing Portal's template, Portal SDK major, or installed
 Registry source, read [Portal Project Upgrades](references/project-upgrades.md)
-completely. Classify the requested change, merge the required base-template
-source without overwriting application-owned code, update installed Registry
-items separately, and change compatibility metadata only after the matching
-source has actually been incorporated and verified.
+completely. Treat user code as irreplaceable: establish and verify a recovery
+point first, including a separate backup when the project is not a Git
+repository. Present the target versions, source impact, conflict strategy,
+verification, and rollback plan, and obtain explicit user confirmation before
+editing. Then merge the required base-template source without overwriting
+application-owned code, update installed Registry items separately, and change
+compatibility metadata only after the matching source has actually been
+incorporated and verified.
 
 # Coordination Boundaries
 
