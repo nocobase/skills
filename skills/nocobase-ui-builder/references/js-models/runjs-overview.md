@@ -97,6 +97,7 @@ ctx.render(
 
 - block payload 里的 `dataScope.filter` 使用 `{ logic, items }`
 - RunJS 里的 `resource.setFilter()` / `ctx.request({ params: { filter } })` 使用服务端 query object，如 `{ status: { $eq: 'active' } }`
+- 无论使用哪一种结构，只要需要选择操作符，都必须先加载 `nocobase-utils` 技能的 `filter` topic，再读 [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) 并按 live metadata 确认终端字段类型。结构不能混用，操作符白名单也不能靠模型常识猜测；日期小于使用 `$dateBefore`，日期大于等于使用 `$dateNotBefore`。
 
 ### 远程 HTTP 请求
 

@@ -38,6 +38,7 @@ Some nodes return JSON while exposing only a root value or a shallow tree. Do no
 ## Usage Notes
 
 * **Only the type values specified in the documentation can be used**; other values will not be recognized by the workflow.
+* Before authoring any node configuration that contains a persisted `filter` or user/assignee query, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve each terminal field's live frontend interface/type, and use only that group's operator allowlist. This is mandatory for `query`, `update`, `destroy`, `aggregate`, and recipient/assignee query objects. Never derive `$lt`, `$lte`, `$gt`, or `$gte` from date wording; date fields use the date-specific operators.
 * `approval`, `response`, and `subflow` are commercial capabilities. Their matching plugins must be installed and activated before these node types are used. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md); if a required plugin is inactive, do not use the node type.
 * When approval is explicitly requested, never use `manual` as a substitute for an unavailable `approval` node.
 

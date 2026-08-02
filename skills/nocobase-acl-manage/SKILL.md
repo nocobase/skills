@@ -179,6 +179,10 @@ Default behavior when user says `you decide`:
 - `data_source_key=main`
 - `strict_mode=safe`
 
+## Filter Authoring Gate
+
+Before authoring any reusable custom ACL scope, `scope_filter`, `user_filter`, or other persisted permission filter, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../nocobase-utils/references/filter/index.md) in the current task. Resolve every terminal field's live frontend interface/type and use only that group's operator allowlist. Date fields use date-specific comparison operators; `$lt`, `$lte`, `$gt`, and `$gte` remain number-only even when the backend accepts them. Do not apply this UI-displayable allowlist mechanically to fixed CLI locator objects such as `--filter-by-tk` or direct control filters documented by a command.
+
 # Mandatory Clarification Gate
 
 - max clarification rounds: `2`
@@ -353,6 +357,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - Portal access writes resolve one enabled Portal, use exact role/Portal keys, and have immediate readback
 - no write executes with uncertain or type-mismatched parameters
 - global role-mode tasks do not require `role_name`
+- every persisted custom scope/user filter was checked against the terminal field's frontend operator group; no date field uses a number comparison operator
 - boundary messages are clear and actionable
 
 # Minimal Test Scenarios
@@ -386,6 +391,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
 | [references/independent-permissions.md](references/independent-permissions.md) | resource-level permission writes | `usingActionsConfig + actions + fields + scope` complete-write policy |
 | [references/portal-access.md](references/portal-access.md) | granting or revoking entry to an existing Portal | official role/Portal association commands and readback |
+| `nocobase-utils` topic `filter`: [Filter Condition Format](../nocobase-utils/references/filter/index.md) | authoring custom scope/user filters | load the skill first; mandatory terminal-field operator allowlist; not for fixed CLI locator/control objects |
 | [tests/capability-test-plan.md](tests/capability-test-plan.md) | capability matrix | aligned with v2 domains |
 | [tests/test-playbook.md](tests/test-playbook.md) | acceptance regression | prompt-first TC01, TC02, TC04-TC20 with runtime evidence commands |
 | [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
@@ -400,6 +406,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - [ACL Configuration Details](references/configuration.md)
 - [Table Independent Permissions](references/independent-permissions.md)
 - [Portal Access](references/portal-access.md)
+- [Filter Condition Format](../nocobase-utils/references/filter/index.md)
 - [ACL Capability Test Plan](tests/capability-test-plan.md)
 - [ACL Test Playbook](tests/test-playbook.md)
 - [ACL Refactor Plan v2](references/refactor-plan-v2.md)

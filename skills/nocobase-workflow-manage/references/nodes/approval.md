@@ -24,6 +24,8 @@ Important: configuring this node is not enough to produce a usable approval task
 ## Node Description
 Initiates an approval task, waits for the approval result to continue the workflow, and can branch based on the approval outcome.
 
+If an `assignees[]` item contains a query `filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) before authoring it. Resolve the terminal user-field type and use only its frontend operator allowlist; always keep explicit operator objects and logical wrappers.
+
 ## Default Authoring Guidance
 
 When creating an approval node and the user has not specified otherwise, prefer `branchMode=true`. Branch mode exposes explicit approved / rejected / returned branches, which makes downstream status updates, notifications, and cleanup logic easier to place and verify.
@@ -69,7 +71,11 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
 ```json
 {
   "branchMode": true,
-  "assignees": ["{{ $context.data.ownerId }}", { "filter": { "$and": [{ "role.name": "manager" }]} }, 123],
+  "assignees": [
+    "{{ $context.data.ownerId }}",
+    { "filter": { "$and": [{ "role.name": { "$eq": "manager" } }] } },
+    123
+  ],
   "negotiation": 1,
   "order": false,
   "endOnReject": true,

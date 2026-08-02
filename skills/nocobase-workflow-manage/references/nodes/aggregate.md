@@ -13,6 +13,8 @@ Use the above `type` value when creating the node; do not use the documentation 
 ## Node Description
 Performs aggregate calculations on a specified data table (or associated data), supporting count, sum, average, minimum, and maximum.
 
+Before writing `params.filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve every terminal field's live frontend interface/type, and select operators only from that field group's allowlist. Date fields never use the number comparison operators `$lt`, `$lte`, `$gt`, or `$gte`.
+
 ## Business Scenario Examples
 Counting the number of orders, summing amounts, or calculating average ratings.
 
@@ -43,7 +45,9 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
   "params": {
     "field": "id",
     "filter": {
-      "status": { "$eq": "paid" }
+      "$and": [
+        { "status": { "$eq": "paid" } }
+      ]
     },
     "distinct": true
   },

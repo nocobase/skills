@@ -156,8 +156,8 @@ Both `approvalDelegate` and `approvalAddAssignee` use the same shape:
     "assignees": [
       // user id
       123,
-      // OR a filter that resolves to a user set at runtime; bare objects are auto-wrapped as { filter: <obj> }
-      { "filter": { "$and": [ { "department": { "$includes": "{{currentUser.department}}" } } ] } }
+      // OR a filter that resolves to a user set at runtime; load nocobase-utils topic filter before choosing operators
+      { "filter": { "$and": [ { "department.id": { "$eq": "{{currentUser.department.id}}" } } ] } }
     ],
     // delegate also supports an optional extra-field projection key
     "extraFieldKey": "departmentId"
@@ -166,6 +166,8 @@ Both `approvalDelegate` and `approvalAddAssignee` use the same shape:
 ```
 
 The server normalizes plain objects without a top-level `filter` key into `{ filter: <obj> }`, drops `null` / `''`, and keeps the rest verbatim. For `approvalAddAssignee`, `extraFieldKey` is **not** part of the runtime config write; pass it only when authoring delegate scopes.
+
+Before writing any assignee filter, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../../nocobase-utils/references/filter/index.md), resolve the terminal user-field frontend interface/type, and choose only an operator allowed for that group. Server normalization does not make shorthand or a backend-only operator frontend-displayable.
 
 ### Approval-node config knobs (`node.config`)
 

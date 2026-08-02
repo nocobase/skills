@@ -840,6 +840,8 @@ Workflow binding for submit/update actions uses only `settings.triggerWorkflows`
 
 For collection-action hosts (`table`, `list`, `gridCard`, `calendar`, `kanban`):
 
+Before explicitly writing any `defaultFilter.items[].operator`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../nocobase-utils/references/filter/index.md), resolve each `path`'s terminal field from live metadata, and select only an operator allowed for that frontend field group. Keep the UI Builder `{ logic, items }` shape. Date wording such as “less than/before” maps to `$dateBefore`, not `$lt`; “at least/greater than or equal” maps to `$dateNotBefore`, not `$gte`.
+
 - when the user only asks to “增加筛选 / filter” on that data block, or explicitly adds “搜索 / search” to that host with wording such as “支持搜索 / 带搜索 / 可搜索 / searchable”, prefer the same block-level `filter` action
 - do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter/search block, form, or query area
 - page-noun wording such as “搜索页 / 搜索结果页 / 搜索门户 / 搜索列表页” stays page intent, not filter intent, even if the same sentence also says “支持搜索”

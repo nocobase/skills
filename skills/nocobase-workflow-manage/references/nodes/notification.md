@@ -40,6 +40,8 @@ Other fields depend on the specific notification channel type.
 
 If static recivers are intended, could call API `users:list` to get user IDs and fill in the array. If dynamic receivers are intended, could use variables or specify the query condition.
 
+Before authoring a receiver query `filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve the terminal field type, and use only its frontend operator allowlist. Always use an explicit operator object; do not place a scalar value directly under a field path.
+
 ### Message Configuration of `email` type
 
 | Field | Type | Default | Required | Description |
@@ -68,7 +70,7 @@ Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes
   "title": "Reminder",
   "content": "{{ $context.data.title }}",
   "receivers": [
-    { "filter": { "$and": [{ "role.name": "admin" }]} },
+    { "filter": { "$and": [{ "role.name": { "$eq": "admin" } }] } },
     123,
     "{{ $context.data.userId }}"
   ],

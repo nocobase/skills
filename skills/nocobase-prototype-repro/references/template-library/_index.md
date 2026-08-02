@@ -4,6 +4,10 @@ Synced from `@albert/plugin-flow-template-library` (57 templates). Each entry is
 
 > **Unique key** = filename = template `key` in the plugin; re-sync overwrites in place.
 
+## Filter adaptation gate
+
+Before using or adapting any template that constructs a NocoBase filter, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) and inspect live metadata for every replacement field. A template operator is valid only for the original field's operator group; after changing `$p` field names, reselect each operator from the replacement terminal field's frontend allowlist. In particular, date comparisons use date-specific operators and never the number-only `$lt`, `$lte`, `$gt`, or `$gte`.
+
 
 ## Action
 
