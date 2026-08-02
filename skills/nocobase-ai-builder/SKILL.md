@@ -6,7 +6,8 @@ description: >-
   the selected Portal has portalType "ai". Use it for complete systems, pages,
   navigation, CRUD, dashboards, forms, dialogs, drawers, URL-addressable
   subpages, authentication UI, frontend access control, localization, themes,
-  NocoBase API integration, responsive design, and browser verification.
+  NocoBase API integration, responsive design, browser verification, and safe
+  upgrades of existing Portal template, SDK, and Registry source.
 ---
 
 # Goal
@@ -141,6 +142,19 @@ Use browser verification for user-visible work. Validate the actual route under 
 
 Read [Verification](references/verification.md) before completing a substantial page or system build.
 
+## 10. Upgrade an existing Portal safely
+
+Treat a Portal upgrade as a source migration, not a package-only update. Keep the
+application's own version independent from the exact inherited base release in
+`nocobase.defaultTemplateVersion`.
+
+Before changing an existing Portal's template, Portal SDK major, or installed
+Registry source, read [Portal Project Upgrades](references/project-upgrades.md)
+completely. Classify the requested change, merge the required base-template
+source without overwriting application-owned code, update installed Registry
+items separately, and change compatibility metadata only after the matching
+source has actually been incorporated and verified.
+
 # Coordination Boundaries
 
 - Use `nocobase-data-modeling` when the requested UI requires creating or changing backend collections or fields, then return here for source implementation.
@@ -157,6 +171,7 @@ Read [Verification](references/verification.md) before completing a substantial 
 | [NocoBase Runtime](references/nocobase-runtime.md) | Using data, API actions, auth, i18n, system settings, basename, or assets |
 | [Routing and Access](references/routing-and-access.md) | Adding navigation, URL surfaces, roles, ACL, or protected controls |
 | [Verification](references/verification.md) | Validating a page, feature, theme, or complete system |
+| [Portal Project Upgrades](references/project-upgrades.md) | Upgrading an existing Portal template, Portal SDK major, or installed Registry source |
 
 # Completion Output
 
