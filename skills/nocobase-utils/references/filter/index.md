@@ -9,6 +9,7 @@ NocoBase uses a unified filter condition format across all features: block query
 
 ## Contents
 
+- [Mandatory Agent Authoring Gate](#mandatory-agent-authoring-gate)
 - [Critical Rules](#critical-rules)
 - [Top-level Structure](#top-level-structure)
 - [Condition Structure](#condition-structure)
@@ -16,11 +17,44 @@ NocoBase uses a unified filter condition format across all features: block query
 - [Variable Values](#variable-values)
 - [Complete Examples](#complete-examples)
 
+## Mandatory Agent Authoring Gate
+
+This page must be entered through the `nocobase-utils` skill with topic `filter` and read before an Agent creates or edits any persisted or UI-displayable NocoBase filter. Seeing a `filter`, `condition`, `dataScope.filter`, `defaultFilter`, or `{ path, operator, value }` field in another skill is a routing signal to load that skill/topic before choosing an operator. A relative link to this page is an exact location, not a substitute for invoking the skill.
+
+Follow this order every time:
+
+1. Read the target collection's live field metadata.
+2. Resolve the terminal field in the path and identify its frontend interface/operator group. For `createdBy.createdAt`, the terminal field is `createdAt`, so it is a date field; for `createdBy.id`, it is an ID field.
+3. Find that exact group in [Operators Reference](#operators-reference).
+4. Translate the user's intent using only an operator in that row.
+5. Before writing, reject the condition if the operator is absent from the row. Do not rely on model knowledge, SQL/JavaScript comparison habits, backend acceptance, or an example from a different field type.
+
+Natural-language comparison words do not determine the operator until the field type is known. In particular, a date field never inherits number operators merely because the user says “less than”, “greater than”, `<`, `>=`, “before”, or “after”.
+
+### Date intent mapping
+
+For a date/datetime terminal field, use this mapping:
+
+| User intent | Required operator |
+|---|---|
+| on / exactly on a date or named period | `$dateOn` |
+| not on a date or named period | `$dateNotOn` |
+| before / earlier than / less than / `<` | `$dateBefore` |
+| after / later than / greater than / `>` | `$dateAfter` |
+| not before / on or after / at least / greater than or equal / `>=` | `$dateNotBefore` |
+| not after / on or before / at most / less than or equal / `<=` | `$dateNotAfter` |
+| between / within a range | `$dateBetween` |
+
+Therefore “`createdAt` 小于某日期” must become `$dateBefore`, never `$lt`; “`createdAt` 大于等于某日期” must become `$dateNotBefore`, never `$gte`.
+
+This reference covers operator selection across filter representations. Keep the shape required by the host configuration: workflow/server query objects use field/operator objects and their documented logical wrapper, while UI Builder structures such as `{ "logic": "$and", "items": [{ "path": "createdAt", "operator": "$dateBefore", "value": "..." }] }` keep their own shape. Do not convert one representation into another merely because this page was loaded.
+
 ## Critical Rules
 
-- **Top-level MUST be a logical wrapper** — every filter object must have `$and` or `$or` as its only root key. Never put field conditions directly at the root.
+- **Workflow/server query-object filters MUST use a logical wrapper** — they must have `$and` or `$or` as their only root key. Never put field conditions directly at the root. Structured UI representations such as `{ logic, items }` keep their host-defined shape.
 - **Every field condition MUST use an explicit comparison operator object.** Do not use shorthand equality such as `{ "fieldA": 123 }`. Even though the server may accept it, the frontend cannot display it correctly. Use `{ "fieldA": { "$eq": 123 } }` instead.
 - **Never invent operator names.** Only use operators from the tables below.
+- **Never choose an operator before resolving the field type.** Natural-language words such as “less than” are semantic intent, not permission to emit `$lt`. `$lt` is valid only after metadata proves the terminal field belongs to the number group.
 - **Operator allowlists are field-type-specific.** An operator is valid only when it appears in the table for that field type; its presence in another table does not make it reusable. `$gt`, `$gte`, `$lt`, and `$lte` are number-field operators, not general comparison operators. Date comparisons MUST use an operator from the **Date Fields** table. Never use `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$notIn`, or any other non-date comparison operator on a date field, even if the server accepts it, because the frontend cannot display it.
 - **For a relation path, use the operator group of the terminal field.** For example, `createdBy.id` uses the ID group, while `createdBy.name` uses the string group. A relation in the path does not make other operator groups available.
 - **Operator names are exact strings** with `$` prefix (e.g., `$eq`, `$includes`). Case-sensitive.

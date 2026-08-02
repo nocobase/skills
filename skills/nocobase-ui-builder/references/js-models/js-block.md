@@ -152,6 +152,7 @@ ctx.render(
 
 - block payload 的 `dataScope.filter` 使用 `{ logic, items }`
 - RunJS 的 `ctx.request({ params: { filter } })` / `resource.setFilter()` 使用服务端 query object
+- 编写任何 filter 操作符前，必须先加载 `nocobase-utils` 技能的 `filter` topic，再读 [Filter Condition Format](../../../nocobase-utils/references/filter/index.md)，从 live metadata 解析终端字段类型，再使用该类型的前端白名单。日期比较不能使用数字操作符；例如本周起始时间使用 `$dateNotBefore`，不是 `$gte`。
 
 ## 数字统计面板默认写法
 
@@ -194,7 +195,7 @@ try {
     pendingIntel,
   ] = await Promise.all([
     countRecords('ai_products', { is_tracking: { $eq: true } }),
-    countRecords('intelligenceEntries', { createdAt: { $gte: startOfWeek.toISOString() } }),
+    countRecords('intelligenceEntries', { createdAt: { $dateNotBefore: startOfWeek.toISOString() } }),
     countRecords('intelligenceEntries', { importance: { $in: ['high', '高'] } }),
     countRecords('intelligenceEntries', { status: { $in: ['pending', '待阅', '新收集'] } }),
   ]);

@@ -28,6 +28,8 @@ description: "Use when collection data changes themselves should trigger automat
 
 Variables are NOT supported in trigger configuration items.
 
+Before writing `condition`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), inspect the collection's live field metadata, and validate each operator against the terminal field's frontend operator group. Natural-language “less than” on a date means `$dateBefore`, not `$lt`; no variable or backend acceptance can override the frontend allowlist.
+
 ## Example Configuration
 
 ### When add a post in main data source

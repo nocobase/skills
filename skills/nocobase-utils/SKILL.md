@@ -1,7 +1,7 @@
 ---
 name: nocobase-utils
-description: General-purpose NocoBase reference utilities covering cross-cutting topics such as evaluator engines, expression syntax, UID generation, and more. Use when you need authoritative reference information or reusable snippets that apply across multiple NocoBase features.
-argument-hint: "[topic: evaluators|formulajs|mathjs|string-template|uid]"
+description: General-purpose NocoBase reference utilities covering filter conditions and field-specific operators, evaluator engines, expression syntax, UID generation, and more. Use when you need authoritative reference information or reusable snippets that apply across multiple NocoBase features.
+argument-hint: "[topic: filter|evaluators|formulajs|mathjs|string-template|uid]"
 allowed-tools: Read, Glob, Grep
 ---
 
@@ -12,9 +12,12 @@ Provide accurate, authoritative reference information for NocoBase cross-cutting
 # When to Use
 
 Invoke this skill (or its sub-references) when you need authoritative reference material that applies across multiple NocoBase features, such as:
+- Constructing any persisted or UI-displayable NocoBase filter condition, especially when choosing an operator from natural-language intent
 - Expression evaluation engines and available functions
 - Generating short opaque UIDs for UI schemas or other configuration payloads
 - Other shared utilities (to be added)
+
+For filter authoring, invoke this skill with topic `filter`; reading the Filter reference is a hard prerequisite, not optional background material. Before emitting an operator, resolve the terminal field's live interface/type and select the operator from that field group's allowlist. Do not translate words such as “before”, “less than”, “at least”, or “not later than” directly into a generic comparison operator from model knowledge.
 
 # Bundled Scripts
 

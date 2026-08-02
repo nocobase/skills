@@ -13,6 +13,8 @@ Please use the `type` value above to create the node; do not use the documentati
 ## Node Description
 Updates records in a data table based on filter conditions, with options for batch or individual updates.
 
+Before writing `params.filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve every terminal field's live frontend interface/type, and select operators only from that field group's allowlist. Date comparisons must use `$dateBefore`, `$dateAfter`, `$dateNotBefore`, or `$dateNotAfter` as appropriate, never number operators such as `$lt` or `$gte`.
+
 ## Business Scenario Examples
 Updating the status and timestamp fields after an order is successfully paid.
 

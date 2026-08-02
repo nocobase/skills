@@ -25,7 +25,7 @@ General rule:
 
 A scope's `scope` field uses the same filter condition format as other NocoBase filters.
 
-Full format reference: [nocobase-utils / Filter Condition Format](../../nocobase-utils/references/filter/index.md)
+Mandatory full format reference: load the `nocobase-utils` skill with topic `filter`, then read [nocobase-utils / Filter Condition Format](../../../nocobase-utils/references/filter/index.md) before choosing operators; resolve the terminal field's frontend type and use only that group's allowlist.
 
 Key rules:
 
@@ -173,4 +173,3 @@ Recommended usage:
 
 - `own` does not mean owner, assignee, approver, manager, or department member
 - for those semantics, create a custom scope and reference `$user` against real business relation paths
-

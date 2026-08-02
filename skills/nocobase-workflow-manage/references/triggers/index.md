@@ -26,6 +26,7 @@ If a trigger exposes a JSON object/array only as a root value, do not manually a
 ## Usage Notes
 
 * **Only type values explicitly listed in the documentation can be used**; other values will cause the workflow to be unrecognized.
+* Before authoring a persisted trigger `condition` or `filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve each terminal field's live frontend interface/type, and use only that group's operator allowlist. Date fields must use date-specific comparison operators, never `$lt`, `$lte`, `$gt`, or `$gte`.
 * Variables are NOT supported in trigger configuration items. Only static values are allowed.
 * `approval` and `webhook` are commercial capabilities. Their matching plugins must be installed and activated before these trigger types are used. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md); if a required plugin is inactive, do not use the trigger type.
 * An explicit approval request must remain an approval workflow. Never replace it with a `manual` node when the Approval plugin is inactive.

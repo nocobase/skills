@@ -41,6 +41,15 @@ Manage NocoBase workflows end to end through `nb api workflow`.
 - Stop on authentication or authorization errors.
 - For `expression`, load the matching [formula.js](../nocobase-utils/references/evaluators/formulajs.md) or [math.js](../nocobase-utils/references/evaluators/mathjs.md) reference; never invent functions.
 
+## Filter Authoring Gate
+
+Before drafting any workflow node/trigger `filter` or `condition`, or any user/assignee query object, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../nocobase-utils/references/filter/index.md) in the current task. This is mandatory even when the natural-language comparison looks obvious; the relative link is only the exact document location and does not replace the skill invocation.
+
+1. Read the target collection's field metadata and resolve the terminal field's frontend interface/type.
+2. Select the operator only from that field group's documented allowlist.
+3. For date fields, map “before/less than” to `$dateBefore`, “after/greater than” to `$dateAfter`, “not before/at least/greater than or equal” to `$dateNotBefore`, and “not after/at most/less than or equal” to `$dateNotAfter`. Never use `$lt`, `$lte`, `$gt`, or `$gte` on a date field.
+4. Keep the configuration's documented filter shape and verify the final field/operator pairs before mutation.
+
 ## Commercial Plugin Capability Gate
 
 Verify the required plugin is installed and enabled before mutation:
@@ -106,6 +115,7 @@ This applies to collection-bound triggers, operations, schedules, and nodes. See
 - HTTP transport: [workflows HTTP API](references/http-api/workflows.md)
 - Keys, versions, and statistics: [workflow model](references/modeling/workflows.md)
 - Authoring: [triggers](references/triggers/index.md), [nodes](references/nodes/index.md), and [conventions](references/conventions/index.md)
+- Any node/trigger filter, condition, or assignee query: load `nocobase-utils` with topic `filter`, then read [Filter Condition Format](../nocobase-utils/references/filter/index.md) before operator selection
 - Approval UI: [approval UI index](references/approval/ui-config/index.md) and [surface constraints](references/approval/ui-config/surfaces.md)
 
 ## Final Command Surface
@@ -134,7 +144,7 @@ Use [CLI index](references/cli/index.md) for flags and [HTTP API index](referenc
 2. Apply the [update and copy gate](#workflow-update-and-copy-intent-gate) before editing or copying.
 3. Pass a concrete target to every mutation or destructive call.
 4. Create nodes sequentially and chain them with `upstreamId`.
-5. Wrap data/query filters in `$and` or `$or`; see the intent gate for revision control.
+5. Apply the [Filter Authoring Gate](#filter-authoring-gate) to every persisted node/trigger filter; wrap workflow data/query filters in `$and` or `$or`. See the intent gate for revision control.
 6. Reference node results by the returned node `key`, never its numeric `id`.
 7. Model raw JSON with `json-variable-mapping` or `json-query` before downstream use.
 8. Read back every mutation.
@@ -144,7 +154,7 @@ Use [CLI index](references/cli/index.md) for flags and [HTTP API index](referenc
 
 ## Planning Phase
 
-Resolve intent, trigger, node chain, sync mode, collections, filters, mappings, variables, and raw JSON modeling. State the plan and any history/statistics consequence.
+Resolve intent, trigger, node chain, sync mode, collections, filters, mappings, variables, and raw JSON modeling. If any persisted filter is required, load `nocobase-utils` with topic `filter`, read the Filter reference, and resolve each terminal field type before drafting operators. State the plan and any history/statistics consequence.
 
 For approval UI, classify the request as whole-surface setup/replacement or localized editing, then load the approval UI reference.
 
@@ -191,6 +201,7 @@ Verify:
 7. Raw JSON is modeled before downstream use.
 8. Required commercial plugins are enabled.
 9. The returned mutation state matches the requested outcome.
+10. Every persisted filter field/operator pair was checked against the terminal field's frontend operator group; date fields contain no number comparison operators.
 
 # Plugin version control revision rule
 
