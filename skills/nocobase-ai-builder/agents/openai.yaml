@@ -1,4 +1,4 @@
 interface:
   display_name: "NocoBase AI Builder"
   short_description: "Build and safely upgrade NocoBase AI Portal applications"
-  default_prompt: "Use $nocobase-ai-builder to design, implement, upgrade, and verify this NocoBase AI Portal application."
+  default_prompt: "Use $nocobase-ai-builder to design, implement, upgrade, and verify this NocoBase AI Portal application after the selected AI Portal has a resolved local source directory; if developmentPath/localPath is empty, use nb portal pull first. Never use source storage paths such as git_path/--git-path as the edit directory."

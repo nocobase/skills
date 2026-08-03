@@ -1,5 +1,11 @@
 # Git Source Storage
 
+## Storage Path Is Not Development Path
+
+`--git-path` / `git_path` is the Portal source's repository-relative storage path for `nb portal pull`, `nb portal push`, and `nb portal deploy` workflows. It is not the local development directory.
+
+For AI Portal source edits, first resolve the selected Portal's `developmentPath` / `localPath` from `nb portal list -j` or `nb portal info <portal> -j`. If that path is empty, run `nb portal pull <portal>`, read the Portal info/list again, and edit only in the returned local development directory. Do not `cd` into a configured storage path such as `portals/customer` unless the pull readback explicitly reports that same path as the local development directory.
+
 ## Recommended Default
 
 For one Portal per Git repository, use the repository root:

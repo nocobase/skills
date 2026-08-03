@@ -7,6 +7,7 @@ Validate that `nocobase-portal-manage` dispatches every ordinary NocoBase UI aut
 ## UI Routing Scenarios
 
 All scenarios use structured `nb portal list -j` output and count only records where `enabled === true`.
+When records include `isDefault`, treat it as an informational marker to display in choices/readback only; it must not change target selection.
 
 ### Zero Enabled Portals
 
@@ -52,22 +53,91 @@ Expected:
 - treats the UI build request as source-edit authorization without asking the user to repeat "modify source"
 - does not call `nocobase-ui-builder`
 
+### Exactly One AI Portal With No Development Path
+
+Setup:
+
+```json
+[{ "name": "customer-ai", "portalType": "ai", "enabled": true, "developmentPath": "" }]
+```
+
+Readback:
+
+```json
+{ "name": "customer-ai", "portalType": "ai", "enabled": true, "developmentPath": "" }
+```
+
+Expected:
+
+- automatically selects `customer-ai`
+- reads `portalType: "ai"` from structured inventory, not from the missing local directory
+- runs `nb portal pull customer-ai`
+- reads back `nb portal info customer-ai -j` or `nb portal list -j` after pull
+- enters the non-empty pulled development directory
+- invokes `nocobase-ai-builder` with the original UI build request
+- does not stop merely because the initial `developmentPath` / `localPath` was empty
+- does not use `nb portal pull --force` unless the user explicitly requested and confirmed overwrite
+
+### AI Portal Git Storage Path Is Not Development Path
+
+Setup:
+
+```json
+[
+  {
+    "name": "customer-ai",
+    "portalType": "ai",
+    "enabled": true,
+    "developmentPath": "",
+    "sourceStorage": "git",
+    "gitRepo": "git@github.com:example/customer-ai.git",
+    "gitBranch": "main",
+    "gitPath": "portals/customer-ai"
+  }
+]
+```
+
+Readback before pull:
+
+```json
+{
+  "name": "customer-ai",
+  "portalType": "ai",
+  "enabled": true,
+  "developmentPath": "",
+  "sourceStorage": "git",
+  "gitRepo": "git@github.com:example/customer-ai.git",
+  "gitBranch": "main",
+  "gitPath": "portals/customer-ai"
+}
+```
+
+Expected:
+
+- automatically selects `customer-ai`
+- treats `gitPath` / `--git-path` as repository-relative source storage configuration only
+- does not enter or edit `portals/customer-ai` merely because it is the configured storage path
+- runs `nb portal pull customer-ai`
+- reads back `nb portal info customer-ai -j` or `nb portal list -j` after pull
+- enters only the non-empty `developmentPath` / `localPath` returned by pull readback
+- invokes `nocobase-ai-builder` from that pulled local development directory
+
 ### One No-Code And One AI Portal
 
 Setup:
 
 ```json
 [
-  { "name": "customer", "portalType": "no-code", "enabled": true },
+  { "name": "customer", "portalType": "no-code", "enabled": true, "isDefault": true },
   { "name": "customer-ai", "portalType": "ai", "enabled": true }
 ]
 ```
 
 Expected:
 
-- lists both names and `portalType` values
+- lists both names and `portalType` values, marking `customer` as default
 - requires explicit Portal selection before any write
-- does not prefer the no-code Portal based on the requested page or wording
+- does not prefer the default or no-code Portal based on the requested page or wording
 
 ### Multiple No-Code Portals
 
@@ -75,16 +145,16 @@ Setup:
 
 ```json
 [
-  { "name": "customer", "portalType": "no-code", "enabled": true },
+  { "name": "customer", "portalType": "no-code", "enabled": true, "isDefault": true },
   { "name": "partner", "portalType": "no-code", "enabled": true }
 ]
 ```
 
 Expected:
 
-- lists both enabled Portals with their `portalType`
+- lists both enabled Portals with their `portalType`, marking `customer` as default
 - requires explicit Portal selection
-- does not choose the first Portal or use title similarity
+- does not choose the first Portal, the default Portal, or use title similarity
 
 ### Multiple AI Portals
 
@@ -92,16 +162,34 @@ Setup:
 
 ```json
 [
-  { "name": "customer-ai", "portalType": "ai", "enabled": true },
+  { "name": "customer-ai", "portalType": "ai", "enabled": true, "isDefault": true },
   { "name": "partner-ai", "portalType": "ai", "enabled": true }
 ]
 ```
 
 Expected:
 
-- lists both enabled Portals with their `portalType`
+- lists both enabled Portals with their `portalType`, marking `customer-ai` as default
 - requires explicit Portal selection before locating or editing a source project
-- does not infer a target from source layout or local workspace state
+- does not infer a target from default status, source layout, or local workspace state
+
+### Multiple Portals With A Default Marker
+
+Setup:
+
+```json
+[
+  { "name": "customer", "portalType": "no-code", "enabled": true, "isDefault": true },
+  { "name": "partner", "portalType": "no-code", "enabled": true, "isDefault": false }
+]
+```
+
+Expected:
+
+- lists `customer` with a default marker
+- asks the user to choose the target Portal explicitly
+- makes no UI Builder write until the user selects a Portal
+- does not treat `isDefault: true` as permission to auto-select `customer`
 
 ### Cwd Is Inside A Candidate Portal
 
@@ -115,7 +203,7 @@ Expected:
 
 - still lists all enabled Portal names and `portalType` values
 - requires explicit Portal selection
-- does not infer from cwd, active files, `portal.config.json`, `localPath`, sync state, source directory, or recency
+- does not infer from cwd, active files, `portal.config.json`, `localPath`, sync state, source directory, default status, or recency
 
 ### Explicit Existing Portal
 
@@ -281,6 +369,7 @@ Expected:
 - checks that `nb portal` is available
 - uses `nb portal list -j`
 - requires no Portal name clarification
+- preserves and reports the `isDefault` marker when the CLI output includes it
 
 ### Configure Git Root Path
 

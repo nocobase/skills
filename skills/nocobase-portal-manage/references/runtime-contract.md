@@ -65,12 +65,14 @@ nb portal list -j
 
 Count only records where `enabled === true`.
 
+Preserve `isDefault` when it appears in structured output. It is a UI/CLI marker for display and readback only, not a selector.
+
 If the CLI command exists but this call returns explicit endpoint absence (`404` / `Not Found`), treat Portal inventory as runtime-unavailable for ordinary UI authoring and use Capability Detection above. Do not apply that fallback to a user-specified Portal or to Portal lifecycle/source/deploy tasks. Auth failures, `5xx`, and malformed output are real failures, not legacy signals.
 
 - Explicit target: match `name` exactly across structured records. Continue only when exactly one record matches and it has `enabled === true`; a missing, disabled, or non-unique match must stop without substitution.
 - No explicit target and zero enabled records: stop the ordinary UI build and tell the user to explicitly create a Portal first. Do not create one automatically.
 - No explicit target and exactly one enabled record: select it automatically.
-- No explicit target and multiple Portals: list each enabled record's `name` and `portalType`, then require explicit user selection before any write.
+- No explicit target and multiple Portals: list each enabled record's `name`, `portalType`, and default marker when `isDefault === true`, then require explicit user selection before any write. Do not auto-select the default Portal.
 
 Do not infer a selection from cwd, active files, the nearest or most recent `portal.config.json`, `localPath`, sync state, title similarity, source directories, or a preference for the first no-code Portal. Explicit `action=create` remains a separate lifecycle request and is not blocked by the zero-Portal UI-build rule.
 
@@ -79,10 +81,10 @@ Do not infer a selection from cwd, active files, the nearest or most recent `por
 Read the selected structured record's `portalType`; it is the only authority for implementation routing.
 
 - `no-code`: hand the selected Portal to `nocobase-ui-builder` for UI authoring.
-- `ai`: locate that already selected Portal's source project with `nb portal info <portal>`, `localPath`, `portal.config.json`, or local workspace information, then implement and test the requested UI there. The UI build request itself authorizes these source changes; do not request a second "modify source" authorization.
+- `ai`: locate that already selected Portal's local source project with the list record's `developmentPath`, `nb portal info <portal> -j`, `localPath`, `portal.config.json`, or local workspace information. If the CLI reports an empty or missing development/local source path, run `nb portal pull <portal>` first, then read back the path and enter the pulled development directory before invoking `nocobase-ai-builder`. Do not use `sourceStorage`, `git_repo`, `git_branch`, `git_path`, `--git-path`, repository subdirectories, or deployment/storage paths as edit locations; those are remote storage configuration for pull/push/deploy, not the local development directory. The UI build request itself authorizes these source changes; do not request a second "modify source" authorization.
 - Missing or unsupported `portalType`: stop; do not infer a type from user language, template structure, cwd, or source files.
 
-Local source metadata is a post-selection locator only. It must not participate in choosing among multiple Portals.
+Local source metadata is a post-selection locator only. It must not participate in choosing among multiple Portals. Source storage metadata is never a local source locator.
 
 ## Command Map
 
@@ -96,6 +98,7 @@ nb portal list -j
 
 ```bash
 nb portal info <portal>
+nb portal info <portal> -j
 ```
 
 ### create
@@ -120,6 +123,8 @@ nb portal config <portal> --git-path <relative-path>
 
 Use `--git-path .` for one-Portal-per-repository Git workflows. Use subdirectories, such as `portals/customer`, only when the user wants multiple Portals or other source trees in the same repository.
 
+`--git-path` / `git_path` is a repository-relative storage path, not a local working directory. For AI Portal source edits, use only an existing `developmentPath` / `localPath` or the local development directory returned after `nb portal pull <portal>` readback.
+
 ### pull
 
 ```bash
@@ -127,6 +132,8 @@ nb portal pull <portal>
 nb portal pull <portal> --no-install
 nb portal pull <portal> --force
 ```
+
+For an already selected AI Portal UI build, run plain `nb portal pull <portal>` when `nb portal list -j` or `nb portal info <portal> -j` has no `developmentPath` / `localPath`. This initializes the local development directory and is not the destructive `--force` path. After pull, enter the returned local development directory; do not edit in the configured source storage path.
 
 Use `--force` only after explicit confirmation because it can replace local Portal source.
 
