@@ -147,6 +147,10 @@ nb portal push <portal> -m "Update portal source"
 
 If there are no source changes, the CLI may report a no-op. Treat that as a successful no-change outcome.
 
+Run `push` only when the user explicitly asks to push, sync, or commit Portal source. Do not add a push step after ordinary UI/source edits, and do not infer push from deployment wording.
+
+`push` does not gate `deploy` by default. In a request that asks for both actions, report a push failure and then continue to the requested deploy after any required deploy confirmation. Stop before deploy only when the user made deployment conditional on push success, such as "push successfully then deploy", "only deploy after push succeeds", or equivalent wording.
+
 ### deploy
 
 ```bash
@@ -154,6 +158,8 @@ nb portal deploy <portal>
 ```
 
 For production-like envs, ask for explicit confirmation before execution.
+
+Run `deploy` only when the user explicitly asks to deploy, publish, or release the Portal. A deploy request executes deploy only; do not run `push` first unless the user also explicitly asks to push source.
 
 ### dev
 

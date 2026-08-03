@@ -66,6 +66,8 @@ Dispatch all ordinary NocoBase UI authoring to one explicitly resolved Portal an
 - Never enter or edit a `--git-path` / `git_path` value as if it were the local Portal project. It is a repository-relative storage path, not the pulled development directory.
 - If an existing `portal.config.json` or remote Portal record already has a configured Git path, do not assume the current CLI default rewrites it; change it explicitly with `nb portal config <portal> --git-path .` when requested.
 - For `push`, use the user's requested commit message when provided; otherwise let CLI defaults apply.
+- Do not automatically run `push` or `deploy` after source or UI changes. Execute `push` only when the user emphasizes pushing/syncing/committing Portal source. Execute `deploy` only when the user emphasizes deployment/publishing/releasing the Portal. A deploy request does not imply a prior push.
+- Treat `push` and `deploy` as independent actions when both are explicitly requested. A failed `push` must be reported, but it must not automatically block an explicitly requested `deploy` unless the user said deployment is conditional on push success, such as "push successfully then deploy", "only deploy after push succeeds", or equivalent wording.
 - On command failure, report the relevant CLI output and the next concrete recovery command instead of switching transports.
 
 # Supported Tasks
@@ -137,7 +139,7 @@ Use this path for every ordinary NocoBase page, menu, block, field, action, layo
 7. If it is a no-code Portal, use the `nocobase-ui-builder` skill for page, menu, block, field, action, and permission authoring.
 8. If it is an AI Portal, use `nb portal info <portal> -j`, the selected list record's `developmentPath`, `localPath`, `portal.config.json`, or local workspace state only to locate the already selected Portal's local source project. If that local development path is empty or missing, run `nb portal pull <portal>` first, then read back with `nb portal info <portal> -j` or `nb portal list -j` and enter the pulled development directory. Ignore `sourceStorage`, `git_repo`, `git_branch`, `git_path`, `--git-path`, and deployment/storage paths as edit locations; those only describe where the Portal source is stored for pull/push/deploy. Then load and execute `nocobase-ai-builder` with the resolved Portal name, environment, source path, and original request. The original request authorizes implementation and verification; do not ask for separate code-edit authorization.
 9. If `portalType` is absent or unsupported, stop instead of guessing.
-10. After UI changes, use this skill for `nb portal dev`, `nb portal push`, or `nb portal deploy` only when requested or naturally needed for verification/readback and only when `nb portal` is available.
+10. After UI changes, do not automatically run `nb portal push` or `nb portal deploy`. Use `nb portal dev` only when needed for local verification or when requested. Run `push` only for explicit source-push intent, and run `deploy` only for explicit deployment intent.
 
 Explicit `action=create` requests continue through the Portal Command Workflow. The zero-Portal stop above applies only to ordinary UI builds and must not suppress an explicit lifecycle request to create a Portal.
 
@@ -152,7 +154,8 @@ Explicit `action=create` requests continue through the Portal Command Workflow. 
 7. Execute the direct `nb portal` command.
 8. For write actions except `dev`, read back with `nb portal info <portal>` when available; otherwise use `nb portal list -j`.
 9. For `push`, report whether source changes were committed or the CLI reported no changes.
-10. For failures, return the failed command, key CLI output, likely cause, and one next command.
+10. For combined `push` + `deploy` requests, execute the requested actions independently in order. If `push` fails, record the failure and continue to the requested `deploy` after any required deploy confirmation, unless the user made deploy conditional on push success. If the request only says deploy, do not insert a push step.
+11. For failures, return the failed command, key CLI output, likely cause, and one next command.
 
 # Action Routing
 
@@ -161,8 +164,8 @@ Explicit `action=create` requests continue through the Portal Command Workflow. 
 - Use `create` for "创建 portal", "new Portal workspace", "from template".
 - Use `config` for "配置 portal git", "改 source storage", "set git repo/branch/path".
 - Use `pull` for "拉取 portal 源码", "sync remote to local".
-- Use `push` for "推送 portal 源码", "portal push", "commit source to Git".
-- Use `deploy` for "部署 portal", "build and deploy portal".
+- Use `push` only for explicit source-push intent such as "推送 portal 源码", "push source", "portal push", "commit source to Git", or "sync Portal source". Do not infer push from a generic build, finish, publish, deploy, or release request.
+- Use `deploy` only for explicit deployment intent such as "部署 portal", "deploy", "publish online", or "release Portal". Do not run `push` first unless the user also explicitly asks to push source.
 - Use `dev` for "启动 portal dev", "local portal development".
 - Use `destroy` only for explicit delete/destroy intent.
 - Use `diagnose` when the user provides an error log or asks why a Portal command failed.
@@ -218,6 +221,8 @@ Rollback guidance:
 - Portal type comes only from `portalType`.
 - No-code Portal UI authoring uses the `nocobase-ui-builder` skill.
 - AI Portal UI authoring uses `nocobase-ai-builder` in the corresponding Portal local source directory, pulling it with `nb portal pull <portal>` first when `developmentPath` / `localPath` is empty, and never treats source storage paths such as `git_path` / `--git-path` as edit directories.
+- `push` and `deploy` are never auto-added after UI/source edits. A source-push request executes only push; a deployment request executes only deploy; an explicit combined request executes both independently.
+- Combined `push` + `deploy` requests preserve both requested actions independently; `push` failure is reported but does not block `deploy` unless deploy was explicitly conditional on push success.
 - Failure output includes the failed command and relevant CLI lines.
 - Final answer reports commands, result, readback status, assumptions, and remaining risks.
 
@@ -226,16 +231,19 @@ Rollback guidance:
 1. `list` uses `nb portal list -j` and does not ask for a Portal name.
 2. `config` with Git storage requires `git_repo` and defaults `git_path` to `.`.
 3. `push` with an empty Git repository reports branch creation support or actionable recovery.
-4. `pull --force` blocks until explicit confirmation.
-5. `destroy` blocks until explicit confirmation.
-6. Zero enabled Portals stop ordinary UI authoring without implicit creation.
-7. Exactly one no-code Portal uses the `nocobase-ui-builder` skill.
-8. Exactly one AI Portal resolves its local source directory, or runs `nb portal pull <portal>` first when no development path exists, then invokes `nocobase-ai-builder` with the original request.
-9. Multiple Portals list `name`, `portalType`, and default status when available, and require explicit selection without cwd, default-marker, or local-file inference.
-10. Explicit missing, disabled, or non-unique Portal names stop without substitution.
-11. App start/update request is handed off to `nocobase-env-manage`.
-12. Missing `nb portal` blocks lifecycle/source/deploy actions with a clear CLI capability report and does not use private API fallbacks.
-13. Missing Portal runtime support permits the legacy UI Builder lane when `list-navigation-targets` explicitly returns `capabilities.multiPortal: false`, or when the action is explicitly absent and the verified legacy Flow Surfaces signature succeeds. `true`, auth errors, `5xx`, malformed output, or a failed core probe stop.
+4. A plain deployment request executes `deploy` only and does not insert a push step.
+5. A plain source-push request executes `push` only and does not deploy.
+6. Combined `push` + `deploy` continues to deploy after a push failure when the user requested both actions independently; it stops before deploy only when the user made deploy conditional on push success.
+7. `pull --force` blocks until explicit confirmation.
+8. `destroy` blocks until explicit confirmation.
+9. Zero enabled Portals stop ordinary UI authoring without implicit creation.
+10. Exactly one no-code Portal uses the `nocobase-ui-builder` skill.
+11. Exactly one AI Portal resolves its local source directory, or runs `nb portal pull <portal>` first when no development path exists, then invokes `nocobase-ai-builder` with the original request.
+12. Multiple Portals list `name`, `portalType`, and default status when available, and require explicit selection without cwd, default-marker, or local-file inference.
+13. Explicit missing, disabled, or non-unique Portal names stop without substitution.
+14. App start/update request is handed off to `nocobase-env-manage`.
+15. Missing `nb portal` blocks lifecycle/source/deploy actions with a clear CLI capability report and does not use private API fallbacks.
+16. Missing Portal runtime support permits the legacy UI Builder lane when `list-navigation-targets` explicitly returns `capabilities.multiPortal: false`, or when the action is explicitly absent and the verified legacy Flow Surfaces signature succeeds. `true`, auth errors, `5xx`, malformed output, or a failed core probe stop.
 
 # Output Contract
 
