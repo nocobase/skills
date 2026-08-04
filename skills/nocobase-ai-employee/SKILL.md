@@ -1,23 +1,63 @@
 ---
 name: nocobase-ai-employee
-description: >-
-  Use when a NocoBase task requires AI employee lifecycle work such as
-  discovering existing employees, judging fit, creating a dedicated employee,
-  or configuring profile, prompt, model, skills, tools, or knowledge base
-  before another skill binds it to a UI surface.
+description: "Use when a NocoBase task requires AI employee lifecycle work such as discovering existing employees, judging fit, creating or maintaining a dedicated employee, and preparing it before another skill binds it to a UI surface."
+argument-hint: "[action: decide|inspect|create|update|delete|verify|place] [employee?: username] [env?: name]"
+allowed-tools: Bash, Read, Grep
+owner: platform-tools
+version: 2.0.0
+last-reviewed: 2026-08-04
+risk-level: high
 ---
 
-# NocoBase AI Employee
+# Goal
 
-## Goal
+Configure the right AI employee for a NocoBase business surface and own its supported lifecycle safely. Decide whether the requirement should use built-in UI actions, JS actions, workflows, or an AI employee; then reuse, create, maintain, verify, and hand off the final UI placement to `nocobase-ui-builder`.
 
-Configure an AI employee-backed action for a specific NocoBase business surface. Decide whether the requirement should use built-in UI actions, JS actions, workflows, or an AI employee; then reuse or create the right employee and hand off the final UI placement to `nocobase-ui-builder`.
+# Scope
+
+- Decide whether a request needs an AI employee and select or create an appropriate non-developer employee.
+- Inspect, create, update, enable, disable, verify, and safely delete supported AI employee records.
+- Configure supported profile fields and dedicated chat-model restrictions.
+- Prepare the public AI employee action contract and hand UI placement to `nocobase-ui-builder`.
+
+# Non-Goals
+
+- Do not configure LLM providers or saved services; use `nocobase-ai-manager`.
+- Do not determine knowledge-base entitlement or create vector databases, knowledge bases, or documents; use `nocobase-ai-knowledge-base-manager`.
+- Do not place actions by writing raw Flow Model or database rows; use `nocobase-ui-builder`.
+- Do not expose developer employees on business or AI Portal surfaces.
 
 ## Required Hand-Off Skills
 
 - Use `nocobase-ui-builder` for Modern page/block/action authoring and AI employee action placement.
 - Use `nocobase-data-modeling` when the requirement needs new collections, fields, or relations before the AI action can work.
 - Use `nocobase-workflow-manage` when the AI employee should call or trigger a workflow tool, or when the task is mostly deterministic backend automation.
+- Use `nocobase-ai-manager` before creating or changing dedicated `modelSettings`.
+- Use `nocobase-ai-knowledge-base-manager` when a request requires knowledge-base capability, resources, or binding preparation.
+
+# Input Contract
+
+| Input | Required | Default | Validation | Clarification Question |
+| --- | --- | --- | --- | --- |
+| `action` | yes | `decide` | one of `decide/inspect/create/update/delete/verify/place` | "Which AI employee action should I perform?" |
+| `env` | no | current environment from `nb env list` | configured, reachable, authenticated | "Which NocoBase environment should I target?" |
+| `username` | record mutation: yes; decision/inspect: optional | none | exact stable username, uniquely resolved | "What is the exact employee username?" |
+| `targetSurface` | placement: yes | none | exact page/block/action context | "Which UI surface should expose the employee?" |
+| `changes` | create/update: yes | preserve unmentioned values | supported writable fields or a verified specialist handoff | "Which employee fields should change?" |
+| `confirmation` | high-risk action: yes | none | fresh exact-target confirmation after impact is shown | "Confirm this exact availability, model, identity, or delete change?" |
+
+Rules:
+
+- If required input or dependency readiness is missing, stop mutation and ask clarification.
+- If the user says "you decide", inspect and recommend reuse candidates only; do not create or mutate records.
+- Never silently convert duplicate create into update or silently drop unsupported fields.
+
+# Mandatory Clarification Gate
+
+- Max clarification rounds: `2`; max questions per round: `3`.
+- Before mutation, confirm environment, exact username, intended writable fields, enabled state, model references, and any specialist handoff.
+- Model changes require a current readiness result from `nocobase-ai-manager`.
+- Disabling, model changes, identity changes, and deletion require the impact and secondary-confirmation rules in the Safety Gate.
 
 ## Decision Gate
 
@@ -32,7 +72,7 @@ Classify the user request before writing anything:
 
 Only choose AI employee when model judgment materially reduces ambiguity or gives the user a natural-language task surface. Do not use AI employee as a substitute for ordinary deterministic UI configuration.
 
-## Workflow
+# Workflow
 
 1. **Decompose the request**
    - Identify the target page/block/action slot, target collection, current-record vs whole-block context, and expected user interaction.
@@ -57,7 +97,7 @@ Only choose AI employee when model judgment materially reduces ambiguity or give
    - For new employees, validate the create payload has `avatar` set to a supported avatar seed before calling `aiEmployees:create`.
    - If `avatar` is missing, empty, null, or unsupported, set it to the default supported seed `nocobase-015-male`.
    - Never create a developer-category employee for a business or AI Portal interaction.
-
+   - When the operation uses `nb api ai employees`, follow [Employee Record Management](#employee-record-management); that narrower safe-field contract governs the record write.
 5. **Bind the employee to the block**
    - Before binding, read the selected employee and refuse any `category="developer"` employee or known developer username. Developer employees belong only to their dedicated NocoBase builder/editor surfaces; do not add, expose, or select them for user-facing Portal interactions.
    - Use `nocobase-ui-builder` and its AI employee action reference.
@@ -182,8 +222,74 @@ Use this internal template before placement:
 }
 ```
 
-## References
+# Employee Record Management
 
-- Read `references/ai-employee-api.md` for collections, resource actions, field meanings, and create/update payload notes.
-- Read `references/block-action-payload.md` for the public AI employee action shape and placement rules.
-- Read `references/examples.md` for reusable classification and payload examples.
+> [!IMPORTANT]
+The former `nocobase-ai-employee-manager` skill has been removed and deprecated. All supported employee record operations now use `nocobase-ai-employee`.
+
+This chapter supplements—but does not replace—the decision, employee matching, avatar, action-contract, and UI-placement workflow above. Keep operational details in the bundled references rather than expanding this main file.
+
+## Record Management Rules
+
+- Before using `nb api ai employees`, read [employee-command-map.md](references/employee-command-map.md), [employee-record-fields.md](references/employee-record-fields.md), and [employee-record-workflows.md](references/employee-record-workflows.md).
+- Resolve one exact stable `username`; prove absence before create and never mutate identity after creation.
+- Write only fields supported by the selected API surface, preserve unmentioned fields, and reject protected fields rather than silently dropping them.
+- Run `nocobase-ai-manager` only when dedicated `modelSettings` are created or changed.
+- For any knowledge-base intent, use `nocobase-ai-knowledge-base-manager` for capability, resource, and binding preparation; this skill applies only the verified employee-field handoff and does not duplicate KB rules.
+- Read back every create/update. Never delete a built-in employee, and require fresh exact-target confirmation before deleting a custom employee.
+- Follow [employee-record-workflows.md](references/employee-record-workflows.md) for execution order, idempotency, confirmation, rollback, and failure handling.
+
+
+# Reference Loading Map
+
+| Reference | Use When | Notes |
+| --- | --- | --- |
+| [AI employee API](references/ai-employee-api.md) | Selecting employees or using confirmed resource actions outside the narrow CLI record surface. | Core fields, prompt semantics, and creation guidance. |
+| [Block action payload](references/block-action-payload.md) | Preparing a Modern UI AI employee action. | Public action shape and placement handoff. |
+| [Examples](references/examples.md) | Classifying AI versus deterministic behavior or drafting task text. | Reusable decisions and payloads. |
+| [Employee command map](references/employee-command-map.md) | Inspecting or mutating records through `nb api ai employees`. | Supported CRUD, prerequisites, and exclusions. |
+| [Employee record fields](references/employee-record-fields.md) | Building employee record payloads. | Writable fields, defaults, and protected fields. |
+| [Employee record workflows](references/employee-record-workflows.md) | Creating, updating, disabling, deleting, verifying, or rolling back. | Idempotency and safety sequence. |
+
+# Safety Gate
+
+High-impact actions include changing identity, disabling a business employee, changing dedicated model settings, and deleting a custom employee. Never write protected internal fields or delete a built-in employee.
+
+Secondary confirmation template:
+
+- "Confirm execution: `<action>` on AI employee `<username>` in `<env>`. Expected impact: `<availability/model/identity impact>`. Type `confirm` to continue."
+
+Rollback guidance lives in [employee-record-workflows.md](references/employee-record-workflows.md). Never auto-delete a new employee after verification failure, and treat timeout/5xx write state as unknown until readback.
+
+# Verification Checklist
+
+- The target environment and employee command/resource surface are verified.
+- The username is absent for create or uniquely resolved for other actions.
+- The selected employee is non-developer for business or AI Portal placement.
+- Create payloads contain a supported avatar.
+- Payloads contain only fields writable through the selected surface.
+- Every create/update has independent safe-field readback.
+- Built-in employees are never deleted or identity-mutated.
+- Required confirmations, allowed cases, denied cases, errors, and partial success are reported separately.
+
+# Minimal Test Scenarios
+
+1. Happy path: inspect and reuse an existing employee without unnecessary prerequisite work.
+2. Happy path: create or update a custom employee and verify it by readback.
+3. Missing required input or invalid protected fields block mutation.
+4. Auth or permission failure stops execution with recovery guidance.
+5. Denied case: refuse built-in deletion; custom deletion requires fresh confirmation and absence verification.
+
+# Output Contract
+
+Final responses must identify the environment, action, exact username, safe commands executed, defaults applied, prerequisite or specialist handoffs used, readback evidence, confirmations, rollback limits, partial success, and remaining UI work.
+
+# References
+
+- [NocoBase AI employee documentation](https://docs.nocobase.com/ai-employees/): use when checking current product behavior. [verified: 2026-08-04]
+- [AI employee API](references/ai-employee-api.md): use for employee fields, prompt semantics, and confirmed resource actions.
+- [Block action payload](references/block-action-payload.md): use for the public UI action contract.
+- [Examples](references/examples.md): use for classification and task examples.
+- [Employee command map](references/employee-command-map.md): use for supported `nb api ai employees` commands and exclusions.
+- [Employee record fields](references/employee-record-fields.md): use for safe-field schemas, model restrictions, defaults, and protected fields.
+- [Employee record workflows](references/employee-record-workflows.md): use for CRUD, verification, rollback, and delete safety.

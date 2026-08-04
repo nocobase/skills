@@ -4,8 +4,8 @@ description: "Use when users need to inspect or maintain NocoBase core AI prereq
 argument-hint: "[action: inspect|configure|update|delete|verify] [target: llm-provider|llm-service|vector-db] [mode?: direct-cli|ui] [consumer?: core-ai|employee|knowledge-base] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools
-version: 2.0.1
-last-reviewed: 2026-08-01
+version: 2.0.2
+last-reviewed: 2026-08-04
 risk-level: high
 ---
 
@@ -19,13 +19,13 @@ Prepare and maintain the core NocoBase AI runtime and saved LLM services require
 - Discover LLM providers, unsaved provider models, saved services, chat models, and embedding models.
 - Test provider settings and create, update, enable, disable, verify, or safely delete saved LLM services.
 - Before creating or changing an LLM service or vector database connection configuration, require the user to choose direct CLI parameters or the documented UI flow; verify user-completed UI work before follow-up.
-- Produce a structured core-AI readiness result for `nocobase-ai-employee-manager`.
+- Produce a structured core-AI readiness result for `nocobase-ai-employee`.
 - Produce conditional LLM/embedding prerequisites for `nocobase-ai-knowledge-base-manager` only after that skill has confirmed knowledge-base capability.
 - Check employee and knowledge-base dependencies before disruptive LLM service changes.
 
 # Non-Goals
 
-- Do not maintain AI employee records; use `nocobase-ai-employee-manager`.
+- Do not maintain AI employee records; use `nocobase-ai-employee`.
 - Do not write vector database, knowledge-base, or document configurations. For vector database connection work, own the mode choice and UI-flow safety only; hand direct CLI configuration and KB capability checks to `nocobase-ai-knowledge-base-manager`.
 - Do not treat a missing `kb` command as proof of Community Edition.
 - Do not manage AI tools, skills, global settings, roles, employee templates, or move operations.
@@ -97,8 +97,6 @@ Rules:
 | [UI-mode workflow](references/ui-mode.md) | Creating or changing an LLM service or vector database connection through the UI. | Defines mode selection, supported `--ui` commands, required pause, and independent readback. |
 | [LLM service workflow](references/llm-services.md) | Testing, creating, updating, disabling, deleting, or verifying a saved service. | Defines chat/embedding separation, idempotency, readiness, and dependency behavior. |
 | [Security and troubleshooting](references/security-and-troubleshooting.md) | Handling credentials or runtime, auth, provider, capability, timeout, or rollback failures. | Defines protected files and safe output. |
-| [AI employee manager](../nocobase-ai-employee-manager/SKILL.md) | Core AI readiness is complete and employee work should begin. | Downstream owner of all employee writes. |
-| [AI knowledge base manager](../nocobase-ai-knowledge-base-manager/SKILL.md) | A request needs knowledge-base licensing, plugin capability, vector resources, documents, or retrieval. | Owner of the Professional+ capability gate. |
 
 # Safety Gate
 
@@ -175,5 +173,3 @@ Final response must include:
 - [UI-mode workflow](references/ui-mode.md): use for explicit mode selection, supported `--ui` commands, required user-completion pause, and post-UI verification.
 - [LLM service workflow](references/llm-services.md): use for provider discovery, testing, CRUD, readiness, and dependency checks.
 - [Security and troubleshooting](references/security-and-troubleshooting.md): use for secret handling, capability failures, safe output, and rollback.
-- [AI employee manager](../nocobase-ai-employee-manager/SKILL.md): downstream owner of employee lifecycle and bindings.
-- [AI knowledge base manager](../nocobase-ai-knowledge-base-manager/SKILL.md): owner of edition/plugin preflight and KB resources.

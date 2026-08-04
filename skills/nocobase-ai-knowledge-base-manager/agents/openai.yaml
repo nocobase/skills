@@ -15,7 +15,7 @@ interface:
     independent safe-field readback. After the gate, manage PGVector, Local/Readonly/External
     knowledge bases, documents, independent retries, and hit tests with safe readback and asynchronous
     boundaries. Prepare employee binding inputs including knowledgeBasePrompt with
-    {knowledgeBaseData}, but delegate the final employee write to $nocobase-ai-employee-manager.
+    {knowledgeBaseData}, but delegate the final employee write to $nocobase-ai-employee.
     Use $nocobase-ai-manager only after capability passes for LLM and embedding readiness.
     Require fresh exact-target confirmation before every vector database, knowledge base, or
     document deletion.

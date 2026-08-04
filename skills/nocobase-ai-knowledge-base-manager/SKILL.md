@@ -4,8 +4,8 @@ description: "Use when users need to check Professional+ knowledge-base capabili
 argument-hint: "[action: preflight|inspect|create|update|upload|revectorize|test|prepare-binding|delete] [target: capability|vector-db|knowledge-base|document|employee] [mode?: direct-cli|ui] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools
-version: 2.0.2
-last-reviewed: 2026-08-01
+version: 2.0.3
+last-reviewed: 2026-08-04
 risk-level: high
 ---
 
@@ -19,7 +19,7 @@ Provide an edition-aware, capability-first workflow for NocoBase AI knowledge ba
 - `@nocobase/plugin-ai` must be enabled before the knowledge-base plugin can operate.
 - Run `nocobase-ai-manager` only after this skill's capability preflight passes and the selected KB type needs LLM/embedding prerequisites.
 - Local document workflows also require an available file storage; ZIP/background processing depends on the active async-task capability.
-- `nocobase-ai-employee-manager` owns the final employee record write after this skill prepares and verifies binding inputs.
+- `nocobase-ai-employee` owns the final employee record write after this skill prepares and verifies binding inputs.
 
 # Scope
 
@@ -37,7 +37,7 @@ Provide an edition-aware, capability-first workflow for NocoBase AI knowledge ba
 - Do not claim the current edition from a missing `kb` command, missing license key, `nb env info`, or `nb license status`.
 - Do not install, synchronize, or disable plugins in this skill. Enable an installed-disabled required plugin only after explicit user consent and only through `nocobase-plugin-manage`; do not merely tell the user to run the command when that workflow is available.
 - Do not configure saved LLM services; use `nocobase-ai-manager` after capability preflight.
-- Do not write AI employee records directly; use `nocobase-ai-employee-manager` for the final binding/unbinding update.
+- Do not write AI employee records directly; use `nocobase-ai-employee` for the final binding/unbinding update.
 - Do not manage knowledge-base segments, hidden vector-store change actions, or dedicated async-task commands.
 - Do not automatically poll upload, ZIP import, segmentation, or vectorization completion.
 - Do not ask whether to vectorize after a successful upload; upload already starts or queues it.
@@ -97,7 +97,7 @@ Rules:
 9. For KB create/update, follow [knowledge bases and documents](references/knowledge-bases-and-documents.md): type fields, immutable key/storage rules, segment defaults, vector-change impact, one write, and readback.
 10. For upload, validate Local type and file constraints, perform one multipart upload, then report accepted automatic background processing without polling or completion claims.
 11. Run document `vectorization` only for an independently requested retry/rebuild. Run hit test only when explicitly requested; neither is an automatic upload follow-up.
-12. For employee binding, follow [AI employee binding](references/ai-employee-binding.md), prepare exact enabled keys, prompt/default/range requirements, and hand off the final write to `nocobase-ai-employee-manager`.
+12. For employee binding, follow [AI employee binding](references/ai-employee-binding.md), prepare exact enabled keys, prompt/default/range requirements, and hand off the final write to `nocobase-ai-employee`.
 13. For cleanup, use reverse dependency order and obtain a separate fresh confirmation before each destructive step.
 14. Report preflight evidence, consent and plugin post-state when applicable, writes, readbacks, accepted asynchronous work, partial success, rollback limits, and remaining handoffs separately.
 
@@ -109,10 +109,7 @@ Rules:
 | [Command map](references/command-map.md) | Selecting license, plugin, runtime, KB, storage, document, or handoff commands. | Includes excluded surface. |
 | [Vector databases](references/vector-databases.md) | Testing or changing PGVector configuration. | Secrets, table validation/reuse, dependencies, readback. |
 | [Knowledge bases and documents](references/knowledge-bases-and-documents.md) | Selecting KB type, creating/updating KBs, uploading, retrying, testing, or deleting. | Immutable fields, file constraints, background semantics, and defaults. |
-| [AI employee binding](references/ai-employee-binding.md) | Preparing a binding or unbinding request. | Final employee write is delegated to the employee manager. |
-| [AI manager](../nocobase-ai-manager/SKILL.md) | Capability passed and Local/Readonly needs LLM/embedding prerequisites. | Chat/embedding separation. |
-| [Plugin manager](../nocobase-plugin-manage/SKILL.md) | A required KB or base AI plugin is installed but disabled and the user approves enablement. | Executes direct `nb plugin enable` with pre/post-state verification; this KB skill resumes preflight afterward. |
-| [AI employee manager](../nocobase-ai-employee-manager/SKILL.md) | A verified binding must be written to an employee. | Sole owner of employee record writes. |
+| [AI employee binding](references/ai-employee-binding.md) | Preparing a binding or unbinding request. | Final employee write is delegated to the AI employee skill. |
 
 # Safety Gate
 
@@ -125,7 +122,7 @@ High-impact actions are the high-risk actions listed below:
 - exposing database passwords or `vectorStoreProps[].value`;
 - Plugin enablement without explicit exact-package/environment consent;
 - proceeding despite unlicensed, disabled, unavailable, conflicting, or unknown capability evidence;
-- changing employee KB answer sources without employee-manager confirmation.
+- changing employee KB answer sources without AI employee skill confirmation.
 
 Secondary confirmation template:
 
@@ -176,7 +173,7 @@ Rollback guidance:
 6. Local happy path: prepare storage/LLM/embedding/PGVector, create KB, upload a supported file, and report automatic background processing without polling.
 7. Vector UI mode: after capability passes, hand off the UI flow to the AI manager, wait for explicit user completion, and verify the vector database safe fields before KB work continues.
 8. Invalid update: attempt to change KB key or Local storage and verify the write is refused with migration guidance.
-9. Employee bind: prepare a valid handoff, then delegate the final switch/prompt/retrieval write to the employee manager.
+9. Employee bind: prepare a valid handoff, then delegate the final switch/prompt/retrieval write to the AI employee skill.
 10. Auth/capability failure: distinguish 401/403 from license/plugin absence and stop before mutation.
 11. High-risk cleanup: require independent fresh confirmation before each document, KB, and vector database delete.
 
@@ -205,6 +202,3 @@ Final response must include:
 - [Vector databases](references/vector-databases.md): use for PGVector safety and lifecycle.
 - [Knowledge bases and documents](references/knowledge-bases-and-documents.md): use for type selection, immutable fields, documents, and background processing.
 - [AI employee binding](references/ai-employee-binding.md): use for validated binding handoff.
-- [AI manager](../nocobase-ai-manager/SKILL.md): use after capability passes for LLM/embedding readiness.
-- [AI employee manager](../nocobase-ai-employee-manager/SKILL.md): use for the final employee write.
-- [Plugin manager](../nocobase-plugin-manage/SKILL.md): use after explicit consent to enable an installed-disabled required plugin and verify post-state.

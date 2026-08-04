@@ -124,7 +124,7 @@ Never put an embedding identifier into saved-service `enabledModels`.
 
 ## AI Employee Binding Handoff
 
-This skill prepares and verifies binding inputs. `nocobase-ai-employee-manager` performs the final write:
+This skill prepares and verifies binding inputs. `nocobase-ai-employee` performs the final write:
 
 ```bash
 nb api ai employees get --filter-by-tk <username>
