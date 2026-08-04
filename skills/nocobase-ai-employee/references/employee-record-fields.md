@@ -1,4 +1,6 @@
-# AI Employee Field Contract
+# AI Employee CLI Record Field Contract
+
+This contract applies to record writes through `nb api ai employees`. Other confirmed resource actions may expose broader fields, but they do not expand this CLI safe-field list.
 
 ## Contents
 
@@ -6,7 +8,7 @@
 - [Forbidden Write Fields](#forbidden-write-fields)
 - [Avatar Rule](#avatar-rule)
 - [Model Settings](#model-settings)
-- [Knowledge-Base Settings](#knowledge-base-settings)
+- [Knowledge-Base Employee Fields](#knowledge-base-employee-fields)
 - [Minimal Create Shape](#minimal-create-shape)
 
 ## Writable Fields
@@ -70,34 +72,17 @@ Rules:
 - Embedding models are never valid employee chat models.
 - Preserve an existing restriction when a request does not mention model changes.
 
-## Knowledge-Base Settings
+## Knowledge-Base Employee Fields
 
-The three fields form one answer-source contract:
-
-```json
-{
-  "enableKnowledgeBase": true,
-  "knowledgeBasePrompt": "From knowledge base:\n{knowledgeBaseData}\nAnswer the user's question using this information.",
-  "knowledgeBase": {
-    "topK": 3,
-    "score": "0.6",
-    "knowledgeBaseKeys": ["product-docs"]
-  }
-}
-```
+The employee record surface may store `enableKnowledgeBase`, `knowledgeBasePrompt`, and `knowledgeBase`, but their business validation belongs to `nocobase-ai-knowledge-base-manager`.
 
 Rules:
 
-- Require a KB-manager capability result with `runtimeCapability=available`.
-- Every key must exist and be enabled.
-- `knowledgeBasePrompt` must be non-empty and contain the literal placeholder `{knowledgeBaseData}`.
-- Preserve an existing custom prompt unless the user explicitly changes it.
-- If enabling and no prompt exists, use the product-style default shown above or an explicit user-approved localized equivalent containing the placeholder.
-- `topK` must be an integer from 1 through 100; product default is 3.
-- Score must represent a number from 0 through 1; current employee writes store it as a string; product default is `"0.6"`.
-- Enabling requires at least one key.
-- Unbinding normally sets `enableKnowledgeBase=false`; clear or preserve prompt/settings only according to explicit user intent.
-- Never silently omit KB fields because the edition/plugin capability is blocked.
+- Accept only a verified employee-field handoff from that skill; do not rediscover capability, keys, retrieval ranges, or prompt rules here.
+- Apply the handed-off fields together, preserve unrelated employee fields, and read back the stored result.
+- If the handoff is unavailable or blocked, do not write partial knowledge-base state.
+- Unbinding follows the same handoff rule; do not invent whether prompt or settings should be preserved.
+
 
 ## Minimal Create Shape
 
@@ -114,7 +99,6 @@ Rules:
     "enabled": true,
     "models": [{ "llmService": "openai-main", "model": "chat-model" }]
   },
-  "enableKnowledgeBase": false,
   "enabled": true
 }
 ```

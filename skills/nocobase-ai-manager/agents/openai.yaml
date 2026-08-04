@@ -11,7 +11,7 @@ interface:
     service's enabledModels. Require an available capability result from
     $nocobase-ai-knowledge-base-manager before preparing KB prerequisites, and block disruptive
     service changes when KB dependency visibility is unknown. Hand all employee writes to
-    $nocobase-ai-employee-manager. Require fresh exact-target confirmation immediately before
+    $nocobase-ai-employee. Require fresh exact-target confirmation immediately before
     every LLM service deletion.
 
 policy:

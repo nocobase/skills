@@ -1,6 +1,6 @@
 # AI Employee Knowledge-Base Binding Handoff
 
-This skill owns capability and KB readiness. `nocobase-ai-employee-manager` owns the final employee record write.
+This skill owns capability and KB readiness. `nocobase-ai-employee` owns the final employee record write.
 
 ## Preconditions
 
@@ -45,7 +45,7 @@ Do not include secrets, full KB objects, document content, or hidden identifiers
 
 ## Final Write Ownership
 
-Hand the contract to `nocobase-ai-employee-manager`. That skill must:
+Hand the contract to `nocobase-ai-employee`. That skill must:
 
 1. read the current employee;
 2. show answer-source impact and obtain confirmation;
@@ -68,7 +68,7 @@ employeeKnowledgeBaseUnbinding:
   expectedImpact: <answer-source impact>
 ```
 
-The employee manager obtains confirmation and performs the write. Preserve or clear prompt/settings only according to explicit user intent.
+The AI employee skill obtains confirmation and performs the write. Preserve or clear prompt/settings only according to explicit user intent.
 
 ## Capability Block
 
@@ -85,5 +85,5 @@ If capability is unlicensed, disabled, unavailable, denied, or unknown/unusable:
 - Do not bind disabled or ambiguous keys.
 - Do not omit `knowledgeBasePrompt`.
 - Do not accept a prompt missing `{knowledgeBaseData}`.
-- Do not claim a bound employee works until employee-manager readback succeeds.
-- If a KB disappears between handoff and employee write, the employee manager must stop and request refreshed readiness.
+- Do not claim a bound employee works until `nocobase-ai-employee` readback succeeds.
+- If a KB disappears between handoff and employee write, `nocobase-ai-employee` must stop and request refreshed readiness.

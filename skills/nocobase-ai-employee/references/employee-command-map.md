@@ -1,4 +1,4 @@
-# AI Employee Command Map
+# AI Employee CLI Record Command Map
 
 ## Runtime Check
 
@@ -55,23 +55,14 @@ Do not validate employee models from an embedding-model list.
 
 ## Knowledge-Base Handoff
 
-Before any employee KB write, use `nocobase-ai-knowledge-base-manager`. Consume:
+For any knowledge-base intent, use `nocobase-ai-knowledge-base-manager`. That skill owns capability, resource, retrieval, and binding preparation. `nocobase-ai-employee` must not duplicate or infer those rules; it may apply only the verified employee-field handoff and then read back the resulting employee fields.
 
-```text
-requiredEdition=professional+
-entitlement
-pluginState
-runtimeCapability=available
-enabledKnowledgeBaseKeys
-```
+If the specialist handoff is blocked or incomplete, do not write knowledge-base-related employee fields.
 
-Only after that handoff may this skill read exact enabled keys through the supported KB list command. The employee manager owns the final employee update.
 
-A missing `kb` command is not proof of Community Edition. Do not bypass the KB manager's capability classification.
+## CLI Record-Surface Exclusions
 
-## Current Exclusions
-
-Do not invent or use:
+Do not invent or use these as part of the `nb api ai employees` record-management path:
 
 ```text
 ai employees move
@@ -95,4 +86,4 @@ dataSourceSettings
 skillSettings
 ```
 
-Use broader authoring/UI skills when the request requires excluded capabilities. This manager stays within the documented employee record surface.
+Use the broader decision, authoring, or UI-placement chapters in `nocobase-ai-employee` when the request requires excluded capabilities. This command path stays within the documented employee record surface.
