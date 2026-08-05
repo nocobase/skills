@@ -22,14 +22,14 @@ Collect all of these signals instead of inferring capability from one status cod
 - for a JS Block fallback, current public Host support for `settings.code/settings.version` on create and
   `changes.code/changes.version` on configure
 
-Do not use `nb light` to probe ordinary Inline Workspace capability. It is the reusable Light Extension route. A
+Do not use `nb js-template` to probe ordinary Inline Workspace capability. It is the reusable JS Template workspace route. A
 generic 404 is also not proof that a command, resource, or provider is absent: the same action returns 404 when an
 owner, Repository, or base commit cannot be found.
 
 An explicit multi-file request has no single-file fallback. If capability or contract support is missing, including an
 absent broad owner kind or model use, the Host does not return a canonical locator, or the Workspace cannot become ready,
 stop and report the failed stage. Never rewrite the request into `settings.code`, an ordinary JS Block, another Surface,
-or a Light Extension.
+or a JS Template.
 
 ## Decision matrix
 
@@ -65,11 +65,12 @@ of the two `Yes` rows, and the current Host contract confirms the action:
 
 Do not encode multiple Workspace files into either field. Preview/read back the persisted JS Block through the Host
 surface contract. The completion response must state that the current instance has no available multi-file Workspace
-capability, single-file Inline was used, and no Light Extension Repository was created.
+capability, single-file Inline was used, and no Source Project or Template Entry was created.
 
 JS Page public configure currently writes page metadata only; it has no public single-file source write. If Workspace
 capability is unavailable, stop. A future JS Page fallback requires a public API and tests in the NocoBase product
 repository before this Skill can expose it.
 
-If the user asked for one implementation reused across Hosts, maintained once without copied code, independently Git-owned, or distributed, an
-unavailable Light Extension capability means the request is incomplete. Report it; do not silently downgrade to Inline.
+If the user asked for multiple Hosts to share one implementation maintained once without copied code, an unavailable JS
+Template capability means the request is incomplete. Report it; do not silently downgrade to Inline. Independent Git
+storage or distribution alone does not move a single-Host implementation out of Inline.

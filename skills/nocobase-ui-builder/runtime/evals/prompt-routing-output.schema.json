@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "results": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "type": "string",
+            "enum": [
+              "case-17",
+              "case-42",
+              "case-08",
+              "case-31",
+              "case-64",
+              "case-05"
+            ]
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "inline-runjs",
+              "ui-template",
+              "js-template",
+              "nocobase-plugin"
+            ]
+          }
+        },
+        "required": ["caseId", "route"]
+      }
+    }
+  },
+  "required": ["results"]
+}

@@ -743,8 +743,9 @@ test('required docs and relative links stay valid', () => {
     'references/js-surfaces/value-return.md',
     'references/js-surfaces/snippet-manifest.json',
     'references/local-edit-quick.md',
-    'references/light-extension-source.md',
-    'references/light-extension-roundtrip.md',
+    'references/js-template-source.md',
+    'references/js-template-transport.md',
+    'references/js-template-roundtrip.md',
     'references/normative-contract.md',
     'references/page-archetypes.md',
     'references/page-blueprint.md',
@@ -774,6 +775,14 @@ test('required docs and relative links stay valid', () => {
     assert.equal(existsSync(path.join(skillRoot, relativePath)), true, `${relativePath} should exist`);
     if (relativePath.endsWith('.md')) assertRelativeMarkdownLinksExist(relativePath);
   }
+
+  for (const fileName of readdirSync(path.join(skillRoot, 'references'))) {
+    assert.doesNotMatch(
+      fileName,
+      /^[a-z0-9-]+-extension-(?:source|transport|roundtrip)\.md$/i,
+      'top-level reusable-JS documents should use canonical product names',
+    );
+  }
 });
 
 test('upstream js snapshot relative links stay valid', () => {
@@ -788,8 +797,8 @@ test('docs keep canonical nb boundaries', () => {
   assertBackendFirstWriteContract('SKILL.md');
   assert.match(skill, /Host[\s\S]{0,160}UI payload writes use `nb api flow-surfaces <action>`/i);
   assert.match(skill, /Inline Workspace[\s\S]{0,160}`nb api run-js-sources <action>`/i);
-  assert.match(skill, /Light Extension/i);
-  assert.match(skill, /`nb light`/i);
+  assert.match(skill, /JS Template/i);
+  assert.match(skill, /js-template-source\.md/i);
   assert.doesNotMatch(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
   assert.match(skill, /backend `flow-surfaces` is the authoring compiler/i);
   assert.match(skill, /aggregate `?errors\[\]`?/i);
@@ -804,7 +813,7 @@ test('docs keep canonical nb boundaries', () => {
   const normativeContract = read('references/normative-contract.md');
   assert.match(normativeContract, /Host\/UI write path:[\s\S]{0,120}`nb api flow-surfaces <action>`/i);
   assert.match(normativeContract, /Inline source write path:[\s\S]{0,120}`nb api run-js-sources <action>`/i);
-  assert.match(normativeContract, /External source write path:[\s\S]{0,160}Light Extension/i);
+  assert.match(normativeContract, /Reusable source write path:[\s\S]{0,220}JS Template/i);
   assert.doesNotMatch(normativeContract, /Agent-facing write path: `nb api flow-surfaces <action>`/);
   assert.match(normativeContract, /flow-surfaces is the authoring compiler/i);
 
@@ -855,6 +864,34 @@ test('public ui-builder docs do not document nb environment management commands'
   }
 });
 
+test('public ui-builder docs use only canonical JS Template naming and CLI', () => {
+  for (const relativePath of ['SKILL.md', 'agents/openai.yaml', ...walkMarkdownFiles('references')]) {
+    assert.doesNotMatch(
+      read(relativePath),
+      /\b[A-Z][A-Za-z0-9]* Extension\b|\b[a-z][a-z0-9]*Extension\b|\b[a-z][a-z0-9]*-extension(?:\b|:)/,
+      `${relativePath} should omit non-canonical JS Template product identifiers`,
+    );
+  }
+
+  const canonicalTemplateDocs = [
+    'references/js-template-source.md',
+    'references/js-template-transport.md',
+    'references/js-template-roundtrip.md',
+  ];
+  const transport = read(canonicalTemplateDocs[1]);
+  for (const command of ['pull', 'check', 'save']) {
+    assert.match(transport, new RegExp(`nb js-template ${command}\\b`));
+  }
+  for (const relativePath of canonicalTemplateDocs) {
+    const topics = [...read(relativePath).matchAll(/\bnb\s+([a-z][a-z-]*)\b/g)].map((match) => match[1]);
+    assert.ok(topics.length > 0, `${relativePath} should document canonical nb commands`);
+    assert.ok(
+      topics.every((topic) => topic === 'api' || topic === 'js-template'),
+      `${relativePath} should use only nb api or nb js-template`,
+    );
+  }
+});
+
 test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   const skill = read('SKILL.md');
   assert.match(skill, /\[js-surfaces\/index\.md\]/i, 'SKILL.md should expose the surface-first JS router');
@@ -885,7 +922,7 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   const skill = read('SKILL.md');
   const createPage = read('references/create-js-page-quick.md');
   const workspace = read('references/runjs-workspace-source.md');
-  const lightExtension = read('references/light-extension-source.md');
+  const jsTemplate = read('references/js-template-source.md');
   const wholePage = read('references/whole-page-quick.md');
   const localEdit = read('references/local-edit-quick.md');
   const pageBlueprint = read('references/page-blueprint.md');
@@ -910,10 +947,10 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(workspace, /existing native Surface settings/i);
   assert.match(workspace, /fewer than two reasonable variation points/i);
   assert.match(workspace, /do not create source commits|do not create a source commit/i);
-  assert.match(lightExtension, /one implementation[\s\S]{0,180}reused by multiple Hosts/i);
-  assert.match(lightExtension, /otherwise create a New Repository/i);
-  assert.doesNotMatch(lightExtension, /application(?:-level)? default Repository/i);
-  assert.match(lightExtension, /Multiple files[\s\S]{0,160}do not authorize externalization/i);
+  assert.match(jsTemplate, /one implementation[\s\S]{0,180}reused by multiple Hosts/i);
+  assert.match(jsTemplate, /Source Project selection or creation[\s\S]{0,180}separate from the Template name/i);
+  assert.doesNotMatch(jsTemplate, /application(?:-level)? default Repository/i);
+  assert.match(jsTemplate, /Multiple[\s\S]{0,160}files[\s\S]{0,160}do not select the JS Template route/i);
   assert.match(createPage, /Host Preview[\s\S]{0,120}non-goal/i);
   assert.match(wholePage, /create-js-page-quick\.md/i);
   assert.match(localEdit, /runjs-capability-gate\.md/i);
@@ -931,14 +968,15 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
   const transport = read('references/runjs-transport.md');
   const workspace = read('references/runjs-workspace-source.md');
   const gate = read('references/runjs-capability-gate.md');
-  const lightExtension = read('references/light-extension-source.md');
+  const jsTemplate = read('references/js-template-source.md');
+  const jsTemplateTransport = read('references/js-template-transport.md');
   const loop = read('references/runjs-authoring-loop.md');
 
   for (const doc of [
     'runjs-workspace-source.md',
     'runjs-transport.md',
     'runjs-capability-gate.md',
-    'light-extension-source.md',
+    'js-template-source.md',
   ]) {
     assert.match(rootIndex, new RegExp(doc.replace('.', '\\.')), `references/index.md should directly link ${doc}`);
   }
@@ -950,7 +988,7 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
   ]) {
     assert.match(text, /flow-surfaces/i, `${label} should keep the Host/UI route`);
     assert.match(text, /run-js-sources/i, `${label} should keep the Inline Workspace source route`);
-    assert.match(text, /Light Extension|nb light/i, `${label} should keep reusable source routing`);
+    assert.match(text, /JS Template/i, `${label} should keep reusable source routing`);
   }
 
   for (const action of ['open', 'open-latest', 'save-changes', 'compile-preview']) {
@@ -969,10 +1007,11 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
 
   assert.match(workspace, /Settings schema and defaults live in `src\/client\/entry\.json`/i);
   assert.match(workspace, /Host overrides[\s\S]{0,160}preserving `false`, `0`, and `""`/i);
-  assert.match(workspace, /shared implementation[\s\S]{0,180}single-maintenance/i);
-  assert.match(lightExtension, /business-meaningful name/i);
-  assert.doesNotMatch(lightExtension, /application(?:-level)? default Repository/i);
-  assert.match(lightExtension, /Host Preview[\s\S]{0,120}outside/i);
+  assert.match(workspace, /Multiple Hosts[\s\S]{0,160}maintained implementation[\s\S]{0,120}without copied code/i);
+  assert.match(workspace, /Independent Git storage or distribution alone[\s\S]{0,120}single-Host Inline ownership/i);
+  assert.match(jsTemplateTransport, /business-meaningful Source Project name/i);
+  assert.doesNotMatch(jsTemplate, /application(?:-level)? default Repository/i);
+  assert.match(jsTemplate, /primary JS Template catalog is entry-centric/i);
 
   for (const ownerClass of ['complete-workspace', 'embedded/single-surface', 'compatibility-single-file']) {
     assert.match(loop, new RegExp(ownerClass.replace('/', '\\/'), 'i'));
@@ -986,7 +1025,7 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
   assert.match(gate, /owner, Repository, or base commit 404[\s\S]{0,120}\| No \|/i);
   assert.match(gate, /413[\s\S]{0,140}\| No \|/i);
   assert.match(gate, /network error or 5xx[\s\S]{0,140}\| No \|/i);
-  assert.match(gate, /Do not use `nb light`[\s\S]{0,120}ordinary Inline Workspace capability/i);
+  assert.match(gate, /Do not use `nb js-template`[\s\S]{0,120}ordinary Inline Workspace capability/i);
 
   assert.ok(read('references/js-models/js-block.md').split('\n').length - 1 <= 220);
   assert.ok(read('references/whole-page-quick.md').split('\n').length - 1 <= 220);

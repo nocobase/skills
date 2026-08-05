@@ -12,7 +12,7 @@ function read(relativePath) {
   return readFileSync(path.join(skillRoot, relativePath), 'utf8');
 }
 
-test('global contract splits Host, Inline source, and externalized source routes', () => {
+test('global contract splits Host, Inline source, and reusable JS Template routes', () => {
   const skill = read('SKILL.md');
   const normative = read('references/normative-contract.md');
   const prompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
@@ -24,7 +24,7 @@ test('global contract splits Host, Inline source, and externalized source routes
   ]) {
     assert.match(text, /flow-surfaces/i, `${label} should retain the Host/UI route`);
     assert.match(text, /run-js-sources/i, `${label} should expose the Inline source route`);
-    assert.match(text, /Light Extension|nb light/i, `${label} should expose reusable source routing`);
+    assert.match(text, /JS Template/i, `${label} should expose reusable source routing`);
   }
 
   assert.doesNotMatch(skill, /Agent-facing write path is `nb api flow-surfaces <action>`/);
@@ -54,32 +54,87 @@ test('real default prompt carries the complete RunJS route without relying on YA
     assert.match(prompt, new RegExp(token.replaceAll(/[.[\]]/g, '\\$&'), 'i'));
   }
 
-  assert.match(prompt, /Multiple files[\s\S]{0,180}do not trigger Light Extension/i);
+  assert.match(prompt, /Multiple files[\s\S]{0,180}do not trigger JS Template/i);
   assert.match(prompt, /explicit multi-file intent[\s\S]{0,220}never downgrade/i);
   assert.match(prompt, /JS Page capability failure[\s\S]{0,120}never fake/i);
   assert.match(prompt, /complete JS Block[\s\S]{0,240}minimal safe `?settings\.code`? placeholder[\s\S]{0,240}final business source[\s\S]{0,120}Workspace/i);
   assert.match(prompt, /save-changes success[\s\S]{0,200}new commit and owner fingerprint/i);
 });
 
-test('business reuse intent selects Light Extension without requiring transport terminology', () => {
+test('business reuse intent selects JS Template without requiring transport terminology', () => {
   const skill = read('SKILL.md');
-  const source = read('references/light-extension-source.md');
+  const source = read('references/js-template-source.md');
   const prompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
 
   for (const [label, text] of [
     ['SKILL.md', skill],
-    ['Light Extension intent router', source],
+    ['JS Template intent router', source],
     ['OpenAI prompt', prompt],
   ]) {
-    assert.match(text, /one implementation[\s\S]{0,180}(?:multiple|across) Hosts/i, label);
-    assert.match(text, /maintain(?:ed)? once[\s\S]{0,100}(?:without|no) copied code/i, label);
-    assert.match(text, /independent(?:ly)? Git[- ]owned|independent Git ownership/i, label);
-    assert.match(text, /user (?:does not|need not)[\s\S]{0,160}(?:Light Extension|transport)/i, label);
+    assert.match(text, /multiple Hosts[\s\S]{0,180}(?:share|sharing)[\s\S]{0,180}JS implementation/i, label);
+    assert.match(text, /maintain(?:ed)?(?: once)?[\s\S]{0,100}(?:without|no) copied code/i, label);
+    assert.match(text, /user (?:does not|need not)[\s\S]{0,160}JS Template/i, label);
   }
 
   assert.match(source, /used only by its current Host stays Inline/i);
-  assert.match(prompt, /Current-Host[\s\S]{0,80}stays Inline/i);
-  assert.match(prompt, /Multiple files[\s\S]{0,160}do not trigger Light Extension/i);
+  assert.match(source, /used only by its current Host stays Inline[\s\S]{0,160}independent Git repository/i);
+  assert.match(prompt, /one Host[\s\S]{0,100}exclusively owns[\s\S]{0,100}Inline RunJS/i);
+  assert.match(prompt, /Single-Host Git\/distribution stays Inline/i);
+  assert.match(prompt, /Files[\s\S]{0,160}alone do not trigger JS Template/i);
+});
+
+test('active Skill and prompt apply the four-way solution gate', () => {
+  const skill = read('SKILL.md');
+  const js = read('references/js.md');
+  const source = read('references/js-template-source.md');
+  const prompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
+
+  for (const [label, text] of [
+    ['SKILL.md', skill],
+    ['JS router', js],
+    ['JS Template router', source],
+    ['OpenAI prompt', prompt],
+  ]) {
+    assert.match(
+      text,
+      /one Host[\s\S]{0,100}exclusively own(?:s|ing)[\s\S]{0,120}Inline RunJS/i,
+      `${label} should route Host-owned JS to Inline RunJS`,
+    );
+    assert.match(
+      text,
+      /reusable\s+UI\/Flow structure[\s\S]{0,120}without (?:a )?shared JS implementation[\s\S]{0,120}UI Template/i,
+      `${label} should route structure reuse to UI Template`,
+    );
+    assert.match(
+      text,
+      /multiple Hosts[\s\S]{0,120}(?:share|sharing)[\s\S]{0,120}JS\s+implementation[\s\S]{0,120}JS Template/i,
+      `${label} should route shared JS to JS Template`,
+    );
+    assert.match(
+      text,
+      /backend API[\s\S]{0,240}(?:ACL|permission)[\s\S]{0,180}(?:server capability|server capabilities)[\s\S]{0,160}(?:full )?NocoBase Plugin/i,
+      `${label} should route server requirements to a full NocoBase Plugin`,
+    );
+    assert.match(
+      text,
+      /UI Template[\s\S]{0,120}reuses[\s\S]{0,120}(?:not one shared JS implementation|JS Template[\s\S]{0,80}shares)|Never confuse UI Template(?: with JS Template|[\s\S]{0,120}shared JS implementation)/i,
+      `${label} should distinguish UI Template from JS Template`,
+    );
+  }
+
+  assert.match(skill, /requested JS feature itself[\s\S]{0,180}full \*\*NocoBase Plugin\*\*/i);
+  assert.match(skill, /Existing-app ACL administration[\s\S]{0,120}specialist handoffs/i);
+  assert.match(skill, /Hand off ACL[\s\S]{0,80}`nocobase-acl-manage`/i);
+  assert.match(skill, /Hand off collection[\s\S]{0,80}`nocobase-data-modeling`/i);
+  assert.match(prompt, /new backend API[\s\S]{0,180}NocoBase Plugin/i);
+  assert.match(prompt, /Existing ACL\/data-model admin[\s\S]{0,80}specialist skills/i);
+  const promptGate = prompt.split('\n').find((line) => line.startsWith('Four-way gate:'));
+  assert.ok(promptGate, 'OpenAI prompt should contain the four-way gate line');
+  const orderedRoutes = ['NocoBase Plugin', 'JS Template', 'UI Template', 'Inline RunJS'];
+  const routePositions = orderedRoutes.map((route) => promptGate.indexOf(route));
+  assert.ok(routePositions.every((position) => position >= 0), 'OpenAI prompt should name every solution route');
+  assert.deepEqual(routePositions, [...routePositions].sort((left, right) => left - right));
+  assert.match(prompt, /First match wins/i);
 });
 
 test('transport serializes the Host-returned locator without teaching a hand-shaped locator', () => {
@@ -125,6 +180,6 @@ test('helpers and verification expose source-specific evidence', () => {
   assert.match(verification, /save-changes` succeeded/i);
   assert.match(verification, /no diagnostic with `severity: "error"`/i);
   assert.match(verification, /new commit, `artifact\.filesHash`, and the updated owner fingerprint/i);
-  assert.match(verification, /no Light Extension Repository was automatically created/i);
+  assert.match(verification, /no Source Project or Template Entry was automatically created/i);
   assert.match(verification, /Host Preview is not required/i);
 });

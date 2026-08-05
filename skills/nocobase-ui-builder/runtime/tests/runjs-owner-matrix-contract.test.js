@@ -59,12 +59,12 @@ test('explicit multi-file intent stops instead of downgrading or externalizing',
     assert.match(text, /(?:canonical )?locator/i, `${label} should require a locator`);
     assert.match(text, /\bstop(?: condition)?\b/i, `${label} should stop when required evidence is missing`);
   }
-  for (const fallback of ['`settings.code`', 'ordinary JS Block', 'another Surface', 'Light Extension']) {
+  for (const fallback of ['`settings.code`', 'ordinary JS Block', 'another Surface', 'JS Template']) {
     assert.match(gate, new RegExp(fallback.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   }
 });
 
-test('embedded owners stay single-surface and multi-file structure never selects Light Extension', () => {
+test('embedded owners stay single-surface and multi-file structure never selects JS Template', () => {
   const js = read('references/js.md');
   const workspace = read('references/runjs-workspace-source.md');
   const prompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
@@ -73,8 +73,8 @@ test('embedded owners stay single-surface and multi-file structure never selects
   assert.match(js, /owner is not declared by the complete Workspace contract/i);
   assert.match(prompt, /Embedded.*stays single-surface/i);
   assert.match(workspace, /Multiple files/i);
-  assert.match(workspace, /never trigger Light Extension/i);
-  assert.match(workspace, /do not silently externalize/i);
+  assert.match(workspace, /never trigger JS Template/i);
+  assert.match(workspace, /do not silently save[\s\S]{0,80}as a JS Template/i);
   assert.match(prompt, /Multiple files/i);
-  assert.match(prompt, /do not trigger Light Extension/i);
+  assert.match(prompt, /do not trigger JS Template/i);
 });

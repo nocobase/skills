@@ -1,6 +1,6 @@
 # Whole-page Quick Route
 
-Use this file as the default first stop for ordinary whole-page `create` / `replace` work. If the request is a new complete JS Page, route first to [create-js-page-quick.md](./create-js-page-quick.md); a complete JS Block created through a Host uses that same Inline Workspace contract and [runjs-capability-gate.md](./runjs-capability-gate.md). If JS Page Workspace capability is unavailable, stop: do not replace the request with an ordinary page + JS Block. Do not treat a multi-file JS request as a reason to create a Light Extension.
+Use this file as the default first stop for ordinary whole-page `create` / `replace` work. If the request is a new complete JS Page, route first to [create-js-page-quick.md](./create-js-page-quick.md); a complete JS Block created through a Host uses that same Inline Workspace contract and [runjs-capability-gate.md](./runjs-capability-gate.md). If JS Page Workspace capability is unavailable, stop: do not replace the request with an ordinary page + JS Block. Do not treat a multi-file JS request as a reason to create a JS Template.
 
 Page identity is `navigation.group.routeId` plus `page.title`: the same group and same title uses `replace`; a different group and same title must not merge, reuse, or auto-replace.
 

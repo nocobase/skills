@@ -31,9 +31,9 @@ test('capability gate consumes Host, command, and operation evidence', () => {
     assert.match(gate, new RegExp(signal.replaceAll(/[.[\]]/g, '\\$&'), 'i'));
   }
   assert.match(gate, /generic 404[\s\S]{0,180}not proof/i);
-  assert.match(gate, /Do not use `nb light`[\s\S]{0,120}ordinary Inline Workspace capability/i);
+  assert.match(gate, /Do not use `nb js-template`[\s\S]{0,120}ordinary Inline Workspace capability/i);
   assert.match(gate, /explicit multi-file request[\s\S]{0,260}no single-file fallback/i);
-  assert.match(gate, /never[\s\S]{0,180}`settings\.code`[\s\S]{0,180}ordinary JS Block[\s\S]{0,180}Light Extension/i);
+  assert.match(gate, /never[\s\S]{0,180}`settings\.code`[\s\S]{0,180}ordinary JS Block[\s\S]{0,180}JS Template/i);
 });
 
 test('only the two explicit JS Block capability failures allow single-file fallback', () => {
@@ -79,14 +79,14 @@ test('ordinary failures remain repair or stop conditions', () => {
 test('quick routes preserve JS Page and business reuse boundaries', () => {
   const wholePage = read('references/whole-page-quick.md');
   const localEdit = read('references/local-edit-quick.md');
-  const lightExtension = read('references/light-extension-source.md');
+  const jsTemplate = read('references/js-template-source.md');
   const checklist = read('references/execution-checklist.md');
 
-  for (const text of [wholePage, localEdit, lightExtension, checklist]) {
+  for (const text of [wholePage, localEdit, jsTemplate, checklist]) {
     assert.match(text, /runjs-capability-gate\.md/i);
   }
   assert.match(wholePage, /JS Page Workspace capability[\s\S]{0,100}ordinary page \+ JS Block/i);
-  assert.match(lightExtension, /Light Extension capability[\s\S]{0,220}Do not silently replace/i);
-  assert.match(checklist, /multi-file Workspace capability is unavailable[\s\S]{0,160}single-file Inline[\s\S]{0,160}no Light Extension Repository/i);
+  assert.match(jsTemplate, /canonical capability is unavailable[\s\S]{0,180}do not silently substitute/i);
+  assert.match(checklist, /multi-file Workspace capability is unavailable[\s\S]{0,160}single-file Inline[\s\S]{0,180}no Source Project or Template Entry/i);
   assert.ok(wholePage.split('\n').length - 1 <= 220, 'whole-page-quick.md must stay within 220 lines');
 });

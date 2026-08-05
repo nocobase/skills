@@ -63,29 +63,27 @@ For a complete JS Page or JS Block, source completion requires all of the follow
 - `save-changes` succeeded and its artifact contains no diagnostic with `severity: "error"`
 - the response returned a new commit, `artifact.filesHash`, and the updated owner fingerprint
 - the request sent only changed paths with the CAS tokens and `expectedBlobHash` values from one open/open-latest response
-- no Light Extension Repository was automatically created
+- no Source Project or Template Entry was automatically created
 
 Host Preview is not required by this source contract and must not be claimed as validation when it was not run.
 
-### Light Extension reuse and move-back evidence
+### JS Template reuse and Detach evidence
 
-For a multi-Host reuse or move-back request, follow
-[light-extension-roundtrip.md](./light-extension-roundtrip.md) and report all of the following:
+For a multi-Host reuse or Detach request, follow
+[js-template-roundtrip.md](./js-template-roundtrip.md) and report all of the following:
 
 - before and after `sourceMode`, exact public binding identity, and independent settings override for each Host
-- one Repository and one Entry, including stable `entry.json.key`/`entryName`, old/current Head, compiled commit, source
-  history, runtime availability, and artifact/settings hashes
-- reference readback for the exact Repository/Entry before reuse and after moving one Host back Inline
-- proof that the moved Host used the latest reachable Entry source, cleared only its own binding/reference, and returned
-  a new Inline RunJS commit and owner fingerprint
-- the stable move-to-inline idempotency key boundary and, after a completed replay, the same Inline commit, owner fingerprint, and source reference returned by the first success
-- proof that the other Host kept its binding/override and the Repository, Entry, stable key, Head, history, and remaining
-  references were preserved
+- one Source Project and one Template Entry, including stable `entry.json.key`, old/current Head, compiled commit, source history, runtime availability, and artifact/settings hashes
+- template-level Usage readback before reuse and after Detaching one Host, including visible rows, `effectiveCount`, `hiddenCount`, and exclusion of `owner_missing`
+- proof that the detached Host used current reachable Template source, supplied current `expectedProjectHeadCommitId`, cleared only its own binding/Usage, and returned a new Inline RunJS commit and owner fingerprint
+- the stable Detach idempotency boundary and, after an equivalent replay, the same Inline commit, owner fingerprint, files hash, and source reference returned by the first success
+- proof that the other Host kept its binding/override and that Source Project, Template Entry, stable source key, Head, history, and remaining Usage were preserved
+- Template deletion conflict while effective Usage remains and success only after it reaches zero, when deletion is in scope
 - the boundary between API/CLI verification and any browser rendering that was actually performed
 
 A Host-only override edit must preserve explicit `false`, `0`, and `""` and must not create a source commit. After
-move-back, separately verify that Inline `save-changes` advances only the moved Host and Repository `save` advances only
-the Entry still used by the other Host.
+Detach, separately verify that Inline `save-changes` advances only the detached Host and `nb js-template save` advances
+only the Source Project/Template still used by the other Host.
 
 ## 3. Minimum Readback Targets
 
@@ -105,8 +103,8 @@ the Entry still used by the other Host.
 | `convert-template-to-copy` | modified target readback |
 | `update-template` | `nb api flow-surfaces get-template --uid <uid>` |
 | `update-menu` / `create-menu` | menu tree when placement matters |
-| Light Extension reuse | both Hosts plus `light-extension-entries list-selectable/get`, Repository Head, and exact Repository/Entry reference readback |
-| Light Extension move-back | both Hosts, moved Host Inline commit/owner, preserved Repository/Entry/Head/history, and remaining Host reference |
+| JS Template reuse | both Hosts plus `js-templates list-selectable/get`, Source Project Head, exact four-field binding, and Template Usage readback |
+| JS Template Detach | both Hosts, detached Host Inline commit/owner, Detach Head CAS, preserved Source Project/Template/Head/history, and remaining Usage |
 
 ### Reaction-specific readback
 

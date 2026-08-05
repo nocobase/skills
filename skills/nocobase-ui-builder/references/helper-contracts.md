@@ -10,7 +10,7 @@ Send each raw business payload through the command family that owns it: Host/UI 
 
 - Host/UI write path: `nb api flow-surfaces <action>`
 - Inline Workspace source write path: `nb api run-js-sources <action>`
-- Light Extension write path: shared implementation, single-maintenance, independent Git ownership, or distribution intent
+- JS Template write path: multiple Hosts share one maintained implementation without copied code; independent Git storage or distribution alone keeps a single-Host implementation Inline
 - input: one raw business payload, sent through `--body` / `--body-file`
 - backend result: successful normalized persisted write, or aggregate `errors[]` with stable locations and rule ids
 - backend authoring resolves navigation layout, group reuse, duplicate same-title groups, and mobile root tab pages according to [navigation-targets.md](./navigation-targets.md)

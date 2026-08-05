@@ -53,11 +53,11 @@ function assertDocumentedBoolean(text, property, value) {
 test('keeps Skills authoring guidance aligned with the product manifest', productTestOptions, () => {
   const manifest = readProductManifest();
   const workspace = readSkill('references/runjs-workspace-source.md');
-  const transport = readSkill('references/light-extension-transport.md');
+  const transport = readSkill('references/js-template-transport.md');
 
   for (const [label, text] of [
     ['Workspace', workspace],
-    ['Light Extension', transport],
+    ['JS Template', transport],
   ]) {
     const documentedVersion = text.match(/Contract version `([^`]+)` publishes/i)?.[1];
     assert.equal(documentedVersion, manifest.authoringContractVersion, `${label} contract version should match`);
@@ -92,27 +92,30 @@ test('keeps Skills authoring guidance aligned with the product manifest', produc
   );
   assertDocumentedBoolean(
     transport,
-    'externalization.supportsMoveToInline',
-    manifest.externalization.supportsMoveToInline,
+    'externalization.supportsDetachToInline',
+    manifest.externalization.supportsDetachToInline,
   );
+  const detachSection = transport.match(/^## Detach to Inline\n([\s\S]*?)^## /m)?.[1];
+  assert.ok(detachSection, 'JS Template transport should document Detach to Inline');
+  assert.match(detachSection, /expectedProjectHeadCommitId/i);
 });
 
-test('locks delta, externalization, reuse, and move-back semantics across repositories', productTestOptions, () => {
+test('locks delta, Save as, reuse, and Detach semantics across repositories', productTestOptions, () => {
   const manifest = readProductManifest();
   const workspace = readSkill('references/runjs-workspace-source.md');
-  const transport = readSkill('references/light-extension-transport.md');
-  const roundtrip = readSkill('references/light-extension-roundtrip.md');
+  const transport = readSkill('references/js-template-transport.md');
+  const roundtrip = readSkill('references/js-template-roundtrip.md');
 
   assert.equal(manifest.inlineWorkspace.saveMode, 'delta');
   assert.match(workspace, /baseCommitId[\s\S]{0,160}baseOwnerFingerprint/);
   assert.match(workspace, /expectedBlobHash/);
   assert.equal(manifest.externalization.available, true);
   assert.equal(manifest.externalization.supportsIdempotency, true);
-  assert.equal(manifest.externalization.supportsMoveToInline, true);
-  assert.match(transport, /equivalent semantic request/i);
-  assert.match(transport, /required `idempotencyKey`/i);
-  assert.match(transport, /completed replay returns the same first/i);
-  assert.match(roundtrip, /one Repository, one Entry, and two Host bindings/i);
-  assert.match(roundtrip, /latest reachable dependency closure/i);
-  assert.match(roundtrip, /Host A and Entry E have separate histories/i);
+  assert.equal(manifest.externalization.supportsDetachToInline, true);
+  assert.match(transport, /complete[\s\S]{0,20}semantic request/i);
+  assert.match(transport, /`idempotencyKey` is required, non-empty/i);
+  assert.match(transport, /Equivalent retries return the first/i);
+  assert.match(roundtrip, /one Source Project, one Template Entry, and two effective Usages/i);
+  assert.match(roundtrip, /latest reachable source set/i);
+  assert.match(roundtrip, /histories are independent/i);
 });

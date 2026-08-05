@@ -145,5 +145,5 @@ Classify failures by action, HTTP status, and `errors[].code`; status alone is i
 | `save-changes` + 409 + `REPO_ARCHIVED` | Stop and report the archived repository. |
 | `compile-preview` or `save-changes` + 413 | Stop and report the Workspace resource limit. |
 
-The ordinary Agent protocol is incremental `save-changes`. Do not import Light Extension Head/check/reviewed-change
+The ordinary Agent protocol is incremental `save-changes`. Do not import JS Template Source Project Head/Check/reviewed-change
 workflows or its concurrency fields into these requests, and do not fall back to the legacy complete-replacement `save`.

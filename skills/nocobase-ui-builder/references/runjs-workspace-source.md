@@ -29,7 +29,7 @@ they are not in this complete-owner matrix.
 Copy the canonical locator returned by Host create/get exactly; never construct it from `uid`, `modelUid`, `use`, or
 `fieldUid`. Use `sourceMode: "inline"`, then `runJSSources:open`. A new Workspace is bootstrapped with the source entry,
 descriptor, and entry metadata. Existing files are preserved and missing initialization files are added idempotently.
-This route does not create a `lightExtensionRepos` row or `sourceBinding`.
+This route does not create a Source Project, Template Entry, or `sourceBinding`.
 
 The normal sequence is:
 
@@ -52,10 +52,11 @@ Do not expose secrets, tokens, internal UIDs, arbitrary JS/HTML/SQL, module path
 ## Boundaries
 
 Use the ordinary owner compatibility gate for existing workspaces. Multiple files, imports, hooks, services, size, or
-complexity never trigger Light Extension; do not silently externalize an Inline Workspace for any of those reasons.
-Shared implementation, single-maintenance, independent Git ownership, or distribution is a separate business intent; use
-[light-extension-source.md](./light-extension-source.md) for that handoff even when the user does not name the transport.
+complexity never trigger JS Template; do not silently save an Inline Workspace as a JS Template for any of those reasons.
+Multiple Hosts sharing one maintained implementation without copied code is a separate business intent; use
+[js-template-source.md](./js-template-source.md) for that handoff even when the user does not name the transport.
+Independent Git storage or distribution alone does not override single-Host Inline ownership.
 
 If the user explicitly requested multiple files, missing capability support, a missing canonical locator, or a non-ready
-Workspace is a stop condition. Do not downgrade to `settings.code`, an ordinary JS Block, another Surface, or a Light
-Extension.
+Workspace is a stop condition. Do not downgrade to `settings.code`, an ordinary JS Block, another Surface, or a JS
+Template.

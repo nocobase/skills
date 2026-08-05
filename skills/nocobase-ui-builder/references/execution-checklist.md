@@ -22,7 +22,7 @@ Use this checklist after the matching quick route is already clear. For global r
 - Page identity is the menu group `navigation.group.routeId` plus the `page.title`. A create in the same group with the same page title upgrades to `replace`; a page in a different group with the same page title must not replace, merge, or reuse the existing page.
 - If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first, route through [js.md](./js.md), and apply [runjs-capability-gate.md](./runjs-capability-gate.md) before any single-file compatibility decision.
-- Record the Host `runJSLocator`, `workspaceStatus`, `workspaceRetryable`, and `workspaceError.code/message`; check the required `run-js-sources` action with action-level `--help`, then classify actual open/save-changes status and `errors[].code`. Include preview status only when an explicit dry-run/debug step used it. Do not use `nb light` as an Inline capability probe, and do not treat a generic 404 as a missing command/resource.
+- Record the Host `runJSLocator`, `workspaceStatus`, `workspaceRetryable`, and `workspaceError.code/message`; check the required `run-js-sources` action with action-level `--help`, then classify actual open/save-changes status and `errors[].code`. Include preview status only when an explicit dry-run/debug step used it. Do not use `nb js-template` as an Inline capability probe, and do not treat a generic 404 as a missing command/resource.
 - If a dashboard asks for chart / 图表 / Charts / trend / 趋势 / distribution / 分布 / ranking / 排行 / percentage / 占比, record the required chart sections before drafting; KPI JSBlocks and tables/lists cannot satisfy those chart sections.
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
@@ -36,13 +36,15 @@ Use this checklist after the matching quick route is already clear. For global r
 - Only a JS Block with confirmed `FLOW_SURFACE_RUNJS_BOOTSTRAP_PROVIDER_UNAVAILABLE` or `RUNJS_SOURCE_KIND_UNSUPPORTED` and a verified Host public write may fall back to `settings.code/settings.version` or direct `changes.code/changes.version`.
 - JS Page Workspace failure stops; public configure writes metadata only, so never substitute an ordinary page + JS Block.
 - 401/403, owner/Repository/base commit 404, error diagnostics, compile/descriptor/import 400, file/base/owner conflict or no-change/archived 409, 413, and network/5xx failures use their real repair/stop paths and never prove unsupported capability.
-- If the user requested shared implementation, single maintenance without copied code, independent Git ownership, or distribution, unavailable Light Extension capability is unfinished work, not permission to downgrade to Inline.
-- For Light Extension reuse or move-back, route through
-  [light-extension-roundtrip.md](./light-extension-roundtrip.md). Capture the first move's binding, validate that exact
-  Repository/Entry with `list-selectable/get`, and confirm the second Host supports the same Entry kind before writing.
-- Reuse means one Repository, one Entry, and two Host bindings. Do not run a second `moveSource`, copy the Entry, change
-  `entry.json.key`, or use a retained pre-externalization fallback as move-back source.
-- Use `existing` only for an explicitly selected or already-known Repository; otherwise create a business-named `new` Repository. Both move directions use a stable idempotency key for exact retries, and any request change requires a new key.
+- If the user requested multiple Hosts to share one maintained implementation without copied code, unavailable JS Template capability is unfinished work, not permission to downgrade to Inline. Independent Git storage or distribution alone keeps a single-Host implementation Inline.
+- For JS Template reuse or Detach to Inline, route through
+  [js-template-roundtrip.md](./js-template-roundtrip.md). Capture the first Save as JS Template binding, validate that exact
+  Source Project/Template Entry with `js-templates list-selectable/get`, and confirm the second Host supports the same kind.
+- Reuse means one Source Project, one Template Entry, and two effective Usages. Do not run Save as JS Template again,
+  copy the Template, change `entry.json.key`, or use the retained older Inline fallback as Detach source.
+- Use `existing` only for an explicitly selected/current/same-task Source Project; otherwise create a business-named `new` Source Project while separately naming the Template Entry. Save as JS Template and Detach to Inline require stable non-empty idempotency keys for equivalent retries; Detach also requires current `expectedProjectHeadCommitId`.
+- Persist exactly `sourceMode: "js-template"` and `sourceBinding: { type: "js-template-entry", projectId, templateId, kind }`; resolve all display/source metadata separately.
+- Usage readback is template-level, paginated, excludes `owner_missing`, and never exposes hidden owner details. Effective Usage blocks Template deletion until supported owner operations remove it.
 
 ## 2. Template Decision Gate
 
@@ -133,8 +135,9 @@ Stop instead of guessing when:
 
 - For chart-required dashboards, the final summary must list `chart blocks: <title> -> <asset key or live chart uid>`.
 - If readback only proves `jsBlock`, `table`, or `list` content for a requested chart section, say the chart section is unfinished instead of claiming dashboard completion.
-- For an allowed JS Block fallback, state that multi-file Workspace capability is unavailable on the current instance, single-file Inline was used, and no Light Extension Repository was created.
-- For a complete JS Page or JS Block, state that the Host was ready, `save-changes` succeeded with no error diagnostics, a new commit and owner fingerprint were returned, and no Light Extension Repository was automatically created. Do not claim Host Preview unless it was separately run.
-- For Light Extension reuse/move-back, report both Hosts' source modes, bindings, and independent overrides;
-  Repository/Entry counts and stable key; old/current Head and commits; reference readback; the moved Host's latest
-  reachable Inline source commit; preservation of the other binding/history; and the browser-verification boundary.
+- For an allowed JS Block fallback, state that multi-file Workspace capability is unavailable on the current instance, single-file Inline was used, and no Source Project or Template Entry was created.
+- For a complete JS Page or JS Block, state that the Host was ready, `save-changes` succeeded with no error diagnostics, a new commit and owner fingerprint were returned, and no Source Project or Template Entry was automatically created. Do not claim Host Preview unless it was separately run.
+- For JS Template reuse/Detach, report both Hosts' source modes, exact four-field bindings, and independent overrides;
+  Source Project/Template counts and stable source key; old/current Head and commits; template-level Usage readback;
+  Detach idempotency/Head CAS and the selected Host's current reachable Inline commit; preservation of the other
+  binding/history; deletion protection where relevant; and the browser-verification boundary.
