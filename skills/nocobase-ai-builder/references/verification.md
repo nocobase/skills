@@ -1,35 +1,67 @@
 # Verification
 
-Validate behavior and product quality, not only compilation.
+Validate behavior and product quality, not only compilation. Plan verification while implementing instead of adding tests after the feature is finished.
 
-## Static checks
+## Test strategy
+
+- Add or update the smallest set of tests that protects meaningful user behavior, public contracts, important regressions, and high-risk failure modes.
+- Cover the system's primary workflows. Prefer a few complete E2E journeys plus focused frontend tests over many fragmented cases.
+- Do not duplicate the same assertion in frontend and E2E tests unless each layer protects a different contract.
+- If a change does not justify a new test, run the relevant existing tests and explain why no new test was needed.
+- Remove stale or low-value tests when they obscure the useful suite.
+
+## Frontend tests
+
+Use frontend tests for pure logic and local component behavior that does not need a running NocoBase backend.
+
+- Exercise behavior through ordinary props, rendered output, user events, local UI state, and stable public contracts.
+- Test reusable business logic, validation, formatting, state transitions, and component interaction when these can be isolated naturally.
+- Do not mock NocoBase APIs, authentication, ACL, data providers, or server data to force an integration scenario into a frontend test. Put that scenario in E2E.
+- Do not assert source strings, regex-match JSX, depend on internal component structure, or use broad snapshots as a substitute for behavior assertions.
+
+## E2E tests
+
+Use E2E tests with a real NocoBase backend and browser for authentication, data, permissions, routing integration, files, AI, and other server-backed behavior. Use the project's configured E2E runner to start the Portal frontend when supported.
+
+Select scenarios according to the feature rather than mechanically testing every control. A substantial system should cover its primary journey and the relevant items below:
+
+- sign-in and session persistence;
+- the main list, create, edit, detail, or business workflow using real records;
+- the real Portal basename, visible menu inventory, direct route access, and refresh;
+- Back and Forward through route dialogs, drawers, and subpages, including restoration of the originating URL with its query and hash;
+- direct entry to a contextual child route and its safe close fallback;
+- representative allowed and denied role or ACL states for permission-sensitive behavior;
+- controlled Select labels before and after persistence when stored values differ from display labels;
+- loading, validation, empty, error, unauthorized, recovery, or session-expiry behavior when it presents a material risk;
+- error-boundary containment, recovery, copyable diagnostics, and sensitive-data redaction when high-risk renderers change;
+- representative desktop and narrow viewport behavior for important responsive flows;
+- contextual AI behavior and its complete non-AI path when AI interaction is implemented;
+- file workflows only when they are material to the requested system.
+
+Use representative demo data so relationships, filters, dashboards, permissions, and AI context exercise realistic behavior. Do not make the test suite depend on unrelated pre-existing records when controlled test setup is practical.
+
+## Test-value rules
+
+Do not add tests merely to increase coverage or test count. Avoid:
+
+- placeholder or component-exists tests;
+- tests that only assert an export is a function or a file contains text;
+- source-code regex tests and implementation-detail assertions;
+- snapshot-heavy coverage with no meaningful behavioral assertion;
+- duplicated cases that protect no additional workflow or risk;
+- broad mocks that make a server-backed flow pass without validating the real integration.
+
+Every retained test should have a clear regression it would catch. When one E2E workflow already proves several connected steps, do not split it into many superficial tests solely for reporting.
+
+## Static and build checks
 
 - Run the project's TypeScript check and production build.
-- Run focused existing tests for changed authentication, ACL, i18n, data, or extension integration.
+- Run the relevant frontend and E2E tests for the changed area.
 - Check the diff for accidental changes to `src/extensions`, `src/components/ui`, lockfiles, generated files, environment files, and unrelated user work.
-- Do not add low-value tests that only assert component existence or duplicate implementation details.
 
-## Browser checks
+## Focused browser inspection
 
-- Open the application under the real Portal basename.
-- Inspect the console and failed network requests.
-- Navigate through every new menu entry.
-- Compare the intended page inventory with the rendered sidebar for each representative role; routes intended for navigation must not be URL-only.
-- Open each new route directly and refresh it.
-- Exercise browser Back and Forward through dialogs, drawers, and nested subpages.
-- Verify close behavior with and without an originating route.
-- Open reused create, edit, show, and related-content surfaces from every supported host. Confirm each URL remains under the host that opened it and lower route layers stay mounted.
-- Start from a host URL with representative filters, pagination, tab state, query parameters, and a hash. Open and close the child surface and confirm the complete host URL is restored.
-- Open or refresh a contextual child URL without navigation state and confirm close falls back to the immediate safe parent route.
-- Check loading, empty, populated, validation, error, unauthorized, and success states that can be exercised safely.
-- For changed high-risk renderers, trigger a representative render failure and confirm the nearest root, page, or region boundary contains it without blanking unrelated UI.
-- Confirm boundary diagnostics are visible and copyable, navigation or retry recovers as designed, and copied output excludes tokens, request headers, credentials, and URL query values.
-- Confirm representative demo records make the primary pages, relationships, filters, dashboards, and contextual AI interaction meaningfully testable.
-- Check allowed and denied roles, route guards, regions, actions, and record controls.
-- Check session expiry and the intended login return path when authentication changed.
-- Check representative desktop and narrow viewports.
-- Exercise controlled selects whose stored values differ from their labels and confirm the trigger shows readable localized labels before and after reload.
-- Check theme contrast, typography, density, overflow, focus visibility, and light/dark behavior when supported.
+Use manual browser inspection only as a supplement for visual, responsive, accessibility, or exploratory product-quality concerns that automated assertions do not reasonably express. Inspect the console and failed requests while doing so. If inspection exposes a durable regression risk, convert it into an automated test when practical. Do not report browser inspection as equivalent to repeatable acceptance tests.
 
 ## Product-quality review
 
