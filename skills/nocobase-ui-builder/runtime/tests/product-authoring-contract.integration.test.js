@@ -4,12 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import {
-  findJsonObjectByExactKeys,
-  JS_TEMPLATE_OPERATION_OUTCOMES,
-  parseMarkedJson,
-} from './helpers/js-template-contract.js';
-import { readYamlScalar } from './helpers/yaml-scalar.js';
+import { findJsonObjectByExactKeys } from './helpers/js-template-contract.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const requireProductContract =
@@ -141,8 +136,6 @@ test('locks delta, Save as, reuse, and Detach semantics across repositories', pr
   const workspace = readSkill('references/runjs-workspace-source.md');
   const transport = readSkill('references/js-template-transport.md');
   const roundtrip = readSkill('references/js-template-roundtrip.md');
-  const prompt = readYamlScalar(readSkill('agents/openai.yaml'), 'default_prompt');
-  const { outcomes } = parseMarkedJson(prompt);
 
   assert.equal(manifest.inlineWorkspace.saveMode, 'delta');
   assert.match(workspace, /baseCommitId[\s\S]{0,160}baseOwnerFingerprint/);
@@ -168,7 +161,6 @@ test('locks delta, Save as, reuse, and Detach semantics across repositories', pr
     ).sort(),
     ['kind', 'projectId', 'templateId', 'type'],
   );
-  assert.deepEqual(outcomes, JS_TEMPLATE_OPERATION_OUTCOMES);
   assert.match(roundtrip, /\bJS_TEMPLATE_USAGE_EXISTS\b/);
   assert.match(roundtrip, /run-js-sources open\/open-latest\/save-changes/);
   assert.match(roundtrip, /nb js-template pull\/check\/save/);

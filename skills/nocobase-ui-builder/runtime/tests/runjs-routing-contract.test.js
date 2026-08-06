@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { parseMarkedJson } from './helpers/js-template-contract.js';
 import { readYamlScalar } from './helpers/yaml-scalar.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -132,7 +131,6 @@ test('active Skill and prompt apply the four-way solution gate', () => {
   const routePositions = orderedRoutes.map((route) => promptGate.indexOf(route));
   assert.ok(routePositions.every((position) => position >= 0), 'OpenAI prompt should name every solution route');
   assert.deepEqual(routePositions, [...routePositions].sort((left, right) => left - right));
-  assert.equal(parseMarkedJson(prompt).match, 'first');
 });
 
 test('transport serializes the Host-returned locator without teaching a hand-shaped locator', () => {

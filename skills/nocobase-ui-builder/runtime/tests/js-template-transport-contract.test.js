@@ -8,6 +8,14 @@ import { findJsonObjectByExactKeys } from './helpers/js-template-contract.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const transport = readFileSync(path.join(skillRoot, 'references/js-template-transport.md'), 'utf8');
+const canonicalDocuments = [
+  'SKILL.md',
+  'agents/openai.yaml',
+  'references/js-template-source.md',
+  'references/js-template-transport.md',
+  'references/js-template-roundtrip.md',
+  'references/evals/js-template-routing.md',
+].map((relativePath) => readFileSync(path.join(skillRoot, relativePath), 'utf8'));
 
 const saveAsKeys = [
   'idempotencyKey',
@@ -55,6 +63,7 @@ test('uses only canonical JS Template transports and body files', () => {
 
   const topics = [...transport.matchAll(/\bnb\s+([a-z][a-z-]*)\b/g)].map((match) => match[1]);
   assert.ok(topics.every((topic) => topic === 'api' || topic === 'js-template'));
+  assert.ok(canonicalDocuments.every((document) => !/\bnb\s+light\b/i.test(document)));
 });
 
 test('documents one canonical Save as request and separates Project from Template identity', () => {
