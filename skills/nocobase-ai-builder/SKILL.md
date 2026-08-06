@@ -6,7 +6,7 @@ description: >-
   the selected Portal has portalType "ai". Use it for complete systems, pages,
   navigation, CRUD, dashboards, forms, dialogs, drawers, URL-addressable
   subpages, authentication UI, frontend access control, localization, themes,
-  NocoBase API integration, responsive design, browser verification, and safe
+  NocoBase API integration, responsive design, test-driven verification, and safe
   upgrades of existing Portal template, SDK, and Registry source.
 ---
 
@@ -30,17 +30,21 @@ Turn a user's business request into a coherent, production-shaped AI Portal appl
 
 ## 1. Inspect the current application
 
-Before designing or writing code:
+Use question-driven, progressive discovery before designing or writing code. Do not build a complete inventory of the repository as a routine prerequisite.
 
-1. Inspect the project structure, package scripts, runtime configuration, routes, resources, providers, pages, components, and installed extensions.
-2. Inspect existing examples and reusable components before creating equivalents.
-3. Identify existing branding, navigation, theme tokens, authentication, ACL, i18n, API, and asset URL conventions.
+Scope discovery to the current task or milestone. Inspect application source only when it answers a concrete question or supports the current change, and defer unrelated layers until they become relevant.
+
+1. Read the project instructions, package scripts, and the route or feature entry points directly relevant to the request.
+2. Search by filename, symbol, route, export, or import before opening files. Inspect the closest matching implementation and only the direct dependencies needed to understand its public contract.
+3. Identify the relevant branding, navigation, theme, authentication, ACL, i18n, API, and asset conventions from those files. Expand the search only when a specific unanswered question blocks a safe implementation.
 4. Confirm collections, fields, associations, and actions from real NocoBase metadata, Swagger documents, responses, or existing code. When API integration is in scope, use `nb api swagger list/get` to read the narrowest relevant document namespace. Never invent backend contracts.
-5. Identify template demo menus, pages, copy, and branding that should be replaced for the requested system.
+5. For a new or substantially redesigned system, identify the template demo surface that must be replaced without auditing unrelated Registry items or application features.
+
+Stop exploring once the target location, closest applicable implementation contract, any API contract required by the task, and a suitable verification path are known. Do not recursively read `src`, `registry`, or `src/extensions` merely to gain general confidence. Repository-wide inspection is reserved for an explicit audit, upgrade, migration, or cross-cutting refactor.
 
 When a requested server-backed capability has no reliable existing example, reading Swagger is required before claiming it can be implemented. Locate and fetch the relevant collection or plugin namespace, then confirm the endpoint, method, parameters, request body, response, and documented permission expectations. If the required capability is absent from the available documents, do not guess an API or present the feature as supported; report the missing contract and determine whether a backend or plugin change is required.
 
-Read [Project Conventions](references/project-conventions.md) before editing application structure or UI foundations. Read [NocoBase Runtime](references/nocobase-runtime.md) before implementing data, authentication, i18n, runtime configuration, or assets.
+When the active milestone edits application structure or UI foundations, read [Project Conventions](references/project-conventions.md). When it implements data, authentication, i18n, runtime configuration, or assets, read [NocoBase Runtime](references/nocobase-runtime.md).
 
 ## 2. Design the system before coding
 
@@ -56,6 +60,8 @@ Create a compact internal product brief from the user's request:
 - route, dialog, drawer, and subpage model;
 - frontend access-control model;
 - visual direction, density, theme, and responsive behavior.
+
+Keep implementation planning rolling and milestone-sized. For a complete system, outline later milestones briefly and plan the current reversible milestone in detail. Implement and verify it before refining the next milestone, and load specialized skills when their work becomes relevant.
 
 Make reasonable product decisions when details are missing. Ask only when a missing choice materially changes business behavior, data, security, or an irreversible action.
 
@@ -129,19 +135,21 @@ After the system's core workflows work without AI, review the finished pages and
 
 For a complete AI Portal system build, implement at least one credible, contextual AI interaction. Evaluation or a list of possible ideas alone does not complete this requirement. Choose the best-supported interaction without asking for another confirmation when it does not materially change business behavior or security.
 
-- Inspect the installed AI extensions, existing demos, hooks, components, tool-call renderers, and employee integration examples before designing a new interaction.
+- Use targeted search to locate the installed AI example closest to the chosen interaction. Inspect that example, its public contract, and only the direct dependencies needed to reuse it; do not enumerate all installed AI extensions, hooks, demos, or tool renderers.
 - Never add, bind, expose, or select developer-category employees for Portal AI interactions. Exclude known developer usernames such as `nathan`, `dara`, `lina`, and `orin` even when they are returned by discovery APIs; use a suitable business employee or create a dedicated one.
-- Before implementing a page-level AI interaction, study the installed Page Context demo and its prompt-generator scenarios. Prefer an existing pattern—manual page-element selection, Shortcut task context, conversation preset context, inherited `AIPageContextScope`, Form filler, or a permission-aware custom frontend Tool—and reuse its context and task contracts.
+- Before implementing a page-level AI interaction, locate the installed Page Context scenario closest to the requirement. Prefer an existing pattern—manual page-element selection, Shortcut task context, conversation preset context, inherited `AIPageContextScope`, Form filler, or a permission-aware custom frontend Tool—and reuse its context and task contracts.
 - Prefer contextual entry points close to the relevant page, record, selection, or action. Make the context being shared and the result being produced clear to the user.
 - Preserve a complete non-AI workflow. AI output must not silently bypass validation, ACL, confirmation, or server-side business rules.
 - Reuse existing AI runtime and employee/tool contracts. Use `nocobase-ai-employee` when employee, model, tool, or prompt configuration is required.
 - Do not satisfy the requirement with a decorative chat button or an unsupported capability. If no employee, model, tool contract, or runtime can support a credible interaction, diagnose the missing prerequisite and report the AI portion as incomplete instead of silently skipping it.
 
-## 9. Verify the result
+## 9. Verify the result with tests
 
-Run the project's relevant type check and production build. Run focused existing regression tests when the changed area has them; do not add superficial tests solely to increase test count.
+Design verification alongside implementation. Add or update the smallest valuable set of automated tests that protects the changed behavior and the system's primary workflows; do not create tests merely to increase coverage or test count.
 
-Use browser verification for user-visible work. Validate the actual route under the Portal basename, console errors, navigation, direct URLs, refresh, history, dialogs and drawers, role and ACL states, populated demo data, responsive layout, theme consistency, required AI and non-AI paths, and removal of template residue. Compare the intended page inventory with the rendered sidebar, confirm that no plain resource-action page is appended below its parent list, and verify that controlled selects display labels rather than stored values.
+Use frontend tests for pure logic and local component interaction that can run without backend data, authentication, ACL, or data-provider mocks. Use E2E tests against a real NocoBase environment for authentication, data, roles and permissions, routing integration, files, AI, and complete user journeys. Cover the primary successful workflow and representative high-risk denied, error, or recovery paths.
+
+Run type checking, relevant frontend tests, relevant E2E tests, and the production build. Use focused browser inspection only for exploratory visual or responsive checks that automated assertions cannot reasonably express; it must not replace repeatable acceptance tests.
 
 Read [Verification](references/verification.md) before completing a substantial page or system build.
 
@@ -172,6 +180,8 @@ incorporated and verified.
 
 # Reference Loading Map
 
+This map is just-in-time guidance, not a preflight reading checklist. Load only the reference required by the active milestone; do not read references for future milestones.
+
 | Reference | Read when |
 |---|---|
 | [Project Conventions](references/project-conventions.md) | Changing structure, branding, theme, shared UI, extension use, or starter content |
@@ -190,6 +200,6 @@ Report:
 - data, route, and access-control assumptions confirmed from real evidence;
 - representative demo data created, or the explicit reason it could not be created;
 - the contextual AI interaction delivered, or the exact missing runtime prerequisite blocking it;
-- checks and browser scenarios run;
+- automated checks and acceptance scenarios run;
 - anything incomplete or requiring server configuration;
 - optional next steps, without automatically pushing or deploying.
