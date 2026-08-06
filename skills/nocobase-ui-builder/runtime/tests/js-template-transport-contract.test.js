@@ -4,19 +4,26 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { findJsonObjectByExactKeys } from './helpers/js-template-contract.js';
+
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const transport = readFileSync(path.join(skillRoot, 'references/js-template-transport.md'), 'utf8');
 
-function extractJsonAfter(marker) {
-  const markerStart = transport.indexOf(marker);
-  assert.notEqual(markerStart, -1, `should find marker ${marker}`);
-  const fenceStart = transport.indexOf('```json\n', markerStart);
-  assert.notEqual(fenceStart, -1, `should find JSON fence after ${marker}`);
-  const jsonStart = fenceStart + '```json\n'.length;
-  const fenceEnd = transport.indexOf('\n```', jsonStart);
-  assert.notEqual(fenceEnd, -1, `should close JSON fence after ${marker}`);
-  return JSON.parse(transport.slice(jsonStart, fenceEnd));
-}
+const saveAsKeys = [
+  'idempotencyKey',
+  'locator',
+  'expectedOwnerFingerprint',
+  'sourceRepoId',
+  'sourceHeadCommitId',
+  'entryPath',
+  'runtimeVersion',
+  'files',
+  'destination',
+  'templateName',
+  'templateTitle',
+];
+const bindingKeys = ['type', 'projectId', 'templateId', 'kind'];
+const detachKeys = ['idempotencyKey', 'locator', 'projectId', 'templateId', 'expectedProjectHeadCommitId'];
 
 test('uses only canonical JS Template transports and body files', () => {
   for (const command of [
@@ -51,21 +58,8 @@ test('uses only canonical JS Template transports and body files', () => {
 });
 
 test('documents one canonical Save as request and separates Project from Template identity', () => {
-  const request = extractJsonAfter('## Canonical Save as request\n');
-  const required = [
-    'idempotencyKey',
-    'locator',
-    'expectedOwnerFingerprint',
-    'sourceRepoId',
-    'sourceHeadCommitId',
-    'entryPath',
-    'runtimeVersion',
-    'files',
-    'destination',
-    'templateName',
-    'templateTitle',
-  ];
-  assert.deepEqual(Object.keys(request).sort(), [...required].sort());
+  const request = findJsonObjectByExactKeys(transport, saveAsKeys, 'Save as request');
+  assert.deepEqual(Object.keys(request).sort(), [...saveAsKeys].sort());
   assert.deepEqual(request.destination, {});
   assert.equal(typeof request.locator, 'object');
   assert.ok(request.files.length >= 4);
@@ -75,16 +69,19 @@ test('documents one canonical Save as request and separates Project from Templat
   assert.equal('version' in request, false);
   assert.match(transport, /Replace the complete sample `locator` value[\s\S]{0,180}exact `data\.locator` object/i);
   assert.match(transport, /Do not select or construct its fields individually/i);
-  assert.deepEqual(extractJsonAfter('For an existing Source Project, use only:\n'), {
+  assert.deepEqual(findJsonObjectByExactKeys(transport, ['type', 'projectId'], 'existing destination'), {
     type: 'existing',
     projectId: 'project-id-selected-from-js-template-projects-list',
   });
-  assert.deepEqual(extractJsonAfter('For a new Source Project, use only:\n'), {
-    type: 'new',
-    name: 'sales-tools',
-    title: 'Sales tools',
-    description: 'Reusable sales surfaces',
-  });
+  assert.deepEqual(
+    findJsonObjectByExactKeys(transport, ['type', 'name', 'title', 'description'], 'new destination'),
+    {
+      type: 'new',
+      name: 'sales-tools',
+      title: 'Sales tools',
+      description: 'Reusable sales surfaces',
+    },
+  );
   assert.match(transport, /Source Project selection is[\s\S]{0,180}separate from `templateName` and `templateTitle`/i);
   assert.doesNotMatch(transport, /"type"\s*:\s*"default"/i);
 });
@@ -111,8 +108,13 @@ test('requires one Inline snapshot and mandatory stable idempotency', () => {
 });
 
 test('persists exactly the four-field binding and keeps generic source metadata separate', () => {
-  const binding = extractJsonAfter('## Record the durable result\n');
-  assert.deepEqual(Object.keys(binding), ['type', 'projectId', 'templateId', 'kind']);
+  const binding = findJsonObjectByExactKeys(
+    transport,
+    bindingKeys,
+    'durable Host binding',
+    (value) => value.type === 'js-template-entry',
+  );
+  assert.deepEqual(Object.keys(binding), bindingKeys);
   assert.equal(binding.type, 'js-template-entry');
   assert.match(transport, /sourceMode: "js-template"/i);
   assert.match(transport, /Do not add Source Project\/Template names, titles,[\s\S]{0,100}paths, or keys/i);
@@ -150,11 +152,14 @@ test('distinguishes Inline CAS from Source Project Head CAS', () => {
 });
 
 test('documents visibility-safe Usage, save impact, and server-authoritative deletion protection', () => {
-  assert.deepEqual(extractJsonAfter('## Usage and deletion\n'), {
-    templateId: 'template-id',
-    page: 1,
-    pageSize: 20,
-  });
+  assert.deepEqual(
+    findJsonObjectByExactKeys(transport, ['templateId', 'page', 'pageSize'], 'Usage request'),
+    {
+      templateId: 'template-id',
+      page: 1,
+      pageSize: 20,
+    },
+  );
   assert.match(transport, /visible effective owner locations/i);
   assert.match(transport, /effectiveCount[\s\S]{0,120}hiddenCount/i);
   assert.match(transport, /`owner_missing` is excluded/i);
@@ -165,11 +170,8 @@ test('documents visibility-safe Usage, save impact, and server-authoritative del
 });
 
 test('requires Head CAS and idempotency for Detach to Inline', () => {
-  const request = extractJsonAfter('## Detach to Inline\n');
-  assert.deepEqual(
-    Object.keys(request).sort(),
-    ['idempotencyKey', 'locator', 'projectId', 'templateId', 'expectedProjectHeadCommitId'].sort(),
-  );
+  const request = findJsonObjectByExactKeys(transport, detachKeys, 'Detach request');
+  assert.deepEqual(Object.keys(request).sort(), [...detachKeys].sort());
   assert.match(request.idempotencyKey, /^detach-to-inline-/);
   for (const removedField of ['entryPath', 'kind', 'runtimeVersion', 'version', 'files']) {
     assert.equal(removedField in request, false);
@@ -184,23 +186,27 @@ test('requires Head CAS and idempotency for Detach to Inline', () => {
   assert.match(transport, /Success changes only the selected Host to Inline[\s\S]{0,180}other Host bindings/i);
 });
 
-test('defines route-specific completion without freezing prose', () => {
-  const completion = transport.match(/^## Completion evidence\n([\s\S]*)$/m)?.[1];
-  assert.ok(completion, 'should find completion evidence');
-  for (const token of [
-    'for Save as:',
+test('anchors completion evidence to stable machine fields', () => {
+  for (const field of [
     'runtimeVersion',
-    'exact four-field binding',
-    'for a shared edit:',
-    'accepted Check snapshot',
-    'Usage impact',
-    'for Detach:',
-    'exact five-field request',
-    'cleared selected binding/Usage',
-    'unchanged other Host bindings',
+    'snapshotId',
+    'baseHeadCommitId',
+    'expectedProjectHeadCommitId',
+    'effectiveCount',
+    'ownerFingerprint',
+    'filesHash',
+    'sourceRef',
   ]) {
-    assert.match(completion, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    assert.match(transport, new RegExp(`\\b${field}\\b`));
   }
+  assert.deepEqual(
+    Object.keys(findJsonObjectByExactKeys(transport, bindingKeys, 'completion Host binding')).sort(),
+    [...bindingKeys].sort(),
+  );
+  assert.deepEqual(
+    Object.keys(findJsonObjectByExactKeys(transport, detachKeys, 'completion Detach request')).sort(),
+    [...detachKeys].sort(),
+  );
 });
 
 test('documents atomic failures and complete canonical handoff evidence', () => {
@@ -225,17 +231,15 @@ test('documents atomic failures and complete canonical handoff evidence', () => 
   }
   assert.match(transport, /No Head, Template, Artifact, Host binding, or Usage state advances/i);
   for (const evidence of [
-    'Source Project id/name',
-    'source commit id/message',
-    'tree hash/size',
-    'Template id/name/title/kind',
-    'exact four-field Host binding',
-    'Template-level effective Usage count',
-    'independent Host Settings overrides',
-    'for Detach:',
-    'Project Head CAS evidence',
+    'headCommitId',
+    'templateName',
+    'runtimeVersion',
+    'ownerFingerprint',
+    'effectiveCount',
+    'expectedProjectHeadCommitId',
+    'sourceRef',
   ]) {
-    assert.match(transport, new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    assert.match(transport, new RegExp(`\\b${evidence}\\b`));
   }
   assert.match(transport, /API\/CLI evidence is not rendered-browser evidence/i);
   assert.match(transport, /browser rendering remains unverified/i);

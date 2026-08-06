@@ -4,6 +4,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import {
+  assertContainsTokens,
+  findJsonObjectByExactKeys,
+  parseMarkedJson,
+} from './helpers/js-template-contract.js';
+import { readYamlScalar } from './helpers/yaml-scalar.js';
+
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const requireProductContract =
   process.env.REQUIRE_PRODUCT_CONTRACT === '1' || process.env.npm_lifecycle_event === 'test:product-contract';
@@ -28,17 +35,6 @@ function readProductManifest() {
   );
   assert.equal(existsSync(absolutePath), true, `missing NocoBase contract file: ${absolutePath}`);
   return JSON.parse(readFileSync(absolutePath, 'utf8'));
-}
-
-function extractJsonAfter(text, marker) {
-  const markerStart = text.indexOf(marker);
-  assert.notEqual(markerStart, -1, `should find marker ${marker}`);
-  const fenceStart = text.indexOf('```json\n', markerStart);
-  assert.notEqual(fenceStart, -1, `should find JSON fence after ${marker}`);
-  const jsonStart = fenceStart + '```json\n'.length;
-  const fenceEnd = text.indexOf('\n```', jsonStart);
-  assert.notEqual(fenceEnd, -1, `should close JSON fence after ${marker}`);
-  return JSON.parse(text.slice(jsonStart, fenceEnd));
 }
 
 function parseBacktickValuesAfterPrefix(text, prefix) {
@@ -70,7 +66,7 @@ test('keeps Skills authoring guidance aligned with the product manifest', produc
     ['Workspace', workspace],
     ['JS Template', transport],
   ]) {
-    const documentedVersion = text.match(/Contract version `([^`]+)` publishes/i)?.[1];
+    const documentedVersion = text.match(/Contract version `([^`]+)`/i)?.[1];
     assert.equal(documentedVersion, manifest.authoringContractVersion, `${label} contract version should match`);
   }
   assertDocumentedBoolean(workspace, 'inlineWorkspace.available', manifest.inlineWorkspace.available);
@@ -106,17 +102,36 @@ test('keeps Skills authoring guidance aligned with the product manifest', produc
     'externalization.supportsDetachToInline',
     manifest.externalization.supportsDetachToInline,
   );
-  const detachSection = transport.match(/^## Detach to Inline\n([\s\S]*?)^## /m)?.[1];
-  assert.ok(detachSection, 'JS Template transport should document Detach to Inline');
-  assert.match(detachSection, /expectedProjectHeadCommitId/i);
-  assert.deepEqual(Object.keys(extractJsonAfter(transport, '## Detach to Inline\n')).sort(), [
+  assert.deepEqual(Object.keys(findJsonObjectByExactKeys(transport, [
+    'expectedProjectHeadCommitId',
+    'idempotencyKey',
+    'locator',
+    'projectId',
+    'templateId',
+  ], 'Detach request')).sort(), [
     'expectedProjectHeadCommitId',
     'idempotencyKey',
     'locator',
     'projectId',
     'templateId',
   ]);
-  const saveAsRequest = extractJsonAfter(transport, '## Canonical Save as request\n');
+  const saveAsRequest = findJsonObjectByExactKeys(
+    transport,
+    [
+      'idempotencyKey',
+      'locator',
+      'expectedOwnerFingerprint',
+      'sourceRepoId',
+      'sourceHeadCommitId',
+      'entryPath',
+      'runtimeVersion',
+      'files',
+      'destination',
+      'templateName',
+      'templateTitle',
+    ],
+    'Save as request',
+  );
   assert.equal(saveAsRequest.runtimeVersion, 'v2');
   assert.equal('version' in saveAsRequest, false);
 });
@@ -126,6 +141,8 @@ test('locks delta, Save as, reuse, and Detach semantics across repositories', pr
   const workspace = readSkill('references/runjs-workspace-source.md');
   const transport = readSkill('references/js-template-transport.md');
   const roundtrip = readSkill('references/js-template-roundtrip.md');
+  const prompt = readYamlScalar(readSkill('agents/openai.yaml'), 'default_prompt');
+  const { outcomes } = parseMarkedJson(prompt);
 
   assert.equal(manifest.inlineWorkspace.saveMode, 'delta');
   assert.match(workspace, /baseCommitId[\s\S]{0,160}baseOwnerFingerprint/);
@@ -133,10 +150,36 @@ test('locks delta, Save as, reuse, and Detach semantics across repositories', pr
   assert.equal(manifest.externalization.available, true);
   assert.equal(manifest.externalization.supportsIdempotency, true);
   assert.equal(manifest.externalization.supportsDetachToInline, true);
-  assert.match(transport, /complete[\s\S]{0,20}semantic request/i);
-  assert.match(transport, /`idempotencyKey` is required, non-empty/i);
-  assert.match(transport, /Equivalent retries return the first/i);
-  assert.match(roundtrip, /one Source Project, one JS Template, and two effective Usages/i);
-  assert.match(roundtrip, /server[\s\S]{0,180}derives kind, entry path, `runtimeVersion`, and reachable files/i);
-  assert.match(roundtrip, /histories are independent/i);
+  assert.ok(findJsonObjectByExactKeys(transport, [
+    'idempotencyKey',
+    'locator',
+    'projectId',
+    'templateId',
+    'expectedProjectHeadCommitId',
+  ], 'Detach request').idempotencyKey);
+  assert.deepEqual(
+    Object.keys(
+      findJsonObjectByExactKeys(
+        roundtrip,
+        ['type', 'projectId', 'templateId', 'kind'],
+        'reused Host binding',
+        (value) => value.type === 'js-template-entry',
+      ),
+    ).sort(),
+    ['kind', 'projectId', 'templateId', 'type'],
+  );
+  assertContainsTokens(
+    outcomes.saveAs,
+    ['head', 'template', 'runtime', 'binding', 'idem'],
+    'Save as outcomes',
+  );
+  assertContainsTokens(outcomes.sharedEdit, ['snapshot', 'delta', 'compiled', 'usage'], 'shared edit outcomes');
+  assertContainsTokens(
+    outcomes.detach,
+    ['request', 'cas', 'source', 'binding', 'others'],
+    'Detach outcomes',
+  );
+  assert.match(roundtrip, /\bJS_TEMPLATE_USAGE_EXISTS\b/);
+  assert.match(roundtrip, /run-js-sources open\/open-latest\/save-changes/);
+  assert.match(roundtrip, /nb js-template pull\/check\/save/);
 });
