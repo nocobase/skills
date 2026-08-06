@@ -2,6 +2,16 @@ import assert from 'node:assert/strict';
 
 export const JS_TEMPLATE_CONTRACT_MARKER = 'JS_TEMPLATE_CONTRACT_V1=';
 
+export const JS_TEMPLATE_OPERATION_OUTCOMES = {
+  saveAs: 'compile+valid|headNew|template+runtime|binding4|hostRead|idem',
+  sharedEdit: 'checkOk|deltaReview|headNew+compiled+runtime|usageDelta|bindsSame|settingsOwn',
+  detach: 'request5+headCAS|repo+commit+owner+hash+source|bindingGone+usageGone|othersSame',
+  stop: {
+    capability: 'incomplete+noFallback',
+    unsaved: 'saveOrDiscard+commitOnly',
+  },
+};
+
 const CORPUS_FIELDS = [
   'Prompt',
   'Expected route',
@@ -90,12 +100,4 @@ export function productRouteFor(caseRoute) {
     return caseRoute;
   }
   return null;
-}
-
-export function assertContainsTokens(values, required, label) {
-  const tokens = typeof values === 'string' ? values.split(',') : values;
-  assert.ok(Array.isArray(tokens), `${label} should be a comma-delimited string or array`);
-  for (const token of required) {
-    assert.ok(tokens.includes(token), `${label} should contain ${token}`);
-  }
 }

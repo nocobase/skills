@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import {
-  assertContainsTokens,
   findJsonObjectByExactKeys,
+  JS_TEMPLATE_OPERATION_OUTCOMES,
   parseMarkedJson,
 } from './helpers/js-template-contract.js';
 import { readYamlScalar } from './helpers/yaml-scalar.js';
@@ -168,17 +168,7 @@ test('locks delta, Save as, reuse, and Detach semantics across repositories', pr
     ).sort(),
     ['kind', 'projectId', 'templateId', 'type'],
   );
-  assertContainsTokens(
-    outcomes.saveAs,
-    ['head', 'template', 'runtime', 'binding', 'idem'],
-    'Save as outcomes',
-  );
-  assertContainsTokens(outcomes.sharedEdit, ['snapshot', 'delta', 'compiled', 'usage'], 'shared edit outcomes');
-  assertContainsTokens(
-    outcomes.detach,
-    ['request', 'cas', 'source', 'binding', 'others'],
-    'Detach outcomes',
-  );
+  assert.deepEqual(outcomes, JS_TEMPLATE_OPERATION_OUTCOMES);
   assert.match(roundtrip, /\bJS_TEMPLATE_USAGE_EXISTS\b/);
   assert.match(roundtrip, /run-js-sources open\/open-latest\/save-changes/);
   assert.match(roundtrip, /nb js-template pull\/check\/save/);

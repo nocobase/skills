@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { readYamlScalar } from './helpers/yaml-scalar.js';
 import {
-  assertContainsTokens,
+  JS_TEMPLATE_OPERATION_OUTCOMES,
   parseMarkedJson,
   parseRoutingCorpus,
   productRouteFor,
@@ -52,32 +52,7 @@ test('keeps route-specific operation outcomes as small semantic markers', () => 
   const prompt = readYamlScalar(read('agents/openai.yaml'), 'default_prompt');
   const { outcomes } = parseMarkedJson(prompt);
 
-  assert.deepEqual(Object.keys(outcomes).sort(), ['detach', 'saveAs', 'sharedEdit', 'stop']);
-  assertContainsTokens(
-    outcomes.saveAs,
-    ['head', 'template', 'runtime', 'binding', 'readback', 'idem'],
-    'Save as outcomes',
-  );
-  assertContainsTokens(
-    outcomes.sharedEdit,
-    ['snapshot', 'delta', 'head', 'compiled', 'runtime', 'usage', 'bindings', 'settings'],
-    'shared edit outcomes',
-  );
-  assertContainsTokens(
-    outcomes.detach,
-    ['request', 'cas', 'repo', 'commit', 'owner', 'hash', 'source', 'binding', 'usage', 'others'],
-    'Detach outcomes',
-  );
-  assertContainsTokens(
-    outcomes.stop.capability,
-    ['incomplete', 'noFallback'],
-    'missing-capability stop outcomes',
-  );
-  assertContainsTokens(
-    outcomes.stop.unsaved,
-    ['saveOrDiscard', 'committedOnly'],
-    'unsaved-edit stop outcomes',
-  );
+  assert.deepEqual(outcomes, JS_TEMPLATE_OPERATION_OUTCOMES);
 });
 
 test('keeps an extensible manual corpus with normal and failure coverage', () => {
