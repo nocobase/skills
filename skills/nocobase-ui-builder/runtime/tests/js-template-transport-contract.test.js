@@ -59,7 +59,7 @@ test('documents one canonical Save as request and separates Project from Templat
     'sourceRepoId',
     'sourceHeadCommitId',
     'entryPath',
-    'version',
+    'runtimeVersion',
     'files',
     'destination',
     'templateName',
@@ -71,6 +71,8 @@ test('documents one canonical Save as request and separates Project from Templat
   assert.ok(request.files.length >= 4);
   assert.ok(request.files.every((file) => file.path && typeof file.content === 'string'));
   assert.ok(request.files.some((file) => file.path === '.nocobase/runjs-source.json'));
+  assert.equal(request.runtimeVersion, 'v2');
+  assert.equal('version' in request, false);
   assert.match(transport, /Replace the complete sample `locator` value[\s\S]{0,180}exact `data\.locator` object/i);
   assert.match(transport, /Do not select or construct its fields individually/i);
   assert.deepEqual(extractJsonAfter('For an existing Source Project, use only:\n'), {
@@ -115,7 +117,7 @@ test('persists exactly the four-field binding and keeps generic source metadata 
   assert.match(transport, /sourceMode: "js-template"/i);
   assert.match(transport, /Do not add Source Project\/Template names, titles,[\s\S]{0,100}paths, or keys/i);
   assert.match(transport, /Do not rename generic Inline\/VSC `repoId`/i);
-  assert.match(transport, /source-format `entryPath`\/`entryKey`[\s\S]{0,40}semantics/i);
+  assert.match(transport, /canonical `entryPath`[\s\S]{0,100}source-format `entry\.json` contract/i);
 });
 
 test('keeps the Source Project pull-check-reviewed-delta-save gate explicit', () => {
@@ -166,26 +168,39 @@ test('requires Head CAS and idempotency for Detach to Inline', () => {
   const request = extractJsonAfter('## Detach to Inline\n');
   assert.deepEqual(
     Object.keys(request).sort(),
-    [
-      'idempotencyKey',
-      'locator',
-      'projectId',
-      'templateId',
-      'expectedProjectHeadCommitId',
-      'entryPath',
-      'kind',
-      'version',
-      'files',
-    ].sort(),
+    ['idempotencyKey', 'locator', 'projectId', 'templateId', 'expectedProjectHeadCommitId'].sort(),
   );
   assert.match(request.idempotencyKey, /^detach-to-inline-/);
-  assert.ok(request.files.length >= 3);
-  assert.match(transport, /complete reachable file set[\s\S]{0,220}all relative imports/i);
+  for (const removedField of ['entryPath', 'kind', 'runtimeVersion', 'version', 'files']) {
+    assert.equal(removedField in request, false);
+  }
+  assert.match(transport, /server[\s\S]{0,220}derives[\s\S]{0,220}`runtimeVersion`[\s\S]{0,220}reachable source files/i);
+  assert.match(transport, /Agent never supplies those derived fields or source content/i);
+  assert.match(transport, /unsaved edits[\s\S]{0,120}save them or[\s\S]{0,80}discard/i);
   assert.match(transport, /validates `expectedProjectHeadCommitId` inside the same operation/i);
   assert.match(transport, /stale Project Head returns 409 `JS_TEMPLATE_SOURCE_OUTDATED`/i);
   assert.match(transport, /do not refresh only the Head field/i);
   assert.match(transport, /Equivalent retries return the first[\s\S]{0,180}`sourceRef`/i);
   assert.match(transport, /Success changes only the selected Host to Inline[\s\S]{0,180}other Host bindings/i);
+});
+
+test('defines route-specific completion without freezing prose', () => {
+  const completion = transport.match(/^## Completion evidence\n([\s\S]*)$/m)?.[1];
+  assert.ok(completion, 'should find completion evidence');
+  for (const token of [
+    'for Save as:',
+    'runtimeVersion',
+    'exact four-field binding',
+    'for a shared edit:',
+    'accepted Check snapshot',
+    'Usage impact',
+    'for Detach:',
+    'exact five-field request',
+    'cleared selected binding/Usage',
+    'unchanged other Host bindings',
+  ]) {
+    assert.match(completion, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  }
 });
 
 test('documents atomic failures and complete canonical handoff evidence', () => {
@@ -217,7 +232,8 @@ test('documents atomic failures and complete canonical handoff evidence', () => 
     'exact four-field Host binding',
     'Template-level effective Usage count',
     'independent Host Settings overrides',
-    'Detach idempotency and Project Head CAS evidence',
+    'for Detach:',
+    'Project Head CAS evidence',
   ]) {
     assert.match(transport, new RegExp(evidence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   }

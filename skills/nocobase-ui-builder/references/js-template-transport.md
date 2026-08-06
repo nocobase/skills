@@ -22,8 +22,8 @@ do not call internal services, write database rows, or substitute raw HTTP. Ordi
 
 ## Domain and command crosswalk
 
-A JS Template is one Template Entry. A Source Project is its source container and may contain multiple Template Entries.
-Never use a Source Project row as a Template row, and never treat Source Project creation alone as “Create JS Template.”
+A Source Project is the source container for one or more JS Templates. Never use a Source Project row as a JS Template
+row, and never treat Source Project creation alone as “Create JS Template.”
 
 Backend actions and public shell commands are distinct:
 
@@ -31,12 +31,12 @@ Backend actions and public shell commands are distinct:
 | --- | --- | --- |
 | `runJSSources:capabilities` | `nb api run-js-sources capabilities -j` | prove the Inline owner matrix and reusable-source capability |
 | `jsTemplateProjects:list` | `nb api js-template-projects list -j` | discover manageable Source Projects |
-| `jsTemplates:listSelectable` | `nb api js-templates list-selectable -j` | discover compiled Template Entries that can bind to a compatible Host |
-| `jsTemplates:get` | `nb api js-templates get --template-id <templateId> -j` | read one Template Entry and its current source/compile metadata |
-| `jsTemplates:saveAsJsTemplate` | `nb api js-templates save-as-js-template --body-file /tmp/js-template-save-as.json -j` | atomically save an Inline Workspace as one Template Entry and bind its Host |
+| `jsTemplates:listSelectable` | `nb api js-templates list-selectable -j` | discover compiled JS Templates that can bind to a compatible Host |
+| `jsTemplates:get` | `nb api js-templates get --template-id <templateId> -j` | read one JS Template and its current source/compile metadata |
+| `jsTemplates:saveAsJsTemplate` | `nb api js-templates save-as-js-template --body-file /tmp/js-template-save-as.json -j` | atomically save an Inline Workspace as one JS Template and bind its Host |
 | `jsTemplateUsages:listUsages` | `nb api js-template-usages list-usages --body-file /tmp/js-template-usages.json -j` | read one visibility-safe paginated Template Usage list |
 | `jsTemplates:detachToInline` | `nb api js-templates detach-to-inline --body-file /tmp/js-template-detach.json -j` | atomically copy current Template source to one Host and detach it |
-| `jsTemplates:delete` | `nb api js-templates delete --template-id <templateId> -j` | delete one unreferenced Template Entry |
+| `jsTemplates:delete` | `nb api js-templates delete --template-id <templateId> -j` | delete one unreferenced JS Template |
 | `jsTemplateFiles:pull` | `nb js-template pull --project <projectId> --template <templateId> --dir <workspace> --json-output` | materialize a Source Project Head and selected Template locally |
 | `jsTemplates:compileWorkspacePreview` | `nb js-template check --dir <workspace> --json-output` | authoritatively validate and compile the complete local working copy |
 | `jsTemplateFiles:saveSource` | `nb js-template save --dir <workspace> --message <message> --yes --json-output` | review and save the checked Source Project delta |
@@ -53,7 +53,7 @@ Start with the live machine contract:
 nb api run-js-sources capabilities -j
 ```
 
-Contract version `1` publishes these reusable Template kinds and Source Project destination types:
+Contract version `1` exposes these reusable Template kinds and Source Project destination types:
 
 - entry kinds: `js-block`, `js-page`, `js-field`, `js-action`, `js-item`
 - destination types: `existing`, `new`
@@ -70,7 +70,7 @@ List Source Projects and keep each candidate's exact `id`, lifecycle status, hea
 nb api js-template-projects list -j
 ```
 
-List reusable Template Entries, optionally filtered by Source Project and kind:
+List reusable JS Templates, optionally filtered by Source Project and kind:
 
 ```bash
 nb api js-templates list-selectable -j
@@ -79,7 +79,7 @@ nb api js-templates list-selectable --project-id <projectId> --kind <kind> -j
 
 Use identity fields from one result row: `projectId`, `templateId`/`id`, and `kind`. Names, titles, source paths,
 runtime hashes, and Settings hashes are readback/display evidence, not binding fields. Do not combine a Source Project
-from one result with a Template Entry from another.
+from one result with a JS Template from another.
 
 Use an `existing` destination only when the user selected it, the current Template already belongs to it, or the same
 task just created it. Otherwise use `new` with a business-meaningful Source Project name. Source Project selection is
@@ -102,7 +102,7 @@ response. Copy all of these values from that same response:
 - `data.settingsDescriptor`
 
 Do not rename generic Inline/VSC `repoId`, and do not mix locator, owner fingerprint, repository identity, Head, entry
-path, version, or files across responses. If one changes, rebuild the complete request from a fresh response.
+path, runtime version, or files across responses. If one changes, rebuild the complete request from a fresh response.
 
 The Save as payload is a complete current Workspace, not the changed-path delta used by Inline `save-changes`. Include
 all source files, including unsaved editor content selected for the operation. Copy server-managed
@@ -132,7 +132,7 @@ Do not select or construct its fields individually. Replace every other source p
   "sourceRepoId": "repository.repoId-or-id-from-the-same-open-response",
   "sourceHeadCommitId": "repository.headCommitId-from-the-same-open-response",
   "entryPath": "src/client/index.tsx",
-  "version": "v2",
+  "runtimeVersion": "v2",
   "files": [
     {
       "path": "src/client/index.tsx",
@@ -197,11 +197,11 @@ An optional `originBinding`, when supplied by the current source flow, must itse
 
 ## Record the durable result
 
-HTTP 200 means the complete destination compiled, Source Project source and artifacts were published, one Template
-Entry exists, and the Host binding and Usage were updated atomically. Record the one result's:
+HTTP 200 means the complete destination compiled, Source Project source was committed, one JS Template was created, and
+the Host binding and Usage were updated atomically. Record the one result's:
 
 - `data.project.id`, name/title, lifecycle status, and `headCommitId`
-- `data.template.id`, `templateName`, kind, `entryPath`, compiled commit, runtime/artifact hashes, Settings hashes, and diagnostics
+- `data.template.id`, `templateName`, kind, `runtimeVersion`, `entryPath`, compiled commit, runtime/artifact hashes, Settings hashes, and diagnostics
 - `data.ownerFingerprint`
 - exact binding, which must contain only:
 
@@ -214,12 +214,12 @@ Entry exists, and the Host binding and Usage were updated atomically. Record the
 }
 ```
 
-Read the Template Entry back with `js-templates get`, then read the Host. The Host must have
+Read the JS Template back with `js-templates get`, then read the Host. The Host must have
 `sourceMode: "js-template"` and the exact four-field binding above. Do not add Source Project/Template names, titles,
 paths, or keys to persisted binding data.
 
 A completed equivalent replay returns the same durable Project, Template, binding, and owner fingerprint without
-creating another Template Entry. A failed compile, validation, permission, CAS, or conflict check leaves Source Project
+creating another JS Template. A failed compile, validation, permission, CAS, or conflict check leaves Source Project
 Head, Template, Artifact, Usage, and Host state unchanged.
 
 ## Source Project edit loop
@@ -248,7 +248,7 @@ On stale Head, keep the local patch, pull the new Head into a clean workspace, r
 check again, and review again. Never edit CLI state or replace only `expectedHeadCommitId`.
 
 Near Save, surface a localized non-blocking impact message based on current effective Usage count: all N locations use
-the new code immediately after success. Do not add a publish confirmation, Draft/Publish, Version, Pin, or Release flow.
+the new code immediately after success. Do not add an extra blocking confirmation or a Draft/Version/Pin/Release flow.
 
 ## Keep Inline and Source Project CAS separate
 
@@ -269,7 +269,7 @@ Inline save has no `expectedHeadCommitId`. Source Project save has no `baseCommi
 
 ## Usage and deletion
 
-Read one Template Entry's paginated Usage locations with:
+Read one JS Template's paginated Usage locations with:
 
 ```json
 {
@@ -288,7 +288,7 @@ effective owners, `hiddenCount` exposes only an aggregate, and `owner_missing` i
 infer or disclose hidden owner descriptors. Disabled/archived resolution remains visible through safe status rather than
 being treated as missing ownership.
 
-Delete one Template Entry only through the authoritative action:
+Delete one JS Template only through the authoritative action:
 
 ```bash
 nb api js-templates delete --template-id <templateId> -j
@@ -301,15 +301,12 @@ Source Project deletion protection is a separate operation.
 
 ## Detach to Inline
 
-Detach starts from the currently bound Host and the current Source Project Head. Re-read the Host and require this exact
-binding identity: `type`, `projectId`, `templateId`, and `kind`. Then pull the current Project/Template into a clean
-workspace and record its `baseHeadCommitId`.
+Detach copies only the committed Source Project Head. Re-read the Host and require the exact four-field binding, then
+read the selected JS Template/Project metadata and current Head. If the shared workspace has unsaved edits, save them or
+explicitly discard them before continuing; Detach never uploads a working copy.
 
-Build the complete reachable file set for that Template Entry: current entry file, its `entry.json`, all relative imports
-under the Template directory, and reachable shared source. Preserve the generic source-format `entryPath`/`entryKey`
-semantics; do not put them into the Host binding.
-
-Replace the complete sample `locator` value with the exact canonical locator from the current Host:
+Replace the sample `locator` value with the exact canonical locator from the current Host. The request has exactly five
+fields:
 
 ```json
 {
@@ -317,30 +314,7 @@ Replace the complete sample `locator` value with the exact canonical locator fro
   "locator": {},
   "projectId": "project-id-from-current-binding",
   "templateId": "template-id-from-current-binding",
-  "expectedProjectHeadCommitId": "baseHeadCommitId-from-current-pull",
-  "entryPath": "src/client/js-blocks/sales-summary/index.tsx",
-  "kind": "js-block",
-  "version": "current-template-runtime-version",
-  "files": [
-    {
-      "path": "src/client/js-blocks/sales-summary/index.tsx",
-      "content": "import { Summary } from './Summary';\nctx.render(<Summary />);\n",
-      "language": "typescriptreact",
-      "mode": "100644"
-    },
-    {
-      "path": "src/client/js-blocks/sales-summary/Summary.tsx",
-      "content": "export function Summary() {\n  return <div>Summary</div>;\n}\n",
-      "language": "typescriptreact",
-      "mode": "100644"
-    },
-    {
-      "path": "src/client/js-blocks/sales-summary/entry.json",
-      "content": "{\n  \"key\": \"sales-summary\",\n  \"settingsSchema\": { \"type\": \"object\", \"properties\": {} }\n}\n",
-      "language": "json",
-      "mode": "100644"
-    }
-  ]
+  "expectedProjectHeadCommitId": "headCommitId-from-current-project-readback"
 }
 ```
 
@@ -350,9 +324,13 @@ Derive the key from the complete request excluding only the key, store the exact
 nb api js-templates detach-to-inline --body-file /tmp/js-template-detach.json -j
 ```
 
-The server validates `expectedProjectHeadCommitId` inside the same operation that copies source, clears the binding, and
-updates Usage. A stale Project Head returns 409 `JS_TEMPLATE_SOURCE_OUTDATED`; do not refresh only the Head field. Pull
-again, rebuild the reachable source and every request field, then derive a new key.
+The server validates `expectedProjectHeadCommitId` inside the same operation, reads that exact commit, derives the JS
+Template kind, entry path, `runtimeVersion`, and reachable source files, then compiles the Inline candidate, clears the
+binding, and updates Usage. The Agent never supplies those derived fields or source content.
+
+A stale Project Head returns 409 `JS_TEMPLATE_SOURCE_OUTDATED`; do not refresh only the Head field. Re-read the Host,
+JS Template, and Source Project, verify the intended committed Head, rebuild the complete five-field request, and derive
+a new key.
 
 Equivalent retries return the first `runJSRepoId`, `commitId`, `ownerFingerprint`, `filesHash`, and `sourceRef`.
 Conflicting key reuse returns `JS_TEMPLATE_IDEMPOTENCY_CONFLICT`. Success changes only the selected Host to Inline and
@@ -371,7 +349,7 @@ Classify by action, HTTP status, and `errors[].code`; status alone is insufficie
 | 409 `JS_TEMPLATE_PROJECT_DISABLED` / `JS_TEMPLATE_PROJECT_ARCHIVED` | Stop; do not force a Save as or source write. |
 | 409 `JS_TEMPLATE_BINDING_OUTDATED` | Re-read the Host and rebuild the entire operation; do not replace only binding values. |
 | 409 `JS_TEMPLATE_SOURCE_OUTDATED` during Save as | Run one fresh Inline `open-latest`, rebuild all source evidence and derive a new key. |
-| 409 `JS_TEMPLATE_SOURCE_OUTDATED` during Detach | Pull the current Source Project Head, rebuild the reachable files/request, and derive a new key. No Host, Usage, source, Head, or Artifact state changes. |
+| 409 `JS_TEMPLATE_SOURCE_OUTDATED` during Detach | Re-read the Host, JS Template, and Source Project, rebuild the five-field request for the intended committed Head, and derive a new key. No Host, Usage, source, Head, or Artifact state changes. |
 | 409 `JS_TEMPLATE_CONFLICT` / `JS_TEMPLATE_PROJECT_CONFLICT` | Re-run discovery and choose a non-conflicting user-approved Source Project/Template identity; this is a new request/key. |
 | 409 `JS_TEMPLATE_IDEMPOTENCY_IN_PROGRESS` | Retry the exact stored request with the same key after a bounded wait. |
 | 409 `JS_TEMPLATE_IDEMPOTENCY_CONFLICT` | Stop: recover the original request or create a genuinely new request/key. |
@@ -383,7 +361,7 @@ Classify by action, HTTP status, and `errors[].code`; status alone is insufficie
 
 ## Completion evidence
 
-A complete handoff records:
+A complete handoff records route-specific evidence:
 
 - capability contract version, supported Template kind/destination, and canonical actions
 - Source Project id/name, lifecycle, old/new Head, source commit id/message, and tree hash/size
@@ -391,8 +369,9 @@ A complete handoff records:
 - exact four-field Host binding plus post-write owner fingerprint
 - Template-level effective Usage count, visible paginated locations, and hidden aggregate without hidden details
 - independent Host Settings overrides and the save impact count
-- accepted Check snapshot and reviewed Source Project delta for source edits
-- Detach idempotency and Project Head CAS evidence, plus the resulting Inline commit/source reference
+- for Save as: compile/validation success, Source Project Head, JS Template identity and `runtimeVersion`, exact four-field binding, Host readback, and idempotency result
+- for a shared edit: accepted Check snapshot, reviewed Source Project delta, new Head/compiled commit and `runtimeVersion`, Usage impact, unchanged Host bindings, and independent settings overrides
+- for Detach: the exact five-field request, idempotency and Project Head CAS evidence, resulting Inline repo/commit/owner/files hash/source reference, cleared selected binding/Usage, and unchanged other Host bindings
 - deletion conflict/success evidence when deletion is in scope
 - any remaining failure or partial intent
 

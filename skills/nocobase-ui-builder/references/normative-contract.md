@@ -1,14 +1,14 @@
 # Normative Contract
 
-This page defines the global contract for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page. Navigation layout/group/page identity semantics are defined in [navigation-targets.md](./navigation-targets.md). Template-selection semantics are defined normatively in [templates.md](./templates.md); this file sets the global precedence, transport, and public write contract around them.
+This page defines the global contract for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page. Navigation layout/group/page identity semantics are defined in [navigation-targets.md](./navigation-targets.md). Template-selection semantics are defined normatively in [ui-templates.md](./ui-templates.md); this file sets the global precedence, transport, and public write contract around them.
 
 ## 0. Canonical Transport
 
 - Host/UI write path: `nb api flow-surfaces <action>` with the raw business payload. It owns navigation, layout, Flow Models, reactions, and ordinary Surface configuration.
 - Inline source write path: `nb api run-js-sources <action>` owns complete JS Page/JS Block Workspace files and commits; ordinary Agent writes use incremental `save-changes`, while `compile-preview` is optional.
-- Reusable source write path: one implementation reused by multiple Hosts and maintained once without copied code uses **Save as JS Template** and the canonical JS Template APIs. A JS Template is a Template Entry; a Source Project is only its advanced source container. Independent Git storage or distribution alone does not override single-Host Inline ownership.
-- JS Template reuse path: save the first Host once, then keep one Source Project and one Template Entry while binding another compatible Host to the same returned four-field identity through public `flow-surfaces` source settings. Host settings overrides remain independent and create no source commit.
-- Detach to Inline path: copy only the selected Host from the current reachable Template source, require the current `expectedProjectHeadCommitId`, and clear only that Host's binding/Usage. Preserve other bindings, the Source Project/Template identity, stable source key, source history, and remaining Usages; the retained older Inline fallback is not the Detach source.
+- Reusable source write path: explicit JS Template creation/use/Save as intent, explicit reusable/distributable JS Template intent, or one implementation shared by multiple compatible Hosts and maintained once without copied code uses the canonical **JS Template** APIs. A Source Project is only the advanced source container. Git storage, independent Git ownership, or vague future distribution alone does not override single-Host Inline ownership.
+- JS Template reuse path: save the first Host once, then keep one Source Project and one JS Template while binding another compatible Host to the same returned four-field identity through public `flow-surfaces` source settings. Host settings overrides remain independent and create no source commit.
+- Detach to Inline path: send exactly `idempotencyKey`, `locator`, `projectId`, `templateId`, and the current `expectedProjectHeadCommitId`; the server reads and derives source from that committed Head. Clear only the selected Host's binding/Usage and preserve every other binding, the Source Project/Template identity, source history, and remaining Usages. Save or discard unsaved shared edits first; neither a working copy nor the retained older Inline fallback is the Detach source.
 - Backend transport contract: flow-surfaces is the authoring compiler for raw UI Builder payloads; it is not the source repository transport for a complete Workspace.
 - Retained `applyBlueprint`, `flowSurfaces:*`, and backend API docs in this skill remain the backend contract and payload reference.
 - `nb-template-decision` remains an optional local planning helper. Do not run skill-local helper output or `cliBody` generation as a write prerequisite.
@@ -21,7 +21,7 @@ Rule precedence is always:
 1. live backend `nb api flow-surfaces` and `nb api run-js-sources` command behavior and generated CLI behavior
 2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level flow-surfaces and RunJS source contracts
 3. this `Normative Contract` for global transport, request-shape, and authoring rules
-4. [templates.md](./templates.md) for template-selection semantics
+4. [ui-templates.md](./ui-templates.md) for template-selection semantics
 5. other topic references (`popup`, `verification`, `runtime-playbook`, etc.)
 6. examples and heuristics
 
@@ -39,8 +39,8 @@ If a lower-priority local document conflicts with a live contract fact, follow t
 - **New complete JS Page / JS Block** -> create or locate the Host through `flow-surfaces` -> use the returned canonical locator with `run-js-sources open` -> Settings Pass -> edit source files -> incremental `save-changes`.
 - **Embedded or compatibility single-file JS** -> keep the owner on its public `flow-surfaces` code shape.
 - **Multiple Hosts share one maintained JS implementation without copied code** -> use Save as JS Template; never infer this route from independent Git storage, distribution, multiple files, imports, hooks, services, size, complexity, or a single-Host dashboard.
-- **Multi-Host reuse** -> reuse the first Save as result's exact four-field binding; do not Save as again, duplicate the Template Entry, or alter `entry.json.key`.
-- **Detach one bound Host to Inline** -> use the current Template Entry's reachable source, require a stable idempotency key and current Source Project Head, and clear only that Host binding/Usage; later Inline and Source Project histories advance independently.
+- **Multi-Host reuse** -> reuse the first Save as result's exact four-field binding; do not Save as again, duplicate the JS Template, or alter `entry.json.key`.
+- **Detach one bound Host to Inline** -> send the exact five-field request for the current committed Source Project Head; the server derives the reachable source and clears only that Host binding/Usage, after which Inline and Source Project histories advance independently.
 - **Binding persistence** -> only `sourceMode: "js-template"` and `sourceBinding: { type: "js-template-entry", projectId, templateId, kind }`; names, titles, paths, and keys are resolved separately.
 - **Usage and deletion** -> template-level paginated Usage excludes `owner_missing`, keeps hidden owners aggregate-only, and blocks Template deletion while any effective Usage remains.
 
@@ -298,9 +298,9 @@ Do **not** emulate a plan-style patch workflow in user-facing authoring.
 - When popup resource bindings, target-specific field addability, or JS/chart capability matters, read `catalog` before writing.
 - Embedded/single-surface JS writes go through `nb api flow-surfaces <action>` with the public code payload; repair returned aggregate `errors[]` and retry the same Surface.
 - Complete Inline Workspace JS writes go through `nb api run-js-sources save-changes`; repair source/descriptor/import diagnostics and retry the changed paths against the unchanged base without falling back to `settings.code` merely because compilation failed. Use `compile-preview` only for an explicit dry-run or debugging step.
-- JS Template source selected because multiple Hosts share one maintained implementation stays on its Source Project protocol. Independent Git storage or distribution alone keeps a single-Host implementation Inline. Do not use `nb js-template` to probe or save an ordinary Inline Workspace.
-- One Template Entry may serve multiple compatible Hosts, but each Host owns its own settings override. Reuse the original four-field binding and validate it with `js-templates list-selectable/get`; never create a source commit for an override-only edit.
-- Detach to Inline uses the current reachable Template source and preserves every other binding, Usage, Source Project/Template identity, stable source key, and source commit. Never use retained older Inline fallback source. Equivalent idempotent retries reuse the same key; request changes require a new key. A stale `expectedProjectHeadCommitId` returns 409 with no partial mutation.
+- A selected JS Template route stays on its Source Project protocol. Multiple files, code complexity, Git storage/ownership, or vague future distribution alone keeps an ordinary single-Host implementation Inline. Do not use `nb js-template` to probe or save an ordinary Inline Workspace.
+- One JS Template may serve multiple compatible Hosts, but each Host owns its own settings override. Reuse the original four-field binding and validate it with `js-templates list-selectable/get`; never create a source commit for an override-only edit.
+- Detach to Inline sends only the five public identity/CAS fields; the server reads the exact committed Head and derives kind, entry path, `runtimeVersion`, and reachable files. Save or discard unsaved shared edits first. Equivalent idempotent retries reuse the same key; request changes require a new key. A stale `expectedProjectHeadCommitId` returns 409 with no partial mutation.
 - Read Usage through `js-template-usages list-usages`; exclude `owner_missing`, do not leak hidden owner descriptors, and preserve server-authoritative Template deletion protection until effective Usage reaches zero.
 
 ## 7. Recovery / Stop Conditions

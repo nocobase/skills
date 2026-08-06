@@ -39,4 +39,4 @@ Use this only when template reuse/copy/reference choice is unclear and a local p
 - CLI from repo root: `node skills/nocobase-ui-builder/runtime/bin/nb-template-decision.mjs plan-query --stdin-json`
 - input: template intent, repeat eligibility, current host context, and search terms
 - returns: planning guidance for template search/reuse; final Host/UI writes still go through `nb api flow-surfaces <action>`
-- template binding details stay in [templates.md](./templates.md) and [template-decision-summary.md](./template-decision-summary.md)
+- template binding details stay in [ui-templates.md](./ui-templates.md) and [template-decision-summary.md](./template-decision-summary.md)

@@ -17,10 +17,10 @@ const checklist = read('references/execution-checklist.md');
 const normative = read('references/normative-contract.md');
 
 test('routes intent, transport, and round-trip lifecycle to canonical documents', () => {
-  assert.match(source, /This file is the intent router/i);
+  assert.match(source, /owns the product boundary and route selection/i);
   assert.match(source, /\[js-template-transport\.md\]\(\.\/js-template-transport\.md\)/i);
   assert.match(source, /\[js-template-roundtrip\.md\]\(\.\/js-template-roundtrip\.md\)/i);
-  assert.match(roundtrip, /one Source Project, one[\s\S]{0,20}Template Entry, two compatible Host bindings/i);
+  assert.match(roundtrip, /one Source Project, one[\s\S]{0,20}JS Template, two compatible Host bindings/i);
 });
 
 test('saves only the first Host and reuses the exact four-field binding', () => {
@@ -32,16 +32,16 @@ test('saves only the first Host and reuses the exact four-field binding', () => 
   assert.match(roundtrip, /list-selectable[\s\S]{0,180}js-templates get/i);
   assert.match(roundtrip, /same `projectId`\/`templateId`\/`kind`/i);
   assert.match(roundtrip, /Reuse does not run[\s\S]{0,80}Save as JS Template a second time/i);
-  assert.match(roundtrip, /does not[\s\S]{0,80}copy Template source[\s\S]{0,80}another Template Entry/i);
+  assert.match(roundtrip, /does not[\s\S]{0,80}copy Template source[\s\S]{0,80}another JS Template/i);
   assert.match(roundtrip, /or change `entry\.json\.key`/i);
 });
 
 test('keeps the catalog entry-centric and Project management separate', () => {
   assert.match(roundtrip, /primary catalog still has one row for T/i);
   assert.match(roundtrip, /advanced Source Project list still has one row for P/i);
-  assert.match(roundtrip, /P also contains another Template Entry[\s\S]{0,140}two Template rows[\s\S]{0,100}one Project row/i);
-  assert.match(source, /one Source Project with[\s\S]{0,80}two Template Entries[\s\S]{0,80}two catalog rows/i);
-  assert.match(source, /Creating a[\s\S]{0,40}Source Project without creating a Template Entry[\s\S]{0,100}does not complete/i);
+  assert.match(roundtrip, /P also contains another JS Template[\s\S]{0,140}two Template rows[\s\S]{0,100}one Project row/i);
+  assert.match(source, /one Source Project with[\s\S]{0,80}two JS Templates[\s\S]{0,80}two catalog rows/i);
+  assert.match(source, /Creating only a Source Project[\s\S]{0,100}does not[\s\S]{0,80}complete/i);
 });
 
 test('uses the public Host settings contract and preserves falsy overrides', () => {
@@ -66,9 +66,13 @@ test('exposes template-level Usage and non-blocking save impact', () => {
 });
 
 test('detaches one Host with idempotency and current Project Head CAS', () => {
-  assert.match(roundtrip, /latest reachable source set/i);
-  assert.match(roundtrip, /Never use Host A's retained older Inline fallback/i);
-  assert.match(roundtrip, /stable `idempotencyKey`[\s\S]{0,80}`expectedProjectHeadCommitId`/i);
+  for (const field of ['idempotencyKey', 'locator', 'projectId', 'templateId', 'expectedProjectHeadCommitId']) {
+    assert.match(roundtrip, new RegExp(`\\b${field}\\b`));
+  }
+  assert.match(roundtrip, /exactly[\s\S]{0,220}`expectedProjectHeadCommitId`/i);
+  assert.match(roundtrip, /unsaved[\s\S]{0,100}save them first or[\s\S]{0,80}discard/i);
+  assert.match(roundtrip, /server[\s\S]{0,180}derives kind, entry path, `runtimeVersion`, and reachable files/i);
+  assert.match(roundtrip, /Never use Host A's retained older Inline fallback[\s\S]{0,120}upload local working-copy source/i);
   assert.match(roundtrip, /validates Project Head[\s\S]{0,160}same operation/i);
   assert.match(roundtrip, /stale[\s\S]{0,80}409 `JS_TEMPLATE_SOURCE_OUTDATED`/i);
   assert.match(roundtrip, /leaves Host[\s\S]{0,240}Artifacts unchanged/i);
@@ -85,7 +89,7 @@ test('keeps Inline and Source Project histories independent and protects deletio
   assert.match(roundtrip, /Template save cannot overwrite Host A's Inline source/i);
   assert.match(roundtrip, /409 `JS_TEMPLATE_USAGE_EXISTS`[\s\S]{0,100}without hidden owner details/i);
   assert.match(roundtrip, /Deletion may then remove only T's source and unreferenced[\s\S]{0,80}artifacts/i);
-  assert.match(roundtrip, /does not delete Source Project P or a sibling Template Entry/i);
+  assert.match(roundtrip, /does not delete Source Project P or a sibling JS Template/i);
 });
 
 test('aligns normative, checklist, and completion evidence', () => {
@@ -94,10 +98,10 @@ test('aligns normative, checklist, and completion evidence', () => {
     ['execution checklist', checklist],
     ['verification', verification],
   ]) {
-    assert.match(text, /one Source Project(?:,| and) one Template Entry/i, label);
+    assert.match(text, /one Source Project(?:,| and) one JS Template/i, label);
     assert.match(text, /settings override|independent overrides/i, label);
     assert.match(text, /Usage/i, label);
-    assert.match(text, /reachable/i, label);
+    assert.match(text, /committed|server-derived|server read|server[\s\S]{0,80}derives/i, label);
     assert.match(text, /history|histories/i, label);
   }
   assert.match(verification, /browser rendering|browser-verification boundary/i);

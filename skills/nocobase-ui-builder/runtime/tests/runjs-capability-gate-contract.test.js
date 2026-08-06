@@ -87,6 +87,6 @@ test('quick routes preserve JS Page and business reuse boundaries', () => {
   }
   assert.match(wholePage, /JS Page Workspace capability[\s\S]{0,100}ordinary page \+ JS Block/i);
   assert.match(jsTemplate, /canonical capability is unavailable[\s\S]{0,180}do not silently substitute/i);
-  assert.match(checklist, /multi-file Workspace capability is unavailable[\s\S]{0,160}single-file Inline[\s\S]{0,180}no Source Project or Template Entry/i);
+  assert.match(checklist, /multi-file Workspace capability is unavailable[\s\S]{0,160}single-file Inline[\s\S]{0,180}no Source Project or JS Template/i);
   assert.ok(wholePage.split('\n').length - 1 <= 220, 'whole-page-quick.md must stay within 220 lines');
 });

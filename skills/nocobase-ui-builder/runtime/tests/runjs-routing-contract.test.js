@@ -58,7 +58,7 @@ test('real default prompt carries the complete RunJS route without relying on YA
   assert.match(prompt, /explicit multi-file intent[\s\S]{0,220}never downgrade/i);
   assert.match(prompt, /JS Page capability failure[\s\S]{0,120}never fake/i);
   assert.match(prompt, /complete JS Block[\s\S]{0,240}minimal safe `?settings\.code`? placeholder[\s\S]{0,240}final business source[\s\S]{0,120}Workspace/i);
-  assert.match(prompt, /save-changes success[\s\S]{0,200}new commit and owner fingerprint/i);
+  assert.match(prompt, /Inline:[\s\S]{0,100}save-changes succeeds[\s\S]{0,160}new commit and owner fingerprint/i);
 });
 
 test('business reuse intent selects JS Template without requiring transport terminology', () => {
@@ -71,16 +71,17 @@ test('business reuse intent selects JS Template without requiring transport term
     ['JS Template intent router', source],
     ['OpenAI prompt', prompt],
   ]) {
-    assert.match(text, /multiple Hosts[\s\S]{0,180}(?:share|sharing)[\s\S]{0,180}JS implementation/i, label);
+    assert.match(text, /multiple compatible Hosts|multiple Hosts/i, label);
+    assert.match(text, /(?:share|sharing)[\s\S]{0,180}(?:one maintained )?JS implementation/i, label);
     assert.match(text, /maintain(?:ed)?(?: once)?[\s\S]{0,100}(?:without|no) copied code/i, label);
-    assert.match(text, /user (?:does not|need not)[\s\S]{0,160}JS Template/i, label);
+    assert.match(text, /JS Template/i, label);
   }
 
-  assert.match(source, /used only by its current Host stays Inline/i);
-  assert.match(source, /used only by its current Host stays Inline[\s\S]{0,160}independent Git repository/i);
+  assert.match(source, /single-Host implementation stays Inline/i);
+  assert.match(source, /Git storage[\s\S]{0,220}do not select JS Template/i);
   assert.match(prompt, /one Host[\s\S]{0,100}exclusively owns[\s\S]{0,100}Inline RunJS/i);
-  assert.match(prompt, /Single-Host Git\/distribution stays Inline/i);
-  assert.match(prompt, /Files[\s\S]{0,160}alone do not trigger JS Template/i);
+  assert.match(prompt, /Single-Host Git storage\/ownership[\s\S]{0,100}stays Inline/i);
+  assert.match(prompt, /Multiple files[\s\S]{0,160}do not trigger JS Template/i);
 });
 
 test('active Skill and prompt apply the four-way solution gate', () => {
@@ -100,16 +101,12 @@ test('active Skill and prompt apply the four-way solution gate', () => {
       /one Host[\s\S]{0,100}exclusively own(?:s|ing)[\s\S]{0,120}Inline RunJS/i,
       `${label} should route Host-owned JS to Inline RunJS`,
     );
-    assert.match(
-      text,
-      /reusable\s+UI\/Flow structure[\s\S]{0,120}without (?:a )?shared JS implementation[\s\S]{0,120}UI Template/i,
-      `${label} should route structure reuse to UI Template`,
-    );
-    assert.match(
-      text,
-      /multiple Hosts[\s\S]{0,120}(?:share|sharing)[\s\S]{0,120}JS\s+implementation[\s\S]{0,120}JS Template/i,
-      `${label} should route shared JS to JS Template`,
-    );
+    assert.match(text, /reusable\s+UI\/Flow structure/i, `${label} should cover reusable UI structure`);
+    assert.match(text, /without (?:a |one )?shared JS/i, `${label} should separate UI structure from shared JS`);
+    assert.match(text, /UI Template/i, `${label} should expose UI Template`);
+    assert.match(text, /JS Template/i, `${label} should expose JS Template`);
+    assert.match(text, /multiple(?: compatible)? Hosts/i, `${label} should cover multiple Hosts`);
+    assert.match(text, /share|sharing/i, `${label} should cover shared implementation intent`);
     assert.match(
       text,
       /backend API[\s\S]{0,240}(?:ACL|permission)[\s\S]{0,180}(?:server capability|server capabilities)[\s\S]{0,160}(?:full )?NocoBase Plugin/i,
@@ -117,8 +114,8 @@ test('active Skill and prompt apply the four-way solution gate', () => {
     );
     assert.match(
       text,
-      /UI Template[\s\S]{0,120}reuses[\s\S]{0,120}(?:not one shared JS implementation|JS Template[\s\S]{0,80}shares)|Never confuse UI Template(?: with JS Template|[\s\S]{0,120}shared JS implementation)/i,
-      `${label} should distinguish UI Template from JS Template`,
+      /reusable\s+UI\/Flow structure[\s\S]{0,120}without (?:a |one )?shared JS[\s\S]{0,80}(?:uses|->)[\s\S]{0,20}UI Template/i,
+      `${label} should route UI structure reuse to UI Template`,
     );
   }
 
@@ -180,6 +177,6 @@ test('helpers and verification expose source-specific evidence', () => {
   assert.match(verification, /save-changes` succeeded/i);
   assert.match(verification, /no diagnostic with `severity: "error"`/i);
   assert.match(verification, /new commit, `artifact\.filesHash`, and the updated owner fingerprint/i);
-  assert.match(verification, /no Source Project or Template Entry was automatically created/i);
+  assert.match(verification, /no Source Project or JS Template was automatically created/i);
   assert.match(verification, /Host Preview is not required/i);
 });

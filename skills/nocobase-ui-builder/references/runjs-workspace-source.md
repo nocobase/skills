@@ -29,7 +29,7 @@ they are not in this complete-owner matrix.
 Copy the canonical locator returned by Host create/get exactly; never construct it from `uid`, `modelUid`, `use`, or
 `fieldUid`. Use `sourceMode: "inline"`, then `runJSSources:open`. A new Workspace is bootstrapped with the source entry,
 descriptor, and entry metadata. Existing files are preserved and missing initialization files are added idempotently.
-This route does not create a Source Project, Template Entry, or `sourceBinding`.
+This route does not create a Source Project, JS Template, or `sourceBinding`.
 
 The normal sequence is:
 

@@ -2,12 +2,12 @@
 
 Use this guide after [js-template-source.md](./js-template-source.md) selects reusable source. The canonical payload,
 command, idempotency, CAS, Usage, and recovery contract is [js-template-transport.md](./js-template-transport.md). This
-file owns one lifecycle invariant: one Source Project, one Template Entry, two compatible Host bindings, then only Host A detached to Inline.
+file owns one lifecycle invariant: one Source Project, one JS Template, two compatible Host bindings, then only Host A detached to Inline.
 
 ## Contents
 
 - [Invariant](#invariant)
-- [1. Save Host A as one Template Entry](#1-save-host-a-as-one-template-entry)
+- [1. Save Host A as one JS Template](#1-save-host-a-as-one-js-template)
 - [2. Validate the reusable Template and Usage](#2-validate-the-reusable-template-and-usage)
 - [3. Bind Host B to the same Template](#3-bind-host-b-to-the-same-template)
 - [4. Keep Host settings independent](#4-keep-host-settings-independent)
@@ -21,16 +21,16 @@ file owns one lifecycle invariant: one Source Project, one Template Entry, two c
 
 The lifecycle is:
 
-`Host A Inline -> Save as JS Template -> Source Project P / Template Entry T -> bind Host B to T -> Detach Host A to Inline`
+`Host A Inline -> Save as JS Template -> Source Project P / JS Template T -> bind Host B to T -> Detach Host A to Inline`
 
-At reuse: one Source Project, one Template Entry, and two effective Usages. Reuse does not run Save as JS Template a second time, copy Template source, create another Template Entry, or change `entry.json.key`.
+At reuse: one Source Project, one JS Template, and two effective Usages. Reuse does not run Save as JS Template a second time, copy Template source, create another JS Template, or change `entry.json.key`.
 `entry.json.key`, `entryPath`, and entry directories remain source-format identity/location details; the persisted Host
 binding uses only `type`, `projectId`, `templateId`, and `kind`.
 
 The two Hosts share Template source but not instance settings. Each Host keeps its own `settings` override. Source Project
-saves change the shared Template Entry; `flow-surfaces configure` changes only one targeted Host override and creates no source commit.
+saves change the shared JS Template; `flow-surfaces configure` changes only one targeted Host override and creates no source commit.
 
-## 1. Save Host A as one Template Entry
+## 1. Save Host A as one JS Template
 
 Complete Host A's current Inline Workspace, then follow the full Save as request in
 [js-template-transport.md](./js-template-transport.md):
@@ -45,7 +45,7 @@ Host, source snapshot, Source Project destination, Template name/title, or file 
 key.
 
 Source Project selection/creation and Template identity are separate inputs. Saving to a new Source Project must create
-both Source Project P and Template Entry T. Creating only P is incomplete.
+both Source Project P and JS Template T. Creating only P is incomplete.
 
 Treat `data.binding` as the canonical reusable binding. It must contain exactly:
 
@@ -70,8 +70,8 @@ nb api js-templates get --template-id <data.binding.templateId> -j
 ```
 
 One result row must agree with `data.binding` on `projectId`, `templateId`/`id`, and `kind`. Record the separate display
-and source evidence: Template name/title, `entryPath`, stable `entry.json.key`, lifecycle/health, compiled commit,
-runtime/artifact hashes, Settings hashes, and diagnostics. Stop if the Template is missing, unhealthy, unavailable,
+and source evidence: Template name/title, public `runtimeVersion`, `entryPath`, stable `entry.json.key`, lifecycle/health,
+compiled commit, runtime/artifact hashes, Settings hashes, and diagnostics. Stop if the Template is missing, unhealthy, unavailable,
 compiled from another current Head, or incompatible with Host B.
 
 Read Template-level Usage. Immediately after Save as, Host A contributes one effective Usage:
@@ -124,7 +124,7 @@ The values are copied from one binding result, not combined across responses. Re
 `sourceMode: "js-template"` and the same `projectId`/`templateId`/`kind`. The primary catalog still has one row for T,
 the advanced Source Project list still has one row for P, and Template Usage `effectiveCount` is now two.
 
-If P also contains another Template Entry, the primary catalog must show two Template rows while the Source Project list
+If P also contains another JS Template, the primary catalog must show two Template rows while the Source Project list
 still shows one Project row.
 
 ## 4. Keep Host settings independent
@@ -134,14 +134,14 @@ defaults. Configure and read each Host separately. Changing Host A's override mu
 versa.
 
 Record Source Project Head and Template compiled commit before and after an override-only edit. Both remain unchanged:
-Host settings do not create source commits or republish the Template. Runtime resolution combines shared Template
+Host settings do not create source commits or recompile the Template. Runtime resolution combines shared Template
 defaults with only the current Host's override.
 
 ## 5. Show save impact and Usage locations
 
 Before or near a shared-source Save, read the current Template Usage aggregate and show a localized, non-blocking impact
-message: this Template is used in N locations; after Save those locations immediately use the new code. Do not add a
-blocking publish confirmation or Draft/Publish/Version/Pin/Release workflow.
+message: this Template is used in N locations; after Save those locations immediately use the new code. Do not add an
+extra blocking confirmation or a Draft/Version/Pin/Release workflow.
 
 The catalog Usage count opens the paginated Usage locations view. Safely handle loading, empty, error,
 disabled/archived, and partially visible states. Visible rows may show the returned owner/location titles and route; a
@@ -155,25 +155,25 @@ nb js-template check --dir /tmp/js-template-shared --json-output
 nb js-template save --dir /tmp/js-template-shared --message "Update shared template" --yes --json-output
 ```
 
-Successful Save advances P's Head and T's compiled Artifact. Both Hosts resolve the new source immediately, but their
-settings overrides remain independent.
+Successful Save advances P's Head and T's compiled Artifact. Read back T's new compiled commit and public `runtimeVersion`. Both Hosts resolve the new source immediately, but their settings overrides remain independent.
 
 ## 6. Detach only Host A to Inline
 
-Re-read Host A's exact binding, pull the current Source Project Head, and build T's latest reachable source set as
-specified in [js-template-transport.md](./js-template-transport.md). Never use Host A's retained older Inline fallback,
-an older pull, or an incomplete relative-import graph.
+Re-read Host A's exact binding, T's metadata, and the current Source Project Head. If the shared workspace has unsaved
+edits, save them first or explicitly discard them before Detach. Never use Host A's retained older Inline fallback or
+upload local working-copy source through Detach.
 
-Detach requires both a stable `idempotencyKey` and the pulled `expectedProjectHeadCommitId`:
+Detach sends exactly `idempotencyKey`, `locator`, `projectId`, `templateId`, and the current `expectedProjectHeadCommitId`:
 
 ```bash
 nb api js-templates detach-to-inline --body-file /tmp/js-template-detach.json -j
 ```
 
-The server validates Project Head, Template identity, current four-field Host binding, owner permission, source, and
-compile result in the same operation. If the Head is stale, it returns 409 `JS_TEMPLATE_SOURCE_OUTDATED` and leaves Host
-A, Host B, both bindings/settings, Usage rows, Source Project Head/source, Template, and Artifacts unchanged. Pull the
-new Head, rebuild all fields/files, and derive a new key; never replace only the expected Head.
+The server validates Project Head, Template identity, current four-field Host binding, owner permission, server-read
+source, and compile result in the same operation. It derives kind, entry path, `runtimeVersion`, and reachable files from
+the exact commit. If the Head is stale, it returns 409 `JS_TEMPLATE_SOURCE_OUTDATED` and leaves Host A, Host B, both
+bindings/settings, Usage rows, Source Project Head/source, Template, and Artifacts unchanged. Re-read Host A, T, and P,
+then rebuild the complete five-field request and derive a new key; never replace only the expected Head.
 
 Success changes only Host A to Inline, writes its new RunJS commit/source reference, clears only Host A's binding, and
 removes only Host A's effective Usage. Host B stays bound to P/T. An equivalent replay returns the first
@@ -198,14 +198,14 @@ nb api js-templates delete --template-id <templateId> -j
 
 Expect 409 `JS_TEMPLATE_USAGE_EXISTS` without hidden owner details. After Host B is also detached or its Usage is
 otherwise no longer effective, re-read Usage and retry. Deletion may then remove only T's source and unreferenced
-artifacts; it does not delete Source Project P or a sibling Template Entry. Source Project deletion protection remains
+artifacts; it does not delete Source Project P or a sibling JS Template. Source Project deletion protection remains
 separate. Archived Source Projects are read-only.
 
 ## Failure boundaries
 
 - Stop before binding Host B when selectable/get identity, health, runtime evidence, or kind does not match; never edit the binding kind.
 - A Host configuration or Save as compile failure must not duplicate T or partially advance Project Head, Template, Artifact, binding, or Usage.
-- After a Head change, pull again and use a new key. Any Detach validation, compile, permission, CAS, or persistence failure leaves all shared state unchanged.
+- After a Head change, re-read the bound Host, JS Template, and Source Project and use a new key. Any Detach validation, compile, permission, CAS, or persistence failure leaves all shared state unchanged.
 - With partial visibility, report only visible rows and aggregate counts. Effective Usage blocks deletion until supported Host detach.
 
 ## Completion evidence
@@ -213,7 +213,7 @@ separate. Archived Source Projects are read-only.
 Report one before/after bundle containing:
 
 - Host A/B identifiers, source modes, exact four-field bindings, settings overrides, and Source Project identity, Head, commits, and history boundary
-- Template identity, `entry.json.key`, `entryPath`, compiled commit, hashes, catalog count, visible Usage rows, aggregates, and excluded `owner_missing`
+- Template identity, public `runtimeVersion`, `entry.json.key`, `entryPath`, compiled commit, hashes, catalog count, visible Usage rows, aggregates, and excluded `owner_missing`
 - save impact and proof both Hosts resolved it, plus Detach idempotency, `expectedProjectHeadCommitId`, and returned Inline commit/source reference
 - proof Host B stayed bound and histories remain independent, plus deletion conflict and success after effective Usage reaches zero when in scope
 - whether browser rendering was actually verified; API/CLI evidence alone is not browser evidence

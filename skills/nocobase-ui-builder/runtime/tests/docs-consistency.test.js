@@ -152,7 +152,7 @@ function assertNoDirectCtxRecordValueReads(code, label) {
 }
 
 function assertPointsToTemplates(text, sourceLabel) {
-  assert.match(text, /\[templates\.md\]/i, `${sourceLabel} should point to templates.md`);
+  assert.match(text, /\[ui-templates\.md\]/i, `${sourceLabel} should point to ui-templates.md`);
 }
 
 function assertNoTemplateDecisionMatrix(text, sourceLabel) {
@@ -419,8 +419,8 @@ function assertSkillKeepsIntentFirst(text) {
   );
   assert.match(
     text,
-    /After that route is clear[\s\S]{0,140}\[template-quick\.md\][\s\S]{0,120}\[templates\.md\]/i,
-    'SKILL.md should route template-specific decisions through template-quick.md before templates.md',
+    /After that route is clear[\s\S]{0,140}\[ui-template-quick\.md\][\s\S]{0,120}\[ui-templates\.md\]/i,
+    'SKILL.md should route template-specific decisions through ui-template-quick.md before ui-templates.md',
   );
   assert.match(
     text,
@@ -763,8 +763,8 @@ test('required docs and relative links stay valid', () => {
     'references/runtime-playbook.md',
     'references/settings.md',
     'references/template-decision-summary.md',
-    'references/template-quick.md',
-    'references/templates.md',
+    'references/ui-template-quick.md',
+    'references/ui-templates.md',
     'references/tool-shapes.md',
     'references/transport-crosswalk.md',
     'references/verification.md',
@@ -817,7 +817,7 @@ test('docs keep canonical nb boundaries', () => {
   assert.doesNotMatch(normativeContract, /Agent-facing write path: `nb api flow-surfaces <action>`/);
   assert.match(normativeContract, /flow-surfaces is the authoring compiler/i);
 
-  const templates = read('references/templates.md');
+  const templates = read('references/ui-templates.md');
   assert.match(templates, /raw business object/i);
 
   const reaction = read('references/reaction.md');
@@ -882,7 +882,8 @@ test('public ui-builder docs use only canonical JS Template naming and CLI', () 
   for (const command of ['pull', 'check', 'save']) {
     assert.match(transport, new RegExp(`nb js-template ${command}\\b`));
   }
-  for (const relativePath of canonicalTemplateDocs) {
+  assert.match(read(canonicalTemplateDocs[0]), /\[js-template-transport\.md\]/i);
+  for (const relativePath of canonicalTemplateDocs.slice(1)) {
     const topics = [...read(relativePath).matchAll(/\bnb\s+([a-z][a-z-]*)\b/g)].map((match) => match[1]);
     assert.ok(topics.length > 0, `${relativePath} should document canonical nb commands`);
     assert.ok(
@@ -947,10 +948,10 @@ test('new complete JS surfaces use the inline Workspace contract', () => {
   assert.match(workspace, /existing native Surface settings/i);
   assert.match(workspace, /fewer than two reasonable variation points/i);
   assert.match(workspace, /do not create source commits|do not create a source commit/i);
-  assert.match(jsTemplate, /one implementation[\s\S]{0,180}reused by multiple Hosts/i);
-  assert.match(jsTemplate, /Source Project selection or creation[\s\S]{0,180}separate from the Template name/i);
+  assert.match(jsTemplate, /multiple compatible Hosts[\s\S]{0,180}share one[\s\S]{0,160}JS implementation/i);
+  assert.match(jsTemplate, /Source Project selection or creation[\s\S]{0,180}separate from JS Template name/i);
   assert.doesNotMatch(jsTemplate, /application(?:-level)? default Repository/i);
-  assert.match(jsTemplate, /Multiple[\s\S]{0,160}files[\s\S]{0,160}do not select the JS Template route/i);
+  assert.match(jsTemplate, /Multiple[\s\S]{0,160}files[\s\S]{0,160}do not select (?:the )?JS Template(?: route)?/i);
   assert.match(createPage, /Host Preview[\s\S]{0,120}non-goal/i);
   assert.match(wholePage, /create-js-page-quick\.md/i);
   assert.match(localEdit, /runjs-capability-gate\.md/i);
@@ -1011,7 +1012,7 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
   assert.match(workspace, /Independent Git storage or distribution alone[\s\S]{0,120}single-Host Inline ownership/i);
   assert.match(jsTemplateTransport, /business-meaningful Source Project name/i);
   assert.doesNotMatch(jsTemplate, /application(?:-level)? default Repository/i);
-  assert.match(jsTemplate, /primary JS Template catalog is entry-centric/i);
+  assert.match(jsTemplate, /primary catalog is JS Template-centric/i);
 
   for (const ownerClass of ['complete-workspace', 'embedded/single-surface', 'compatibility-single-file']) {
     assert.match(loop, new RegExp(ownerClass.replace('/', '\\/'), 'i'));
@@ -1359,15 +1360,15 @@ test('low-level set-layout docs keep runtime rows/sizes separate from whole-page
 test('template selection stays centralized and prompt keeps minimum guardrails', () => {
   const skill = read('SKILL.md');
   assertSkillKeepsIntentFirst(skill);
-  assert.match(skill, /read \[template-quick\.md\].*\[templates\.md\].*full decision matrix/i);
+  assert.match(skill, /read \[ui-template-quick\.md\].*\[ui-templates\.md\].*full decision matrix/i);
   assertSkillKeepsTemplateRulesMinimal(skill);
 
-  const templates = read('references/templates.md');
-  assertTemplateDocMinimumContract(templates, 'references/templates.md');
-  assertContextualTemplateProbeGuardrails(templates, 'references/templates.md');
-  assertTryTemplateWriteFallback(templates, 'references/templates.md');
-  assertSaveAsTemplateWritePath(templates, 'references/templates.md');
-  assertExistingReferenceEditMatrix(templates, 'references/templates.md');
+  const templates = read('references/ui-templates.md');
+  assertTemplateDocMinimumContract(templates, 'references/ui-templates.md');
+  assertContextualTemplateProbeGuardrails(templates, 'references/ui-templates.md');
+  assertTryTemplateWriteFallback(templates, 'references/ui-templates.md');
+  assertSaveAsTemplateWritePath(templates, 'references/ui-templates.md');
+  assertExistingReferenceEditMatrix(templates, 'references/ui-templates.md');
   assert.doesNotMatch(templates, /auto-generated by nocobase-ui-builder/i);
 
   for (const relativePath of [
@@ -2114,7 +2115,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     'references/local-edit-quick.md',
     'references/reaction-quick.md',
     'references/boundary-quick.md',
-    'references/template-quick.md',
+    'references/ui-template-quick.md',
     'references/helper-contracts.md',
   ]) {
     assert.match(index, new RegExp(path.basename(relativePath).replace(/\./g, '\\.'), 'i'), `${relativePath} should be listed in references/index.md`);
@@ -2130,7 +2131,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(wholePageQuick, /\[page-blueprint\.md\]/i);
   assert.match(wholePageQuick, /\[helper-contracts\.md\][\s\S]{0,120}optional helper behavior/i);
-  assert.match(wholePageQuick, /\[template-quick\.md\]/i);
+  assert.match(wholePageQuick, /\[ui-template-quick\.md\]/i);
   assert.match(wholePageQuick, /\.artifacts\/nocobase-ui-builder/i);
   assert.match(wholePageQuick, /blueprint\.json/i);
   assert.match(wholePageQuick, /readback-checklist\.md/i);
@@ -2381,8 +2382,8 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(boundaryQuick, /nocobase-data-modeling/i);
   assert.match(boundaryQuick, /nocobase-workflow-manage/i);
 
-  const templateQuick = read('references/template-quick.md');
-  assert.match(templateQuick, /\[templates\.md\]/i);
+  const templateQuick = read('references/ui-template-quick.md');
+  assert.match(templateQuick, /\[ui-templates\.md\]/i);
   assert.match(templateQuick, /page-scoped wording/i);
   assert.match(templateQuick, /"autoDetachToCopy"\s*:\s*false/i);
   assert.match(templateQuick, /"needsClarification"\s*:\s*true/i);

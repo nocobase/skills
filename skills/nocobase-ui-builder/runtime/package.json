@@ -12,7 +12,6 @@
   },
   "scripts": {
     "test": "node --test ./tests/*.test.js ../scripts/*.test.mjs",
-    "test:product-contract": "node --test ./tests/product-authoring-contract.integration.test.js",
-    "test:prompt-routing": "node ./bin/evaluate-prompt-routing.mjs"
+    "test:product-contract": "node --test ./tests/product-authoring-contract.integration.test.js"
   }
 }

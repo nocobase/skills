@@ -2,7 +2,7 @@
 
 Host/UI writes use `nb api flow-surfaces <action>`; complete Inline Workspace source uses `nb api run-js-sources <action>`. When runtime/auth is missing, report the blocked nb command before writing.
 
-Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
+Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template planning and existing template reference edits, keep [ui-templates.md](./ui-templates.md) as the only source of truth.
 
 ## 1. Preflight
 
@@ -39,10 +39,11 @@ Use this checklist after the matching quick route is already clear. For global r
 - If the user requested multiple Hosts to share one maintained implementation without copied code, unavailable JS Template capability is unfinished work, not permission to downgrade to Inline. Independent Git storage or distribution alone keeps a single-Host implementation Inline.
 - For JS Template reuse or Detach to Inline, route through
   [js-template-roundtrip.md](./js-template-roundtrip.md). Capture the first Save as JS Template binding, validate that exact
-  Source Project/Template Entry with `js-templates list-selectable/get`, and confirm the second Host supports the same kind.
-- Reuse means one Source Project, one Template Entry, and two effective Usages. Do not run Save as JS Template again,
+  Source Project/JS Template with `js-templates list-selectable/get`, and confirm the second Host supports the same kind.
+- Reuse means one Source Project, one JS Template, and two effective Usages. Do not run Save as JS Template again,
   copy the Template, change `entry.json.key`, or use the retained older Inline fallback as Detach source.
-- Use `existing` only for an explicitly selected/current/same-task Source Project; otherwise create a business-named `new` Source Project while separately naming the Template Entry. Save as JS Template and Detach to Inline require stable non-empty idempotency keys for equivalent retries; Detach also requires current `expectedProjectHeadCommitId`.
+- Use `existing` only for an explicitly selected/current/same-task Source Project; otherwise create a business-named `new` Source Project while separately naming the JS Template. Save as JS Template and Detach to Inline require stable non-empty idempotency keys for equivalent retries; Detach also requires current `expectedProjectHeadCommitId`.
+- Detach sends exactly `idempotencyKey`, `locator`, `projectId`, `templateId`, and `expectedProjectHeadCommitId`; save or discard unsaved shared edits first. The server reads that committed Head and derives source, kind, entry path, and `runtimeVersion`; do not upload a working copy.
 - Persist exactly `sourceMode: "js-template"` and `sourceBinding: { type: "js-template-entry", projectId, templateId, kind }`; resolve all display/source metadata separately.
 - Usage readback is template-level, paginated, excludes `owner_missing`, and never exposes hidden owner details. Effective Usage blocks Template deletion until supported owner operations remove it.
 
@@ -56,7 +57,7 @@ Use this checklist after the matching quick route is already clear. For global r
 - If there is no explicit local popup content, let the backend miss path continue; if there is local popup content, keep that content as the fallback.
 - When the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and contextual probing found no usable template, use `popup.saveAsTemplate={ name, description }`.
 - `popup.saveAsTemplate` cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
-- If a localized edit already hits an existing template reference, route through [templates.md](./templates.md) before writing.
+- If a localized edit already hits an existing template reference, route through [ui-templates.md](./ui-templates.md) before writing.
 - Existing template reference edits default to the template-source route for template-owned content. Keep host-local config changes local, and treat page-scoped wording as not local-only intent.
 - If existing-reference scope is still unresolved, stop and clarify instead of auto-detaching or using `copy` as a safety fallback.
 
@@ -112,7 +113,7 @@ Use this path when the user wants to change only part of an existing surface.
 - Whole-page reaction work belongs in blueprint `reaction.items[]`.
 - Localized reaction work starts with `get-reaction-meta` and then writes through the matching `set-field-value-rules`, `set-field-linkage-rules`, `set-block-linkage-rules`, or `set-action-linkage-rules`.
 - Keep form field-value and form field-linkage writes targeted at the outer form block uid/path, not the inner grid.
-- Use [reaction.md](./reaction.md) for payload details and [templates.md](./templates.md) if the target already carries a template reference.
+- Use [reaction.md](./reaction.md) for payload details and [ui-templates.md](./ui-templates.md) if the target already carries a template reference.
 
 ## 6. Schema / Capability Reads
 
@@ -135,9 +136,9 @@ Stop instead of guessing when:
 
 - For chart-required dashboards, the final summary must list `chart blocks: <title> -> <asset key or live chart uid>`.
 - If readback only proves `jsBlock`, `table`, or `list` content for a requested chart section, say the chart section is unfinished instead of claiming dashboard completion.
-- For an allowed JS Block fallback, state that multi-file Workspace capability is unavailable on the current instance, single-file Inline was used, and no Source Project or Template Entry was created.
-- For a complete JS Page or JS Block, state that the Host was ready, `save-changes` succeeded with no error diagnostics, a new commit and owner fingerprint were returned, and no Source Project or Template Entry was automatically created. Do not claim Host Preview unless it was separately run.
+- For an allowed JS Block fallback, state that multi-file Workspace capability is unavailable on the current instance, single-file Inline was used, and no Source Project or JS Template was created.
+- For a complete JS Page or JS Block, state that the Host was ready, `save-changes` succeeded with no error diagnostics, a new commit and owner fingerprint were returned, and no Source Project or JS Template was automatically created. Do not claim Host Preview unless it was separately run.
 - For JS Template reuse/Detach, report both Hosts' source modes, exact four-field bindings, and independent overrides;
   Source Project/Template counts and stable source key; old/current Head and commits; template-level Usage readback;
-  Detach idempotency/Head CAS and the selected Host's current reachable Inline commit; preservation of the other
+  Detach five-field request/idempotency/Head CAS and the selected Host's server-derived Inline commit; preservation of the other
   binding/history; deletion protection where relevant; and the browser-verification boundary.

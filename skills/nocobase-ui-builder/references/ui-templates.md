@@ -1,8 +1,11 @@
-# Templates
+# UI Templates
 
-Read this file when template routing is already confirmed: reusable popup / block / fields scenes, applying a template during `add*` / `compose`, editing content under an existing template reference, switching popup-template targets, converting a reference to `copy`, or checking `usageCount`.
+Read this file when UI Template routing is already confirmed: reusable popup / block / fields scenes, applying a
+template during `add*` / `compose`, editing content under an existing template reference, switching popup-template
+targets, converting a reference to `copy`, or checking `usageCount`. Shared JS implementation reuse belongs to
+[js-template-source.md](./js-template-source.md), not this document.
 
-Start with [template-quick.md](./template-quick.md) when you are still deciding whether template routing is in scope. Come here once that route is clear.
+Start with [ui-template-quick.md](./ui-template-quick.md) when you are still deciding whether template routing is in scope. Come here once that route is clear.
 
 Agent-facing front door is `nb api flow-surfaces <action>`. JSON examples below use the raw business object passed through `--body` / `--body-file`. Do not wrap that object again. For body details see [tool-shapes.md](./tool-shapes.md). For popup rules see [popup.md](./popup.md). For execution order see [execution-checklist.md](./execution-checklist.md).
 

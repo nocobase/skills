@@ -23,10 +23,12 @@ Before the first complete RunJS authoring operation, run `nb api run-js-sources 
 `externalization.available`. Then classify before selecting a snippet or writing implementation code:
 
 Apply the ordered solution boundary and stop at the first match: a JS feature needing a new backend API, database table,
-data migration, ACL/permission enforcement, or server capability uses a full **NocoBase Plugin**; multiple Hosts sharing
-one maintained JS implementation use **JS Template**; reusable UI/Flow structure without a shared JS implementation uses **UI Template**;
-one Host exclusively owning its implementation uses **Inline RunJS**. Existing-app ACL administration and data-model
-configuration remain specialist handoffs. Independent Git storage does not override single-Host Inline ownership.
+data migration, ACL/permission enforcement, or server capability uses a full **NocoBase Plugin**; explicit JS Template
+creation/use/Save as intent, explicit reusable/distributable JS Template intent, or multiple compatible Hosts sharing one
+maintained JS implementation without copied code uses **JS Template**; reusable UI/Flow structure without a shared JS
+implementation uses **UI Template**; one Host exclusively owning its implementation uses **Inline RunJS**. Existing-app
+ACL administration and data-model configuration remain specialist handoffs. Multiple files, complex code, hooks,
+dashboards, Git storage/ownership, or vague future distribution do not override single-Host Inline ownership.
 UI Template reuses UI/Flow structure; JS Template shares one JS implementation.
 
 - `complete-workspace`: the requested complete JS Model has a matching `ownerKind` and `modelUse` in the machine contract, and Host create/get returns a canonical locator. This includes complete JS Page, Block, Field, Editable Field, Column, Item, Item Action, and action-family Models, not only owners already materialized as Workspaces.

@@ -30,6 +30,17 @@ function readProductManifest() {
   return JSON.parse(readFileSync(absolutePath, 'utf8'));
 }
 
+function extractJsonAfter(text, marker) {
+  const markerStart = text.indexOf(marker);
+  assert.notEqual(markerStart, -1, `should find marker ${marker}`);
+  const fenceStart = text.indexOf('```json\n', markerStart);
+  assert.notEqual(fenceStart, -1, `should find JSON fence after ${marker}`);
+  const jsonStart = fenceStart + '```json\n'.length;
+  const fenceEnd = text.indexOf('\n```', jsonStart);
+  assert.notEqual(fenceEnd, -1, `should close JSON fence after ${marker}`);
+  return JSON.parse(text.slice(jsonStart, fenceEnd));
+}
+
 function parseBacktickValuesAfterPrefix(text, prefix) {
   const line = text.split('\n').find((candidate) => candidate.startsWith(prefix));
   assert.ok(line, `missing documented list: ${prefix}`);
@@ -98,6 +109,16 @@ test('keeps Skills authoring guidance aligned with the product manifest', produc
   const detachSection = transport.match(/^## Detach to Inline\n([\s\S]*?)^## /m)?.[1];
   assert.ok(detachSection, 'JS Template transport should document Detach to Inline');
   assert.match(detachSection, /expectedProjectHeadCommitId/i);
+  assert.deepEqual(Object.keys(extractJsonAfter(transport, '## Detach to Inline\n')).sort(), [
+    'expectedProjectHeadCommitId',
+    'idempotencyKey',
+    'locator',
+    'projectId',
+    'templateId',
+  ]);
+  const saveAsRequest = extractJsonAfter(transport, '## Canonical Save as request\n');
+  assert.equal(saveAsRequest.runtimeVersion, 'v2');
+  assert.equal('version' in saveAsRequest, false);
 });
 
 test('locks delta, Save as, reuse, and Detach semantics across repositories', productTestOptions, () => {
@@ -115,7 +136,7 @@ test('locks delta, Save as, reuse, and Detach semantics across repositories', pr
   assert.match(transport, /complete[\s\S]{0,20}semantic request/i);
   assert.match(transport, /`idempotencyKey` is required, non-empty/i);
   assert.match(transport, /Equivalent retries return the first/i);
-  assert.match(roundtrip, /one Source Project, one Template Entry, and two effective Usages/i);
-  assert.match(roundtrip, /latest reachable source set/i);
+  assert.match(roundtrip, /one Source Project, one JS Template, and two effective Usages/i);
+  assert.match(roundtrip, /server[\s\S]{0,180}derives kind, entry path, `runtimeVersion`, and reachable files/i);
   assert.match(roundtrip, /histories are independent/i);
 });

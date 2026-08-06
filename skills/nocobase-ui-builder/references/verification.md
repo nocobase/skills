@@ -4,7 +4,7 @@ Use this file to verify inspect/prewrite output and post-write persistence.
 
 The Host/UI front door is `nb api flow-surfaces <action>`. Complete Inline Workspace source uses `nb api run-js-sources <action>`. Treat the structural readback routes below as backend actions.
 
-For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
+For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template-mode semantics and localized existing-reference edit routing, keep [ui-templates.md](./ui-templates.md) as the normative source and use this file only for readback expectations.
 
 ## 1. Inspect / Prewrite Verification
 
@@ -63,7 +63,7 @@ For a complete JS Page or JS Block, source completion requires all of the follow
 - `save-changes` succeeded and its artifact contains no diagnostic with `severity: "error"`
 - the response returned a new commit, `artifact.filesHash`, and the updated owner fingerprint
 - the request sent only changed paths with the CAS tokens and `expectedBlobHash` values from one open/open-latest response
-- no Source Project or Template Entry was automatically created
+- no Source Project or JS Template was automatically created
 
 Host Preview is not required by this source contract and must not be claimed as validation when it was not run.
 
@@ -73,11 +73,11 @@ For a multi-Host reuse or Detach request, follow
 [js-template-roundtrip.md](./js-template-roundtrip.md) and report all of the following:
 
 - before and after `sourceMode`, exact public binding identity, and independent settings override for each Host
-- one Source Project and one Template Entry, including stable `entry.json.key`, old/current Head, compiled commit, source history, runtime availability, and artifact/settings hashes
+- one Source Project and one JS Template, including stable `entry.json.key`, old/current Head, compiled commit, public `runtimeVersion`, source history, and artifact/settings hashes
 - template-level Usage readback before reuse and after Detaching one Host, including visible rows, `effectiveCount`, `hiddenCount`, and exclusion of `owner_missing`
-- proof that the detached Host used current reachable Template source, supplied current `expectedProjectHeadCommitId`, cleared only its own binding/Usage, and returned a new Inline RunJS commit and owner fingerprint
+- proof that Detach sent exactly `idempotencyKey`, `locator`, `projectId`, `templateId`, and the current `expectedProjectHeadCommitId`; the server read the committed Head and derived source; only the selected binding/Usage was cleared; and a new Inline RunJS commit and owner fingerprint were returned
 - the stable Detach idempotency boundary and, after an equivalent replay, the same Inline commit, owner fingerprint, files hash, and source reference returned by the first success
-- proof that the other Host kept its binding/override and that Source Project, Template Entry, stable source key, Head, history, and remaining Usage were preserved
+- proof that the other Host kept its binding/override and that Source Project, JS Template, stable source key, Head, history, and remaining Usage were preserved
 - Template deletion conflict while effective Usage remains and success only after it reaches zero, when deletion is in scope
 - the boundary between API/CLI verification and any browser rendering that was actually performed
 

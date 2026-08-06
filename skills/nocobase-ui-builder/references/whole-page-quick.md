@@ -205,7 +205,7 @@ Final user-facing links should point at the mobile base route such as `/mobile/<
 - [page-archetypes.md](./page-archetypes.md) if none of the common page shapes fits cleanly
 - [page-blueprint.md](./page-blueprint.md) for the full page grammar, uncommon block shapes, or exact field / action structures
 - [helper-contracts.md](./helper-contracts.md) only for optional helper behavior
-- [template-quick.md](./template-quick.md) if popup / block / fields reuse, existing template references, or `copy` vs `reference` is actually in scope
+- [ui-template-quick.md](./ui-template-quick.md) if popup / block / fields reuse, existing template references, or `copy` vs `reference` is actually in scope
 - [reaction-quick.md](./reaction-quick.md) if the page needs detailed reaction payload recipes
 - [js.md](./js.md) if JS, charts, or `ctx.*` enters the page
 

@@ -65,7 +65,7 @@ of the two `Yes` rows, and the current Host contract confirms the action:
 
 Do not encode multiple Workspace files into either field. Preview/read back the persisted JS Block through the Host
 surface contract. The completion response must state that the current instance has no available multi-file Workspace
-capability, single-file Inline was used, and no Source Project or Template Entry was created.
+capability, single-file Inline was used, and no Source Project or JS Template was created.
 
 JS Page public configure currently writes page metadata only; it has no public single-file source write. If Workspace
 capability is unavailable, stop. A future JS Page fallback requires a public API and tests in the NocoBase product
