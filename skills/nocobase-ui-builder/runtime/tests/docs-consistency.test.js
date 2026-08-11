@@ -1146,7 +1146,10 @@ test('RunJS transport, routing, capability, and discovery contracts stay aligned
   assert.match(workspace, /Independent Git storage or distribution alone[\s\S]{0,120}single-Host Inline ownership/i);
   assert.match(jsTemplateTransport, /business-meaningful Source Project name/i);
   assert.doesNotMatch(jsTemplate, /application(?:-level)? default Repository/i);
-  assert.match(jsTemplate, /primary catalog is JS Template-centric/i);
+  assert.match(jsTemplate, /Settings UI is Source Project-centric/i);
+  assert.match(jsTemplate, /list-selectable[\s\S]{0,120}Host selector[\s\S]{0,120}Usage[\s\S]{0,80}AI transport/i);
+  assert.match(jsTemplate, /There is no[\s\S]{0,40}Template catalog Settings page/i);
+  assert.doesNotMatch(jsTemplate, /primary catalog|advanced Source Project list/i);
 
   for (const ownerClass of ['complete-workspace', 'embedded/single-surface', 'compatibility-single-file']) {
     assert.match(loop, new RegExp(ownerClass.replace('/', '\\/'), 'i'));

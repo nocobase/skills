@@ -121,11 +121,12 @@ nb api flow-surfaces configure --body-file /tmp/host-b-binding.json -j
 ```
 
 The values are copied from one binding result, not combined across responses. Read back both Hosts. Both must have
-`sourceMode: "js-template"` and the same `projectId`/`templateId`/`kind`. The primary catalog still has one row for T,
-the advanced Source Project list still has one row for P, and Template Usage `effectiveCount` is now two.
+`sourceMode: "js-template"` and the same `projectId`/`templateId`/`kind`. Template APIs and the Host selector still expose
+one Template object T, the Settings Source Project list still has one row for P, and Template Usage `effectiveCount` is
+now two.
 
-If P also contains another JS Template, the primary catalog must show two Template rows while the Source Project list
-still shows one Project row.
+If P also contains another JS Template, Template APIs, the Host selector, Usage, and AI transport address two Template
+objects while the Settings UI still shows one Source Project row.
 
 ## 4. Keep Host settings independent
 
@@ -143,9 +144,9 @@ Before or near a shared-source Save, read the current Template Usage aggregate a
 message: this Template is used in N locations; after Save those locations immediately use the new code. Do not add an
 extra blocking confirmation or a Draft/Version/Pin/Release workflow.
 
-The catalog Usage count opens the paginated Usage locations view. Safely handle loading, empty, error,
-disabled/archived, and partially visible states. Visible rows may show the returned owner/location titles and route; a
-hidden aggregate must never be expanded into guessed details.
+The Template-level Usage count opens the paginated Usage locations view. Safely handle loading, empty, error, disabled,
+and partially visible states. Visible rows may show the returned owner/location titles and route; a hidden aggregate
+must never be expanded into guessed details.
 
 Save source with the canonical CLI only:
 
@@ -156,6 +157,10 @@ nb js-template save --dir /tmp/js-template-shared --message "Update shared templ
 ```
 
 Successful Save advances P's Head and T's compiled Artifact. Read back T's new compiled commit and public `runtimeVersion`. Both Hosts resolve the new source immediately, but their settings overrides remain independent.
+
+If P is disabled for maintenance, pull, edit, Check, source save, Git configuration, Git Pull, and Git Push remain
+available. Runtime resolve stays unavailable until P is re-enabled, and Save as JS Template to P as an existing
+destination returns `JS_TEMPLATE_PROJECT_DISABLED`. Never treat that destination error as a general source-write gate.
 
 ## 6. Detach only Host A to Inline
 
@@ -199,7 +204,7 @@ nb api js-templates delete --template-id <templateId> -j
 Expect 409 `JS_TEMPLATE_USAGE_EXISTS` without hidden owner details. After Host B is also detached or its Usage is
 otherwise no longer effective, re-read Usage and retry. Deletion may then remove only T's source and unreferenced
 artifacts; it does not delete Source Project P or a sibling JS Template. Source Project deletion protection remains
-separate. Archived Source Projects are read-only.
+separate.
 
 ## Failure boundaries
 
@@ -213,7 +218,7 @@ separate. Archived Source Projects are read-only.
 Report one before/after bundle containing:
 
 - Host A/B identifiers, source modes, exact four-field bindings, settings overrides, and Source Project identity, Head, commits, and history boundary
-- Template identity, public `runtimeVersion`, `entry.json.key`, `entryPath`, compiled commit, hashes, catalog count, visible Usage rows, aggregates, and excluded `owner_missing`
+- Template identity, public `runtimeVersion`, `entry.json.key`, `entryPath`, compiled commit, hashes, Template API/selector count, visible Usage rows, aggregates, and excluded `owner_missing`
 - save impact and proof both Hosts resolved it, plus Detach idempotency, `expectedProjectHeadCommitId`, and returned Inline commit/source reference
 - proof Host B stayed bound and histories remain independent, plus deletion conflict and success after effective Usage reaches zero when in scope
 - whether browser rendering was actually verified; API/CLI evidence alone is not browser evidence

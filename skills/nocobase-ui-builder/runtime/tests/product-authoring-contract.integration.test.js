@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -26,10 +27,15 @@ function readProductManifest() {
   assert.ok(productRoot, 'product checkout should be configured');
   const absolutePath = path.join(
     productRoot,
-    'packages/core/runjs-workspace/src/shared/runjs-authoring-contract.v1.json',
+    'packages/core/runjs/src/workspace/shared/runjs-authoring-contract.v1.json',
   );
   assert.equal(existsSync(absolutePath), true, `missing NocoBase contract file: ${absolutePath}`);
   return JSON.parse(readFileSync(absolutePath, 'utf8'));
+}
+
+function readProductHeadSha() {
+  assert.ok(productRoot, 'product checkout should be configured');
+  return execFileSync('git', ['-C', productRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 }
 
 function parseBacktickValuesAfterPrefix(text, prefix) {
@@ -52,7 +58,8 @@ function assertDocumentedBoolean(text, property, value) {
   assert.match(text, new RegExp(`${escapedProperty}[:=]\\s*${value}`, 'i'));
 }
 
-test('keeps Skills authoring guidance aligned with the product manifest', productTestOptions, () => {
+test('keeps Skills authoring guidance aligned with the product manifest', productTestOptions, (context) => {
+  context.diagnostic(`NocoBase product contract SHA: ${readProductHeadSha()}`);
   const manifest = readProductManifest();
   const workspace = readSkill('references/runjs-workspace-source.md');
   const transport = readSkill('references/js-template-transport.md');

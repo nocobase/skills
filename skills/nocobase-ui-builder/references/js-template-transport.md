@@ -83,8 +83,13 @@ from one result with a JS Template from another.
 
 Use an `existing` destination only when the user selected it, the current Template already belongs to it, or the same
 task just created it. Otherwise use `new` with a business-meaningful Source Project name. Source Project selection is
-separate from `templateName` and `templateTitle`. Disabled or archived Source Projects cannot receive Save as JS
-Template writes.
+separate from `templateName` and `templateTitle`.
+
+The only public Source Project lifecycle states are `enabled` and `disabled`. Disabling a Source Project does not make
+its source read-only: authorized users may still pull, edit, run Check, save source, configure Git, and run Git Pull or
+Git Push. Runtime resolution remains unavailable and `list-selectable` omits its Templates until the Project is
+re-enabled. Save as JS Template is a separate destination operation: an `existing` disabled Project is rejected with
+409 `JS_TEMPLATE_PROJECT_DISABLED`. That error is not a generic ban on source editing or synchronization.
 
 ## Capture one Inline snapshot
 
@@ -285,8 +290,8 @@ nb api js-template-usages list-usages --body-file /tmp/js-template-usages.json -
 
 `data.data` contains only visible effective owner locations. `data.meta.effectiveCount` includes visible and hidden
 effective owners, `hiddenCount` exposes only an aggregate, and `owner_missing` is excluded from counts and rows. Never
-infer or disclose hidden owner descriptors. Disabled/archived resolution remains visible through safe status rather than
-being treated as missing ownership.
+infer or disclose hidden owner descriptors. A disabled Project remains visible through safe `project_disabled` status
+rather than being treated as missing ownership.
 
 Delete one JS Template only through the authoritative action:
 
@@ -296,8 +301,8 @@ nb api js-templates delete --template-id <templateId> -j
 
 `JS_TEMPLATE_USAGE_EXISTS` means at least one effective Usage still protects the Template. Do not work around it or
 delete the Source Project. Detach or otherwise remove every effective Usage, re-read the count, and retry. Successful
-deletion removes only that Template's source and unreferenced artifacts. Archived Source Projects remain read-only, and
-Source Project deletion protection is a separate operation.
+deletion removes only that Template's source and unreferenced artifacts. Source Project deletion protection is a
+separate operation.
 
 ## Detach to Inline
 
@@ -346,7 +351,7 @@ Classify by action, HTTP status, and `errors[].code`; status alone is insufficie
 | 400 `JS_TEMPLATE_INVALID_INPUT` | Correct the canonical root payload. No source or binding state advances. |
 | 403 `JS_TEMPLATE_PERMISSION_DENIED` | Stop and report the missing Host, Template, Source Project, or Usage permission without changing role. |
 | 404 `JS_TEMPLATE_PROJECT_NOT_FOUND` / `JS_TEMPLATE_NOT_FOUND` | Re-run discovery/current Host readback and correct the selected identity. |
-| 409 `JS_TEMPLATE_PROJECT_DISABLED` / `JS_TEMPLATE_PROJECT_ARCHIVED` | Stop; do not force a Save as or source write. |
+| 409 `JS_TEMPLATE_PROJECT_DISABLED` during Save as to an existing destination | Stop that Save as; re-enable the Project or choose a different user-approved destination. Ordinary pull/edit/source save and Git synchronization remain available. |
 | 409 `JS_TEMPLATE_BINDING_OUTDATED` | Re-read the Host and rebuild the entire operation; do not replace only binding values. |
 | 409 `JS_TEMPLATE_SOURCE_OUTDATED` during Save as | Run one fresh Inline `open-latest`, rebuild all source evidence and derive a new key. |
 | 409 `JS_TEMPLATE_SOURCE_OUTDATED` during Detach | Re-read the Host, JS Template, and Source Project, rebuild the five-field request for the intended committed Head, and derive a new key. No Host, Usage, source, Head, or Artifact state changes. |

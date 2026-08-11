@@ -87,9 +87,20 @@ and [js-template-transport.md](../js-template-transport.md).
 - Forbidden behavior: do not send `entryPath`, `kind`, `runtimeVersion`, or `files`; the server derives them from the
   exact committed Head.
 
+### Case 9: Maintain a disabled Source Project
+
+- Prompt: “Keep this disabled Source Project unavailable at runtime, but update its existing source and synchronize the
+  Git remote.”
+- Expected route: `js-template-source-maintenance`
+- Key reason: disabled is a runtime state, not a read-only source state.
+- Completion evidence: pull, edit, Check, source save, and any requested Git configure/Pull/Push complete with the
+  Project still disabled and the new Head read back.
+- Forbidden behavior: do not return `JS_TEMPLATE_PROJECT_DISABLED` for ordinary source maintenance or attempt Runtime
+  resolve while the Project remains disabled.
+
 ## Failure cases
 
-### Case 9: Shared route without capability
+### Case 10: Shared route without capability
 
 - Prompt: “Make these two compatible Hosts share one maintained JS implementation, but the current server does not expose
   JS Template externalization capability.”
@@ -98,10 +109,27 @@ and [js-template-transport.md](../js-template-transport.md).
 - Completion evidence: report the missing capability and the requested route as incomplete.
 - Forbidden behavior: do not downgrade to Inline, copy source, or claim successful reuse.
 
-### Case 10: Detach with unsaved shared edits
+### Case 11: Detach with unsaved shared edits
 
 - Prompt: “Detach Host A now and include the unsaved changes currently open in the shared JS Template editor.”
 - Expected route: `stop-unsaved-shared-edits`
 - Key reason: Detach copies only a committed Source Project Head.
 - Completion evidence: require the user to save the shared changes or explicitly discard them before retrying Detach.
 - Forbidden behavior: do not upload the working copy through Detach or add source fields to the five-field request.
+
+### Case 12: Save as to a disabled existing destination
+
+- Prompt: “Save this Inline Workspace as a JS Template into the existing disabled Source Project P.”
+- Expected route: `stop-disabled-save-as-destination`
+- Key reason: Save as to a disabled existing destination returns `JS_TEMPLATE_PROJECT_DISABLED`.
+- Completion evidence: report the narrow destination gate and require re-enabling P or selecting a different
+  user-approved destination.
+- Forbidden behavior: do not broaden the failure into a ban on pull, edit, source save, or Git synchronization.
+
+### Case 13: Resolve a Template from a disabled Project
+
+- Prompt: “Run Template T now, but its Source Project is disabled.”
+- Expected route: `stop-disabled-runtime`
+- Key reason: Templates cannot Runtime resolve until their Source Project is re-enabled.
+- Completion evidence: report the disabled runtime state and the re-enable requirement without treating T as missing.
+- Forbidden behavior: do not bypass the lifecycle gate or relabel the Project as a third public lifecycle state.

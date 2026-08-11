@@ -8,14 +8,19 @@ import { findJsonObjectByExactKeys } from './helpers/js-template-contract.js';
 
 const skillRoot = fileURLToPath(new URL('../../', import.meta.url));
 const transport = readFileSync(path.join(skillRoot, 'references/js-template-transport.md'), 'utf8');
-const canonicalDocuments = [
+const canonicalDocumentPaths = [
   'SKILL.md',
   'agents/openai.yaml',
   'references/js-template-source.md',
   'references/js-template-transport.md',
   'references/js-template-roundtrip.md',
   'references/evals/js-template-routing.md',
-].map((relativePath) => readFileSync(path.join(skillRoot, relativePath), 'utf8'));
+];
+const canonicalDocuments = canonicalDocumentPaths.map((relativePath) =>
+  readFileSync(path.join(skillRoot, relativePath), 'utf8'),
+);
+const source = canonicalDocuments[canonicalDocumentPaths.indexOf('references/js-template-source.md')];
+const routingCorpus = canonicalDocuments[canonicalDocumentPaths.indexOf('references/evals/js-template-routing.md')];
 
 const saveAsKeys = [
   'idempotencyKey',
@@ -93,6 +98,44 @@ test('documents one canonical Save as request and separates Project from Templat
   );
   assert.match(transport, /Source Project selection is[\s\S]{0,180}separate from `templateName` and `templateTitle`/i);
   assert.doesNotMatch(transport, /"type"\s*:\s*"default"/i);
+});
+
+test('keeps the public lifecycle two-state and separates disabled behavior by operation', () => {
+  const combined = canonicalDocuments.join('\n');
+  const removedArchivedError = ['JS_TEMPLATE_PROJECT', 'ARCHIVED'].join('_');
+  const removedLifecyclePhrases = [
+    ['Archived Source ', 'Projects'].join(''),
+    ['archived Source ', 'Projects'].join(''),
+    ['Disabled or ', 'archived'].join(''),
+  ];
+  assert.doesNotMatch(combined, new RegExp([removedArchivedError, ...removedLifecyclePhrases].join('|'), 'i'));
+  assert.match(transport, /only public Source Project lifecycle states are `enabled` and `disabled`/i);
+  assert.match(transport, /Disabling a Source Project does not make[\s\S]{0,40}source read-only/i);
+  for (const action of ['pull', 'edit', 'Check', 'save source', 'configure Git', 'Git Pull', 'Git Push']) {
+    assert.match(transport, new RegExp(action, 'i'));
+  }
+  assert.match(transport, /Runtime resolution remains unavailable[\s\S]{0,120}re-enabled/i);
+  assert.match(transport, /`existing` disabled Project[\s\S]{0,100}`JS_TEMPLATE_PROJECT_DISABLED`/i);
+  assert.match(transport, /not a generic ban on source editing or synchronization/i);
+});
+
+test('distinguishes the Source Project Settings UI from Template-facing consumers', () => {
+  assert.match(source, /Settings UI is Source Project-centric/i);
+  assert.match(source, /one row represents one Source Project/i);
+  assert.match(source, /list-selectable[\s\S]{0,120}Host selector[\s\S]{0,120}Usage[\s\S]{0,80}AI transport/i);
+  assert.match(source, /There is no[\s\S]{0,40}Template catalog Settings page/i);
+  assert.doesNotMatch(source, /primary catalog|advanced Source Project list/i);
+});
+
+test('keeps disabled lifecycle routing cases static and reviewable', () => {
+  assert.match(routingCorpus, /Maintain a disabled Source Project[\s\S]{0,500}`js-template-source-maintenance`/i);
+  assert.match(routingCorpus, /disabled is a runtime state, not a read-only source state/i);
+  assert.match(
+    routingCorpus,
+    /Save as to a disabled existing destination[\s\S]{0,500}`JS_TEMPLATE_PROJECT_DISABLED`/i,
+  );
+  assert.match(routingCorpus, /Resolve a Template from a disabled Project[\s\S]{0,500}`stop-disabled-runtime`/i);
+  assert.match(routingCorpus, /does\s+not invoke a model or provider/i);
 });
 
 test('requires one Inline snapshot and mandatory stable idempotency', () => {
@@ -225,7 +268,6 @@ test('documents atomic failures and complete canonical handoff evidence', () => 
     'JS_TEMPLATE_PROJECT_NOT_FOUND',
     'JS_TEMPLATE_NOT_FOUND',
     'JS_TEMPLATE_PROJECT_DISABLED',
-    'JS_TEMPLATE_PROJECT_ARCHIVED',
     'JS_TEMPLATE_BINDING_OUTDATED',
     'JS_TEMPLATE_SOURCE_OUTDATED',
     'JS_TEMPLATE_CONFLICT',

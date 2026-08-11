@@ -36,12 +36,26 @@ test('saves only the first Host and reuses the exact four-field binding', () => 
   assert.match(roundtrip, /or change `entry\.json\.key`/i);
 });
 
-test('keeps the catalog entry-centric and Project management separate', () => {
-  assert.match(roundtrip, /primary catalog still has one row for T/i);
-  assert.match(roundtrip, /advanced Source Project list still has one row for P/i);
-  assert.match(roundtrip, /P also contains another JS Template[\s\S]{0,140}two Template rows[\s\S]{0,100}one Project row/i);
-  assert.match(source, /one Source Project with[\s\S]{0,80}two JS Templates[\s\S]{0,80}two catalog rows/i);
+test('keeps Settings Project-centric and Template consumers entry-centric', () => {
+  assert.match(roundtrip, /Template APIs and the Host selector still expose[\s\S]{0,80}Template object T/i);
+  assert.match(roundtrip, /Settings Source Project list still has one row for P/i);
+  assert.match(roundtrip, /P also contains another JS Template/i);
+  assert.match(roundtrip, /two Template\s+objects[\s\S]{0,160}one Source Project row/i);
+  assert.match(source, /Settings UI is Source Project-centric/i);
+  assert.match(source, /one Project[\s\S]{0,80}two JS Templates[\s\S]{0,100}one Settings row/i);
+  assert.match(source, /list-selectable[\s\S]{0,120}Host selector[\s\S]{0,120}Usage[\s\S]{0,80}AI transport/i);
   assert.match(source, /Creating only a Source Project[\s\S]{0,100}does not[\s\S]{0,80}complete/i);
+  assert.match(source, /There is no[\s\S]{0,40}Template catalog Settings page/i);
+  assert.doesNotMatch(`${source}\n${roundtrip}`, /primary catalog|advanced Source Project list/i);
+});
+
+test('separates disabled source maintenance, runtime, and Save as destination behavior', () => {
+  for (const action of ['pull', 'edit', 'Check', 'source save', 'Git configuration', 'Git Pull', 'Git Push']) {
+    assert.match(roundtrip, new RegExp(action, 'i'));
+  }
+  assert.match(roundtrip, /disabled for maintenance[\s\S]{0,420}Runtime resolve stays unavailable/i);
+  assert.match(roundtrip, /Save as JS Template[\s\S]{0,120}`JS_TEMPLATE_PROJECT_DISABLED`/i);
+  assert.match(roundtrip, /Never treat that destination error as a general source-write gate/i);
 });
 
 test('uses the public Host settings contract and preserves falsy overrides', () => {
@@ -60,7 +74,7 @@ test('exposes template-level Usage and non-blocking save impact', () => {
   assert.match(roundtrip, /Immediately after Save as, Host A contributes one effective Usage/i);
   assert.match(roundtrip, /`owner_missing` is excluded/i);
   assert.match(roundtrip, /Hidden owners contribute only to `effectiveCount`\/`hiddenCount`/i);
-  assert.match(roundtrip, /Template Usage `effectiveCount` is now two/i);
+  assert.match(roundtrip, /Template Usage `effectiveCount` is\s+now two/i);
   assert.match(roundtrip, /localized, non-blocking impact[\s\S]{0,120}used in N locations/i);
   assert.match(roundtrip, /loading, empty, error,[\s\S]{0,100}partially visible states/i);
 });

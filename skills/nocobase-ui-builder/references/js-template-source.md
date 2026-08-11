@@ -28,14 +28,24 @@ If the canonical capability is unavailable, do not silently substitute another s
 
 ## Product identity
 
-A JS Template is a reusable **Template Entry**. A **Source Project** is only its advanced source-management container and
-may contain multiple JS Templates. The primary catalog is JS Template-centric: one Source Project with two JS Templates
-has two catalog rows, while the advanced Source Project list has one row. Creating only a Source Project does not
-complete a “Create JS Template” request.
+A JS Template is a reusable **Template Entry**. A **Source Project** is its source-management container and may contain
+multiple JS Templates. The Settings UI is Source Project-centric: one row represents one Source Project, so one Project
+with two JS Templates still has one Settings row. Template APIs such as `list-selectable` and `get`, the Host selector
+and binding, Usage, and AI transport are Template-centric: that same Project exposes two Template objects. There is no
+large Template catalog Settings page. Creating only a Source Project does not complete a “Create JS Template” request.
 
 Source Project selection or creation is separate from JS Template name and title. Use an existing Source Project only
 when its identity is explicit, current, or created in the same task; otherwise create a business-named new Source
 Project.
+
+## Source Project lifecycle
+
+The public Source Project lifecycle has exactly `enabled` and `disabled` states. A disabled Project remains available
+for pull, edit, Check, source save, Git configuration, Git Pull, and Git Push. Source maintenance may advance its Head,
+but its Templates cannot Runtime resolve until the Project is re-enabled.
+
+Save as JS Template has a narrower destination gate: choosing a disabled existing Project returns
+`JS_TEMPLATE_PROJECT_DISABLED`. Do not expand that error into a ban on ordinary source editing or synchronization.
 
 ## Save as JS Template boundary
 
@@ -79,7 +89,7 @@ or upload reachable source files for Detach.
 A stale Head returns 409 with no partial mutation. Success clears only the selected Host binding and effective Usage;
 other Hosts keep their binding and settings override. The JS Template and Source Project remain until explicitly deleted.
 
-Usage is JS Template-level. Catalog counts and paginated Usage locations exclude `owner_missing`, omit hidden owner
-details, and retain visibility-safe aggregates. Shared-source saves are non-blocking. Any effective Usage protects the JS
-Template from deletion; after all effective Usages are detached, deletion may remove only that JS Template source and
-unreferenced artifacts. Source Project deletion protection remains separate.
+Usage is JS Template-level. Template API and Host-selector counts plus paginated Usage locations exclude `owner_missing`,
+omit hidden owner details, and retain visibility-safe aggregates. Shared-source saves are non-blocking. Any effective
+Usage protects the JS Template from deletion; after all effective Usages are detached, deletion may remove only that JS
+Template source and unreferenced artifacts. Source Project deletion protection remains separate.
