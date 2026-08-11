@@ -158,7 +158,19 @@ ctx.render(
 );
 ```
 
-block payload 的 `dataScope.filter` 使用 `{ logic, items }`；RunJS 的 `resource.setFilter()` 使用服务端 query object。
+列表或单条记录同样先用 `ctx.initResource('MultiRecordResource')` 或 `ctx.makeResource('MultiRecordResource')` 初始化 resource，再设置 resource name、分页和 filter，`await resource.refresh()` 后读取数据。
+
+注意：
+
+- block payload 的 `dataScope.filter` 使用 `{ logic, items }`。
+- RunJS 的 `ctx.request({ params: { filter } })` / `resource.setFilter()` 使用服务端 query object。
+- 编写任何 filter 操作符前，必须先加载 `nocobase-utils` 技能的 `filter` topic，再读 [Filter Condition Format](../../../nocobase-utils/references/filter/index.md)，从 live metadata 解析终端字段类型，再使用该类型的前端白名单。日期比较不能使用数字操作符；例如本周起始时间使用 `$dateNotBefore`，不是 `$gte`。
+
+## 数字统计面板默认写法
+
+当用户要的是 `KPI`、`指标卡`、`数字统计`、`追踪产品数`、`待阅情报数`、`本周新增数` 这类一个或多个数字时，默认生成 JSBlock 统计面板，而不是 GridCard。GridCard 展示记录，`actionPanel` 表达操作；它们都不替代主动读取 resource meta count 的指标面板。
+
+使用 catalog 中的 safe guidance [scene/block/metric-cards](../js-snippets/safe/scene/block/metric-cards.md)：用独立 resource 并行读取 count，在一个 `jsBlock` 中通过 Ant Design `Statistic` 渲染 metrics，并保留显式错误展示。
 
 ## 不要默认这么写
 

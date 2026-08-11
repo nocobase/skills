@@ -5,6 +5,10 @@ description: "Configuration guide for approval workflow, including approval trig
 
 # Approval workflow
 
+## Commercial Plugin Prerequisite
+
+All guidance in this folder requires the commercial plugin `@nocobase/plugin-workflow-approval` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md) before configuring any approval trigger, node, surface, notification, audience, or approval-center behavior. If the plugin is missing or disabled, do not use these capabilities and never replace an explicit approval request with a `manual` node.
+
 The approval feature spans several pieces that are normally documented separately under `triggers/`, `nodes/`, and `ui-config/`. Because they only make sense together, this folder is the single home for cross-cutting approval rules. The per-type docs ([triggers/approval.md](../triggers/approval.md), [nodes/approval.md](../nodes/approval.md)) keep their own schema tables and minimal examples, and link here for shared rules.
 
 ## When to read this folder

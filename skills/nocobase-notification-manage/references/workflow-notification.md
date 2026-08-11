@@ -5,6 +5,7 @@
 - Workflow instruction type: `notification`.
 - Server instruction plugin: `@nocobase/plugin-workflow-notification`.
 - Required node config includes `channelName`.
+- `channelName` must be the real `notificationChannels.name` of an existing channel. Never fill in a non-existent or guessed channel; create/configure the notification channel first, read it back, then use that exact `name`.
 - Optional behavior: `ignoreFail`; when true, workflow execution continues even if sending fails.
 - Send source: workflow notifications write `triggerFrom: workflow`.
 
@@ -15,6 +16,7 @@ The instruction parses variables from upstream workflow scope and sends through 
 Use these fields when the selected channel type is `in-app-message`:
 
 - `receivers`: required; selected users or upstream variables resolving to user id or user id arrays.
+- When `receivers` uses constant values, use integer user IDs such as `1`, not string values such as `"1"`. String IDs can make the workflow notification UI fail to display the selected users correctly.
 - `title`: required message title.
 - `content`: required message body; supports workflow variables.
 - `options.url`: optional desktop details page; internal links start with `/`, external links start with `http`.
@@ -34,7 +36,7 @@ Use these fields when the selected channel type is `email`:
 
 ## nb Resource Readback
 
-Before authoring or changing a workflow notification node, resolve channel names through resource commands:
+Before authoring or changing a workflow notification node, resolve channel names through resource commands. If the channel does not exist, stop workflow node authoring and create/configure the notification channel first:
 
 ```bash
 nb api resource list --resource notificationChannels --filter '{}' -j

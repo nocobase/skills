@@ -124,14 +124,21 @@ POST /api/workflows:destroy?filterByTk=1
 
 `POST /api/workflows:revision`
 
-Create a new version based on an existing version (same `key`). The new version is initially `enabled: false, current: false`, with the same node configuration as the original version.
+This endpoint duplicates a workflow and its nodes in one of two distinct modes. Users commonly reach same-workflow revision mode by asking to update triggers, nodes, conditions, or logic on a workflow that has already executed; they do not need to say "version". An editable workflow is updated directly without this endpoint. "Copy/duplicate this workflow" ordinarily means an independent workflow. Do not ask a copy-mode follow-up question.
+
+| Copy mode | Intended result and natural-language signals | History and execution-statistics consequence | `filter` query parameter | Returned `key` check |
+|---|---|---|---|---|
+| Same-workflow revision | Update/adjust trigger, nodes, conditions, or logic when `versionStats.executed > 0`; explicit new version; preserved history | New version is `enabled: false`, `current: false/null`, and its version count starts at zero; previous executions and key-level aggregate count remain | Exact top-level `{"key":"<source-key>"}` | Must equal source `key` |
+| Independent workflow copy | Object is the workflow itself; copy/clone workflow; save as; another process/template; statistics start from zero | New workflow is `enabled: false` with its own current version; version and aggregate counts start at zero; execution records/history are not copied; source statistics remain unchanged | Omit `filter` | Must differ from source `key` |
+
+Both modes copy the trigger and node configuration. A same-workflow revision is initially `enabled: false, current: false/null`; an independent workflow is initially `enabled: false` and is the current version of its new `key`.
 
 **Applicable scenario: When a version that has already been executed needs to be modified, a new version must first be created through this interface, and then modify on the new version.**
 
 | Parameter | Description |
 |---|---|
 | `filterByTk` | Source version workflow ID |
-| `filter` | **Required for revision**: JSON object containing the `key` of the workflow, e.g., `{"key":"abc123"}`. This ensures the new version belongs to the same workflow. |
+| `filter` | Copy-mode switch. **Required for same-workflow revision** as the exact top-level object `{"key":"abc123"}`; omit it for an independent workflow copy. |
 
 **Creating a new revision** (same workflow, new version):
 ```
@@ -139,11 +146,23 @@ POST /api/workflows:revision?filterByTk=1&filter={"key":"abc123"}
 ```
 The `key` value must match the workflow's `key` field. Returns the new version's workflow object, including the new `id`.
 
+Do not wrap `key` in `$and` or `$or`. The server selects same-workflow revision mode from the top-level `filter.key` property.
+
+The CLI sends the object as a single JSON-encoded query parameter. Equivalent encoded request:
+
+```
+POST /api/workflows:revision?filterByTk=1&filter=%7B%22key%22%3A%22abc123%22%7D
+```
+
+After query decoding, the action must receive `filter` as `{ "key": "abc123" }`; `key` is not part of the request body.
+
 **Copying as a new independent workflow** (omit `key`):
 ```
 POST /api/workflows:revision?filterByTk=1
 ```
-Without `filter[key]`, the API creates a new independent workflow with a new random `key` — it is **not** a revision of the original workflow. Only use this when you intentionally want to duplicate a workflow as a separate entity.
+Without the direct top-level `filter.key`, the API creates a new independent workflow with a new random `key` — it is **not** a revision of the original workflow. Its version and aggregate execution counts start at zero. Only use this when the user intends to duplicate the workflow entity itself.
+
+After either mode, compare the returned `key` with the source `key` before any further mutation. Stop if equality does not match the resolved mode.
 
 ---
 

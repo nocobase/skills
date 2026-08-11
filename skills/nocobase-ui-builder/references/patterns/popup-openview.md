@@ -58,7 +58,7 @@ builder DSL 边界：
 - 不要把 record popup 的 `filterByTk` 固定写成 `{{ctx.record.id}}`；默认按 live metadata 的 `filterTargetKey` 展开
 - `openView.pageModelClass` 必须与 `subModels.page.use` 严格一致；默认优先 `ChildPageModel`，但上游也允许 `RootPageModel` / `PageModel`
 - popup page 的 tab use 要跟父 page 对齐：`ChildPageModel -> ChildPageTabModel`
-- 对 popup 内“当前记录的关联子表”，只有在 parent->child relation resource 已验证时才优先走 `resourceSettings.init.associationName + sourceId`；否则允许保留 child-side 的逻辑 `dataScope.filter`，但 `path` 必须来自 relation metadata，优先 `foreignKey`，否则 `<belongsToField>.<targetKey>`
+- 对 popup 内“当前记录的关联子表”，只有在 parent->child relation resource 已验证时才优先走 `resourceSettings.init.associationName + sourceId`；否则允许保留 child-side 的逻辑 `dataScope.filter`，但 `path` 必须来自 relation metadata，优先 `foreignKey`，否则 `<belongsToField>.<targetKey>`；写 `operator` 前必须加载 `nocobase-utils` 技能的 `filter` topic，再读 [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) 并按终端字段类型选择白名单操作符
 - `associationName` 不能只复用子表指向父表的 `belongsTo` 字段名；`order` 和 `order_items.order` 这类 child-side 写法都不能算“已完成”
 - 如果弹窗入口来自表格里的关联标题列，不要默认让 `customer.name` 这种 dotted path 列自己承担 click-to-open；优先回到 [clickable-relation-column.md](clickable-relation-column.md) 的原生关系列方案
 - 多层 popup 时，每一层都要能说清楚“输入参数从哪一层来”

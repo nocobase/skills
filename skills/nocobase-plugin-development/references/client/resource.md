@@ -143,6 +143,8 @@ export class MyDetailBlock extends CollectionBlockModel {
 
 ### Filtering
 
+These APIs also accept server-side query filters that are never shown in the standard filter UI. If the filter will instead be persisted for standard frontend display/editing, first load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve the terminal field's frontend interface/type, and use only that group's operator allowlist. Do not copy a server-accepted operator into UI configuration merely because it works in `resource.setFilter()`.
+
 ```ts
 // Direct filter
 resource.setFilter({ status: { $eq: 'active' } });

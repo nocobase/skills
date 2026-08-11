@@ -1,4 +1,14 @@
 interface:
   display_name: "NocoBase AI Employee"
-  short_description: "Configure AI employees for NocoBase blocks"
-  default_prompt: "Use $nocobase-ai-employee to decide whether a block business requirement should become an AI employee action and configure it."
+  short_description: "Decide, maintain, and place AI employees safely"
+  default_prompt: >
+    Use $nocobase-ai-employee for the complete NocoBase AI employee lifecycle: decide whether
+    model judgment is appropriate, discover or create a non-developer business employee, maintain
+    supported employee records through nb api ai employees, and prepare UI placement for
+    $nocobase-ui-builder. Inspect without unnecessary prerequisite work. Use $nocobase-ai-manager
+    only for created or changed modelSettings, and hand knowledge-base capability and resource work
+    to $nocobase-ai-knowledge-base-manager. Verify every employee write, protect built-ins, and
+    require fresh exact-target confirmation for destructive or user-facing availability changes.
+
+policy:
+  allow_implicit_invocation: true

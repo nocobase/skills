@@ -5,6 +5,12 @@ description: "Use only inside approval-trigger workflows when human approvers mu
 
 # Approval
 
+## Commercial Plugin Prerequisite
+
+This node requires the commercial plugin `@nocobase/plugin-workflow-approval` to be installed and activated in the target application. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md) before creating or updating an `approval` node or its approval surfaces. If the plugin is missing or disabled, do not use this node.
+
+When the user explicitly asks for approval, never substitute a `manual` node or another simplified human-review flow. Stop and report that the Approval plugin must be activated, then continue only after activation is verified.
+
 This page only covers the `approval` node schema. Cross-cutting topics (notifications, UID-backed config, UI authoring) live under [../approval/](../approval/index.md).
 
 ## Node Type
@@ -17,6 +23,8 @@ Important: configuring this node is not enough to produce a usable approval task
 
 ## Node Description
 Initiates an approval task, waits for the approval result to continue the workflow, and can branch based on the approval outcome.
+
+If an `assignees[]` item contains a query `filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) before authoring it. Resolve the terminal user-field type and use only its frontend operator allowlist; always keep explicit operator objects and logical wrappers.
 
 ## Default Authoring Guidance
 
@@ -63,7 +71,11 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
 ```json
 {
   "branchMode": true,
-  "assignees": ["{{ $context.data.ownerId }}", { "filter": { "$and": [{ "role.name": "manager" }]} }, 123],
+  "assignees": [
+    "{{ $context.data.ownerId }}",
+    { "filter": { "$and": [{ "role.name": { "$eq": "manager" } }] } },
+    123
+  ],
   "negotiation": 1,
   "order": false,
   "endOnReject": true,

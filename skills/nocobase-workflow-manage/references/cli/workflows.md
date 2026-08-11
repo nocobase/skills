@@ -203,12 +203,34 @@ This command is intentionally not part of the normal skill write path; use only 
 
 `nb api workflow workflows revision`
 
-Create a new version from an existing version. The new version keeps the same `key` only when `filter.key` is provided.
+This command has two distinct modes, but users usually reach revision mode by asking to update workflow logic rather than by naming a version. For "update/adjust this workflow", first fetch `versionStats`: call revision with top-level `filter.key` only when the version has executed, then modify the returned new `id`. "Copy/duplicate this workflow" ordinarily means an independent workflow. Do not ask a copy-mode follow-up question.
+
+| Copy mode | Natural-language signals | History and execution-statistics consequence | `--filter` shape | Expected returned `key` |
+|---|---|---|---|---|
+| Same-workflow revision | Update/adjust trigger, nodes, conditions, or logic when `versionStats.executed > 0`; explicit new version; preserve or continue history | New version is disabled/non-current and its version count starts at zero; previous versions, executions, and key-level aggregate count remain under the same workflow | Exact top-level `{"key":"<source-key>"}` | Equal to source `key` |
+| Independent workflow copy | Object is the workflow itself; copy/clone workflow; save as; rename/use for another process; statistics start from zero | New workflow is disabled with its own current version; version and aggregate counts start at zero; execution records and version history are not copied; source statistics remain unchanged | Omit `--filter` entirely | Different from source `key` |
+
+Both modes duplicate the workflow and its nodes, but they are not interchangeable. A requested change to existing workflow behavior is an update, not a copy: an editable version is changed directly, while an executed version is revised first. Use independent-copy mode only when the user asks to duplicate/clone/save-as the workflow entity.
+
+### Verified CLI transport shape
+
+The generated CLI reads `--filter '{"key":"abc123"}'` as a JSON object and sends it as one query parameter. Its decoded server-side shape is:
+
+```json
+{
+  "filterByTk": 1,
+  "filter": {
+    "key": "abc123"
+  }
+}
+```
+
+The encoded wire URL contains `filter=%7B%22key%22%3A%22abc123%22%7D`. `key` is not a body field and must be directly under `filter`, not under `$and` or `$or`.
 
 | Parameter | CLI placement | Description |
 |---|---|---|
 | `filterByTk` | `--filter-by-tk <id>` | Source workflow version ID |
-| `filter` | `--filter '<json>'` | Must contain the workflow `key` for same-workflow revision |
+| `filter` | `--filter '<json>'` | Mode switch. For same-workflow revision, it must be the exact top-level `{"key":"<source-key>"}`. For independent copy, omit it. |
 | `title` | `--title <value>` | Optional override title |
 | `enabled` | `--enabled` | Optional override enabled state |
 | `current` | `--current` | Optional override current-version flag |
@@ -222,13 +244,17 @@ nb api workflow workflows revision \
   --filter '{"key":"abc123"}'
 ```
 
+Do not wrap this filter in a normal condition group. `--filter '{"$and":[{"key":"abc123"}]}'` does not select same-workflow revision mode.
+
 Copying as a new independent workflow:
 
 ```bash
 nb api workflow workflows revision --filter-by-tk 1
 ```
 
-Without `filter.key`, the server creates a separate workflow with a new random `key`.
+Without `filter.key`, the server creates a separate workflow with a new random `key`; its version and aggregate execution statistics start at zero.
+
+Always compare the returned `key` with the source `key` before continuing. Stop if equality does not match the resolved copy mode.
 
 ---
 

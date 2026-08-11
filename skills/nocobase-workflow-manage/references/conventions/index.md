@@ -13,13 +13,17 @@ Some trigger and node configuration items use the `collection` field to represen
 
 Some triggers and nodes use a `filter` (or `condition`) field to specify filtering conditions. This field is a JSON object that follows the NocoBase filter condition format.
 
-**Full reference**: [nocobase-utils / Filter Condition Format](../../../nocobase-utils/references/filter/index.md)
+**Mandatory full reference**: load the `nocobase-utils` skill with topic `filter`, then read [nocobase-utils / Filter Condition Format](../../../nocobase-utils/references/filter/index.md) in the current task before choosing or emitting any operator. This section is only a workflow-specific summary and is not an operator reference.
 
 Key points for workflow context:
+- Resolve the terminal field's live frontend interface/type before choosing an operator, then use only that field group's allowlist from the full reference. Do not infer an operator directly from natural-language comparison words.
+- Date intent is type-specific: before/less than → `$dateBefore`; after/greater than → `$dateAfter`; not before/at least/greater than or equal → `$dateNotBefore`; not after/at most/less than or equal → `$dateNotAfter`. `$lt`, `$lte`, `$gt`, and `$gte` are number-only and must never be used for date/datetime fields.
 - Root must be `{ "$and": [...] }` or `{ "$or": [...] }` — never place field conditions directly at the root.
 - Values can be constants or workflow variable expressions (e.g., `"{{$context.data.id}}"`). See [Variable Expressions](#variable-expressions) below for available variable paths.
 - Variables are NOT supported in trigger configuration items. In trigger configuration, only static values are allowed.
 - Both dot-string notation (`"category.name"`) and nested object notation (`{ "category": { "name": {...} } }`) are valid for association fields.
+
+Before a workflow mutation, inspect every filter condition as a `(terminal field type, operator)` pair. If metadata is unavailable or the operator is absent from that field type's row in the full reference, stop and resolve it instead of guessing.
 
 ## The `appends` Field in Trigger and Node Configuration
 
@@ -249,6 +253,31 @@ Only use `dateRange` variables in filter conditions for date fields when needed,
 Application-level environment variables configured in NocoBase settings.
 
 **Format**: `{{$env.VARIABLE_NAME}}`
+
+### Variables in Field Assignments
+
+For `params.values` in `create` and `update` nodes, string template concatenation is allowed only when the target collection field has type `string`. For all other field types, use a variable only as the complete assigned value so that its original data type is preserved.
+
+Allowed:
+
+```json
+{
+  "orderId": "{{$context.data.id}}",
+  "title": "Order: {{$context.data.title}}"
+}
+```
+
+In this example, `title` must be a `string` field. Assuming `orderId` is not a string field, its variable remains the complete assigned value.
+
+Denied for a non-string field:
+
+```json
+{
+  "orderId": "ORDER-{{$context.data.id}}"
+}
+```
+
+If a non-string field needs a transformed value, calculate it in an upstream `calculation`, `script`, `json-query`, or `json-variable-mapping` node, then assign the resulting pure variable, for example `"{{$jobsMapByNodeKey.calculate_order_id}}"`.
 
 ### Usage Examples
 

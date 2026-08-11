@@ -15,6 +15,8 @@ Important: `ccUid` and `taskCardUid` are not ordinary display values. They bind 
 ## Node Description
 Sends a CC task/notification to specified users, used for viewing or informing only.
 
+If a `users[]` item contains a query `filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) before authoring it. Resolve the terminal field type and use only its frontend operator allowlist; the nested user query is not permission to use shorthand or invent operators.
+
 ## Business Scenario Examples
 Sending a CC to relevant stakeholders for information after an approval is completed.
 
@@ -53,7 +55,11 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
 ## Example Configuration
 ```json
 {
-  "users": ["{{ $context.data.ownerId }}", { "filter": { "id": "{{ $context.data.managerId }}" } }, 123],
+  "users": [
+    "{{ $context.data.ownerId }}",
+    { "filter": { "$and": [{ "id": { "$eq": "{{ $context.data.managerId }}" } }] } },
+    123
+  ],
   "ccUid": "<persisted CCChildPageModel root uid>",
   "taskCardUid": "<persisted CCTaskCardDetailsModel root uid>",
   "title": "{{ $context.data.title }} - CC"

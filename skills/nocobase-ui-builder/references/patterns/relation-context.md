@@ -24,7 +24,7 @@ description: 关系表格、详情内关系区块、popup 内子表和 through �
 ## 核心规则
 
 1. 先查 collection / field 元数据，再写 relation filter
-2. relation/dataScope condition 只能写 `{ path, operator, value }`，不要写 `{ field, operator, value }`
+2. relation/dataScope condition 只能写 `{ path, operator, value }`，不要写 `{ field, operator, value }`；选择 `operator` 前必须加载 `nocobase-utils` 技能的 `filter` topic，再读 [Filter Condition Format](../../../nocobase-utils/references/filter/index.md)，并按 relation path 的终端字段类型查对应白名单
 3. 优先用关系语义和元数据推导逻辑字段名，不要把 `foreignKey` 直接当成 `fieldPath`
 4. child-side `belongsTo` 过滤不能写成“裸 association + 标量操作符”；`path` 必须优先取 `foreignKey`，否则改成 `<belongsToField>.<targetKey>`；拿不到 relation metadata 就保持 blocker
 5. 如果是“当前记录下的关联子表”，只有在 parent->child relation resource 已被验证时才优先使用 `resourceSettings.init.associationName + sourceId`；未验证前允许保留 child-side 的逻辑 `dataScope.filter`

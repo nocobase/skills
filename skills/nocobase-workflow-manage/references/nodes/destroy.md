@@ -13,6 +13,8 @@ Please use the above `type` value to create the node; do not use the document fi
 ## Node Description
 Deletes records from a data table according to filtering conditions.
 
+Before writing `params.filter`, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve every terminal field's live frontend interface/type, and select operators only from that field group's allowlist. This destructive node must not be written when a field type or operator remains guessed.
+
 ## Business Scenario Example
 Periodically clean up canceled historical records.
 
@@ -36,7 +38,7 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
     "filter": {
       "$and": [
         { "status": { "$eq": "canceled" } },
-        { "createdAt": { "$lte": "{{ $system.now }}" } }
+        { "createdAt": { "$dateNotAfter": "{{ $system.now }}" } }
       ]
     }
   }

@@ -207,6 +207,7 @@ If your implementation involves any of these concepts, you MUST also read the co
 | `ctx.api`, `ctx.viewer`, `ctx.message`, `ctx.model` | `references/client/ctx.md` |
 | `registerFlow`, `uiSchema`, `on:` event handlers | `references/client/flow.md` |
 | `resource`, `MultiRecordResource`, `SingleRecordResource` | `references/client/resource.md` |
+| a filter persisted for standard frontend display/editing | load `nocobase-utils` with topic `filter`, then read [Filter Condition Format](../nocobase-utils/references/filter/index.md) in addition to the relevant client/server reference |
 | `tExpr`, `useT`, `this.t` | `references/client/i18n.md` |
 | `acl.allow`, permissions | `references/server/acl.md` |
 | `defineCollection`, fields, relations | `references/server/collection.md` |

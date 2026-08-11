@@ -2,6 +2,16 @@
 
 Load this file when concrete employee fields, resource names, or create/update payloads are needed.
 
+## Contents
+
+- [Core Collection](#core-collection)
+- [Useful Resources](#useful-resources)
+- [Create Payload Shape](#create-payload-shape)
+- [Prompt Semantics](#prompt-semantics)
+- [Creation Rules](#creation-rules)
+
+Transport boundary: the resource actions below may be used only when the current environment confirms them. For record writes through `nb api ai employees`, use the CLI record references linked directly from `SKILL.md`; do not send broader fields such as `category` or `skillSettings` through that narrower CLI surface.
+
 ## Core Collection
 
 Collection: `aiEmployees`

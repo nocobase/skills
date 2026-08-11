@@ -120,6 +120,8 @@ await repo.destroy({ filterByTk: [1, 2, 3] });
 
 ## Filter Operators
 
+The operators below describe the server repository API and are not a universal allowlist for persisted filters edited by the standard frontend. When code creates a UI-displayable filter configuration, first load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md) and use the terminal field's frontend operator group; for example, a UI-displayable date comparison uses `$dateBefore`/`$dateAfter` variants rather than copying numeric `$lt`/`$gte` from repository code.
+
 ```ts
 // Comparison
 { age: { $eq: 18 } }       // Equal (same as { age: 18 })

@@ -66,6 +66,7 @@ skill 至少要知道三件事：
 
 ## 默认筛选要求
 
+- 显式填写 `defaultFilter.items[].operator` 前，必须先加载 `nocobase-utils` 技能的 `filter` topic，再读 [Filter Condition Format](../../../nocobase-utils/references/filter/index.md)，按 live metadata 解析 `path` 的终端字段类型，并且只使用该字段组的前端操作符白名单。保持 `{ logic, items }` 结构，不要把日期比较写成数字字段的 `$lt` / `$lte` / `$gt` / `$gte`。
 - 如果用户明确说“给卡片 / Grid / GridCard 增加筛选 / 搜索功能”，默认先落该数据块自己的 `filter` action。
 - public `gridCard` authoring（`applyBlueprint` / `compose` / `add-block` / `add-blocks`）可以省略 `defaultFilter`；后端会根据 live metadata 自动生成不超过四个标量/可筛选字段。只有需要覆盖默认字段时才显式写 `defaultFilter`；显式空组、非法 operator 或未知字段路径都会通过 aggregate `errors[]` 返回。
 - Whole-page / `compose` authoring 可用 `actions: ["filter"]` 或 `{ "type": "filter" }`。
