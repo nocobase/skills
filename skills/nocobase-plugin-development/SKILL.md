@@ -78,12 +78,13 @@ If the user says "I enabled the plugin but nothing shows up" or hits a 404, the 
 | Input | Required | Default | Validation | Clarification Question |
 |---|---|---|---|---|
 | `requirement` | yes | none | non-empty natural language description | "What should this plugin do?" |
-| `nocobase_root` | yes | current working directory | must be a CLI-managed source app (has `source/` directory) or a NocoBase source repo (has `packages/core/`) | "Where is your NocoBase project root directory?" |
+| `nocobase_root` | yes | current working directory | must expose a NocoBase source tree: a CLI-managed Git-source app (has `source/packages/core/`) or a NocoBase source repo (has `packages/core/`) | "Where is your NocoBase source project? Plugin development needs a Git-source install or a cloned source repo." |
 | `plugin_name` | no | derived from requirement | `@<scope>/plugin-<name>` format | "What should the plugin package name be?" |
 
 Rules:
 
-- If `nocobase_root` is not provided, check if the current working directory is a NocoBase project.
+- If `nocobase_root` is not provided, check if the current working directory is a NocoBase project with a source tree.
+- If it is a NocoBase app without a source tree (Docker or npm install), stop and walk the user through the options in Step 0 — a source tree is required and cannot be worked around.
 - If `plugin_name` is not provided, derive a reasonable name from the requirement and confirm with the user.
 - If user says "you decide", use documented defaults.
 
@@ -92,7 +93,7 @@ Rules:
 - Max clarification rounds: `2`
 - Max questions per round: `3`
 - Mutation preconditions:
-  - `nocobase_root` is a valid NocoBase project with `nb` CLI (CLI-managed apps) or `yarn` (plain source repos) available.
+  - `nocobase_root` exposes a NocoBase source tree (`source/packages/core/` for CLI-managed Git-source apps, `packages/core/` for plain source repos), with `nb` CLI or `yarn` available respectively.
   - `requirement` is clear enough to determine which extension points are needed.
   - Functional plan has been confirmed by the user in plain language.
 - If preconditions are not met after two rounds, stop and report what's missing.
@@ -101,24 +102,43 @@ Rules:
 
 # Workflow
 
-## Step 0: Environment Check
+## Step 0: Environment Check (HARD GATE — source code is required)
+
+**Plugin development requires a NocoBase source tree.** Scaffolding, building, and debugging all operate on `packages/plugins/` inside a source repo. An environment without source code cannot be used, and you must stop and tell the user how to get one rather than attempting to scaffold anyway.
 
 1. Detect environment type:
-   - **CLI-managed source app**: `source/` directory exists (created by `nb init`) → plugins go in `<app-path>/plugins/`, use `nb scaffold plugin` / `nb source build` / `nb plugin enable`.
-   - **Plain source repo**: `packages/core/` exists but no `source/` → plugins go in `packages/plugins/`, use `yarn pm create` / `yarn build` / `yarn pm enable` (legacy flow).
-2. For CLI-managed apps, verify `nb` CLI is available. For plain source repos, verify `yarn` is available.
-3. For CLI-managed apps with Git source (`source/packages/core/` exists), AI can read source code for troubleshooting. For npm source, rely on documentation and online references.
+   - **CLI-managed source app**: `source/` directory exists (created by `nb init`). The source tree is at `<app-path>/source/`. Verify it is a **Git source** install by checking that `source/packages/core/` exists.
+   - **Plain source repo**: `packages/core/` exists but no `source/` — a repo the user cloned themselves (`git clone https://github.com/nocobase/nocobase.git`). The source tree is the repo root.
+   - **Neither** → STOP. See "No usable source tree" below.
+2. Verify the toolchain: `nb` CLI for CLI-managed apps, `yarn` for plain source repos.
+3. Confirm the source tree is complete — `packages/core/` must exist under it. This is what lets you read core source for troubleshooting and what the build depends on.
+
+### No usable source tree — STOP and tell the user
+
+If the working directory is a CLI-managed app whose `source/` came from **Docker or npm** (no `source/packages/core/`), or is not a NocoBase project at all, do NOT scaffold. Report the situation and offer these two options:
+
+- **Re-create the project with a Git source** — run `nb init --ui` and pick **`Git source install`** at the source prompt. This is the option to recommend for plugin development: it puts the full NocoBase source under `<app-path>/source/`, so the plugin can be built and you can read core source when debugging. The other two options (`Docker install`, `create-nocobase-app install`) do not give you a source tree suitable for plugin development.
+- **Point at an existing source repo** — if the user already has a NocoBase source repo cloned elsewhere, ask for its path and develop the plugin there instead. If they have none, they can clone one:
+
+  ```bash
+  git clone https://github.com/nocobase/nocobase.git -b main --depth=1 my-nocobase
+  cd my-nocobase && yarn install
+  ```
+
+Ask which option the user prefers; do not pick for them, and do not proceed until a source tree is available.
 
 **Command execution directories for CLI-managed source apps:**
 
+Every command below except the env-level ones runs against the source tree, so run them from `<app-path>/source/`.
+
 | Command | Run from |
 |---|---|
-| `nb scaffold plugin` | `<app-path>` or `<app-path>/source/` |
+| `nb scaffold plugin` | `<app-path>/source/` |
 | `nb source dev` | `<app-path>/source/` |
 | `nb source build` | `<app-path>/source/` |
+| `nb scaffold migration` | `<app-path>/source/` |
 | `nb plugin enable/disable` | Any directory (env-level command) |
 | `nb app upgrade/restart` | Any directory (env-level command) |
-| `nb scaffold migration` | `<app-path>/source/` |
 
 ## Step 1: Requirement Analysis
 
@@ -152,16 +172,18 @@ Present a functional plan in plain language the user can understand. Proactively
 
 ## Step 3: Scaffold Plugin
 
-For CLI-managed source apps (recommended):
+Both environments scaffold into `packages/plugins/` of the source tree — the only difference is which command wraps it.
+
+For CLI-managed source apps, run from `<app-path>/source/`:
 
 ```bash
+cd <app-path>/source
 nb scaffold plugin <plugin_name>
 # Example: nb scaffold plugin @nocobase-sample/plugin-hello
-# Creates:  <app-path>/plugins/@nocobase-sample/plugin-hello/
-# nb automatically syncs it to source/packages/plugins/
+# Creates:  <app-path>/source/packages/plugins/@nocobase-sample/plugin-hello/
 ```
 
-Run from the project root (`<app-path>`) or from `source/`. You can also use `--cwd <app-path>` to specify the project path explicitly.
+`nb scaffold plugin` forwards to `pm create`, which always generates into `packages/plugins/` relative to the current working directory — so running it from the wrong directory puts the plugin in the wrong place. Its only flag is `--force-recreate`.
 
 **AI agent note:** `nb scaffold plugin` internally invokes `nocobase-v1` which lives in `source/node_modules/.bin/`. In sandboxed or non-interactive environments where the global `nb` cannot automatically locate `nocobase-v1`, you may need to prepend `source/node_modules/.bin/` to `PATH` before running `nb` commands:
 
@@ -169,7 +191,7 @@ Run from the project root (`<app-path>`) or from `source/`. You can also use `--
 PATH="<app-path>/source/node_modules/.bin:$PATH" nb scaffold plugin <plugin_name>
 ```
 
-For plain source repos (legacy):
+For plain source repos, run from the repo root:
 
 ```bash
 yarn pm create <plugin_name>
@@ -177,6 +199,8 @@ yarn pm create <plugin_name>
 ```
 
 Do NOT use `create-plugin`, `generate`, or any other variant.
+
+After scaffolding, start development mode so code changes hot-reload — `nb source dev` from `<app-path>/source/` for CLI-managed apps, `yarn dev` from the repo root for plain source repos.
 
 Read `references/getting-started.md` for the expected project structure.
 
@@ -225,7 +249,7 @@ Flexible — adapt to the plugin's needs:
 
 Default behavior (do NOT ask):
 - Always generate `src/locale/zh-CN.json` and `src/locale/en-US.json`.
-- Use the plugin's auto-generated `locale.ts` for `tExpr` and `useT` imports.
+- Create `src/client-v2/locale.ts` (the scaffold does not generate it) and import `tExpr` / `useT` from there. See `references/client/i18n.md` for its contents.
 
 Only ask about additional languages if:
 - The user explicitly mentions other languages, OR
@@ -278,9 +302,9 @@ When the plugin doesn't work as expected:
 6. **i18n not working** → First-time locale files require app restart. Check `tExpr` is imported from `locale.ts` not `@nocobase/flow-engine`.
 7. **registerFlow handler not firing** → Check `on` event name. Use `'click'` for buttons, `'beforeRender'` for initialization.
 
-## Source Code Debugging (Source Install Only)
+## Source Code Debugging
 
-If the environment has source code available (CLI-managed Git source app or plain source repo), the AI agent may read NocoBase core source code to debug issues:
+Step 0 guarantees a source tree, so core source is always available for debugging — read it rather than guessing at an API's behavior.
 
 For CLI-managed Git source apps:
 
@@ -302,10 +326,11 @@ packages/core/flow-engine/src/            — FlowEngine
 
 ## Complete Example Plugins
 
-When a full working example is needed:
+When a full working example is needed, read the example plugins from the local source tree:
 
-- **CLI-managed Git source app**: Read `source/packages/plugins/@nocobase-example/` for working example plugins.
-- **Other environments**: Browse https://github.com/nocobase/nocobase/tree/develop/packages/plugins/%40nocobase-example/
+- **CLI-managed Git source app**: `source/packages/plugins/@nocobase-example/`
+- **Plain source repo**: `packages/plugins/@nocobase-example/`
+- If they are missing from the local checkout, browse https://github.com/nocobase/nocobase/tree/develop/packages/plugins/%40nocobase-example/
 
 # Reference Loading Map
 
@@ -337,8 +362,8 @@ Rollback guidance:
 
 # Verification Checklist
 
-- NocoBase project root is valid and the appropriate CLI (`nb` or `yarn`) is available.
-- Environment type (CLI-managed source app vs plain source repo) is detected.
+- A NocoBase source tree is available (`source/packages/core/` or `packages/core/`) and the appropriate CLI (`nb` or `yarn`) is available. Without one, the run stopped at Step 0 with the two options presented to the user.
+- Environment type (CLI-managed Git-source app vs plain source repo) is detected, and scaffold/build commands were run from the source tree.
 - User requirement is analyzed and extension points are identified.
 - Functional plan is confirmed by user before code generation.
 - Plugin scaffold is created successfully.
@@ -356,6 +381,7 @@ Rollback guidance:
 3. User requests a full-stack CRUD plugin → scaffold + defineCollection + ACL + TableBlockModel + custom field + custom action.
 4. User provides vague requirement → clarification gate triggers, plan is confirmed before coding.
 5. Plugin enable fails → FAQ checklist is consulted, source code is read if available.
+6. User runs the skill in a Docker- or npm-installed app (no source tree) → Step 0 stops before scaffolding and offers re-creating the project with `nb init --ui` + `Git source install`, or pointing at an existing source repo.
 
 # Output Contract
 

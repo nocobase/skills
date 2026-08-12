@@ -23,22 +23,19 @@ Compiles `src/` to JavaScript — client-v2 code via Rsbuild, server code via ts
 
 ## Package
 
-**Important:** Same as build — run from `<app-path>/source/`.
+**Important:** Same as build — run from the source tree.
 
-For CLI-managed source apps, use `--tar` to build and package in one step:
-
-```bash
-cd <app-path>/source
-nb source build @my-project/plugin-hello --tar
-```
-
-Creates a `.tgz` file under `source/storage/tar/`. The command prints the tarball path after completion.
-
-For plain source repos:
+`nb source build` has no `--tar` flag; its only flags are `--cwd`, `--no-dts`, `--sourcemap`, and `--verbose`. Use the underlying `yarn` commands to package, from `<app-path>/source/` for CLI-managed apps or the repo root for plain source repos:
 
 ```bash
+# Build and package in one step
 yarn build @my-project/plugin-hello --tar
+
+# Or package an existing build
+yarn nocobase tar @my-project/plugin-hello
 ```
+
+The tarball lands in `storage/tar/`, named `<package-name>-<version>.tgz` — for example `storage/tar/@my-project/plugin-hello-0.1.0.tgz`.
 
 ## Custom Build Config
 
@@ -63,7 +60,15 @@ export default defineConfig({
 
 ## Upload to Another NocoBase Instance
 
-Upload the `.tgz` file to the target application's `./storage/plugins` directory.
+Upload and extract the `.tgz` file into the target application's `./storage/plugins` directory.
+
+If the target application is CLI-managed (`nb init`), import it directly instead of extracting by hand:
+
+```bash
+nb plugin import /your/path/plugin-hello-0.1.0.tgz
+```
+
+This also accepts a remote URL or an npm package spec. Restart the app afterwards before enabling the plugin.
 
 ## Deep Reference
 
