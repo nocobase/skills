@@ -1,6 +1,6 @@
 ---
 name: nocobase-env-manage
-description: "Use when users need NocoBase bootstrap, runtime lifecycle, CLI maintenance, and skills maintenance with nb CLI only."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Use when users need NocoBase bootstrap, runtime lifecycle, CLI maintenance, and skills maintenance with nb CLI only."
 argument-hint: "[task: install|app-manage|upgrade|start|stop|restart|logs|down|self-check|self-update|skills-check|skills-update]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools

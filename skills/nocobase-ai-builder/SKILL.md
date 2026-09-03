@@ -1,7 +1,7 @@
 ---
 name: nocobase-ai-builder
 description: >-
-  Design, build, and verify source-code applications in NocoBase AI Portals
+  NocoBase 2 only; never use in a NocoBase 3 project. Design, build, and verify source-code applications in NocoBase AI Portals
   based on @nocobase/portal-template-default. This skill is mandatory whenever
   the selected Portal has portalType "ai". Use it for complete systems, pages,
   navigation, CRUD, dashboards, forms, dialogs, drawers, URL-addressable

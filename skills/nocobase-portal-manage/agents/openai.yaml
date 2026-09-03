@@ -1,8 +1,8 @@
 interface:
   display_name: "NocoBase Portal Manage"
-  short_description: "Primary entry for NocoBase UI and Portal requests"
+  short_description: "Primary entry for NocoBase 2 UI and Portal requests"
   default_prompt: >
-    Use $nocobase-portal-manage as the PRIMARY ENTRY and default dispatcher for NocoBase UI authoring and Portal workspace management.
+    Use $nocobase-portal-manage as the PRIMARY ENTRY and default dispatcher for NocoBase 2 UI authoring and Portal workspace management. Do not use it in a NocoBase 3 project.
 
     Use it for:
     - every NocoBase page, menu, block, field, action, layout, or reaction authoring request, even when the user does not mention a Portal

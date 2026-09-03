@@ -1,6 +1,6 @@
 ---
 name: nocobase-plugin-development
-description: "Step-by-step playbook for developing a NocoBase plugin, covering scaffolding, server-side code (collections, APIs, ACL, migrations), client-side code (blocks, fields, actions, settings pages, routes, components), i18n, and verification.\nTRIGGER when: user asks to create, build, implement, or develop a NocoBase plugin, mentions 'NocoBase plugin', or describes a feature to be built as a NocoBase plugin. This skill contains NocoBase-specific conventions and templates that general coding cannot replicate — always invoke it instead of planning from scratch."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Step-by-step playbook for developing a NocoBase plugin, covering scaffolding, server-side code (collections, APIs, ACL, migrations), client-side code (blocks, fields, actions, settings pages, routes, components), i18n, and verification.\nTRIGGER when: user asks to create, build, implement, or develop a NocoBase plugin, mentions 'NocoBase plugin', or describes a feature to be built as a NocoBase plugin. This skill contains NocoBase-specific conventions and templates that general coding cannot replicate — always invoke it instead of planning from scratch."
 when_to_use: |
   Trigger when: user mentions "NocoBase plugin", or asks to create/build/implement/develop
   a plugin for NocoBase, or describes a feature that should be built as a NocoBase plugin

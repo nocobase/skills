@@ -1,6 +1,6 @@
 ---
 name: nocobase-portal-manage
-description: "PRIMARY ENTRY. Default dispatcher for every NocoBase UI authoring request, including pages, menus, blocks, fields, actions, layouts, reactions, KPI interfaces, dashboards, and charts, even when the user does not mention a Portal. Resolve an enabled Portal from structured `nb portal list -j` output before loading any downstream UI implementation skill: exact `name` when specified; otherwise zero stops, exactly one is automatic, and multiple Portals require explicit selection even when one has `isDefault: true`; show the default marker as informational only. Read the type only from `portalType`; explicitly invoke `nocobase-ui-builder` only for a resolved no-code Portal and require `nocobase-ai-builder` for AI Portal source development. Also use direct `nb portal` commands for explicit Portal lifecycle, source storage, sync, deployment, diagnosis, and destroy tasks."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Primary entry for NocoBase 2 UI authoring and Portal management, routing a resolved Portal by its structured portalType."
 argument-hint: "[action: build|list|info|create|config|pull|push|deploy|dev|destroy|diagnose] [portal?] [env?: name]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
@@ -8,6 +8,10 @@ version: 1.0.0
 last-reviewed: 2026-07-28
 risk-level: medium
 ---
+
+# NocoBase 3 guard
+
+If the nearest `AGENTS.md` declares NocoBase 3, the root package is `nocobase-v3`, or a project-local `nocobase-app-development` Skill exists, stop using this Skill. Read the nearest `AGENTS.md`, load the relevant project-local NocoBase 3 Skill, and continue the original request there.
 
 # Goal
 

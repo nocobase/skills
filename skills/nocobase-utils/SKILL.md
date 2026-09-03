@@ -1,6 +1,6 @@
 ---
 name: nocobase-utils
-description: General-purpose NocoBase reference utilities covering filter conditions and field-specific operators, evaluator engines, expression syntax, UID generation, and more. Use when you need authoritative reference information or reusable snippets that apply across multiple NocoBase features.
+description: NocoBase 2 only; never use in a NocoBase 3 project. General-purpose NocoBase reference utilities covering filter conditions and field-specific operators, evaluator engines, expression syntax, UID generation, and more. Use when you need authoritative reference information or reusable snippets that apply across multiple NocoBase features.
 argument-hint: "[topic: filter|evaluators|formulajs|mathjs|string-template|uid]"
 allowed-tools: Read, Glob, Grep
 ---

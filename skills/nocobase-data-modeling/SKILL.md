@@ -1,6 +1,6 @@
 ---
 name: nocobase-data-modeling
-description: Create and manage NocoBase data models through the available data-modeling surface. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
+description: NocoBase 2 only; never use in a NocoBase 3 project. Create and manage NocoBase data models through the available data-modeling surface. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
 argument-hint: "[collection-name] [operation: list|get|apply|destroy|fields|db-views]"
 allowed-tools: shell, local file reads
 ---

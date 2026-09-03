@@ -1,6 +1,6 @@
 ---
 name: nocobase-workflow-manage
-description: Use when users need to inspect, create, update, copy, enable, or diagnose NocoBase workflows through `nb`, including version-safe edits, node changes, approval surfaces, and execution troubleshooting.
+description: NocoBase 2 only; never use in a NocoBase 3 project. Use when users need to inspect, create, update, copy, enable, or diagnose NocoBase workflows through `nb`, including version-safe edits, node changes, approval surfaces, and execution troubleshooting.
 argument-hint: "[inspect|create|update|copy|enable|diagnose] [workflow-id|workflow-key|node-id|title] [options]"
 allowed-tools: "shell, Read(local skill references only), nb(workflows:list|get|create|update|revision|execute, workflows/<workflowId>/nodes:create, flow_nodes:get|update|destroy|destroyBranch|move|duplicate|test, executions:list|get, jobs:get, flowSurfaces:get|catalog|applyApprovalBlueprint|addBlock|addField|addAction|compose|configure|setLayout)"
 owner: platform-tools
