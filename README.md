@@ -3,7 +3,7 @@
 > [!WARNING]
 > NocoBase Skills is still in draft status. The content is for reference and may change at any time.
 
-Reusable domain knowledge packages for AI Agent CLIs (Claude Code, Codex, Cursor, OpenCode, etc.) that enable agents to understand and operate NocoBase 2 — covering data modeling, UI configuration, workflow orchestration, permission management, plugin development, and more. These Skills do not apply to NocoBase 3 projects, which provide their own local instructions and Skills.
+Reusable domain knowledge packages for AI Agent CLIs (Claude Code, Codex, Cursor, OpenCode, etc.) that enable agents to understand and operate NocoBase — covering data modeling, UI configuration, workflow orchestration, permission management, plugin development, and more.
 
 NocoBase CLI automatically installs Skills during initialization (`nb init`), so no manual installation is needed.
 
@@ -21,7 +21,7 @@ NocoBase CLI automatically installs Skills during initialization (`nb init`), so
 | `nocobase-ui-builder`      | Execute no-code UI authoring after `nocobase-portal-manage` resolves exactly one enabled no-code Portal.                             |
 | `nocobase-ai-builder`      | Design, implement, and verify polished source-code applications for every selected AI Portal.                                            |
 | `nocobase-prototype-repro` | **Opt-in** reproduce a given HTML/image prototype as a faithful NocoBase app — region→native-block map + a screenshot-vs-prototype loop.   |
-| `nocobase-portal-manage`   | **Default dispatcher for NocoBase 2 UI authoring** — resolve every page, menu, block, field, action, layout, or reaction request with `nb portal list -j`, then route by `portalType` to the required Portal builder. Multiple Portals require explicit selection; missing Portal CLI falls back only when `capabilities.multiPortal` is explicitly `false`. |
+| `nocobase-portal-manage`   | **Default dispatcher for NocoBase UI authoring** — resolve every page, menu, block, field, action, layout, or reaction request with `nb portal list -j`, then route by `portalType` to the required Portal builder. Multiple Portals require explicit selection; missing Portal CLI falls back only when `capabilities.multiPortal` is explicitly `false`. |
 | `nocobase-workflow-manage` | Create, edit, enable, diagnose, and manage NocoBase workflows — triggers, node chains, versions, and execution troubleshooting.            |
 | `nocobase-acl-manage`      | Manage roles, permission policies, Portal entry access, user-role membership, global role mode, and risk assessment.                      |
 | `nocobase-dsl-reconciler`  | **Opt-in** YAML-DSL path for building whole NocoBase applications from spec files committed to git. Use only when explicitly requested.    |
