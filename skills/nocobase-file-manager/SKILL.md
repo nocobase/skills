@@ -1,6 +1,6 @@
 ---
 name: nocobase-file-manager
-description: "Manage NocoBase file storage engines, file collections, their business relations, and file records through nb CLI. Use when the primary task concerns NocoBase file storage configuration, file-model setup, access or retention behavior, or storage/file-record lifecycle."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Manage NocoBase file storage engines, file collections, their business relations, and file records through nb CLI. Use when the primary task concerns NocoBase file storage configuration, file-model setup, access or retention behavior, or storage/file-record lifecycle."
 argument-hint: "[action: inspect|create|update|verify|finalize|delete] [target: storage|file-collection|relation|file-record] [env?: name]"
 allowed-tools: Bash(nb:*) Read Grep
 compatibility: "Requires the nb CLI, a configured and authenticated NocoBase environment, and network access to that environment."

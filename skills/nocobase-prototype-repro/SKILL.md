@@ -1,7 +1,7 @@
 ---
 name: nocobase-prototype-repro
 description: >-
-  Use when the task hands over a prototype to reproduce in NocoBase — an HTML file, an
+  NocoBase 2 only; never use in a NocoBase 3 project. Use when a task provides a prototype to reproduce — an HTML file, an
   image, or a link, INCLUDING the published form "Build a NocoBase app — X … Match the
   layout and signature visuals of this reference prototype: <url>" — or when someone
   says a built page "doesn't match the prototype / looks monotone / is ugly". A

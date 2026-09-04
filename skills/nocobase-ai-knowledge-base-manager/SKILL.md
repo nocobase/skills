@@ -1,6 +1,6 @@
 ---
 name: nocobase-ai-knowledge-base-manager
-description: "Use when users need to check Professional+ knowledge-base capability, consent to enabling an installed-disabled KB plugin, or manage NocoBase vector databases, Local/Readonly/External knowledge bases, documents, retrieval tests, and binding preparation through nb api kb."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Use when users need to check Professional+ knowledge-base capability, consent to enabling an installed-disabled KB plugin, or manage NocoBase vector databases, Local/Readonly/External knowledge bases, documents, retrieval tests, and binding preparation through nb api kb."
 argument-hint: "[action: preflight|inspect|create|update|upload|revectorize|test|prepare-binding|delete] [target: capability|vector-db|knowledge-base|document|employee] [mode?: direct-cli|ui] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools

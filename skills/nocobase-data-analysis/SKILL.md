@@ -1,6 +1,6 @@
 ---
 name: nocobase-data-analysis
-description: Query and analyze business data in NocoBase via MCP. Use when users want current counts, grouped breakdowns, owner/source distributions, or business summaries across collections, with main data source first and fallback discovery to other enabled data sources.
+description: NocoBase 2 only; never use in a NocoBase 3 project. Query and analyze business data in NocoBase via MCP. Use when users want current counts, grouped breakdowns, owner/source distributions, or business summaries across collections, with main data source first and fallback discovery to other enabled data sources.
 ---
 
 # Goal

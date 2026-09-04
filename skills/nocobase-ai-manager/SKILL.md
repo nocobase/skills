@@ -1,6 +1,6 @@
 ---
 name: nocobase-ai-manager
-description: "Use when users need to inspect or maintain NocoBase core AI prerequisites through nb api, including LLM providers, saved services, CLI-versus-UI configuration routing, chat models, embedding discovery, secure credentials, and dependency-safe changes."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Use when users need to inspect or maintain NocoBase core AI prerequisites through nb api, including LLM providers, saved services, CLI-versus-UI configuration routing, chat models, embedding discovery, secure credentials, and dependency-safe changes."
 argument-hint: "[action: inspect|configure|update|delete|verify] [target: llm-provider|llm-service|vector-db] [mode?: direct-cli|ui] [consumer?: core-ai|employee|knowledge-base] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools

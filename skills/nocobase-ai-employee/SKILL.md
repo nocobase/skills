@@ -1,6 +1,6 @@
 ---
 name: nocobase-ai-employee
-description: "Use when a NocoBase task requires AI employee lifecycle work such as discovering existing employees, judging fit, creating or maintaining a dedicated employee, and preparing it before another skill binds it to a UI surface."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Use when a NocoBase task requires AI employee lifecycle work such as discovering existing employees, judging fit, creating or maintaining a dedicated employee, and preparing it before another skill binds it to a UI surface."
 argument-hint: "[action: decide|inspect|create|update|delete|verify|place] [employee?: username] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools

@@ -1,6 +1,6 @@
 ---
 name: nocobase-notification-manage
-description: "Use when users need to configure, inspect, test, or troubleshoot NocoBase notification management, including in-app message channels, email SMTP channels, workflow notification nodes, and notification send logs."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Use when users need to configure, inspect, test, or troubleshoot NocoBase notification management, including in-app message channels, email SMTP channels, workflow notification nodes, and notification send logs."
 argument-hint: "[action: inspect|configure-channel|test-channel|configure-workflow|diagnose] [channel: in-app-message|email|name] [env?: name]"
 allowed-tools: Bash, Read, Grep
 owner: platform-tools

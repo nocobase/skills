@@ -1,7 +1,7 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  INTERNAL CONTINUATION ONLY. Never select this skill from a raw user UI request.
+  NocoBase 2 only; never use in a NocoBase 3 project. INTERNAL CONTINUATION ONLY. Never select this skill from a raw user UI request.
   Use it only after nocobase-portal-manage has already resolved exactly one
   enabled Portal and confirmed portalType=no-code, or has proved the runtime has
   capabilities.multiPortal === false. Portal count or `isDefault` marker alone

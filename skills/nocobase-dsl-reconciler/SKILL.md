@@ -1,7 +1,7 @@
 ---
 name: nocobase-dsl-reconciler
 description: >-
-  **Opt-in DSL path** for NocoBase app building. Use ONLY when the user
+  NocoBase 2 only; never use in a NocoBase 3 project. **Opt-in DSL path** for NocoBase app building. Use ONLY when the user
   explicitly asks for YAML / DSL / committed-to-git / `cli push` / spec
   files — e.g. "use the DSL reconciler", "I want YAML I can commit",
   "build this as a workspaces/ project". For any other UI authoring

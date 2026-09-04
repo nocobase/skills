@@ -1,6 +1,6 @@
 ---
 name: nocobase-revision
-description: "Use when building a NocoBase app with NocoBase skills or the nb CLI and you want to save a completed, meaningful milestone as a restorable revision."
+description: "NocoBase 2 only; never use in a NocoBase 3 project. Use when building a NocoBase app with NocoBase skills or the nb CLI and you want to save a completed, meaningful milestone as a restorable revision."
 argument-hint: '"<description>" [--api-base-url <url>] [--env <env>] [--role <role>] [--token <token>] [--yes] [--json-output]'
 allowed-tools: "shell, local file reads"
 owner: platform-tools
