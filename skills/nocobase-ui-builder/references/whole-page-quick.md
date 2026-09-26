@@ -1,6 +1,10 @@
 # Whole-page Quick Route
 
-Use this file as the default first stop for whole-page `create` / `replace` work.
+Use this file as the default first stop for ordinary whole-page `create` / `replace` work. If the request is a new complete JS Page, route first to [create-js-page-quick.md](./create-js-page-quick.md); a complete JS Block created through a Host uses that same Inline Workspace contract and [runjs-capability-gate.md](./runjs-capability-gate.md). If JS Page Workspace capability is unavailable, stop: do not replace the request with an ordinary page + JS Block. Do not treat a multi-file JS request as a reason to create a JS Template.
+
+Page identity is `navigation.group.routeId` plus `page.title`: the same group and same title uses `replace`; a different group and same title must not merge, reuse, or auto-replace.
+
+When multiple pages share one `navigation.group.title`, serialize the page runs: the first page may create or resolve by `navigation.group.title` and capture its response `routeId`; later pages must use that routeId and must not use title-only creation.
 
 Stay on this route when the user is asking for a full page or one route-backed tab, not a small patch on an existing live surface.
 
@@ -167,64 +171,26 @@ The checklist can stay short. It only needs to confirm create vs replace, the se
 {
   "version": "1",
   "mode": "create",
-  "defaults": {
-      "collections": {
-        "support_tickets": {
-          "popups": {
-            "addNew": { "name": "Create ticket", "description": "Create one support ticket." },
-            "view": { "name": "Ticket details", "description": "View one support ticket." },
-            "edit": { "name": "Edit ticket", "description": "Edit one support ticket." },
-            "associations": {
-              "assignee": {
-                "view": { "name": "Assignee details", "description": "View one related assignee." },
-                "addNew": { "name": "Create assignee", "description": "Create one related assignee." },
-                "edit": { "name": "Edit assignee", "description": "Edit one related assignee." }
-              }
-            }
-          }
-        }
-    }
-  },
-  "navigation": {
-    "portalUid": "<resolved-no-code-portal-uid>",
-    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
-    "item": { "title": "Support tickets", "icon": "InboxOutlined" }
-  },
+  "defaults": { "collections": { "support_tickets": { "popups": {
+    "addNew": { "name": "Create ticket", "description": "Create one support ticket." },
+    "view": { "name": "Ticket details", "description": "View one support ticket." },
+    "edit": { "name": "Edit ticket", "description": "Edit one support ticket." },
+    "associations": { "assignee": {
+      "view": { "name": "Assignee details", "description": "View one related assignee." },
+      "addNew": { "name": "Create assignee", "description": "Create one related assignee." },
+      "edit": { "name": "Edit assignee", "description": "Edit one related assignee." }
+    } }
+  } } } },
+  "navigation": { "portalUid": "<resolved-no-code-portal-uid>", "group": { "title": "Workspace", "icon": "AppstoreOutlined" }, "item": { "title": "Support tickets", "icon": "InboxOutlined" } },
   "page": { "title": "Support tickets" },
-  "tabs": [
-    {
-      "key": "main",
-      "title": "Overview",
-      "blocks": [
-        {
-          "key": "ticketsTable",
-          "type": "table",
-          "collection": "support_tickets",
-          "defaultFilter": {
-            "logic": "$and",
-            "items": [
-              { "path": "subject", "operator": "$includes", "value": "" },
-              { "path": "status", "operator": "$eq", "value": "" },
-              { "path": "priority", "operator": "$eq", "value": "" }
-            ]
-          },
-          "fields": ["subject", "status", "priority", "assignee"],
-          "actions": ["filter", "addNew"],
-          "recordActions": ["view", "edit"]
-        }
-      ]
-    }
-  ]
+  "tabs": [{ "key": "main", "title": "Overview", "blocks": [{ "key": "ticketsTable", "type": "table", "collection": "support_tickets", "defaultFilter": { "logic": "$and", "items": [{ "path": "subject", "operator": "$includes", "value": "" }, { "path": "status", "operator": "$eq", "value": "" }, { "path": "priority", "operator": "$eq", "value": "" }] }, "fields": ["subject", "status", "priority", "assignee"], "actions": ["filter", "addNew"], "recordActions": ["view", "edit"] }] }]
 }
 ```
 
 For a mobile-backed selected no-code Portal, keep its resolved `navigation.portalUid` and omit both `navigation.layoutUid` and `navigation.group`. Only a legacy mobile page with explicit `capabilities.multiPortal === false` uses:
 
 ```json
-"navigation": {
-  "layoutUid": "mobile-layout-model",
-  "item": { "title": "Support tickets", "icon": "InboxOutlined" }
-}
+"navigation": { "layoutUid": "mobile-layout-model", "item": { "title": "Support tickets", "icon": "InboxOutlined" } }
 ```
 
 Final user-facing links should point at the mobile base route such as `/mobile/<pageSchemaUid>` rather than `/admin/<pageSchemaUid>`.
@@ -239,7 +205,7 @@ Final user-facing links should point at the mobile base route such as `/mobile/<
 - [page-archetypes.md](./page-archetypes.md) if none of the common page shapes fits cleanly
 - [page-blueprint.md](./page-blueprint.md) for the full page grammar, uncommon block shapes, or exact field / action structures
 - [helper-contracts.md](./helper-contracts.md) only for optional helper behavior
-- [template-quick.md](./template-quick.md) if popup / block / fields reuse, existing template references, or `copy` vs `reference` is actually in scope
+- [ui-template-quick.md](./ui-template-quick.md) if popup / block / fields reuse, existing template references, or `copy` vs `reference` is actually in scope
 - [reaction-quick.md](./reaction-quick.md) if the page needs detailed reaction payload recipes
 - [js.md](./js.md) if JS, charts, or `ctx.*` enters the page
 

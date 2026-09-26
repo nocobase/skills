@@ -1,6 +1,6 @@
 # Template Decision Summary
 
-Read this file when the skill needs to state the final template path to the user after selection is already done. This file does **not** define template selection. Selection semantics stay in [templates.md](./templates.md).
+Read this file when the skill needs to state the final template path to the user after selection is already done. This file does **not** define template selection. Selection semantics stay in [ui-templates.md](./ui-templates.md).
 
 Use this contract for final user-visible summary lines that claim a template outcome.
 

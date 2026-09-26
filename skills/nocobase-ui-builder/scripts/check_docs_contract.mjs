@@ -134,7 +134,7 @@ function checkLineBudgets(context, failures) {
     'references/reaction-quick.md',
     'references/reaction.md',
     'references/settings.md',
-    'references/templates.md',
+    'references/ui-templates.md',
     'references/tool-shapes.md',
     'references/whole-page-recipes.md',
   ]);

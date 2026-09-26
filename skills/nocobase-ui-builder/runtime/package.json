@@ -11,6 +11,7 @@
     "nb-template-decision": "./bin/nb-template-decision.mjs"
   },
   "scripts": {
-    "test": "node --test ./tests/*.test.js ../scripts/*.test.mjs"
+    "test": "node --test ./tests/*.test.js ../scripts/*.test.mjs",
+    "test:product-contract": "node --test ./tests/product-authoring-contract.integration.test.js"
   }
 }

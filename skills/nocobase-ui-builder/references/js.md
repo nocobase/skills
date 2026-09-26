@@ -1,34 +1,60 @@
 # JS
 
-Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. After this file, route by authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), then use [runjs-authoring-loop.md](./runjs-authoring-loop.md). For bundled capability docs, `ctx.*` API references, and scenario-level examples copied into this skill, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md).
+Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. First classify the owner as `complete-workspace`, `embedded/single-surface`, or `compatibility-single-file`; only the latter two use [runjs-authoring-loop.md](./runjs-authoring-loop.md). Then route by authoring surface in [js-surfaces/index.md](./js-surfaces/index.md). For bundled capability docs, `ctx.*` API references, and scenario-level examples copied into this skill, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md).
 
 ## Contents
 
 1. Public JS capabilities
-2. Surface-first routing
-3. Authoring loop
-4. Reference layers
-5. Write repair
-6. Skill mapping
-7. Container support matrix
-8. Code style and context
-9. Strict Render rules
-10. Execution reminders
+2. Owner classification
+3. Surface-first routing
+4. Authoring loop
+5. Reference layers
+6. Write repair
+7. Skill mapping
+8. Container support matrix
+9. Code style and context
+10. Strict Render rules
+11. Execution reminders
+
+## Owner classification
+
+Before the first complete RunJS authoring operation, run `nb api run-js-sources capabilities -j` and record its
+`authoringContractVersion`, `inlineWorkspace.ownerKinds`, `inlineWorkspace.modelUses`, `inlineWorkspace.saveMode`, and
+`externalization.available`. Then classify before selecting a snippet or writing implementation code:
+
+Apply the ordered solution boundary and stop at the first match: a JS feature needing a new backend API, database table,
+data migration, ACL/permission enforcement, or server capability uses a full **NocoBase Plugin**; explicit JS Template
+creation/use/Save as intent, explicit reusable/distributable JS Template intent, or multiple compatible Hosts sharing one
+maintained JS implementation without copied code uses **JS Template**; reusable UI/Flow structure without a shared JS
+implementation uses **UI Template**; one Host exclusively owning its implementation uses **Inline RunJS**. Existing-app
+ACL administration and data-model configuration remain specialist handoffs. Multiple files, complex code, hooks,
+dashboards, Git storage/ownership, or vague future distribution do not override single-Host Inline ownership.
+UI Template reuses UI/Flow structure; JS Template shares one JS implementation.
+
+- `complete-workspace`: the requested complete JS Model has a matching `ownerKind` and `modelUse` in the machine contract, and Host create/get returns a canonical locator. This includes complete JS Page, Block, Field, Editable Field, Column, Item, Item Action, and action-family Models, not only owners already materialized as Workspaces.
+- `embedded/single-surface`: event-flow Execute JavaScript, linkage, value-return/default/copy, custom variable, workflow JavaScript, chart option/events, `flowRegistry` RunJS, and other code whose owner is not declared by the complete Workspace contract. Use the scoped five-step RunJS loop.
+- `compatibility-single-file`: the compatibility gate explicitly selected the public single-file path for an owner that cannot use the Workspace source route. Use the scoped five-step RunJS loop; do not infer this route merely because the requested code is short.
+
+If the owner type is unclear, inspect the live owner and capability gate before generating code. Copy the canonical locator returned by Host create/get exactly; never construct it from `uid`, `modelUid`, `use`, or `fieldUid`. Do not downgrade a complete Workspace to single-file authoring after a compile or save failure. If the user explicitly requests multiple files, missing contract support, locator, or readiness is a stop condition rather than a compatibility fallback.
 
 ## Surface-first routing
+
+For a **new complete JS Page** use the `Create JS page` route in [create-js-page-quick.md](./create-js-page-quick.md). Every other capability-backed complete JS Model enters the same Host -> canonical locator -> Inline Workspace route after Host creation. These `complete-workspace` surfaces are not JS Templates merely because the code has multiple files, imports, hooks, or services.
 
 Choose the authoring surface before you chase `ctx.*` details:
 
 - event-flow `Execute JavaScript` -> [js-surfaces/event-flow.md](./js-surfaces/event-flow.md)
 - linkage `Execute JavaScript` -> [js-surfaces/linkage.md](./js-surfaces/linkage.md)
 - field/default/copy/custom-variable value-return RunJS -> [js-surfaces/value-return.md](./js-surfaces/value-return.md)
-- render-style JS model code -> [js-surfaces/js-model-render.md](./js-surfaces/js-model-render.md)
-- action-style JS model code -> [js-surfaces/js-model-action.md](./js-surfaces/js-model-action.md)
+- render-style JS model code -> [js-surfaces/js-model-render.md](./js-surfaces/js-model-render.md); for a capability-backed complete Model, continue into [runjs-workspace-source.md](./runjs-workspace-source.md)
+- action-style JS model code -> [js-surfaces/js-model-action.md](./js-surfaces/js-model-action.md); for a capability-backed complete Model, continue into [runjs-workspace-source.md](./runjs-workspace-source.md)
 - exact `JSBlockModel` / `JSFieldModel` / `JSItemModel` leaf behavior -> [js-models/index.md](./js-models/index.md) only after the surface is already clear
 
 ## Authoring loop
 
-Every JS request follows the same five-step loop:
+For `complete-workspace`, create or locate the Host, copy its returned canonical locator exactly, set `sourceMode: "inline"`, call `runJSSources:open`, complete the Settings Pass from `src/client/entry.json` **before implementation code**, edit the needed Workspace source files, then call `runJSSources:saveChanges` with only changed paths plus `baseCommitId`, `baseOwnerFingerprint`, and per-path `expectedBlobHash`. The save compiles the complete materialized candidate; repair diagnostics and retry against the unchanged base. `compilePreview` remains optional for a dry-run or debugging. Settings are Host values and do not create source commits. The Workspace may contain any reasonable local `components`, `hooks`, `services`, `utils`, and related source files. A safe snippet is only a scaffold; it does not impose one-snippet, editable-slot, or single-file limits. Keep final source in Workspace files, never in `settings.code` or `assets.scripts`.
+
+For `embedded/single-surface` and `compatibility-single-file`, use the scoped five-step loop:
 
 1. Lock the surface.
 2. Fill the scenario card in [runjs-authoring-loop.md](./runjs-authoring-loop.md), including `recordSemantic` and `contextEvidence` before choosing any record path.
@@ -62,11 +88,11 @@ For JS model render surfaces, default to Ant Design UI from `ctx.libs.antd` / `c
 
 ## Write Repair
 
-Whenever the current write involves JS `code`, submit the same raw `nb api flow-surfaces <action>` payload as other UI Builder writes.
+Route repair by the owner classification:
 
-- Send JS writes through the same direct `nb api flow-surfaces <action>` path as other authoring payloads.
-- On failure, repair all returned `errors[]` in one pass. For RunJS errors, map `details.repairClass` to [runjs-repair-playbook.md](./runjs-repair-playbook.md).
-- If the required surface is `jsBlock`, repair the same `jsBlock` payload and retry it as `jsBlock`. Use inline `settings.code`, or for whole-page `applyBlueprint` use `assets.scripts.<key>.code` plus block `script`. Do not switch a required `jsBlock` to `table`, `list`, `chart`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
+- For `embedded/single-surface` or `compatibility-single-file`, send the direct `nb api flow-surfaces <action>` payload and repair all returned `errors[]` in one pass. Map `details.repairClass` to [runjs-repair-playbook.md](./runjs-repair-playbook.md).
+- For `complete-workspace`, repair changed Workspace source files from `save-changes` artifact diagnostics and retry through `run-js-sources`; do not fall back to `settings.code` or `assets.scripts`.
+- If the required surface is `jsBlock`, keep it as `jsBlock`. Do not switch it to `table`, `list`, `chart`, `actionPanel`, `gridCard`, `markdown`, or a deferred note just because the first payload failed.
 - Error metadata is intentionally minimal: expect `ruleId`, `path`, `message`, and `details.repairClass` / `details.suggestedAction` when applicable. Do not depend on `docsKey`, `retryable`, `surfaceStyle`, or `suggestedSnippetIds`.
 
 ## Skill Mapping
@@ -78,7 +104,6 @@ Whenever the current write involves JS `code`, submit the same raw `nb api flow-
 | `jsItem` | `form/createForm/editForm` | `JSItemModel` | render | standalone form item |
 | `renderer: "js"` | `table/details/list/gridCard` | `JSFieldModel` | render | display-state JS renderer bound to a real field |
 | `renderer: "js"` | `form/createForm/editForm` | `JSEditableFieldModel` | render | editable JS renderer bound to a real field |
-| inline form JS field item | inline JS config inside a form field item | `FormJSFieldItemModel` | render | only use when live capability clearly says this is inline item-level JS |
 | block-level `js` action | block actions on `table/list/gridCard/calendar/kanban`, etc. | `JSCollectionActionModel` | action | targets the whole dataset |
 | record-level `js` action | `table/details/list/gridCard` | `JSRecordActionModel` | action | targets the current record |
 | form `js` action | `form/createForm/editForm` | `JSFormActionModel` | action | targets form context |
@@ -121,7 +146,7 @@ If the live environment does not make it clear which JS action model applies, st
 
 ## Strict Render Rules
 
-The following models are strict render models: `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, `JSColumnModel`, and `JSItemActionModel`.
+The following models are strict render models: `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `JSColumnModel`, and `JSItemActionModel`.
 
 All of them obey the same rules:
 
@@ -147,4 +172,4 @@ All of them obey the same rules:
 - For form-scoped helper text that should appear only after a form value is selected, prefer a `jsItem` that calls `ctx.render(null)` while hidden and `ctx.render(...)` when visible. Current live `fieldLinkage` does not expose JSItem pseudo paths as target fields.
 - When that render-null pattern is the intended helper toggle, treat it as successful helper-toggle proof in readback/evidence summaries; do not mark the helper outcome false only because there was no separate reaction write against the JSItem uid.
 - `filterForm` does not support `renderer: "js"`, `jsColumn`, or `jsItem`. If JS is required there, redesign as a block or action instead.
-- Any JS write goes through `nb api flow-surfaces <action>`; if the response returns `errors[]`, fix the payload and retry.
+- Embedded and compatibility single-file writes go through `nb api flow-surfaces <action>`; if the response returns `errors[]`, fix the payload and retry. Complete Workspace source writes use `run-js-sources`.

@@ -2,9 +2,13 @@
 
 This file defines the simplified public page-structure JSON blueprint used by `applyBlueprint`.
 
-Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file owns the raw page business document; for command body details, always read [tool-shapes.md](./tool-shapes.md). For layout/group/page-identity decisions, read [navigation-targets.md](./navigation-targets.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
+Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file owns the raw page business document; for command body details, always read [tool-shapes.md](./tool-shapes.md). For layout/group/page-identity decisions, read [navigation-targets.md](./navigation-targets.md). For reusable popup / block / fields planning, read [ui-templates.md](./ui-templates.md) instead of restating that matrix here.
 
 ## 1. Core Rules
+
+This blueprint route is for ordinary page structure. A new complete JS Page is routed through [create-js-page-quick.md](./create-js-page-quick.md), where `flow-surfaces` creates the Host and `runJSSources` manages the Inline multi-file Workspace. Do not put a complete Workspace into `settings.code` or `assets.scripts`; use those fields only for the documented single-surface JS payloads.
+
+Page identity is the menu group `navigation.group.routeId` plus `page.title`: same group and same title uses `replace`; different group and same title does not merge, reuse, or auto-replace.
 
 - The wire format is **JSON**.
 - One document describes **one page**.
@@ -56,7 +60,7 @@ Agent-facing write path is `nb api flow-surfaces apply-blueprint`. This file own
 - Public applyBlueprint supports `calendar` only as the flow-model `CalendarBlockModel` path. Do not use legacy V1 / `CalendarV2` schema blocks in this contract.
 - `calendar` main blocks do not support direct `fields[]`, `fieldGroups[]`, or `recordActions[]`. Bind only calendar settings such as `titleField` / `colorField` / `startField` / `endField` on the main block; event content fields belong in quick-create / event-view popup hosts.
 - `kanban` main blocks may use `fields[]`, but do not support `fieldGroups`, `fieldsLayout`, or `recordActions`. For direct non-template `applyBlueprint` kanban main blocks, explicit `fields[]` is capped at 2 card fields; omitted `fields[]` is materialized from live metadata with at most 2 suitable display fields. `compose` / `addBlock` do not have this 2-field cap. Card content stays on the main card field list; quick-create and card-view content belongs in hidden popup hosts.
-- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
+- For deciding whether to use `template` / `popup.template` at all, follow [ui-templates.md](./ui-templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - For whole-page inline popup specs, when no explicit `popup.template` is present, default to `popup.tryTemplate=true` as the write fallback. Local popup content may remain as the miss fallback. Keep `list-templates` as the planning truth source, and let the backend own the final relation-vs-non-relation popup-template match.
 - Do not emit `popup.tryTemplate=false` unless the user explicitly asks for no template, no reuse, local-only/current-only behavior, copy, or detach. Inline `popup.blocks` are fallback content and should still prefer reuse by default.
 - Calendar / kanban hidden popup hosts follow the same create-time template fallback: when direct non-template `calendar` / `kanban` blocks omit those hidden popup objects, the backend can add `tryTemplate=true` popup settings so default popup/template completion can run instead of leaving the opener empty.
@@ -931,7 +935,7 @@ Inline popup is supported beneath a field/action/record action through:
 
 `popup.mode` is optional. Common values are `drawer`, `dialog`, and `page`. In whole-page backend authoring, when a first-layer inline popup omits `popup.mode` and its local popup content exceeds 3 direct non-filter blocks or 20 direct effective fields, the server may default that popup to `page`.
 
-In whole-page `create` / `replace`, do not bind `popup.template` from loose discovery or text search alone. Instead, build the strongest planned opener/resource context you have, run the contextual selection flow from [templates.md](./templates.md), and bind `popup.template` only when one stable best available candidate wins.
+In whole-page `create` / `replace`, do not bind `popup.template` from loose discovery or text search alone. Instead, build the strongest planned opener/resource context you have, run the contextual selection flow from [ui-templates.md](./ui-templates.md), and bind `popup.template` only when one stable best available candidate wins.
 
 ### Layout cell shape
 
@@ -961,11 +965,11 @@ Public `applyBlueprint` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
 `assets.scripts` and `assets.charts` are reusable object maps. A block/field/action may refer to them by `script` or `chart`.
 
-For `jsBlock`, use exactly one public code form:
+For an embedded/single-surface or compatibility-single-file `jsBlock`, use exactly one public code form. For a new complete JS Block, these forms are Host bootstrap only: provide the smallest safe placeholder required by Host creation, then put final business source in the Inline Workspace.
 
 - Inline: put RunJS source under block `settings.code` and optional `settings.version`.
 - Asset reference: put source under `assets.scripts.<key>.code` and reference it with block `script: "<key>"`.
-- A new `jsBlock` must include one of those explicit code sources; do not rely on the default JS template.
+- An allowed single-file `jsBlock` must include one of those explicit code sources; a complete JS Block may use only a minimal safe placeholder here and must not leave final source in either form.
 - Do not put top-level `code` or top-level `version` on the block.
 - Do not author internal readback fields such as `stepParams`, `props`, `decoratorProps`, or `flowRegistry`.
 - Do not mix `script` with `settings.code` / `settings.version`.

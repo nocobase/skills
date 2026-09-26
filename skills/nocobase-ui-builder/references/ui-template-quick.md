@@ -1,6 +1,7 @@
-# Template Quick Route
+# UI Template Quick Route
 
-Use this file when you need to decide whether template logic is actually in scope.
+Use this file when you need to decide whether UI Template logic is actually in scope. JS implementation reuse is a
+separate [JS Template route](./js-template-source.md).
 
 ## You usually do **not** need template routing when
 
@@ -9,7 +10,7 @@ Use this file when you need to decide whether template logic is actually in scop
 - the request is a normal localized edit and the target has no existing template reference
 - there is no popup / block / fields reuse question
 
-In those cases, stay on the primary route and do not open [templates.md](./templates.md) yet.
+In those cases, stay on the primary route and do not open [ui-templates.md](./ui-templates.md) yet.
 
 ## You **do** need template routing when
 
@@ -41,6 +42,6 @@ For artifact-only existing-reference decisions, make both branches visible inste
 
 ## Open next only if needed
 
-- [templates.md](./templates.md) for the full decision matrix and existing-reference edit routing
+- [ui-templates.md](./ui-templates.md) for the full decision matrix and existing-reference edit routing
 - [popup.md](./popup.md) for popup-specific rules after template routing is already known
 - [template-decision-summary.md](./template-decision-summary.md) when you need the final user-visible template outcome wording

@@ -2,9 +2,9 @@
 
 Use this file to verify inspect/prewrite output and post-write persistence.
 
-Agent-facing flow-surfaces front door is `nb api flow-surfaces <action>`. Treat the readback routes below as backend actions.
+The Host/UI front door is `nb api flow-surfaces <action>`. Complete Inline Workspace source uses `nb api run-js-sources <action>`. Treat the structural readback routes below as backend actions.
 
-For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
+For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template-mode semantics and localized existing-reference edit routing, keep [ui-templates.md](./ui-templates.md) as the normative source and use this file only for readback expectations.
 
 ## 1. Inspect / Prewrite Verification
 
@@ -23,7 +23,7 @@ For navigation layout/group/page identity, use [navigation-targets.md](./navigat
 A page-blueprint draft is good when:
 
 - create vs replace is clear
-- page identity follows [navigation-targets.md](./navigation-targets.md): same layout + same group/root + same page title may mean `replace`, while a different group or different layout must not merge, reuse, or auto-replace another page
+- Page identity is the menu group `navigation.group.routeId` plus the `page.title`. A create in the same group with the same page title upgrades to `replace`; a page in a different group with the same page title must not replace, merge, or reuse the existing page. Root/mobile layout identity follows [navigation-targets.md](./navigation-targets.md).
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
 - if duplicate same-title menu groups existed, the summary/readback states that explicit `routeId` was required before write and no extra same-title group was created unless the user explicitly asked for one
@@ -55,6 +55,36 @@ A page-blueprint draft is good when:
 - If live readback before the write showed an existing template reference, and post-write readback no longer exposes that reference or now exposes local inline popup content instead, treat that as a routing failure unless the user explicitly asked for local-only / detach / `copy`.
 - Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.
 
+### Inline Workspace source evidence
+
+For a complete JS Page or JS Block, source completion requires all of the following:
+
+- the Host returned a canonical locator and `run-js-sources open` succeeded
+- `save-changes` succeeded and its artifact contains no diagnostic with `severity: "error"`
+- the response returned a new commit, `artifact.filesHash`, and the updated owner fingerprint
+- the request sent only changed paths with the CAS tokens and `expectedBlobHash` values from one open/open-latest response
+- no Source Project or JS Template was automatically created
+
+Host Preview is not required by this source contract and must not be claimed as validation when it was not run.
+
+### JS Template reuse and Detach evidence
+
+For a multi-Host reuse or Detach request, follow
+[js-template-roundtrip.md](./js-template-roundtrip.md) and report all of the following:
+
+- before and after `sourceMode`, exact public binding identity, and independent settings override for each Host
+- one Source Project and one JS Template, including stable `entry.json.key`, old/current Head, compiled commit, public `runtimeVersion`, source history, and artifact/settings hashes
+- template-level Usage readback before reuse and after Detaching one Host, including visible rows, `effectiveCount`, `hiddenCount`, and exclusion of `owner_missing`
+- proof that Detach sent exactly `idempotencyKey`, `locator`, `projectId`, `templateId`, and the current `expectedProjectHeadCommitId`; the server read the committed Head and derived source; only the selected binding/Usage was cleared; and a new Inline RunJS commit and owner fingerprint were returned
+- the stable Detach idempotency boundary and, after an equivalent replay, the same Inline commit, owner fingerprint, files hash, and source reference returned by the first success
+- proof that the other Host kept its binding/override and that Source Project, JS Template, stable source key, Head, history, and remaining Usage were preserved
+- Template deletion conflict while effective Usage remains and success only after it reaches zero, when deletion is in scope
+- the boundary between API/CLI verification and any browser rendering that was actually performed
+
+A Host-only override edit must preserve explicit `false`, `0`, and `""` and must not create a source commit. After
+Detach, separately verify that Inline `save-changes` advances only the detached Host and `nb js-template save` advances
+only the Source Project/Template still used by the other Host.
+
 ## 3. Minimum Readback Targets
 
 | operation | minimum readback |
@@ -73,6 +103,8 @@ A page-blueprint draft is good when:
 | `convert-template-to-copy` | modified target readback |
 | `update-template` | `nb api flow-surfaces get-template --uid <uid>` |
 | `update-menu` / `create-menu` | menu tree when placement matters |
+| JS Template reuse | both Hosts plus `js-templates list-selectable/get`, Source Project Head, exact four-field binding, and Template Usage readback |
+| JS Template Detach | both Hosts, detached Host Inline commit/owner, Detach Head CAS, preserved Source Project/Template/Head/history, and remaining Usage |
 
 ### Reaction-specific readback
 

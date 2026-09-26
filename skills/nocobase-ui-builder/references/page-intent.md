@@ -6,7 +6,7 @@ Start with [whole-page-quick.md](./whole-page-quick.md) when the route is still 
 
 Do not use this as the first stop for a standard single-tab management, detail, or dashboard draft.
 
-This file is for the inner page document only. For the actual nb raw body, pair it with [tool-shapes.md](./tool-shapes.md). For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template choices, keep [templates.md](./templates.md) as the planning source of truth.
+This file is for the inner page document only. For the actual nb raw body, pair it with [tool-shapes.md](./tool-shapes.md). For navigation layout/group/page identity, use [navigation-targets.md](./navigation-targets.md). For template choices, keep [ui-templates.md](./ui-templates.md) as the planning source of truth.
 
 ## Goal
 
@@ -27,7 +27,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 4. Default a normal single-page request to exactly one tab unless the user explicitly asked for multiple route-backed tabs.
 5. Remove placeholder tabs and placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
 6. Decide major blocks first, then fields and actions.
-7. If the draft contains a repeat-eligible popup / block / fields scene, or one strong standard reusable scene, and you are actually deciding whether to bind / reuse / standardize a template-backed scene, probe [templates.md](./templates.md) before locking in that reusable path.
+7. If the draft contains a repeat-eligible popup / block / fields scene, or one strong standard reusable scene, and you are actually deciding whether to bind / reuse / standardize a template-backed scene, probe [ui-templates.md](./ui-templates.md) before locking in that reusable path.
 8. Contextual `list-templates` is mandatory for those reusable scenes; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask should stay inline and skip template routing.
 9. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the execution fallback. Local popup content may remain as the fallback when present.
 10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.

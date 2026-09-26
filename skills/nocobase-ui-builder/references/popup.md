@@ -2,7 +2,7 @@
 
 Read this file when the request involves popup, `openView`, record popups, `currentRecord`, or `associatedRecords` semantics.
 
-Template decision semantics live in [templates.md](./templates.md). Keep this file popup-specific and do not restate the full template matrix here.
+Template decision semantics live in [ui-templates.md](./ui-templates.md). Keep this file popup-specific and do not restate the full template matrix here.
 
 ## 1. Core Split
 
@@ -15,15 +15,15 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 - If popup resource binding matters, confirm it with live facts instead of guessing.
 - Reuse returned popup uids directly when a write establishes a popup subtree.
 - Do not invent `currentRecord` or `associatedRecords` support where the live capability does not expose it.
-- When a popup looks like a standard reusable scene, follow [templates.md](./templates.md) before choosing inline `popup` vs `popup.template`. For repeat-eligible popup scenes, contextual `list-templates` is mandatory before binding `popup.template` or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear. Fresh one-off pages with explicit local popup content, no existing template reference, and no reuse / save-template ask may keep the popup local and skip template routing.
-- When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on create-time popup-capable write paths. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning truth source; `popup.tryTemplate=true` is only the execution fallback and should not replace contextual `list-templates`.
+- When a popup looks like a standard reusable scene, follow [ui-templates.md](./ui-templates.md) before choosing inline `popup` vs `popup.template`. For repeat-eligible popup scenes, contextual `list-templates` is mandatory before binding `popup.template` or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear. Fresh one-off pages with explicit local popup content, no existing template reference, and no reuse / save-template ask may keep the popup local and skip template routing.
+- When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on create-time popup-capable write paths. Local popup content may remain as the miss fallback. Keep [ui-templates.md](./ui-templates.md) as the planning truth source; `popup.tryTemplate=true` is only the execution fallback and should not replace contextual `list-templates`.
 - `popup.tryTemplate=false` is a hard backend no-reuse switch. Emit it only when the user explicitly asks for no template / no reuse / local-only / current-only / copy / detach behavior, not merely because inline `popup.blocks` are present.
 - When the user explicitly wants the new local popup itself to become a reusable popup template seed immediately, use `popup.saveAsTemplate={ name, description }` on supported create-time popup writes instead of planning a separate save step. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - Backend authoring may auto-receive generated `popup.saveAsTemplate={ name, description }` for explicit local inline popups with `popup.blocks`; keep `popup.tryTemplate=true` unless the user explicitly requested the hard reuse opt-out and the blueprint intentionally sets `popup.tryTemplate=false`.
 - Generated popup template metadata keeps direct/current-record names readable, while relation-scoped seeds append the association path to the readable popup name without adding `弹窗`/`popup` or the generic template suffix, for example `角色详情(users.roles)`; the generated description should state scene, collection, host, trigger, direct/relation context, and content.
 - Field-opened relation record popups and action-opened relation record popups should reuse the same popup template when their scene/resource/relation/content are compatible; do not create separate template names just to encode the opener host.
-- This file keeps popup-specific hard boundaries only; template-selection details stay in [templates.md](./templates.md).
-- For localized edits on an existing popup template reference, route through [templates.md](./templates.md). Popup-owned content still defaults to the template source; page-scoped wording alone is not local-only intent, and `copy` is allowed only for explicit detach/local-only requests. Do not use `popup.tryTemplate=true`, whole-page `applyBlueprint replace`, or new inline popup content as a rewrite strategy for that existing referenced popup-owned content.
+- This file keeps popup-specific hard boundaries only; template-selection details stay in [ui-templates.md](./ui-templates.md).
+- For localized edits on an existing popup template reference, route through [ui-templates.md](./ui-templates.md). Popup-owned content still defaults to the template source; page-scoped wording alone is not local-only intent, and `copy` is allowed only for explicit detach/local-only requests. Do not use `popup.tryTemplate=true`, whole-page `applyBlueprint replace`, or new inline popup content as a rewrite strategy for that existing referenced popup-owned content.
 - Without a live opener/target uid, whole-page popup planning should still probe popup templates from the strongest planned opener/resource context. `discovery-only` remains valid when that context is still too weak, when a resolved explicit template is unavailable in the current context, or when the top candidates remain tied after ranking. Keep the exact user-visible reason contract in [template-decision-summary.md](./template-decision-summary.md).
 
 ## 3. CRUD Popup Defaults
@@ -42,7 +42,7 @@ For `addNew`, `view`, and `edit`:
 
 When the page as a whole is being created/replaced, express popup intent inline under the opener. This does not require the submitted local popup tree to persist if template selection finds a compatible popup; a `popup.template` binding is the expected successful reuse outcome.
 
-For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the default inline popup fallback, and preserve local popup content as the miss fallback when needed. When that inline popup should also become a reusable template immediately, keep `popup.saveAsTemplate={ name, description }` alongside the local fallback: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
+For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [ui-templates.md](./ui-templates.md) yields one stable best available candidate. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the default inline popup fallback, and preserve local popup content as the miss fallback when needed. When that inline popup should also become a reusable template immediately, keep `popup.saveAsTemplate={ name, description }` alongside the local fallback: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 
 For the first whole-page `applyBlueprint`, when a first-layer inline popup omits `popup.mode` and also carries explicit local `popup.blocks`, backend authoring may upgrade that popup to `popup.mode = "page"` when either of these is true:
 
@@ -258,7 +258,7 @@ Use low-level APIs when the user is editing an existing popup or opener locally.
 Typical flow:
 
 1. locate opener/target with `get`
-2. if the opener already references a popup template, route through [templates.md](./templates.md) first; popup-owned content defaults to the template source, and detach-to-copy requires explicit local-only intent
+2. if the opener already references a popup template, route through [ui-templates.md](./ui-templates.md) first; popup-owned content defaults to the template source, and detach-to-copy requires explicit local-only intent
 3. if the user is only changing current-instance title / size / mode / `clickToOpen` / outer `openView` config, keep that write on the current opener/host target
 4. if capability is uncertain, read `catalog`
 5. write the opener or popup content

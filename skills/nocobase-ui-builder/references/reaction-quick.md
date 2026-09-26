@@ -274,7 +274,7 @@ For artifact-only localized reaction drafts, do not invent a live `uid` or finge
 - [reaction.md](./reaction.md) for full rule payloads, uncommon operators, or multi-rule compositions that are not obvious from this quick route
 - [whole-page-recipes.md](./whole-page-recipes.md) if you need a larger first-pass blueprint pattern with paired blocks, nested popups, and top-level reactions
 - [runtime-playbook.md](./runtime-playbook.md) if the target family or live locator is still unclear
-- [template-quick.md](./template-quick.md) if the localized edit hits an existing template reference first
+- [ui-template-quick.md](./ui-template-quick.md) if the localized edit hits an existing template reference first
 
 ## Guardrails
 
